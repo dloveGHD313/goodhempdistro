@@ -28,7 +28,7 @@ function OrderSuccessContent() {
   const sessionId = searchParams?.get("session_id");
   
   const [status, setStatus] = useState<"loading" | "success" | "error" | "duplicate">("loading");
-  const [orderDetails, setOrderDetails] = useState<any>(null);
+  const [orderDetails, setOrderDetails] = useState<Record<string, unknown> | null>(null);
 
   useEffect(() => {
     if (!sessionId) {
@@ -76,8 +76,9 @@ function OrderSuccessContent() {
       setStatus("success");
       
       console.log("✅ Order confirmed successfully:", data);
-    } catch (error) {
-      console.error("❌ Error confirming order:", error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error("❌ Error confirming order:", errorMessage);
       setStatus("error");
     }
   }
@@ -134,9 +135,9 @@ function OrderSuccessContent() {
         }}>
           <h2 style={{ fontSize: 18, marginBottom: 12 }}>Order Details</h2>
           <div style={{ opacity: 0.8, lineHeight: 1.6 }}>
-            <div><strong>Order ID:</strong> {orderDetails.orderId || "N/A"}</div>
+            <div><strong>Order ID:</strong> {(orderDetails.orderId as string) || "N/A"}</div>
             <div><strong>Session ID:</strong> {sessionId}</div>
-            <div><strong>Status:</strong> {orderDetails.status || "Paid"}</div>
+            <div><strong>Status:</strong> {(orderDetails.status as string) || "Paid"}</div>
           </div>
         </div>
       )}

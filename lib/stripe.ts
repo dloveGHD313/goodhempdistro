@@ -1,11 +1,12 @@
 import Stripe from "stripe";
+import { validateEnvVars } from "./env-validator";
 
-// Initialize Stripe
-if (!process.env.STRIPE_SECRET_KEY) {
+// Validate required Stripe environment variables
+if (!validateEnvVars(["STRIPE_SECRET_KEY"], "Stripe Client")) {
   throw new Error("STRIPE_SECRET_KEY is not set in environment variables");
 }
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2025-02-24.acacia",
   typescript: true,
 });

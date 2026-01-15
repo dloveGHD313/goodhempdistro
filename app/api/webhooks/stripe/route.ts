@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { validateEnvVars } from "@/lib/env-validator";
+
+// Validate required environment variables
+if (!validateEnvVars(["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"], "Stripe Webhook")) {
+  throw new Error("Missing required Stripe environment variables");
+}
 
 // Initialize Stripe with secret key
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -34,10 +40,11 @@ export async function POST(req: NextRequest) {
   try {
     // Verify webhook signature
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-  } catch (err: any) {
-    console.error("❌ Webhook signature verification failed:", err.message);
+  } catch (err: unknown) {
+    const errMessage = err instanceof Error ? err.message : String(err);
+    console.error("❌ Webhook signature verification failed:", errMessage);
     return NextResponse.json(
-      { error: `Webhook Error: ${err.message}` },
+      { error: `Webhook Error: ${errMessage}` },
       { status: 400 }
     );
   }
@@ -47,23 +54,35 @@ export async function POST(req: NextRequest) {
   try {
     // Handle the event
     switch (event.type) {
-      case "checkout.session.completed":
-        await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session);
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        console.log(`📦 Processing checkout.session.completed | order_id=${session.metadata?.order_id || "N/A"} | session=${session.id}`);
+        await handleCheckoutSessionCompleted(session);
         break;
+      }
 
-      case "payment_intent.succeeded":
-        await handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent);
+      case "payment_intent.succeeded": {
+        const intent = event.data.object as Stripe.PaymentIntent;
+        console.log(`✅ Processing payment_intent.succeeded | intent=${intent.id} | amount=${intent.amount_received}`);
+        await handlePaymentIntentSucceeded(intent);
         break;
+      }
 
-      case "payment_intent.payment_failed":
-        await handlePaymentIntentFailed(event.data.object as Stripe.PaymentIntent);
+      case "payment_intent.payment_failed": {
+        const intent = event.data.object as Stripe.PaymentIntent;
+        console.log(`❌ Processing payment_intent.payment_failed | intent=${intent.id} | reason=${intent.last_payment_error?.message || "unknown"}`);
+        await handlePaymentIntentFailed(intent);
         break;
+      }
 
       case "customer.subscription.created":
       case "customer.subscription.updated":
-      case "customer.subscription.deleted":
-        await handleSubscriptionChange(event.type, event.data.object as Stripe.Subscription);
+      case "customer.subscription.deleted": {
+        const sub = event.data.object as Stripe.Subscription;
+        console.log(`🔄 Processing ${event.type} | subscription=${sub.id} | status=${sub.status}`);
+        await handleSubscriptionChange(event.type, sub);
         break;
+      }
 
       default:
         console.log(`ℹ️ Unhandled event type: ${event.type}`);
@@ -80,15 +99,13 @@ export async function POST(req: NextRequest) {
 }
 
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
-  console.log("💰 Checkout session completed:", session.id);
+  const orderId = session.metadata?.order_id;
+  console.log(`💰 [handleCheckoutSessionCompleted] order_id=${orderId} | session=${session.id}`);
 
   const supabase = await createSupabaseServerClient();
 
-  // Extract metadata
-  const orderId = session.metadata?.order_id;
-
   if (!orderId) {
-    console.warn("⚠️ No order_id in session metadata");
+    console.warn("⚠️ [handleCheckoutSessionCompleted] No order_id in session metadata");
     return;
   }
 
@@ -105,18 +122,18 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     .eq("id", orderId);
 
   if (error) {
-    console.error("❌ Failed to update order:", error);
+    console.error(`❌ [handleCheckoutSessionCompleted] Failed to update order_id=${orderId}: ${error.message}`);
     throw error;
   }
 
-  console.log("✅ Order updated successfully:", orderId);
+  console.log(`✅ [handleCheckoutSessionCompleted] Order updated successfully | order_id=${orderId}`);
 
   // Optional: Send confirmation email, create shipment, etc.
   // await sendOrderConfirmationEmail(session.customer_email, orderId);
 }
 
 async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
-  console.log("💳 Payment intent succeeded:", paymentIntent.id);
+  console.log(`💳 [handlePaymentIntentSucceeded] intent=${paymentIntent.id} | amount=${paymentIntent.amount_received}`);
 
   const supabase = await createSupabaseServerClient();
 
@@ -128,7 +145,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     .single();
 
   if (order) {
-    await supabase
+    const { error } = await supabase
       .from("orders")
       .update({
         status: "paid",
@@ -137,12 +154,20 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       })
       .eq("id", order.id);
 
-    console.log("✅ Order marked as paid:", order.id);
+    if (error) {
+      console.error(`❌ [handlePaymentIntentSucceeded] Failed to update order_id=${order.id}: ${error.message}`);
+      throw error;
+    }
+
+    console.log(`✅ [handlePaymentIntentSucceeded] Order marked as paid | order_id=${order.id}`);
+  } else {
+    console.warn(`⚠️ [handlePaymentIntentSucceeded] No order found for intent=${paymentIntent.id}`);
   }
 }
 
 async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
-  console.log("❌ Payment intent failed:", paymentIntent.id);
+  const failureReason = paymentIntent.last_payment_error?.message || "unknown";
+  console.log(`❌ [handlePaymentIntentFailed] intent=${paymentIntent.id} | reason=${failureReason}`);
 
   const supabase = await createSupabaseServerClient();
 
@@ -154,7 +179,7 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
     .single();
 
   if (order) {
-    await supabase
+    const { error } = await supabase
       .from("orders")
       .update({
         status: "payment_failed",
@@ -162,7 +187,14 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
       })
       .eq("id", order.id);
 
-    console.log("⚠️ Order marked as payment failed:", order.id);
+    if (error) {
+      console.error(`❌ [handlePaymentIntentFailed] Failed to update order_id=${order.id}: ${error.message}`);
+      throw error;
+    }
+
+    console.log(`⚠️ [handlePaymentIntentFailed] Order marked as payment failed | order_id=${order.id}`);
+  } else {
+    console.warn(`⚠️ [handlePaymentIntentFailed] No order found for intent=${paymentIntent.id}`);
   }
 }
 
@@ -170,13 +202,13 @@ async function handleSubscriptionChange(
   eventType: string,
   subscription: Stripe.Subscription
 ) {
-  console.log(`🔄 Subscription ${eventType}:`, subscription.id);
+  const userId = subscription.metadata?.user_id;
+  console.log(`🔄 [handleSubscriptionChange] event_type=${eventType} | subscription=${subscription.id} | user_id=${userId || "N/A"} | status=${subscription.status}`);
 
   const supabase = await createSupabaseServerClient();
-  const userId = subscription.metadata?.user_id;
 
   if (!userId) {
-    console.warn("⚠️ No user_id in subscription metadata");
+    console.warn(`⚠️ [handleSubscriptionChange] No user_id in subscription metadata | subscription=${subscription.id}`);
     return;
   }
 
@@ -217,9 +249,9 @@ async function handleSubscriptionChange(
     );
 
   if (error) {
-    console.error("❌ Failed to upsert subscription:", error);
+    console.error(`❌ [handleSubscriptionChange] Failed to upsert subscription: ${error.message}`);
     throw error;
   }
 
-  console.log("✅ Subscription updated successfully");
+  console.log(`✅ [handleSubscriptionChange] Subscription updated successfully | subscription=${subscription.id} | user_id=${userId}`);
 }

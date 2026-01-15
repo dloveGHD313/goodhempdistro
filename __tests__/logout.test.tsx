@@ -4,14 +4,14 @@ import Nav from "@/components/Nav";
 
 // Mock Next.js modules
 vi.mock("next/image", () => ({
-  default: (props: any) => {
+  default: (props: Record<string, unknown>) => {
     // eslint-disable-next-line jsx-a11y/alt-text, @next/next/no-img-element
-    return <img {...props} />;
+    return <img {...(props as Record<string, unknown>)} />;
   },
 }));
 
 vi.mock("next/link", () => ({
-  default: ({ children, href }: any) => {
+  default: ({ children, href }: { children: React.ReactNode; href: string }) => {
     return <a href={href}>{children}</a>;
   },
 }));
@@ -26,7 +26,14 @@ vi.mock("@/lib/site", () => ({
   },
 }));
 
-const supabaseMock = {
+interface SupabaseMock {
+  auth: {
+    getUser: ReturnType<typeof vi.fn>;
+    signOut: ReturnType<typeof vi.fn>;
+  };
+}
+
+const supabaseMock: SupabaseMock = {
   auth: {
     getUser: vi.fn(),
     signOut: vi.fn(),
@@ -34,7 +41,7 @@ const supabaseMock = {
 };
 
 vi.mock("@/lib/supabase", () => ({
-  createSupabaseBrowserClient: vi.fn(() => supabaseMock as any),
+  createSupabaseBrowserClient: vi.fn(() => supabaseMock),
 }));
 
 describe("Nav - Logout Button", () => {
@@ -44,8 +51,8 @@ describe("Nav - Logout Button", () => {
     supabaseMock.auth.getUser.mockResolvedValue({ data: { user: null } });
     supabaseMock.auth.signOut.mockResolvedValue({ error: null });
     global.fetch = vi.fn();
-    delete (window as any).location;
-    (window as any).location = { href: "" };
+    delete (window as Record<string, unknown>).location;
+    (window as Record<string, unknown>).location = { href: "" };
   });
 
   it("should render logout button when user is logged in", async () => {
