@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
-    "test:watch": "vitest --watch"
+    "test:watch": "vitest --watch",
+    "seed:supabase": "tsx scripts/seed-supabase.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.4.0",
@@ -26,10 +27,12 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^4",
+    "dotenv": "^16.6.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "jsdom": "^25",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5",
     "vite-tsconfig-paths": "^6.0.4",
     "vitest": "^4"
