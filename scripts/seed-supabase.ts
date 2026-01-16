@@ -9,7 +9,6 @@
 import { createClient } from "@supabase/supabase-js";
 import * as dotenv from "dotenv";
 import { resolve } from "path";
-import { v4 as uuidv4 } from "uuid";
 
 // Load environment variables from .env.local
 dotenv.config({ path: resolve(process.cwd(), ".env.local") });
@@ -93,32 +92,31 @@ const designSettings = [
   },
 ];
 
+// Helper function to generate a UUID
+function generateUUID(): string {
+  return crypto.randomUUID();
+}
+
 const productSeeds = [
   {
-    id: uuidv4(),
+    id: generateUUID(),
     name: "Premium CBD Oil",
-    description: "Full-spectrum CBD oil extracted from organic hemp",
-    price_cents: 4999,
     category: "oils",
-    in_stock: true,
+    price_cents: 4999,
     featured: true,
   },
   {
-    id: uuidv4(),
+    id: generateUUID(),
     name: "Hemp Flower - Indoor",
-    description: "Hand-trimmed indoor hemp flower",
-    price_cents: 2999,
     category: "flower",
-    in_stock: true,
+    price_cents: 2999,
     featured: true,
   },
   {
-    id: uuidv4(),
+    id: generateUUID(),
     name: "CBD Gummies",
-    description: "25mg CBD per gummy, 30 count",
-    price_cents: 3499,
     category: "edibles",
-    in_stock: true,
+    price_cents: 3499,
     featured: false,
   },
 ];
@@ -137,6 +135,63 @@ async function tableExists(tableName: string): Promise<boolean> {
   }
 }
 
+/**
+ * Get valid column names for a table from information_schema.columns
+ */
+async function getTableColumns(tableName: string): Promise<string[]> {
+  try {
+    const { data, error } = await supabase
+      .from("information_schema.columns")
+      .select("column_name")
+      .eq("table_schema", "public")
+      .eq("table_name", tableName);
+
+    if (error || !data) {
+      console.warn(`   ⚠️  Could not fetch columns for ${tableName}, proceeding without validation`);
+      return [];
+    }
+
+    return data.map((row: Record<string, unknown>) => String(row.column_name)).sort();
+  } catch (err) {
+    console.warn(`   ⚠️  Error querying columns for ${tableName}:`, err);
+    return [];
+  }
+}
+
+/**
+ * Strip keys from objects that don't exist in the table schema
+ */
+function stripInvalidKeys<T extends Record<string, any>>(
+  data: T[],
+  validColumns: string[],
+  tableName: string
+): T[] {
+  if (validColumns.length === 0) {
+    return data;
+  }
+
+  const stripped = data.map((row) => {
+    const validRow: Record<string, any> = {};
+    const strippedKeys: string[] = [];
+
+    for (const [key, value] of Object.entries(row)) {
+      if (validColumns.includes(key)) {
+        validRow[key] = value;
+      } else {
+        strippedKeys.push(key);
+      }
+    }
+
+    if (strippedKeys.length > 0) {
+      console.log(`   📋 Stripped columns from ${tableName}: ${strippedKeys.join(", ")}`);
+    }
+
+    return validRow as T;
+  });
+
+  return stripped;
+}
+
 async function upsertData<T extends Record<string, any>>(
   tableName: string,
   data: T[],
@@ -153,10 +208,19 @@ async function upsertData<T extends Record<string, any>>(
       };
     }
 
+    // Get valid columns for this table (only for products table)
+    let dataToUpsert = data;
+    if (tableName === "products") {
+      const validColumns = await getTableColumns(tableName);
+      if (validColumns.length > 0) {
+        dataToUpsert = stripInvalidKeys(data, validColumns, tableName);
+      }
+    }
+
     // Upsert data
     const { data: result, error } = await supabase
       .from(tableName)
-      .upsert(data, { onConflict: onConflict || "id" })
+      .upsert(dataToUpsert, { onConflict: onConflict || "id" })
       .select();
 
     if (error) {
@@ -169,7 +233,7 @@ async function upsertData<T extends Record<string, any>>(
 
     return {
       success: true,
-      count: result?.length || data.length,
+      count: result?.length || dataToUpsert.length,
     };
   } catch (err) {
     return {
