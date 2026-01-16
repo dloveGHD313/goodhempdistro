@@ -48,7 +48,7 @@ export default function Nav() {
       <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition">
         <BrandLogo size={40} className="hidden sm:block" />
         <BrandLogo size={32} className="sm:hidden" />
-        <span className="hidden md:inline font-bold text-sm" style={{ color: brand.colors.lime }}>
+        <span className="hidden md:inline font-bold text-sm brand-title">
           {brand.name}
         </span>
       </Link>
@@ -56,11 +56,11 @@ export default function Nav() {
       {/* Desktop nav - hidden on mobile */}
       <div className="hidden lg:flex items-center gap-6">
         {navLinks.map((link) => (
-          <Link key={link.href} href={link.href} className="hover:opacity-80 transition text-sm" style={{ color: brand.colors.teal }}>
+          <Link key={link.href} href={link.href} className="nav-link text-sm">
             {link.label}
           </Link>
         ))}
-        <Link href={accountHref} className="hover:opacity-80 transition text-sm" style={{ color: brand.colors.teal }}>
+        <Link href={accountHref} className="nav-link text-sm">
           Account
         </Link>
       </div>
@@ -87,8 +87,7 @@ export default function Nav() {
           <button
             type="button"
             onClick={handleLogout}
-            className="text-sm hover:opacity-80 transition"
-            style={{ color: brand.colors.orange }}
+            className="text-sm hover:opacity-80 transition nav-logout"
           >
             Logout
           </button>
@@ -101,19 +100,18 @@ export default function Nav() {
       {/* Mobile drawer - full screen overlay style */}
       {drawerOpen && (
         <div 
-          className="fixed inset-0 z-50 bg-black/50 lg:hidden"
+          className="fixed inset-0 z-50 lg:hidden nav-overlay"
           onClick={() => setDrawerOpen(false)}
         >
           <div
-            className="fixed left-0 top-0 bottom-0 w-72 bg-[var(--surface)] shadow-2xl overflow-y-auto transform transition-transform"
+            className="fixed left-0 top-0 bottom-0 w-72 shadow-2xl overflow-y-auto transform transition-transform nav-drawer"
             onClick={(e) => e.stopPropagation()}
-            style={{ borderRight: `2px solid ${brand.colors.lime}` }}
           >
             {/* Drawer Header with Logo */}
-            <div className="p-6 border-b flex items-center justify-between" style={{ borderColor: `${brand.colors.lime}33` }}>
+            <div className="p-6 flex items-center justify-between nav-drawer-header">
               <Link href="/" className="flex items-center gap-2" onClick={() => setDrawerOpen(false)}>
                 <BrandLogo size={32} />
-                <span className="font-bold text-sm" style={{ color: brand.colors.lime }}>Good Hemp</span>
+                <span className="font-bold text-sm brand-title">Good Hemp</span>
               </Link>
               <button 
                 type="button" 
@@ -142,12 +140,7 @@ export default function Nav() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="px-4 py-3 rounded-lg transition text-base"
-                  style={{ 
-                    borderLeft: "3px solid transparent",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.borderLeftColor = brand.colors.lime)}
-                  onMouseLeave={(e) => (e.currentTarget.style.borderLeftColor = "transparent")}
+                  className="px-4 py-3 rounded-lg text-base drawer-link"
                   onClick={() => setDrawerOpen(false)}
                 >
                   {link.label}
@@ -155,10 +148,10 @@ export default function Nav() {
               ))}
 
               {/* Account & Logout */}
-              <div className="border-t mt-4 pt-4" style={{ borderColor: `${brand.colors.lime}33` }}>
+              <div className="border-t mt-4 pt-4 nav-drawer-header">
                 <Link
                   href={accountHref}
-                  className="px-4 py-3 rounded-lg transition text-base block"
+                  className="px-4 py-3 rounded-lg text-base block drawer-link"
                   onClick={() => setDrawerOpen(false)}
                 >
                   {isLoggedIn ? "📊 Dashboard" : "🔐 Login"}
@@ -170,8 +163,7 @@ export default function Nav() {
                       handleLogout();
                       setDrawerOpen(false);
                     }}
-                    className="w-full text-left px-4 py-3 rounded-lg transition text-base mt-2"
-                    style={{ color: brand.colors.orange }}
+                    className="w-full text-left px-4 py-3 rounded-lg text-base mt-2 nav-logout"
                   >
                     🚪 Logout
                   </button>
