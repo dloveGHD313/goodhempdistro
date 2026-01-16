@@ -1,8 +1,12 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0b1220; /* deep navy */
+  --foreground: #e6eef7; /* light text */
+  --accent-green: #57D10A; /* hemp green */
+  --accent-orange: #FF6A2B; /* CTA orange */
+  --surface: #111827; /* slate */
+  --surface-light: #1f2937; /* slightly lighter */
 }
 
 @theme inline {
@@ -14,13 +18,44 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0b1220;
+    --foreground: #e6eef7;
   }
 }
 
 body {
-  background: var(--background);
+  background: linear-gradient(180deg, #0b1220 0%, #0e1628 100%);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+.btn-primary {
+  background: var(--accent-green);
+  color: #0a0f18;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.75rem;
+  font-weight: 700;
+}
+
+.btn-primary:hover { filter: brightness(1.05); }
+
+.btn-cta {
+  background: var(--accent-orange);
+  color: #0a0f18;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.75rem;
+  font-weight: 700;
+}
+
+.btn-cta:hover { filter: brightness(1.05); }
+
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid #233047;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid #233047;
+  border-radius: 0.75rem;
 }
