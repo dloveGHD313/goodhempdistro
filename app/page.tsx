@@ -1,19 +1,15 @@
+import Link from "next/link";
+import Nav from "@/components/Nav";
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 text-white">
       {/* Header */}
       <header className="border-b border-slate-700">
-        <nav className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold">🌿 Good Hemp Distro</h1>
-          <div className="flex gap-4">
-            <a href="/products" className="hover:text-green-400 transition">
-              Products
-            </a>
-            <a href="/api/auth/logout" className="hover:text-green-400 transition">
-              Account
-            </a>
-          </div>
-        </nav>
+          <Nav />
+        </div>
       </header>
 
       {/* Hero Section */}
@@ -25,12 +21,20 @@ export default function Home() {
           <p className="text-xl text-slate-300 mb-8">
             Discover high-quality hemp-derived products from trusted vendors.
           </p>
-          <a
-            href="/products"
-            className="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg transition"
-          >
-            Shop Now
-          </a>
+          <div className="flex justify-center gap-4 flex-wrap">
+            <Link
+              href="/products"
+              className="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg transition"
+            >
+              Shop Now
+            </Link>
+            <Link
+              href="/vendors"
+              className="inline-block border border-green-600 text-green-400 hover:bg-green-700/30 font-bold py-3 px-8 rounded-lg transition"
+            >
+              Meet Vendors
+            </Link>
+          </div>
         </section>
 
         {/* Features */}
@@ -61,12 +65,20 @@ export default function Home() {
           <p className="text-slate-300 mb-6">
             Browse our selection of premium hemp products.
           </p>
-          <a
-            href="/products"
-            className="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg transition"
-          >
-            View Products
-          </a>
+          <div className="flex justify-center gap-4 flex-wrap">
+            <Link
+              href="/products"
+              className="inline-block bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg transition"
+            >
+              View Products
+            </Link>
+            <Link
+              href="/vendors"
+              className="inline-block border border-green-600 text-green-400 hover:bg-green-700/30 font-bold py-3 px-8 rounded-lg transition"
+            >
+              Explore Vendors
+            </Link>
+          </div>
         </section>
       </main>
 

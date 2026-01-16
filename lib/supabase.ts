@@ -1,5 +1,4 @@
 import { createBrowserClient, createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 
 // Validate environment variables
 function validateEnv() {
@@ -35,6 +34,7 @@ export function createSupabaseBrowserClient() {
 export async function createSupabaseServerClient() {
   validateEnv();
 
+  const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
 
   return createServerClient(
