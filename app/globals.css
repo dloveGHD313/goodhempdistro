@@ -1,51 +1,50 @@
 @import "tailwindcss";
 
 :root {
-  /* Good Hemp Distros Branding Colors */
-  --gh-bg: #05080D;              /* Near black background */
-  --gh-surface: #0B1220;         /* Card/surface color */
-  --gh-border: rgba(255, 255, 255, 0.08); /* Subtle border */
-  --gh-text: #EAF2FF;            /* Primary text */
-  --gh-muted: rgba(234, 242, 255, 0.7); /* Muted text */
-  
-  /* Brand Palette */
-  --gh-green: #66D11E;           /* Primary hemp green */
-  --gh-green2: #2F8F1A;          /* Deep green secondary */
-  --gh-amber: #F2B233;           /* Gold/amber accent */
-  --gh-teal: #1FA6A8;            /* Teal accent */
+  /* Good Hemp Distros Brand Colors */
+  --bg: #05080D;
+  --surface: #0B1220;
+  --text: #EAF2FF;
+  --muted: rgba(234, 242, 255, 0.7);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-light: rgba(255, 255, 255, 0.12);
 
-  /* Legacy variables for compatibility */
-  --background: var(--gh-bg);
-  --foreground: var(--gh-text);
-  --accent-green: var(--gh-green);
-  --accent-orange: var(--gh-amber);
-  --surface: var(--gh-surface);
-  --surface-light: #0f1628;
+  /* Brand Palette (derived from logo) */
+  --brand-lime: #66D11E;           /* Primary green */
+  --brand-lime-secondary: #2F8F1A; /* Deep green */
+  --brand-teal: #1FA6A8;           /* Teal accent */
+  --brand-orange: #F2B233;         /* Amber/gold accent */
+
+  /* Legacy compatibility */
+  --accent-green: var(--brand-lime);
+  --accent-orange: var(--brand-orange);
+  --background: var(--bg);
+  --foreground: var(--text);
 }
 
 @theme inline {
-  --color-background: var(--gh-bg);
-  --color-foreground: var(--gh-text);
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: var(--gh-bg);
-    --foreground: var(--gh-text);
+    --background: var(--bg);
+    --foreground: var(--text);
   }
 }
 
 body {
-  background: linear-gradient(180deg, var(--gh-bg) 0%, #0a0e18 100%);
-  color: var(--gh-text);
+  background: linear-gradient(180deg, var(--bg) 0%, #0a0e18 100%);
+  color: var(--text);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--gh-green) 0%, var(--gh-green2) 100%);
-  color: #05080D;
+  background: linear-gradient(135deg, var(--brand-lime) 0%, var(--brand-lime-secondary) 100%);
+  color: var(--bg);
   padding: 0.75rem 1.25rem;
   border-radius: 0.75rem;
   font-weight: 700;
@@ -59,8 +58,8 @@ body {
 }
 
 .btn-cta {
-  background: linear-gradient(135deg, var(--gh-amber) 0%, #e8a220 100%);
-  color: #05080D;
+  background: linear-gradient(135deg, var(--brand-orange) 0%, #e8a220 100%);
+  color: var(--bg);
   padding: 0.75rem 1.25rem;
   border-radius: 0.75rem;
   font-weight: 700;
@@ -75,8 +74,8 @@ body {
 
 .btn-secondary {
   background: transparent;
-  border: 2px solid var(--gh-teal);
-  color: var(--gh-teal);
+  border: 2px solid var(--brand-teal);
+  color: var(--brand-teal);
   padding: 0.75rem 1.25rem;
   border-radius: 0.75rem;
   font-weight: 700;
@@ -89,11 +88,12 @@ body {
 }
 
 .topbar {
-  background: var(--gh-surface);
-  border-bottom: 1px solid var(--gh-border);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
 }
 
 .card {
-  background: var(--gh-surface);
-  border: 1px solid var(--gh-border);  border-radius: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
 }

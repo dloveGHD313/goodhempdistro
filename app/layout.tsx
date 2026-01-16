@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { validateEnvironmentVariables } from "@/lib/env-validator";
+import { brand } from "@/lib/brand";
 import Nav from "@/components/Nav";
 import AgeGateClient from "@/components/AgeGateClient";
 
@@ -21,32 +22,32 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Good Hemp Distros - Community Marketplace",
-  description: "Community-driven hemp marketplace and social platform for verified vendors and customers",
+  title: `${brand.name} - Community Marketplace`,
+  description: brand.description,
   icons: {
-    icon: "/favicon.ico",
-    apple: "/favicon.png",
+    icon: brand.logoPath,
+    apple: brand.logoPath,
   },
   openGraph: {
-    title: "Good Hemp Distros - Premium Hemp Marketplace",
-    description: "Discover premium hemp products from verified vendors. Join our community.",
-    url: "https://goodhempdistro.com",
-    siteName: "Good Hemp Distros",
+    title: `${brand.name} - Premium Hemp Marketplace`,
+    description: brand.description,
+    url: brand.url,
+    siteName: brand.name,
     images: [
       {
-        url: "/og.png",
-        width: 1200,
-        height: 630,
-        alt: "Good Hemp Distros",
+        url: brand.logoPath,
+        width: brand.ogImageWidth,
+        height: brand.ogImageHeight,
+        alt: brand.name,
       },
     ],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Good Hemp Distros",
-    description: "Premium hemp marketplace and community",
-    images: ["/og.png"],
+    title: brand.name,
+    description: brand.description,
+    images: [brand.logoPath],
   },
 };
 

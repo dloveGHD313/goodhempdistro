@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { brand } from "@/lib/brand";
 
 const navLinks = [
   { label: "🏠 Feed", href: "/newsfeed" },
@@ -46,34 +47,34 @@ export default function Nav() {
       {/* Logo/Brand - Visible on all sizes */}
       <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition">
         <Image
-          src="/logo.png"
-          alt="Good Hemp Distros Logo"
+          src={brand.logoPath}
+          alt={`${brand.name} Logo`}
           width={40}
           height={40}
           className="hidden sm:block"
           priority
         />
         <Image
-          src="/logo.png"
-          alt="Good Hemp Distros Logo"
+          src={brand.logoPath}
+          alt={`${brand.name} Logo`}
           width={32}
           height={32}
           className="sm:hidden"
           priority
         />
-        <span className="hidden md:inline font-bold text-sm" style={{ color: "var(--gh-green)" }}>
-          Good Hemp Distros
+        <span className="hidden md:inline font-bold text-sm" style={{ color: brand.colors.lime }}>
+          {brand.name}
         </span>
       </Link>
 
       {/* Desktop nav - hidden on mobile */}
       <div className="hidden lg:flex items-center gap-6">
         {navLinks.map((link) => (
-          <Link key={link.href} href={link.href} className="hover:text-[var(--gh-green)] transition text-sm">
+          <Link key={link.href} href={link.href} className="hover:opacity-80 transition text-sm" style={{ color: brand.colors.teal }}>
             {link.label}
           </Link>
         ))}
-        <Link href={accountHref} className="hover:text-[var(--gh-green)] transition text-sm">
+        <Link href={accountHref} className="hover:opacity-80 transition text-sm" style={{ color: brand.colors.teal }}>
           Account
         </Link>
       </div>
@@ -87,7 +88,8 @@ export default function Nav() {
           type="button"
           aria-label="Open Menu"
           onClick={() => setDrawerOpen(true)}
-          className="text-[var(--gh-green)] text-2xl p-2"
+          className="text-2xl p-2"
+          style={{ color: brand.colors.lime }}
         >
           ☰
         </button>
@@ -99,7 +101,8 @@ export default function Nav() {
           <button
             type="button"
             onClick={handleLogout}
-            className="text-sm hover:text-[var(--gh-amber)] transition"
+            className="text-sm hover:opacity-80 transition"
+            style={{ color: brand.colors.orange }}
           >
             Logout
           </button>
@@ -116,26 +119,27 @@ export default function Nav() {
           onClick={() => setDrawerOpen(false)}
         >
           <div
-            className="fixed left-0 top-0 bottom-0 w-72 bg-[var(--gh-surface)] shadow-2xl overflow-y-auto transform transition-transform"
+            className="fixed left-0 top-0 bottom-0 w-72 bg-[var(--surface)] shadow-2xl overflow-y-auto transform transition-transform"
             onClick={(e) => e.stopPropagation()}
-            style={{ borderRight: "2px solid var(--gh-green)" }}
+            style={{ borderRight: `2px solid ${brand.colors.lime}` }}
           >
             {/* Drawer Header with Logo */}
-            <div className="p-6 border-b border-[var(--gh-green)]/30 flex items-center justify-between">
+            <div className="p-6 border-b flex items-center justify-between" style={{ borderColor: `${brand.colors.lime}33` }}>
               <Link href="/" className="flex items-center gap-2" onClick={() => setDrawerOpen(false)}>
                 <Image
-                  src="/logo.png"
-                  alt="Good Hemp Distros Logo"
+                  src={brand.logoPath}
+                  alt={`${brand.name} Logo`}
                   width={32}
                   height={32}
                   priority
                 />
-                <span className="font-bold text-sm" style={{ color: "var(--gh-green)" }}>Good Hemp</span>
+                <span className="font-bold text-sm" style={{ color: brand.colors.lime }}>Good Hemp</span>
               </Link>
               <button 
                 type="button" 
                 onClick={() => setDrawerOpen(false)} 
-                className="text-[var(--gh-amber)] text-2xl hover:scale-110 transition"
+                className="text-2xl hover:scale-110 transition"
+                style={{ color: brand.colors.orange }}
                 aria-label="Close"
               >
                 ✕
@@ -158,9 +162,11 @@ export default function Nav() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="px-4 py-3 rounded-lg hover:bg-[var(--gh-green)]/20 transition text-base"
-                  style={{ borderLeft: "3px solid transparent" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.borderLeftColor = "var(--gh-green)")}
+                  className="px-4 py-3 rounded-lg transition text-base"
+                  style={{ 
+                    borderLeft: "3px solid transparent",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.borderLeftColor = brand.colors.lime)}
                   onMouseLeave={(e) => (e.currentTarget.style.borderLeftColor = "transparent")}
                   onClick={() => setDrawerOpen(false)}
                 >
@@ -169,10 +175,10 @@ export default function Nav() {
               ))}
 
               {/* Account & Logout */}
-              <div className="border-t border-[var(--gh-green)]/30 mt-4 pt-4">
+              <div className="border-t mt-4 pt-4" style={{ borderColor: `${brand.colors.lime}33` }}>
                 <Link
                   href={accountHref}
-                  className="px-4 py-3 rounded-lg hover:bg-[var(--gh-green)]/20 transition text-base block"
+                  className="px-4 py-3 rounded-lg transition text-base block"
                   onClick={() => setDrawerOpen(false)}
                 >
                   {isLoggedIn ? "📊 Dashboard" : "🔐 Login"}
@@ -184,7 +190,8 @@ export default function Nav() {
                       handleLogout();
                       setDrawerOpen(false);
                     }}
-                    className="w-full text-left px-4 py-3 rounded-lg hover:bg-[var(--gh-amber)]/20 transition text-base mt-2"
+                    className="w-full text-left px-4 py-3 rounded-lg transition text-base mt-2"
+                    style={{ color: brand.colors.orange }}
                   >
                     🚪 Logout
                   </button>
