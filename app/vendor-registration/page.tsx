@@ -1,10 +1,273 @@
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+const vendorPackages = [
+  {
+    name: "BASIC",
+    price: "$50",
+    priceCents: 5000,
+    commission: "7%",
+    maxProducts: "25",
+    features: [
+      "Up to 25 products",
+      "Standard product listing",
+      "Event access",
+      "Community badge",
+      "Basic analytics",
+    ],
+  },
+  {
+    name: "PRO",
+    price: "$125",
+    priceCents: 12500,
+    commission: "4%",
+    maxProducts: "100",
+    featured: true,
+    features: [
+      "Up to 100 products",
+      "Priority placement",
+      "Unlimited event participation",
+      "Featured vendor badge",
+      "Advanced analytics",
+      "Vendor support",
+    ],
+  },
+  {
+    name: "ELITE",
+    price: "$250",
+    priceCents: 25000,
+    commission: "0%",
+    maxProducts: "Unlimited",
+    features: [
+      "Unlimited products",
+      "Featured vendor status",
+      "Wholesale access",
+      "Event discounts (30%)",
+      "COA discounts",
+      "Priority support",
+      "Custom branding",
+    ],
+  },
+];
+
+const vendorPerks = [
+  {
+    title: "Built-in Social Feed",
+    description: "Engage with your customers and the community directly on the platform.",
+  },
+  {
+    title: "Event Access",
+    description: "Showcase your products at exclusive hemp marketplace events.",
+  },
+  {
+    title: "Wholesale Opportunities",
+    description: "Connect with other vendors and retailers (Elite tier).",
+  },
+  {
+    title: "Advanced Analytics",
+    description: "Track sales, customer behavior, and optimize your listings.",
+  },
+];
+
+const faqItems = [
+  {
+    question: "Can I change my plan later?",
+    answer: "Yes, you can upgrade or downgrade your plan at any time. Changes take effect in your next billing cycle.",
+  },
+  {
+    question: "What payment methods do you accept?",
+    answer: "We accept all major credit and debit cards through Stripe, including Visa, Mastercard, American Express, and Discover.",
+  },
+  {
+    question: "Is there a contract or commitment?",
+    answer: "No long-term contracts. You can cancel your vendor account at any time.",
+  },
+  {
+    question: "How are commissions calculated?",
+    answer: "Commissions are calculated on the total sale amount (including tax and shipping) and deducted automatically from your payout.",
+  },
+  {
+    question: "When do I get paid?",
+    answer: "Payouts are processed weekly to your connected bank account. The first payout may take 5-7 business days.",
+  },
+];
+
 export default function VendorRegistrationPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+
+  const handleChoosePlan = async (packageName: string) => {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    
+    try {
+      setLoading(true);
+
+      // Check if user is logged in
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) {
+        router.push(`/login?next=/vendor-registration`);
+        return;
+      }
+
+      // Create Stripe checkout session
+      const response = await fetch("/api/vendor/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          packageName,
+          userId: data.user.id,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create checkout session");
+      }
+
+      const { sessionId } = await response.json();
+
+      // Redirect to Stripe checkout
+      if (typeof window !== "undefined") {
+        // Use Stripe.js or redirect to checkout URL
+        const stripeUrl = `https://checkout.stripe.com/pay/${sessionId}`;
+        window.location.href = stripeUrl;
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Failed to start checkout. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <main className="min-h-screen text-white">
-      <div className="max-w-6xl mx-auto px-6 py-16">
-        <h1 className="text-4xl font-bold mb-4" style={{ color: "var(--accent-green)" }}>Vendor Registration</h1>
-        <p className="text-gray-300 mb-8">Apply to become a vendor on Good Hemp Distro.</p>
-      </div>
+    <main className="min-h-screen text-white bg-gradient-to-b from-black to-gray-950">
+      {/* Hero Section */}
+      <section className="max-w-6xl mx-auto px-6 py-20 text-center">
+        <h1 className="text-5xl font-bold mb-4" style={{ color: "var(--accent-green)" }}>
+          Become a Vendor on Good Hemp Distro
+        </h1>
+        <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
+          Join our thriving marketplace. Reach thousands of customers, showcase your products in our community social feed, participate in exclusive events, and unlock wholesale opportunities. Start your vendor journey today.
+        </p>
+      </section>
+
+      {/* Pricing Table */}
+      <section className="max-w-6xl mx-auto px-6 py-16">
+        <h2 className="text-3xl font-bold mb-12 text-center" style={{ color: "var(--accent-green)" }}>
+          Simple, Transparent Pricing
+        </h2>
+        <div className="grid gap-8 md:grid-cols-3">
+          {vendorPackages.map((pkg) => (
+            <div
+              key={pkg.name}
+              className={`card p-8 rounded-lg border-2 transition transform ${
+                pkg.featured
+                  ? "border-[var(--accent-orange)] scale-105 shadow-2xl"
+                  : "border-gray-700 hover:border-[var(--accent-green)]"
+              }`}
+            >
+              {pkg.featured && (
+                <div className="mb-4">
+                  <span
+                    className="text-xs font-bold px-3 py-1 rounded-full"
+                    style={{
+                      backgroundColor: "var(--accent-orange)",
+                      color: "black",
+                    }}
+                  >
+                    MOST POPULAR
+                  </span>
+                </div>
+              )}
+
+              <h3 className="text-2xl font-bold mb-2">{pkg.name}</h3>
+              <div className="mb-1">
+                <span className="text-4xl font-bold" style={{ color: "var(--accent-green)" }}>
+                  {pkg.price}
+                </span>
+                <span className="text-gray-400 ml-2">/ month</span>
+              </div>
+              <p className="text-sm text-gray-400 mb-6">
+                {pkg.commission} commission | {pkg.maxProducts} products
+              </p>
+
+              <ul className="space-y-3 mb-8">
+                {pkg.features.map((feature, i) => (
+                  <li key={i} className="flex items-start gap-3">
+                    <span className="text-[var(--accent-green)] font-bold">✓</span>
+                    <span className="text-gray-300 text-sm">{feature}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <button
+                onClick={() => handleChoosePlan(pkg.name)}
+                disabled={loading && selectedPlan === pkg.name}
+                className={`w-full py-3 rounded font-bold transition ${
+                  pkg.featured ? "btn-cta" : "btn-primary"
+                } disabled:opacity-50`}
+              >
+                {loading && selectedPlan === pkg.name ? "Processing..." : "Choose Plan"}
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Vendor Perks */}
+      <section className="max-w-6xl mx-auto px-6 py-16">
+        <h2 className="text-3xl font-bold mb-12 text-center" style={{ color: "var(--accent-green)" }}>
+          Vendor Perks
+        </h2>
+        <div className="grid gap-6 md:grid-cols-2">
+          {vendorPerks.map((perk, i) => (
+            <div key={i} className="card p-6">
+              <h3 className="text-xl font-bold mb-3" style={{ color: "var(--accent-green)" }}>
+                {perk.title}
+              </h3>
+              <p className="text-gray-300">{perk.description}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="max-w-4xl mx-auto px-6 py-16">
+        <h2 className="text-3xl font-bold mb-12 text-center" style={{ color: "var(--accent-green)" }}>
+          Frequently Asked Questions
+        </h2>
+        <div className="space-y-6">
+          {faqItems.map((item, i) => (
+            <div key={i} className="card p-6">
+              <h3 className="text-lg font-bold mb-3">{item.question}</h3>
+              <p className="text-gray-300">{item.answer}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="max-w-4xl mx-auto px-6 py-16 text-center">
+        <h2 className="text-3xl font-bold mb-4" style={{ color: "var(--accent-green)" }}>
+          Ready to Grow Your Business?
+        </h2>
+        <p className="text-gray-300 mb-8">
+          Join hundreds of vendors already selling on Good Hemp Distro.
+        </p>
+        <button
+          onClick={() => handleChoosePlan("BASIC")}
+          disabled={loading}
+          className="btn-cta px-8 py-3 text-lg disabled:opacity-50"
+        >
+          {loading ? "Processing..." : "Get Started Today"}
+        </button>
+      </section>
     </main>
   );
 }
