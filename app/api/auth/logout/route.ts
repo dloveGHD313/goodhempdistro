@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+
+// GET handler - redirects to home (for browser navigation)
+export async function GET() {
+  redirect("/");
+}
 
 export async function POST() {
   try {
