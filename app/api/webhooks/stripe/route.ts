@@ -100,7 +100,12 @@ export async function POST(req: NextRequest) {
 
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
   const orderId = session.metadata?.order_id;
-  console.log(`💰 [handleCheckoutSessionCompleted] order_id=${orderId} | session=${session.id}`);
+  const packageType = session.metadata?.package_type; // 'vendor' or 'consumer'
+  const packageName = session.metadata?.package_name;
+  const userId = session.client_reference_id;
+  const affiliateCode = session.metadata?.affiliate_code;
+
+  console.log(`💰 [handleCheckoutSessionCompleted] order_id=${orderId} | session=${session.id} | user_id=${userId} | package=${packageName} | affiliate=${affiliateCode}`);
 
   const supabase = await createSupabaseServerClient();
 
@@ -128,8 +133,10 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
 
   console.log(`✅ [handleCheckoutSessionCompleted] Order updated successfully | order_id=${orderId}`);
 
-  // Optional: Send confirmation email, create shipment, etc.
-  // await sendOrderConfirmationEmail(session.customer_email, orderId);
+  // Handle referral and payout if package was purchased
+  if (userId && packageType && packageName && affiliateCode) {
+    await handleReferralTracking(session.id, userId, packageType, packageName, affiliateCode, supabase);
+  }
 }
 
 async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
@@ -253,5 +260,116 @@ async function handleSubscriptionChange(
     throw error;
   }
 
-  console.log(`✅ [handleSubscriptionChange] Subscription updated successfully | subscription=${subscription.id} | user_id=${userId}`);
+}
+
+/**
+ * Handle referral tracking and payout creation
+ * Captures reward amount based on package type
+ * Creates pending payout ledger entry (idempotent by session_id)
+ */
+async function handleReferralTracking(
+  sessionId: string,
+  userId: string,
+  packageType: string,
+  packageName: string,
+  affiliateCode: string,
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>
+) {
+  console.log(`💝 [handleReferralTracking] Tracking referral | session_id=${sessionId} | user_id=${userId} | package=${packageName} | affiliate=${affiliateCode}`);
+
+  try {
+    // Calculate reward based on package
+    const rewardMap: Record<string, number> = {
+      // Consumer packages: $5, $15, $25
+      STARTER: 500,
+      PLUS: 1500,
+      VIP: 2500,
+      // Vendor packages: $5, $15, $25
+      BASIC: 500,
+      PRO: 1500,
+      ELITE: 2500,
+    };
+
+    const rewardCents = rewardMap[packageName.toUpperCase()] || 500;
+
+    // Check if referral already exists for this session (idempotency)
+    const { data: existingReferral, error: lookupError } = await supabase
+      .from("affiliate_referrals")
+      .select("id")
+      .eq("stripe_session_id", sessionId)
+      .maybeSingle();
+
+    if (lookupError) {
+      console.error(`❌ [handleReferralTracking] Error checking existing referral: ${lookupError.message}`);
+      return;
+    }
+
+    if (existingReferral) {
+      console.log(`ℹ️ [handleReferralTracking] Referral already exists for session_id=${sessionId} | skipping (idempotent)`);
+      return;
+    }
+
+    // Find affiliate by code
+    const { data: affiliate, error: affiliateError } = await supabase
+      .from("affiliates")
+      .select("id")
+      .eq("affiliate_code", affiliateCode)
+      .eq("status", "active")
+      .single();
+
+    if (affiliateError || !affiliate) {
+      console.warn(`⚠️ [handleReferralTracking] Affiliate not found for code=${affiliateCode} | referral not tracked`);
+      return;
+    }
+
+    console.log(`✅ [handleReferralTracking] Found affiliate | affiliate_id=${affiliate.id} | reward=${rewardCents}¢`);
+
+    // Create affiliate_referrals record (idempotent via UNIQUE session_id)
+    const { data: referral, error: referralError } = await supabase
+      .from("affiliate_referrals")
+      .insert({
+        affiliate_id: affiliate.id,
+        referred_user_id: userId,
+        stripe_session_id: sessionId,
+        status: "pending",
+        reward_cents: rewardCents,
+      })
+      .select("id")
+      .single();
+
+    if (referralError) {
+      // Check if this is a unique violation (idempotent)
+      if (referralError.code === "23505" || referralError.message?.includes("duplicate")) {
+        console.log(`ℹ️ [handleReferralTracking] Referral already inserted for session_id=${sessionId} (idempotent duplicate)`);
+        return;
+      }
+      console.error(`❌ [handleReferralTracking] Error inserting referral: ${referralError.message}`);
+      return;
+    }
+
+    console.log(`✅ [handleReferralTracking] Referral created | referral_id=${referral.id}`);
+
+    // Create affiliate_payouts record (pending payout)
+    const { data: payout, error: payoutError } = await supabase
+      .from("affiliate_payouts")
+      .insert({
+        affiliate_id: affiliate.id,
+        amount_cents: rewardCents,
+        status: "pending",
+        note: `Referral reward for session ${sessionId}`,
+      })
+      .select("id")
+      .single();
+
+    if (payoutError) {
+      console.error(`❌ [handleReferralTracking] Error inserting payout: ${payoutError.message}`);
+      return;
+    }
+
+    console.log(`✅ [handleReferralTracking] Payout created | payout_id=${payout.id} | amount=${rewardCents}¢ | status=pending`);
+  } catch (error) {
+    console.error(`❌ [handleReferralTracking] Error tracking referral: ${error}`);
+    // Don't throw - this is a non-critical operation
+  }
+
 }

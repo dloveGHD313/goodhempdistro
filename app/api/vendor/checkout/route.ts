@@ -3,7 +3,7 @@ import { stripe, getSiteUrl } from "@/lib/stripe";
 
 export async function POST(req: NextRequest) {
   try {
-    const { packageName, userId } = await req.json();
+    const { packageName, userId, affiliateCode } = await req.json();
 
     if (!packageName || !userId) {
       return NextResponse.json(
@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
         package_type: "vendor",
         package_name: packageName.toUpperCase(),
         user_id: userId,
+        affiliate_code: affiliateCode || "",
       },
     });
 

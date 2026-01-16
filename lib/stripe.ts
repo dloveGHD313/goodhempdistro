@@ -39,6 +39,7 @@ export async function createCheckoutSession(params: {
   orderId?: string;
   successPath?: string;
   cancelPath?: string;
+  affiliateCode?: string;
 }) {
   const {
     productId,
@@ -47,6 +48,7 @@ export async function createCheckoutSession(params: {
     orderId,
     successPath = "/orders/success",
     cancelPath = "/products",
+    affiliateCode = "",
   } = params;
 
   const siteUrl = getSiteUrl();
@@ -72,6 +74,7 @@ export async function createCheckoutSession(params: {
       product_id: productId,
       user_id: userId || "guest",
       order_id: orderId || "",
+      affiliate_code: affiliateCode,
     },
   });
 
@@ -86,12 +89,14 @@ export async function createSubscriptionSession(params: {
   userId: string;
   successPath?: string;
   cancelPath?: string;
+  affiliateCode?: string;
 }) {
   const {
     priceId,
     userId,
     successPath = "/dashboard",
     cancelPath = "/pricing",
+    affiliateCode = "",
   } = params;
 
   const siteUrl = getSiteUrl();
@@ -109,6 +114,7 @@ export async function createSubscriptionSession(params: {
     cancel_url: `${siteUrl}${cancelPath}`,
     metadata: {
       user_id: userId,
+      affiliate_code: affiliateCode,
     },
   });
 

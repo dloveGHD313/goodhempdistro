@@ -1,61 +1,99 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0b1220; /* deep navy */
-  --foreground: #e6eef7; /* light text */
-  --accent-green: #57D10A; /* hemp green */
-  --accent-orange: #FF6A2B; /* CTA orange */
-  --surface: #111827; /* slate */
-  --surface-light: #1f2937; /* slightly lighter */
+  /* Good Hemp Distros Branding Colors */
+  --gh-bg: #05080D;              /* Near black background */
+  --gh-surface: #0B1220;         /* Card/surface color */
+  --gh-border: rgba(255, 255, 255, 0.08); /* Subtle border */
+  --gh-text: #EAF2FF;            /* Primary text */
+  --gh-muted: rgba(234, 242, 255, 0.7); /* Muted text */
+  
+  /* Brand Palette */
+  --gh-green: #66D11E;           /* Primary hemp green */
+  --gh-green2: #2F8F1A;          /* Deep green secondary */
+  --gh-amber: #F2B233;           /* Gold/amber accent */
+  --gh-teal: #1FA6A8;            /* Teal accent */
+
+  /* Legacy variables for compatibility */
+  --background: var(--gh-bg);
+  --foreground: var(--gh-text);
+  --accent-green: var(--gh-green);
+  --accent-orange: var(--gh-amber);
+  --surface: var(--gh-surface);
+  --surface-light: #0f1628;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--gh-bg);
+  --color-foreground: var(--gh-text);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0b1220;
-    --foreground: #e6eef7;
+    --background: var(--gh-bg);
+    --foreground: var(--gh-text);
   }
 }
 
 body {
-  background: linear-gradient(180deg, #0b1220 0%, #0e1628 100%);
-  color: var(--foreground);
+  background: linear-gradient(180deg, var(--gh-bg) 0%, #0a0e18 100%);
+  color: var(--gh-text);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
 .btn-primary {
-  background: var(--accent-green);
-  color: #0a0f18;
+  background: linear-gradient(135deg, var(--gh-green) 0%, var(--gh-green2) 100%);
+  color: #05080D;
   padding: 0.75rem 1.25rem;
   border-radius: 0.75rem;
   font-weight: 700;
+  border: none;
+  transition: transform 0.2s, filter 0.2s;
 }
 
-.btn-primary:hover { filter: brightness(1.05); }
+.btn-primary:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+}
 
 .btn-cta {
-  background: var(--accent-orange);
-  color: #0a0f18;
+  background: linear-gradient(135deg, var(--gh-amber) 0%, #e8a220 100%);
+  color: #05080D;
   padding: 0.75rem 1.25rem;
   border-radius: 0.75rem;
   font-weight: 700;
+  border: none;
+  transition: transform 0.2s, filter 0.2s;
 }
 
-.btn-cta:hover { filter: brightness(1.05); }
+.btn-cta:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 2px solid var(--gh-teal);
+  color: var(--gh-teal);
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.75rem;
+  font-weight: 700;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background: rgba(31, 166, 168, 0.1);
+  transform: translateY(-2px);
+}
 
 .topbar {
-  background: var(--surface);
-  border-bottom: 1px solid #233047;
+  background: var(--gh-surface);
+  border-bottom: 1px solid var(--gh-border);
 }
 
 .card {
-  background: var(--surface);
-  border: 1px solid #233047;
-  border-radius: 0.75rem;
+  background: var(--gh-surface);
+  border: 1px solid var(--gh-border);  border-radius: 0.75rem;
 }

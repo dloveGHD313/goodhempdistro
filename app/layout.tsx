@@ -21,8 +21,33 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Good Hemp Distro",
-  description: "Community-driven hemp marketplace and social platform",
+  title: "Good Hemp Distros - Community Marketplace",
+  description: "Community-driven hemp marketplace and social platform for verified vendors and customers",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/favicon.png",
+  },
+  openGraph: {
+    title: "Good Hemp Distros - Premium Hemp Marketplace",
+    description: "Discover premium hemp products from verified vendors. Join our community.",
+    url: "https://goodhempdistro.com",
+    siteName: "Good Hemp Distros",
+    images: [
+      {
+        url: "/og.png",
+        width: 1200,
+        height: 630,
+        alt: "Good Hemp Distros",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Good Hemp Distros",
+    description: "Premium hemp marketplace and community",
+    images: ["/og.png"],
+  },
 };
 
 export default function RootLayout({

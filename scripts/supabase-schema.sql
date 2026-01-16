@@ -286,9 +286,10 @@ CREATE POLICY "Users can insert their own affiliate data" ON affiliates FOR INSE
 CREATE TABLE IF NOT EXISTS affiliate_referrals (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   affiliate_id UUID NOT NULL REFERENCES affiliates(id) ON DELETE CASCADE,
-  referred_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  stripe_session_id TEXT,
+  referred_user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  stripe_session_id TEXT UNIQUE,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','paid')),
+  reward_cents INT NOT NULL DEFAULT 0 CHECK (reward_cents >= 0),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -299,6 +300,35 @@ CREATE INDEX IF NOT EXISTS idx_affiliate_referrals_session ON affiliate_referral
 ALTER TABLE affiliate_referrals ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Affiliates can view their referrals" ON affiliate_referrals FOR SELECT USING (
   affiliate_id IN (SELECT id FROM affiliates WHERE user_id = auth.uid())
+);
+
+-- ============================================================================
+-- 10. Affiliate Payouts (Payout ledger for pending/paid rewards)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS affiliate_payouts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  affiliate_id UUID NOT NULL REFERENCES affiliates(id) ON DELETE CASCADE,
+  amount_cents INT NOT NULL CHECK (amount_cents >= 0),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','paid')),
+  note TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_affiliate_payouts_affiliate_id ON affiliate_payouts(affiliate_id);
+CREATE INDEX IF NOT EXISTS idx_affiliate_payouts_status ON affiliate_payouts(status);
+
+CREATE TRIGGER update_affiliate_payouts_updated_at
+  BEFORE UPDATE ON affiliate_payouts
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+ALTER TABLE affiliate_payouts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Affiliates can view their payouts" ON affiliate_payouts FOR SELECT USING (
+  affiliate_id IN (SELECT id FROM affiliates WHERE user_id = auth.uid())
+);
+CREATE POLICY "Admin can manage all payouts" ON affiliate_payouts FOR ALL USING (
+  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
 );
 
 -- ============================================================================

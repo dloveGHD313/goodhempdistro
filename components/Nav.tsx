@@ -1,18 +1,19 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
-const desktopLinks = [
-  { label: "News Feed", href: "/newsfeed" },
-  { label: "Groups", href: "/groups" },
-  { label: "Forums", href: "/forums" },
-  { label: "Shop", href: "/products" },
-  { label: "Blog", href: "/blog" },
-  { label: "Wholesale", href: "/wholesale" },
-  { label: "Events", href: "/events" },
-  { label: "Vendor Registration", href: "/vendor-registration" },
-  { label: "Affiliate", href: "/affiliate" },
+const navLinks = [
+  { label: "🏠 Feed", href: "/newsfeed" },
+  { label: "👥 Groups", href: "/groups" },
+  { label: "💬 Forums", href: "/forums" },
+  { label: "🛍️ Shop", href: "/products" },
+  { label: "📝 Blog", href: "/blog" },
+  { label: "🏢 Wholesale", href: "/wholesale" },
+  { label: "🎪 Events", href: "/events" },
+  { label: "🤝 Vendor Registration", href: "/vendor-registration" },
+  { label: "💰 Affiliate", href: "/affiliate" },
 ];
 
 export default function Nav() {
@@ -41,101 +42,154 @@ export default function Nav() {
   const accountHref = isLoggedIn ? "/dashboard" : "/login";
 
   return (
-    <nav aria-label="Main Navigation" className="flex items-center gap-4">
-      {/* Desktop links */}
-      <div className="hidden md:flex items-center gap-4">
-        {desktopLinks.map((link) => (
-          <Link key={link.href} href={link.href} className="hover:text-[var(--accent-green)] transition">
+    <nav aria-label="Main Navigation" className="flex items-center justify-between w-full">
+      {/* Logo/Brand - Visible on all sizes */}
+      <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition">
+        <Image
+          src="/logo.png"
+          alt="Good Hemp Distros Logo"
+          width={40}
+          height={40}
+          className="hidden sm:block"
+          priority
+        />
+        <Image
+          src="/logo.png"
+          alt="Good Hemp Distros Logo"
+          width={32}
+          height={32}
+          className="sm:hidden"
+          priority
+        />
+        <span className="hidden md:inline font-bold text-sm" style={{ color: "var(--gh-green)" }}>
+          Good Hemp Distros
+        </span>
+      </Link>
+
+      {/* Desktop nav - hidden on mobile */}
+      <div className="hidden lg:flex items-center gap-6">
+        {navLinks.map((link) => (
+          <Link key={link.href} href={link.href} className="hover:text-[var(--gh-green)] transition text-sm">
             {link.label}
           </Link>
         ))}
-        <Link href={accountHref} className="hover:text-[var(--accent-green)] transition">
+        <Link href={accountHref} className="hover:text-[var(--gh-green)] transition text-sm">
           Account
         </Link>
-        <Link href="/get-started" className="btn-cta">
-          Get Started
-        </Link>
-        {isLoggedIn && (
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="hover:text-[var(--accent-orange)] transition"
-          >
-            Logout
-          </button>
-        )}
       </div>
 
-      {/* Mobile icons + hamburger */}
-      <div className="md:hidden flex items-center gap-3">
-        <Link href="/search" aria-label="Search" className="text-[var(--accent-green)]">🔎</Link>
-        <Link href="/cart" aria-label="Cart" className="text-[var(--accent-green)]">🛒</Link>
-        <Link href={accountHref} aria-label="Account" className="text-[var(--accent-green)]">👤</Link>
+      {/* Mobile/Tablet: Get Started + Menu Hamburger */}
+      <div className="flex items-center gap-2 lg:hidden">
+        <Link href="/get-started" className="btn-cta text-sm py-2 px-4">
+          Get Started
+        </Link>
         <button
           type="button"
           aria-label="Open Menu"
           onClick={() => setDrawerOpen(true)}
-          className="text-[var(--accent-orange)] text-2xl"
+          className="text-[var(--gh-green)] text-2xl p-2"
         >
           ☰
         </button>
       </div>
 
-      {/* Mobile drawer */}
-      {drawerOpen && (
-        <div className="fixed inset-0 bg-black/40 z-50" onClick={() => setDrawerOpen(false)}>
-          <div
-            className="fixed left-0 top-0 bottom-0 w-80 bg-[var(--surface)] border-r border-[#233047] p-6 overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
+      {/* Desktop: Get Started button */}
+      <div className="hidden lg:flex items-center gap-4">
+        {isLoggedIn && (
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="text-sm hover:text-[var(--gh-amber)] transition"
           >
-            <div className="flex items-center justify-between mb-6">
-              <span className="font-bold">Menu</span>
-              <button type="button" onClick={() => setDrawerOpen(false)} aria-label="Close">✕</button>
+            Logout
+          </button>
+        )}
+        <Link href="/get-started" className="btn-cta text-sm py-2 px-4">
+          Get Started
+        </Link>
+      </div>
+
+      {/* Mobile drawer - full screen overlay style */}
+      {drawerOpen && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/50 lg:hidden"
+          onClick={() => setDrawerOpen(false)}
+        >
+          <div
+            className="fixed left-0 top-0 bottom-0 w-72 bg-[var(--gh-surface)] shadow-2xl overflow-y-auto transform transition-transform"
+            onClick={(e) => e.stopPropagation()}
+            style={{ borderRight: "2px solid var(--gh-green)" }}
+          >
+            {/* Drawer Header with Logo */}
+            <div className="p-6 border-b border-[var(--gh-green)]/30 flex items-center justify-between">
+              <Link href="/" className="flex items-center gap-2" onClick={() => setDrawerOpen(false)}>
+                <Image
+                  src="/logo.png"
+                  alt="Good Hemp Distros Logo"
+                  width={32}
+                  height={32}
+                  priority
+                />
+                <span className="font-bold text-sm" style={{ color: "var(--gh-green)" }}>Good Hemp</span>
+              </Link>
+              <button 
+                type="button" 
+                onClick={() => setDrawerOpen(false)} 
+                className="text-[var(--gh-amber)] text-2xl hover:scale-110 transition"
+                aria-label="Close"
+              >
+                ✕
+              </button>
             </div>
-            <div className="flex flex-col gap-3">
-              {desktopLinks.map((link) => (
+
+            {/* Drawer Content */}
+            <div className="p-6 flex flex-col gap-2">
+              {/* Prominent Get Started in drawer */}
+              <Link
+                href="/get-started"
+                className="btn-cta text-center py-3 mb-4 font-bold"
+                onClick={() => setDrawerOpen(false)}
+              >
+                🚀 Get Started
+              </Link>
+
+              {/* Main nav links */}
+              {navLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="px-3 py-2 rounded hover:bg-[var(--surface-light)]"
+                  className="px-4 py-3 rounded-lg hover:bg-[var(--gh-green)]/20 transition text-base"
+                  style={{ borderLeft: "3px solid transparent" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.borderLeftColor = "var(--gh-green)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.borderLeftColor = "transparent")}
                   onClick={() => setDrawerOpen(false)}
                 >
                   {link.label}
                 </Link>
               ))}
-              <Link
-                href="/affiliate"
-                className="px-3 py-2 rounded hover:bg-[var(--surface-light)]"
-                onClick={() => setDrawerOpen(false)}
-              >
-                Affiliate
-              </Link>
-              <Link
-                href={accountHref}
-                className="px-3 py-2 rounded hover:bg-[var(--surface-light)]"
-                onClick={() => setDrawerOpen(false)}
-              >
-                Account
-              </Link>
-              <Link
-                href="/get-started"
-                className="btn-cta text-center"
-                onClick={() => setDrawerOpen(false)}
-              >
-                Get Started
-              </Link>
-              {isLoggedIn && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleLogout();
-                    setDrawerOpen(false);
-                  }}
-                  className="px-3 py-2 rounded hover:bg-[var(--surface-light)] text-left"
+
+              {/* Account & Logout */}
+              <div className="border-t border-[var(--gh-green)]/30 mt-4 pt-4">
+                <Link
+                  href={accountHref}
+                  className="px-4 py-3 rounded-lg hover:bg-[var(--gh-green)]/20 transition text-base block"
+                  onClick={() => setDrawerOpen(false)}
                 >
-                  Logout
-                </button>
-              )}
+                  {isLoggedIn ? "📊 Dashboard" : "🔐 Login"}
+                </Link>
+                {isLoggedIn && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleLogout();
+                      setDrawerOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-3 rounded-lg hover:bg-[var(--gh-amber)]/20 transition text-base mt-2"
+                  >
+                    🚪 Logout
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
