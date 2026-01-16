@@ -82,7 +82,7 @@ CREATE TRIGGER update_design_settings_updated_at
 -- Stores product catalog
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS products (
-  id BIGINT PRIMARY KEY,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   description TEXT,
   price_cents INT NOT NULL CHECK (price_cents >= 0),

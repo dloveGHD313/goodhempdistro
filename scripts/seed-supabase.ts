@@ -9,6 +9,7 @@
 import { createClient } from "@supabase/supabase-js";
 import * as dotenv from "dotenv";
 import { resolve } from "path";
+import { v4 as uuidv4 } from "uuid";
 
 // Load environment variables from .env.local
 dotenv.config({ path: resolve(process.cwd(), ".env.local") });
@@ -94,7 +95,7 @@ const designSettings = [
 
 const productSeeds = [
   {
-    id: 1,
+    id: uuidv4(),
     name: "Premium CBD Oil",
     description: "Full-spectrum CBD oil extracted from organic hemp",
     price_cents: 4999,
@@ -103,7 +104,7 @@ const productSeeds = [
     featured: true,
   },
   {
-    id: 2,
+    id: uuidv4(),
     name: "Hemp Flower - Indoor",
     description: "Hand-trimmed indoor hemp flower",
     price_cents: 2999,
@@ -112,7 +113,7 @@ const productSeeds = [
     featured: true,
   },
   {
-    id: 3,
+    id: uuidv4(),
     name: "CBD Gummies",
     description: "25mg CBD per gummy, 30 count",
     price_cents: 3499,
