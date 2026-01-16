@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { brand } from "@/lib/brand";
+import BrandLogo from "@/components/BrandLogo";
 
 const navLinks = [
   { label: "🏠 Feed", href: "/newsfeed" },
@@ -46,22 +46,8 @@ export default function Nav() {
     <nav aria-label="Main Navigation" className="flex items-center justify-between w-full">
       {/* Logo/Brand - Visible on all sizes */}
       <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition">
-        <Image
-          src={brand.logoPath}
-          alt={`${brand.name} Logo`}
-          width={40}
-          height={40}
-          className="hidden sm:block"
-          priority
-        />
-        <Image
-          src={brand.logoPath}
-          alt={`${brand.name} Logo`}
-          width={32}
-          height={32}
-          className="sm:hidden"
-          priority
-        />
+        <BrandLogo size={40} className="hidden sm:block" />
+        <BrandLogo size={32} className="sm:hidden" />
         <span className="hidden md:inline font-bold text-sm" style={{ color: brand.colors.lime }}>
           {brand.name}
         </span>
@@ -126,13 +112,7 @@ export default function Nav() {
             {/* Drawer Header with Logo */}
             <div className="p-6 border-b flex items-center justify-between" style={{ borderColor: `${brand.colors.lime}33` }}>
               <Link href="/" className="flex items-center gap-2" onClick={() => setDrawerOpen(false)}>
-                <Image
-                  src={brand.logoPath}
-                  alt={`${brand.name} Logo`}
-                  width={32}
-                  height={32}
-                  priority
-                />
+                <BrandLogo size={32} />
                 <span className="font-bold text-sm" style={{ color: brand.colors.lime }}>Good Hemp</span>
               </Link>
               <button 
