@@ -59,11 +59,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <header className="topbar">
-          <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-            <a href="/" className="text-xl font-bold flex items-center gap-2">
-              <span>🌿</span>
-              <span>Good Hemp Distro</span>
-            </a>
+          <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between w-full">
             <Nav />
           </div>
         </header>
