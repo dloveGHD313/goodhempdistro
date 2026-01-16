@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 
 export const metadata: Metadata = {
@@ -17,6 +18,10 @@ type Vendor = {
 async function getVendors(): Promise<Vendor[]> {
   try {
     const supabase = await createSupabaseServerClient();
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) {
+      redirect("/login");
+    }
     const { data, error } = await supabase
       .from("vendors")
       .select("id, name, description, specialties")

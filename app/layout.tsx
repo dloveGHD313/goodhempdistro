@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { validateEnvironmentVariables } from "@/lib/env-validator";
 import Nav from "@/components/Nav";
+import AgeGateClient from "@/components/AgeGateClient";
 
 // Validate environment variables at startup (logs warnings, doesn't throw)
 if (typeof window === "undefined") {
@@ -42,6 +43,7 @@ export default function RootLayout({
           </div>
         </header>
         {children}
+        <AgeGateClient />
       </body>
     </html>
   );

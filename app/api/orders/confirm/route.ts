@@ -29,13 +29,91 @@ export async function POST(req: NextRequest) {
 
     // Extract order information
     const orderId = session.metadata?.order_id;
+    const packageType = session.metadata?.package_type; // 'vendor' or 'consumer'
+    const packageName = session.metadata?.package_name;
+    const userId = session.client_reference_id || session.metadata?.user_id;
 
-    console.log(`📦 [orders/confirm] Session details | orderId=${orderId || "N/A"} | sessionId=${sessionId}`);
+    console.log(`📦 [orders/confirm] Session details | orderId=${orderId || "N/A"} | packageType=${packageType || "N/A"} | userId=${userId || "N/A"}`);
 
     // If we have Supabase configured, update the order using server-only client
     // IMPORTANT: createSupabaseServerClient() uses the service role key only on the server
     // This route runs on the server, so it's safe to use the admin client
     const supabase = await createSupabaseServerClient();
+
+    // Handle package assignment if this is a subscription purchase
+    if (packageType && packageName && userId) {
+      try {
+        if (packageType === "vendor") {
+          // Fetch vendor package details
+          const { data: pkg } = await supabase
+            .from("vendor_packages")
+            .select("*")
+            .eq("name", packageName)
+            .single();
+
+          if (pkg) {
+            // Update profile with vendor role and commission
+            await supabase
+              .from("profiles")
+              .upsert({
+                id: userId,
+                role: "vendor",
+                updated_at: new Date().toISOString(),
+              }, { onConflict: "id" });
+
+            console.log(`✅ [orders/confirm] Assigned vendor package: ${packageName} to user ${userId}`);
+          }
+        } else if (packageType === "consumer") {
+          // Fetch consumer package details
+          const { data: pkg } = await supabase
+            .from("consumer_packages")
+            .select("*")
+            .eq("name", packageName)
+            .single();
+
+          if (pkg) {
+            // Add monthly loyalty points
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("loyalty_points")
+              .eq("id", userId)
+              .single();
+
+            const currentPoints = profile?.loyalty_points || 0;
+            await supabase
+              .from("profiles")
+              .upsert({
+                id: userId,
+                loyalty_points: currentPoints + pkg.monthly_loyalty_points,
+                updated_at: new Date().toISOString(),
+              }, { onConflict: "id" });
+
+            console.log(`✅ [orders/confirm] Assigned consumer package: ${packageName} to user ${userId}, added ${pkg.monthly_loyalty_points} loyalty points`);
+          }
+        }
+
+        // Check for affiliate referral and reward
+        const { data: referral } = await supabase
+          .from("affiliate_referrals")
+          .select("*, affiliate:affiliates!inner(*)")
+          .eq("referred_user_id", userId)
+          .eq("status", "pending")
+          .single();
+
+        if (referral) {
+          // Mark referral as paid
+          await supabase
+            .from("affiliate_referrals")
+            .update({ status: "paid", stripe_session_id: sessionId })
+            .eq("id", referral.id);
+
+          console.log(`💰 [orders/confirm] Affiliate reward tracked for referral ${referral.id}`);
+        }
+      } catch (pkgError) {
+        console.error(`⚠️ [orders/confirm] Package assignment error:`, pkgError);
+        // Continue with order processing even if package assignment fails
+      }
+    }
     
     if (orderId) {
       // Check if order exists and update it

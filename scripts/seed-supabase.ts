@@ -121,6 +121,75 @@ const productSeeds = [
   },
 ];
 
+const vendorPackageSeeds = [
+  {
+    id: generateUUID(),
+    name: "BASIC",
+    price_cents: 5000,
+    commission_percent: 7.0,
+    max_products: 25,
+    featured_vendor: false,
+    wholesale_access: false,
+    event_discount: false,
+    coa_discount: false,
+  },
+  {
+    id: generateUUID(),
+    name: "PRO",
+    price_cents: 12500,
+    commission_percent: 4.0,
+    max_products: 100,
+    featured_vendor: false,
+    wholesale_access: false,
+    event_discount: false,
+    coa_discount: false,
+  },
+  {
+    id: generateUUID(),
+    name: "ELITE",
+    price_cents: 25000,
+    commission_percent: 0.0,
+    max_products: null, // unlimited
+    featured_vendor: true,
+    wholesale_access: true,
+    event_discount: true,
+    coa_discount: true,
+  },
+];
+
+const consumerPackageSeeds = [
+  {
+    id: generateUUID(),
+    name: "STARTER",
+    price_cents: 599,
+    monthly_loyalty_points: 50,
+    event_discounts: false,
+    vendor_dm_access: false,
+    early_product_alerts: false,
+    featured_customer: false,
+  },
+  {
+    id: generateUUID(),
+    name: "PLUS",
+    price_cents: 1299,
+    monthly_loyalty_points: 150,
+    event_discounts: true,
+    vendor_dm_access: true,
+    early_product_alerts: false,
+    featured_customer: false,
+  },
+  {
+    id: generateUUID(),
+    name: "VIP",
+    price_cents: 2399,
+    monthly_loyalty_points: 300,
+    event_discounts: true,
+    vendor_dm_access: true,
+    early_product_alerts: true,
+    featured_customer: true,
+  },
+];
+
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
@@ -301,6 +370,28 @@ async function seedSupabase() {
     console.log(`   ✅ Upserted ${productsResult.count} products`);
   } else {
     console.log(`   ⚠️  ${productsResult.error}`);
+  }
+
+  // 5. Seed vendor packages
+  console.log("💼 Seeding vendor packages...");
+  const vendorPackagesResult = await upsertData("vendor_packages", vendorPackageSeeds);
+  results.push({ table: "vendor_packages", ...vendorPackagesResult });
+  
+  if (vendorPackagesResult.success) {
+    console.log(`   ✅ Upserted ${vendorPackagesResult.count} vendor packages`);
+  } else {
+    console.log(`   ⚠️  ${vendorPackagesResult.error}`);
+  }
+
+  // 6. Seed consumer packages
+  console.log("👤 Seeding consumer packages...");
+  const consumerPackagesResult = await upsertData("consumer_packages", consumerPackageSeeds);
+  results.push({ table: "consumer_packages", ...consumerPackagesResult });
+  
+  if (consumerPackagesResult.success) {
+    console.log(`   ✅ Upserted ${consumerPackagesResult.count} consumer packages`);
+  } else {
+    console.log(`   ⚠️  ${consumerPackagesResult.error}`);
   }
 
   // Summary

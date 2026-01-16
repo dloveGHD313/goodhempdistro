@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 
 export const metadata: Metadata = {
@@ -18,6 +19,10 @@ type Product = {
 async function getProducts(): Promise<Product[]> {
   try {
     const supabase = await createSupabaseServerClient();
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) {
+      redirect("/login");
+    }
     const { data, error } = await supabase
       .from("products")
       .select("id, name, category, price_cents, featured")

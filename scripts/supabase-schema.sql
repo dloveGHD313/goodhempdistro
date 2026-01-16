@@ -87,10 +87,10 @@ CREATE TABLE IF NOT EXISTS products (
   description TEXT,
   price_cents INT NOT NULL CHECK (price_cents >= 0),
   category TEXT,
-  in_stock BOOLEAN NOT NULL DEFAULT true,
+  is_active BOOLEAN NOT NULL DEFAULT true,
   featured BOOLEAN NOT NULL DEFAULT false,
   image_url TEXT,
-  vendor_id BIGINT,
+  vendor_id UUID,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -102,6 +102,27 @@ CREATE INDEX IF NOT EXISTS idx_products_in_stock ON products(in_stock) WHERE in_
 
 CREATE TRIGGER update_products_updated_at
   BEFORE UPDATE ON products
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================================================
+-- Profiles (for age verification and roles)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  age_verified BOOLEAN NOT NULL DEFAULT false,
+  role TEXT NOT NULL DEFAULT 'consumer' CHECK (role IN ('consumer','vendor','admin')),
+  loyalty_points INT NOT NULL DEFAULT 0,
+  vendor_id UUID,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Profiles self-access" ON profiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Profiles self-update" ON profiles FOR UPDATE USING (auth.uid() = id);
+CREATE TRIGGER update_profiles_updated_at
+  BEFORE UPDATE ON profiles
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
@@ -204,6 +225,96 @@ CREATE POLICY "Users can insert their own orders"
 
 -- View orders by status
 -- SELECT * FROM orders WHERE status = 'paid';
+
+-- ============================================================================
+-- 6. Vendor Packages (Subscription Tiers for Vendors)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS vendor_packages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL UNIQUE,
+  price_cents INT NOT NULL CHECK (price_cents >= 0),
+  commission_percent NUMERIC(5,2) NOT NULL CHECK (commission_percent >= 0 AND commission_percent <= 100),
+  max_products INT,
+  featured_vendor BOOLEAN NOT NULL DEFAULT false,
+  wholesale_access BOOLEAN NOT NULL DEFAULT false,
+  event_discount BOOLEAN NOT NULL DEFAULT false,
+  coa_discount BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_vendor_packages_name ON vendor_packages(name);
+
+-- ============================================================================
+-- 7. Consumer Packages (Subscription Tiers for Consumers)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS consumer_packages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL UNIQUE,
+  price_cents INT NOT NULL CHECK (price_cents >= 0),
+  monthly_loyalty_points INT NOT NULL DEFAULT 0,
+  event_discounts BOOLEAN NOT NULL DEFAULT false,
+  vendor_dm_access BOOLEAN NOT NULL DEFAULT false,
+  early_product_alerts BOOLEAN NOT NULL DEFAULT false,
+  featured_customer BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_consumer_packages_name ON consumer_packages(name);
+
+-- ============================================================================
+-- 8. Affiliates (Referral tracking for users)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS affiliates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK (role IN ('consumer','vendor')),
+  affiliate_code TEXT NOT NULL UNIQUE,
+  reward_cents INT NOT NULL DEFAULT 0 CHECK (reward_cents >= 0),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_affiliates_user_id ON affiliates(user_id);
+CREATE INDEX IF NOT EXISTS idx_affiliates_code ON affiliates(affiliate_code);
+
+ALTER TABLE affiliates ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view their own affiliate data" ON affiliates FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert their own affiliate data" ON affiliates FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- ============================================================================
+-- 9. Affiliate Referrals (Track who referred whom)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS affiliate_referrals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  affiliate_id UUID NOT NULL REFERENCES affiliates(id) ON DELETE CASCADE,
+  referred_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  stripe_session_id TEXT,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','paid')),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_affiliate_referrals_affiliate_id ON affiliate_referrals(affiliate_id);
+CREATE INDEX IF NOT EXISTS idx_affiliate_referrals_referred_user ON affiliate_referrals(referred_user_id);
+CREATE INDEX IF NOT EXISTS idx_affiliate_referrals_session ON affiliate_referrals(stripe_session_id);
+
+ALTER TABLE affiliate_referrals ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Affiliates can view their referrals" ON affiliate_referrals FOR SELECT USING (
+  affiliate_id IN (SELECT id FROM affiliates WHERE user_id = auth.uid())
+);
+
+-- ============================================================================
+-- RLS Policies for Packages (Public read access)
+-- ============================================================================
+ALTER TABLE vendor_packages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public read access on vendor_packages" ON vendor_packages FOR SELECT USING (true);
+CREATE POLICY "Admin can manage vendor_packages" ON vendor_packages FOR ALL USING (
+  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+);
+
+ALTER TABLE consumer_packages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Allow public read access on consumer_packages" ON consumer_packages FOR SELECT USING (true);
+CREATE POLICY "Admin can manage consumer_packages" ON consumer_packages FOR ALL USING (
+  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+);
 
 -- ============================================================================
 -- Done! Now run: npm run seed:supabase
