@@ -1,14 +1,34 @@
 import Stripe from "stripe";
 import { validateEnvVars } from "./env-validator";
 
-// Validate required Stripe environment variables
-if (!validateEnvVars(["STRIPE_SECRET_KEY"], "Stripe Client")) {
-  throw new Error("STRIPE_SECRET_KEY is not set in environment variables");
+// Lazy initialization - only create Stripe client when actually used
+// This allows the build to complete even if env vars are missing
+let stripeInstance: Stripe | null = null;
+
+function getStripeClient(): Stripe {
+  if (stripeInstance) {
+    return stripeInstance;
+  }
+
+  // Validate required Stripe environment variables
+  if (!validateEnvVars(["STRIPE_SECRET_KEY"], "Stripe Client")) {
+    throw new Error("STRIPE_SECRET_KEY is not set in environment variables");
+  }
+
+  stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: "2025-02-24.acacia",
+    typescript: true,
+  });
+
+  return stripeInstance;
 }
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-02-24.acacia",
-  typescript: true,
+export const stripe = new Proxy({} as Stripe, {
+  get(_target, prop) {
+    const client = getStripeClient();
+    const value = (client as any)[prop];
+    return typeof value === "function" ? value.bind(client) : value;
+  },
 });
 
 /**

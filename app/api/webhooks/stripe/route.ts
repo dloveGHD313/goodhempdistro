@@ -3,17 +3,23 @@ import Stripe from "stripe";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { validateEnvVars } from "@/lib/env-validator";
 
-// Validate required environment variables
-if (!validateEnvVars(["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"], "Stripe Webhook")) {
-  throw new Error("Missing required Stripe environment variables");
+// Lazy initialization - only create Stripe client when actually used
+// This allows the build to complete even if env vars are missing
+function getStripeClient(): Stripe {
+  if (!validateEnvVars(["STRIPE_SECRET_KEY"], "Stripe Webhook")) {
+    throw new Error("Missing required Stripe environment variables: STRIPE_SECRET_KEY");
+  }
+  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: "2025-02-24.acacia",
+  });
 }
 
-// Initialize Stripe with secret key
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-02-24.acacia",
-});
-
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+function getWebhookSecret(): string {
+  if (!validateEnvVars(["STRIPE_WEBHOOK_SECRET"], "Stripe Webhook")) {
+    throw new Error("Missing required Stripe environment variables: STRIPE_WEBHOOK_SECRET");
+  }
+  return process.env.STRIPE_WEBHOOK_SECRET!;
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.text();
@@ -27,17 +33,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (!webhookSecret) {
-    console.error("❌ STRIPE_WEBHOOK_SECRET not configured");
-    return NextResponse.json(
-      { error: "Webhook secret not configured" },
-      { status: 500 }
-    );
-  }
-
   let event: Stripe.Event;
 
   try {
+    // Initialize clients (will throw if env vars missing)
+    const stripe = getStripeClient();
+    const webhookSecret = getWebhookSecret();
+    
     // Verify webhook signature
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err: unknown) {

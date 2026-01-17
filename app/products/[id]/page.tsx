@@ -16,6 +16,9 @@ type Props = {
   params: Promise<{ id: string }>;
 };
 
+// Force dynamic rendering since this page requires authentication
+export const dynamic = 'force-dynamic';
+
 async function getProduct(id: string): Promise<Product | null> {
   try {
     const supabase = await createSupabaseServerClient();
