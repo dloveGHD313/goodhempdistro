@@ -8,7 +8,11 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 type Package = {
   id: string;
   name: string;
-  price_cents: number;
+  monthly_price_cents?: number;
+  commission_bps?: number;
+  product_limit?: number | null;
+  featured?: boolean;
+  loyalty_points_multiplier?: number;
   [key: string]: any;
 };
 
@@ -136,10 +140,10 @@ export default function AdminPage() {
                   {vendorPackages.map((pkg) => (
                     <tr key={pkg.id} className="border-b border-gray-800">
                       <td className="py-3 font-semibold">{pkg.name}</td>
-                      <td className="py-3">${(pkg.price_cents / 100).toFixed(2)}</td>
-                      <td className="py-3">{pkg.commission_percent}%</td>
-                      <td className="py-3">{pkg.max_products || "Unlimited"}</td>
-                      <td className="py-3">{pkg.featured_vendor ? "✓" : "—"}</td>
+                      <td className="py-3">${((pkg.monthly_price_cents || 0) / 100).toFixed(2)}</td>
+                      <td className="py-3">{((pkg.commission_bps || 0) / 100).toFixed(1).replace(/\.0$/, "")}%</td>
+                      <td className="py-3">{pkg.product_limit ?? "Unlimited"}</td>
+                      <td className="py-3">{pkg.featured ? "✓" : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -167,9 +171,9 @@ export default function AdminPage() {
                   {consumerPackages.map((pkg) => (
                     <tr key={pkg.id} className="border-b border-gray-800">
                       <td className="py-3 font-semibold">{pkg.name}</td>
-                      <td className="py-3">${(pkg.price_cents / 100).toFixed(2)}</td>
-                      <td className="py-3">{pkg.monthly_loyalty_points}</td>
-                      <td className="py-3">{pkg.event_discounts ? "✓" : "—"}</td>
+                      <td className="py-3">${((pkg.monthly_price_cents || 0) / 100).toFixed(2)}</td>
+                      <td className="py-3">{pkg.loyalty_points_multiplier}x</td>
+                      <td className="py-3">{pkg.is_active ? "✓" : "—"}</td>
                     </tr>
                   ))}
                 </tbody>

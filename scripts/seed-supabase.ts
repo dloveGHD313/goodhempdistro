@@ -124,69 +124,88 @@ const productSeeds = [
 const vendorPackageSeeds = [
   {
     id: generateUUID(),
-    name: "BASIC",
-    price_cents: 5000,
-    commission_percent: 7.0,
-    max_products: 25,
-    featured_vendor: false,
+    slug: "basic",
+    name: "Basic",
+    monthly_price_cents: 5000,
+    commission_bps: 700,
+    product_limit: 25,
+    event_limit: 5,
+    featured: false,
     wholesale_access: false,
-    event_discount: false,
-    coa_discount: false,
+    perks: ["Starter listing", "Limited events", "Basic analytics"],
+    is_active: true,
+    sort_order: 1,
   },
   {
     id: generateUUID(),
-    name: "PRO",
-    price_cents: 12500,
-    commission_percent: 4.0,
-    max_products: 100,
-    featured_vendor: false,
+    slug: "plus",
+    name: "Plus",
+    monthly_price_cents: 12500,
+    commission_bps: 400,
+    product_limit: 100,
+    event_limit: null,
+    featured: false,
     wholesale_access: false,
-    event_discount: false,
-    coa_discount: false,
+    perks: ["Unlimited events", "More visibility", "Priority placement"],
+    is_active: true,
+    sort_order: 2,
   },
   {
     id: generateUUID(),
-    name: "ELITE",
-    price_cents: 25000,
-    commission_percent: 0.0,
-    max_products: null, // unlimited
-    featured_vendor: true,
+    slug: "premium",
+    name: "Premium",
+    monthly_price_cents: 25000,
+    commission_bps: 200,
+    product_limit: null,
+    event_limit: null,
+    featured: true,
     wholesale_access: true,
-    event_discount: true,
-    coa_discount: true,
+    perks: [
+      "Featured vendor",
+      "Discounted Good Hemp events",
+      "Discounted COAs",
+      "Wholesale access",
+    ],
+    is_active: true,
+    sort_order: 3,
   },
 ];
 
 const consumerPackageSeeds = [
   {
     id: generateUUID(),
-    name: "STARTER",
-    price_cents: 599,
-    monthly_loyalty_points: 50,
-    event_discounts: false,
-    vendor_dm_access: false,
-    early_product_alerts: false,
-    featured_customer: false,
+    slug: "starter",
+    name: "Starter",
+    monthly_price_cents: 599,
+    perks: ["Basic community access", "Loyalty points"],
+    loyalty_points_multiplier: 1,
+    is_active: true,
+    sort_order: 1,
   },
   {
     id: generateUUID(),
-    name: "PLUS",
-    price_cents: 1299,
-    monthly_loyalty_points: 150,
-    event_discounts: true,
-    vendor_dm_access: true,
-    early_product_alerts: false,
-    featured_customer: false,
+    slug: "plus",
+    name: "Plus",
+    monthly_price_cents: 1299,
+    perks: ["More points", "Early product alerts", "Special discounts"],
+    loyalty_points_multiplier: 2,
+    is_active: true,
+    sort_order: 2,
   },
   {
     id: generateUUID(),
+    slug: "vip",
     name: "VIP",
-    price_cents: 2399,
-    monthly_loyalty_points: 300,
-    event_discounts: true,
-    vendor_dm_access: true,
-    early_product_alerts: true,
-    featured_customer: true,
+    monthly_price_cents: 2399,
+    perks: [
+      "Discounted Good Hemp events",
+      "DM vendors",
+      "Monthly loyalty drops",
+      "Featured customer",
+    ],
+    loyalty_points_multiplier: 3,
+    is_active: true,
+    sort_order: 3,
   },
 ];
 
@@ -374,7 +393,7 @@ async function seedSupabase() {
 
   // 5. Seed vendor packages
   console.log("💼 Seeding vendor packages...");
-  const vendorPackagesResult = await upsertData("vendor_packages", vendorPackageSeeds);
+  const vendorPackagesResult = await upsertData("vendor_packages", vendorPackageSeeds, "slug");
   results.push({ table: "vendor_packages", ...vendorPackagesResult });
   
   if (vendorPackagesResult.success) {
@@ -385,7 +404,7 @@ async function seedSupabase() {
 
   // 6. Seed consumer packages
   console.log("👤 Seeding consumer packages...");
-  const consumerPackagesResult = await upsertData("consumer_packages", consumerPackageSeeds);
+  const consumerPackagesResult = await upsertData("consumer_packages", consumerPackageSeeds, "slug");
   results.push({ table: "consumer_packages", ...consumerPackagesResult });
   
   if (consumerPackagesResult.success) {

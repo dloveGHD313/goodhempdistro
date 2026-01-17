@@ -2,26 +2,57 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import VendorRegistrationPage from "@/app/vendor-registration/page";
 
-// Mock Next.js router
-const mockPush = vi.fn();
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({
-    push: mockPush,
-  }),
-}));
+const mockPackages = [
+  {
+    id: "pkg-basic",
+    slug: "basic",
+    name: "Basic",
+    monthly_price_cents: 5000,
+    commission_bps: 700,
+    product_limit: 25,
+    event_limit: 5,
+    featured: false,
+    wholesale_access: false,
+    perks: ["Starter listing", "Limited events", "Basic analytics"],
+  },
+  {
+    id: "pkg-plus",
+    slug: "plus",
+    name: "Plus",
+    monthly_price_cents: 12500,
+    commission_bps: 400,
+    product_limit: 100,
+    event_limit: null,
+    featured: false,
+    wholesale_access: false,
+    perks: ["Unlimited events", "More visibility", "Priority placement"],
+  },
+  {
+    id: "pkg-premium",
+    slug: "premium",
+    name: "Premium",
+    monthly_price_cents: 25000,
+    commission_bps: 200,
+    product_limit: null,
+    event_limit: null,
+    featured: true,
+    wholesale_access: true,
+    perks: ["Featured vendor", "Discounted COAs", "Wholesale access"],
+  },
+];
 
 // Mock Supabase
-const mockGetUser = vi.fn();
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({
-    auth: {
-      getUser: mockGetUser,
-    },
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          order: () => Promise.resolve({ data: mockPackages, error: null }),
+        }),
+      }),
+    }),
   }),
 }));
-
-// Mock fetch
-global.fetch = vi.fn();
 
 describe("Vendor Registration Page", () => {
   beforeEach(() => {
@@ -40,34 +71,29 @@ describe("Vendor Registration Page", () => {
   it("displays all three pricing tiers", async () => {
     render(<VendorRegistrationPage />);
 
-    expect(screen.getByText("BASIC")).toBeInTheDocument();
-    expect(screen.getByText("PRO")).toBeInTheDocument();
-    expect(screen.getByText("ELITE")).toBeInTheDocument();
+    expect(await screen.findByText("Basic")).toBeInTheDocument();
+    expect(screen.getByText("Plus")).toBeInTheDocument();
+    expect(screen.getByText("Premium")).toBeInTheDocument();
   });
 
   it("displays correct pricing and commission info", async () => {
     render(<VendorRegistrationPage />);
 
-    // Check BASIC
-    expect(screen.getByText("$50")).toBeInTheDocument();
+    expect(await screen.findByText("$50.00")).toBeInTheDocument();
     expect(screen.getByText(/7%\s+commission/)).toBeInTheDocument();
-    expect(screen.getByText(/Up to 25 products/)).toBeInTheDocument();
+    expect(screen.getByText(/25 products/)).toBeInTheDocument();
 
-    // Check PRO
-    expect(screen.getByText("$125")).toBeInTheDocument();
+    expect(screen.getByText("$125.00")).toBeInTheDocument();
     expect(screen.getByText(/4%\s+commission/)).toBeInTheDocument();
 
-    // Check ELITE
-    expect(screen.getByText("$250")).toBeInTheDocument();
-    // Use getAllByText to get all 0% occurrences and check for commission one
-    const zeroPercentTexts = screen.getAllByText(/0%/);
-    expect(zeroPercentTexts.length).toBeGreaterThan(0);
+    expect(screen.getByText("$250.00")).toBeInTheDocument();
+    expect(screen.getByText(/2%\s+commission/)).toBeInTheDocument();
   });
 
-  it("marks PRO as most popular", async () => {
+  it("marks Premium as most popular", async () => {
     render(<VendorRegistrationPage />);
 
-    expect(screen.getByText("MOST POPULAR")).toBeInTheDocument();
+    expect(await screen.findByText("MOST POPULAR")).toBeInTheDocument();
   });
 
   it("displays vendor perks section", async () => {
@@ -87,64 +113,34 @@ describe("Vendor Registration Page", () => {
     expect(screen.getByText("What payment methods do you accept?")).toBeInTheDocument();
   });
 
-  it("redirects to login if user not authenticated when choosing plan", async () => {
-    mockGetUser.mockResolvedValue({ data: { user: null } });
-
-    render(<VendorRegistrationPage />);
-
-    const chooseButtons = screen.getAllByText("Choose Plan");
-    fireEvent.click(chooseButtons[0]);
-
-    await waitFor(() => {
-      expect(mockPush).toHaveBeenCalledWith("/login?next=/vendor-registration");
-    });
-  });
-
-  it("creates checkout session when user is logged in", async () => {
-    const mockUser = { id: "test-vendor-123" };
-    mockGetUser.mockResolvedValue({ data: { user: mockUser } });
-    (global.fetch as any).mockResolvedValue({
-      ok: true,
-      json: async () => ({ sessionId: "cs_test_vendor_123" }),
-    });
-
-    render(<VendorRegistrationPage />);
-
-    const chooseButtons = screen.getAllByText("Choose Plan");
-    fireEvent.click(chooseButtons[0]); // Click BASIC
-
-    await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        "/api/vendor/checkout",
-        expect.objectContaining({
-          method: "POST",
-          body: expect.stringContaining("BASIC"),
-        })
-      );
-    });
-  });
-
   it("displays all package features", async () => {
     render(<VendorRegistrationPage />);
 
-    // BASIC features
-    expect(screen.getByText("Standard product listing")).toBeInTheDocument();
-    expect(screen.getByText("Community badge")).toBeInTheDocument();
+    expect(await screen.findByText("Starter listing")).toBeInTheDocument();
+    expect(screen.getByText("Limited events")).toBeInTheDocument();
 
-    // PRO features
     expect(screen.getByText("Priority placement")).toBeInTheDocument();
-    expect(screen.getByText("Featured vendor badge")).toBeInTheDocument();
+    expect(screen.getByText("More visibility")).toBeInTheDocument();
 
-    // ELITE features
-    expect(screen.getByText("Unlimited products")).toBeInTheDocument();
-    expect(screen.getByText("Featured vendor status")).toBeInTheDocument();
+    expect(screen.getByText("Featured vendor")).toBeInTheDocument();
     expect(screen.getByText("Wholesale access")).toBeInTheDocument();
   });
 
   it("has CTA section at bottom", async () => {
     render(<VendorRegistrationPage />);
 
-    expect(screen.getByText("Ready to Grow Your Business?")).toBeInTheDocument();
+    expect(await screen.findByText("Ready to Grow Your Business?")).toBeInTheDocument();
     expect(screen.getByText("Get Started Today")).toBeInTheDocument();
+  });
+
+  it("marks a package as selected when chosen", async () => {
+    render(<VendorRegistrationPage />);
+
+    const chooseButtons = await screen.findAllByText("Choose Plan");
+    fireEvent.click(chooseButtons[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText("Selected")).toBeInTheDocument();
+    });
   });
 });

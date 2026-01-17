@@ -231,35 +231,50 @@ CREATE POLICY "Users can insert their own orders"
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS vendor_packages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL UNIQUE,
-  price_cents INT NOT NULL CHECK (price_cents >= 0),
-  commission_percent NUMERIC(5,2) NOT NULL CHECK (commission_percent >= 0 AND commission_percent <= 100),
-  max_products INT,
-  featured_vendor BOOLEAN NOT NULL DEFAULT false,
+  slug TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  monthly_price_cents INT NOT NULL CHECK (monthly_price_cents >= 0),
+  commission_bps INT NOT NULL CHECK (commission_bps >= 0),
+  product_limit INT,
+  event_limit INT,
+  featured BOOLEAN NOT NULL DEFAULT false,
   wholesale_access BOOLEAN NOT NULL DEFAULT false,
-  event_discount BOOLEAN NOT NULL DEFAULT false,
-  coa_discount BOOLEAN NOT NULL DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  perks JSONB NOT NULL DEFAULT '[]'::jsonb,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_vendor_packages_name ON vendor_packages(name);
+CREATE INDEX IF NOT EXISTS idx_vendor_packages_slug ON vendor_packages(slug);
+CREATE INDEX IF NOT EXISTS idx_vendor_packages_active ON vendor_packages(is_active);
+CREATE TRIGGER update_vendor_packages_updated_at
+  BEFORE UPDATE ON vendor_packages
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================================================
 -- 7. Consumer Packages (Subscription Tiers for Consumers)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS consumer_packages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL UNIQUE,
-  price_cents INT NOT NULL CHECK (price_cents >= 0),
-  monthly_loyalty_points INT NOT NULL DEFAULT 0,
-  event_discounts BOOLEAN NOT NULL DEFAULT false,
-  vendor_dm_access BOOLEAN NOT NULL DEFAULT false,
-  early_product_alerts BOOLEAN NOT NULL DEFAULT false,
-  featured_customer BOOLEAN NOT NULL DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  slug TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  monthly_price_cents INT NOT NULL CHECK (monthly_price_cents >= 0),
+  perks JSONB NOT NULL DEFAULT '[]'::jsonb,
+  loyalty_points_multiplier INT NOT NULL DEFAULT 1,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_consumer_packages_name ON consumer_packages(name);
+CREATE INDEX IF NOT EXISTS idx_consumer_packages_slug ON consumer_packages(slug);
+CREATE INDEX IF NOT EXISTS idx_consumer_packages_active ON consumer_packages(is_active);
+CREATE TRIGGER update_consumer_packages_updated_at
+  BEFORE UPDATE ON consumer_packages
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================================================
 -- 8. Affiliates (Referral tracking for users)
@@ -335,16 +350,71 @@ CREATE POLICY "Admin can manage all payouts" ON affiliate_payouts FOR ALL USING 
 -- RLS Policies for Packages (Public read access)
 -- ============================================================================
 ALTER TABLE vendor_packages ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow public read access on vendor_packages" ON vendor_packages FOR SELECT USING (true);
+CREATE POLICY "Allow public read access on active vendor_packages" ON vendor_packages
+  FOR SELECT USING (is_active = true);
 CREATE POLICY "Admin can manage vendor_packages" ON vendor_packages FOR ALL USING (
   EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
 );
 
 ALTER TABLE consumer_packages ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow public read access on consumer_packages" ON consumer_packages FOR SELECT USING (true);
+CREATE POLICY "Allow public read access on active consumer_packages" ON consumer_packages
+  FOR SELECT USING (is_active = true);
 CREATE POLICY "Admin can manage consumer_packages" ON consumer_packages FOR ALL USING (
   EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
 );
+
+-- ============================================================================
+-- Seed Data: Packages
+-- ============================================================================
+INSERT INTO vendor_packages (
+  slug,
+  name,
+  monthly_price_cents,
+  commission_bps,
+  product_limit,
+  event_limit,
+  featured,
+  wholesale_access,
+  perks,
+  is_active,
+  sort_order
+) VALUES
+  ('basic', 'Basic', 5000, 700, 25, 5, false, false, '["Starter listing","Limited events","Basic analytics"]'::jsonb, true, 1),
+  ('plus', 'Plus', 12500, 400, 100, NULL, false, false, '["Unlimited events","More visibility","Priority placement"]'::jsonb, true, 2),
+  ('premium', 'Premium', 25000, 200, NULL, NULL, true, true, '["Featured vendor","Discounted Good Hemp events","Discounted COAs","Wholesale access"]'::jsonb, true, 3)
+ON CONFLICT (slug) DO UPDATE SET
+  name = EXCLUDED.name,
+  monthly_price_cents = EXCLUDED.monthly_price_cents,
+  commission_bps = EXCLUDED.commission_bps,
+  product_limit = EXCLUDED.product_limit,
+  event_limit = EXCLUDED.event_limit,
+  featured = EXCLUDED.featured,
+  wholesale_access = EXCLUDED.wholesale_access,
+  perks = EXCLUDED.perks,
+  is_active = EXCLUDED.is_active,
+  sort_order = EXCLUDED.sort_order,
+  updated_at = NOW();
+
+INSERT INTO consumer_packages (
+  slug,
+  name,
+  monthly_price_cents,
+  perks,
+  loyalty_points_multiplier,
+  is_active,
+  sort_order
+) VALUES
+  ('starter', 'Starter', 599, '["Basic community access","Loyalty points"]'::jsonb, 1, true, 1),
+  ('plus', 'Plus', 1299, '["More points","Early product alerts","Special discounts"]'::jsonb, 2, true, 2),
+  ('vip', 'VIP', 2399, '["Discounted Good Hemp events","DM vendors","Monthly loyalty drops","Featured customer"]'::jsonb, 3, true, 3)
+ON CONFLICT (slug) DO UPDATE SET
+  name = EXCLUDED.name,
+  monthly_price_cents = EXCLUDED.monthly_price_cents,
+  perks = EXCLUDED.perks,
+  loyalty_points_multiplier = EXCLUDED.loyalty_points_multiplier,
+  is_active = EXCLUDED.is_active,
+  sort_order = EXCLUDED.sort_order,
+  updated_at = NOW();
 
 -- ============================================================================
 -- Done! Now run: npm run seed:supabase

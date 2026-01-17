@@ -1,60 +1,23 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Footer from "@/components/Footer";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-const vendorPackages = [
-  {
-    name: "BASIC",
-    price: "$50",
-    priceCents: 5000,
-    commission: "7%",
-    maxProducts: "25",
-    features: [
-      "Up to 25 products",
-      "Standard product listing",
-      "Event access",
-      "Community badge",
-      "Basic analytics",
-    ],
-  },
-  {
-    name: "PRO",
-    price: "$125",
-    priceCents: 12500,
-    commission: "4%",
-    maxProducts: "100",
-    featured: true,
-    features: [
-      "Up to 100 products",
-      "Priority placement",
-      "Unlimited event participation",
-      "Featured vendor badge",
-      "Advanced analytics",
-      "Vendor support",
-    ],
-  },
-  {
-    name: "ELITE",
-    price: "$250",
-    priceCents: 25000,
-    commission: "0%",
-    maxProducts: "Unlimited",
-    features: [
-      "Unlimited products",
-      "Featured vendor status",
-      "Wholesale access",
-      "Event discounts (30%)",
-      "COA discounts",
-      "Priority support",
-      "Custom branding",
-    ],
-  },
-];
+type VendorPackage = {
+  id: string;
+  slug: string;
+  name: string;
+  monthly_price_cents: number;
+  commission_bps: number;
+  product_limit: number | null;
+  event_limit: number | null;
+  featured: boolean;
+  wholesale_access: boolean;
+  perks: string[];
+};
 
 const vendorPerks = [
   {
@@ -99,52 +62,38 @@ const faqItems = [
 ];
 
 export default function VendorRegistrationPage() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [packages, setPackages] = useState<VendorPackage[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
 
-  const handleChoosePlan = async (packageName: string) => {
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    
-    try {
-      setLoading(true);
-
-      // Check if user is logged in
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) {
-        router.push(`/login?next=/vendor-registration`);
-        return;
-      }
-
-      // Create Stripe checkout session
-      const response = await fetch("/api/vendor/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          packageName,
-          userId: data.user.id,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to create checkout session");
-      }
-
-      const { sessionId } = await response.json();
-
-      // Redirect to Stripe checkout
-      if (typeof window !== "undefined") {
-        // Use Stripe.js or redirect to checkout URL
-        const stripeUrl = `https://checkout.stripe.com/pay/${sessionId}`;
-        window.location.href = stripeUrl;
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      alert("Failed to start checkout. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+  const handleChoosePlan = (packageSlug: string) => {
+    setSelectedPlan(packageSlug);
   };
+
+  const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const formatLimit = (value: number | null) => (value === null ? "Unlimited" : `${value}`);
+  const formatCommission = (bps: number) => `${(bps / 100).toFixed(1).replace(/\.0$/, "")}%`;
+
+  const loadPackages = async () => {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const { data, error } = await supabase
+      .from("vendor_packages")
+      .select("id, slug, name, monthly_price_cents, commission_bps, product_limit, event_limit, featured, wholesale_access, perks")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true });
+
+    if (error) {
+      console.error("Error loading vendor packages:", error);
+      setPackages([]);
+    } else {
+      setPackages(data || []);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadPackages();
+  }, []);
 
   return (
     <div className="min-h-screen text-white flex flex-col">
@@ -166,9 +115,9 @@ export default function VendorRegistrationPage() {
           Simple, Transparent Pricing
         </h2>
         <div className="grid gap-8 md:grid-cols-3">
-          {vendorPackages.map((pkg) => (
+          {(loading ? [] : packages).map((pkg) => (
             <div
-              key={pkg.name}
+              key={pkg.id}
               className={`surface-card p-8 rounded-lg border-2 transition transform ${
                 pkg.featured
                   ? "border-[var(--brand-orange)] scale-105 shadow-2xl"
@@ -192,16 +141,16 @@ export default function VendorRegistrationPage() {
               <h3 className="text-2xl font-bold mb-2">{pkg.name}</h3>
               <div className="mb-1">
                 <span className="text-4xl font-bold text-accent">
-                  {pkg.price}
+                  {formatPrice(pkg.monthly_price_cents)}
                 </span>
                 <span className="text-muted ml-2">/ month</span>
               </div>
               <p className="text-sm text-muted mb-6">
-                {pkg.commission} commission | {pkg.maxProducts} products
+                {formatCommission(pkg.commission_bps)} commission | {formatLimit(pkg.product_limit)} products
               </p>
 
               <ul className="space-y-3 mb-8">
-                {pkg.features.map((feature, i) => (
+                {pkg.perks.map((feature, i) => (
                   <li key={i} className="flex items-start gap-3">
                     <span className="text-accent font-bold">✓</span>
                     <span className="text-muted text-sm">{feature}</span>
@@ -210,17 +159,22 @@ export default function VendorRegistrationPage() {
               </ul>
 
               <button
-                onClick={() => handleChoosePlan(pkg.name)}
-                disabled={loading && selectedPlan === pkg.name}
+                onClick={() => handleChoosePlan(pkg.slug)}
+                disabled={loading}
                 className={`w-full py-3 rounded font-bold transition ${
                   pkg.featured ? "btn-primary" : "btn-secondary"
                 } disabled:opacity-50`}
               >
-                {loading && selectedPlan === pkg.name ? "Processing..." : "Choose Plan"}
+                {selectedPlan === pkg.slug ? "Selected" : "Choose Plan"}
               </button>
             </div>
           ))}
         </div>
+        {!loading && packages.length === 0 && (
+          <div className="surface-card p-6 text-center text-muted">
+            Vendor packages are unavailable right now. Please check back soon.
+          </div>
+        )}
       </section>
 
       {/* Vendor Perks */}
@@ -265,11 +219,11 @@ export default function VendorRegistrationPage() {
             Join hundreds of vendors already selling on Good Hemp Distro.
           </p>
           <button
-            onClick={() => handleChoosePlan("BASIC")}
+            onClick={() => handleChoosePlan(packages[0]?.slug || "basic")}
             disabled={loading}
             className="btn-primary px-8 py-3 text-lg disabled:opacity-50"
           >
-            {loading ? "Processing..." : "Get Started Today"}
+            {loading ? "Loading..." : "Get Started Today"}
           </button>
         </div>
       </section>
