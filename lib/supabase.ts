@@ -1,29 +1,19 @@
 import { createBrowserClient, createServerClient } from "@supabase/ssr";
 
-// Validate environment variables
-function validateEnv() {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    throw new Error(
-      "Missing NEXT_PUBLIC_SUPABASE_URL. Please set it in your .env.local"
-    );
-  }
-  if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    throw new Error(
-      "Missing NEXT_PUBLIC_SUPABASE_ANON_KEY. Please set it in your .env.local"
-    );
-  }
-}
-
 /**
  * Create a Supabase client for use in browser/client components
  * Use this in components marked with "use client"
  */
 export function createSupabaseBrowserClient() {
-  validateEnv();
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    throw new Error(
+      "Missing Supabase environment variables. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY"
+    );
+  }
 
   return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   );
 }
 
@@ -32,14 +22,18 @@ export function createSupabaseBrowserClient() {
  * This function must be async because cookies() returns a Promise in Next.js
  */
 export async function createSupabaseServerClient() {
-  validateEnv();
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    throw new Error(
+      "Missing Supabase environment variables. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY"
+    );
+  }
 
   const { cookies } = await import("next/headers");
   const cookieStore = await cookies();
 
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         getAll() {

@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   description: "Meet our trusted hemp product vendors",
 };
 
+// Force dynamic rendering since this page requires authentication
+export const dynamic = 'force-dynamic';
+
 type Vendor = {
   id: string;
   name: string;

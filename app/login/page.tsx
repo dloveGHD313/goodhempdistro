@@ -1,6 +1,6 @@
-import Link from "next/link";
 import Footer from "@/components/Footer";
 import type { Metadata } from "next";
+import LoginForm from "./LoginForm";
 
 export const metadata: Metadata = {
   title: "Login | Good Hemp Distro",
@@ -19,18 +19,7 @@ export default function LoginPage() {
                 Sign in to access your dashboard and manage orders.
               </p>
             </div>
-            <p className="text-muted">
-              Authentication UI is not configured in this demo. To proceed, use the dashboard link
-              if you are already signed in, or return to the store to continue browsing.
-            </p>
-            <div className="flex flex-wrap gap-4">
-              <Link href="/dashboard" className="btn-primary">
-                Go to Dashboard
-              </Link>
-              <Link href="/products" className="btn-secondary">
-                Browse Products
-              </Link>
-            </div>
+            <LoginForm />
           </div>
         </section>
       </main>

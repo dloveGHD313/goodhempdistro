@@ -8,6 +8,9 @@ export const metadata: Metadata = {
   description: "Manage your Good Hemp Distro account",
 };
 
+// Force dynamic rendering since this page requires authentication
+export const dynamic = 'force-dynamic';
+
 export default async function AccountPage() {
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase.auth.getUser();
