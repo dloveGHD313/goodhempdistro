@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { data: selectedPackage, error: packageError } = await supabase
-      .from("vendor_packages")
+      .from("consumer_packages")
       .select("id, slug, name, stripe_price_id, monthly_price_cents")
       .eq("slug", packageSlug)
       .eq("is_active", true)
@@ -47,7 +47,6 @@ export async function POST(req: NextRequest) {
 
     const siteUrl = getSiteUrl();
 
-    // Create checkout session for vendor package
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       payment_method_types: ["card"],
@@ -57,11 +56,11 @@ export async function POST(req: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: `${siteUrl}/dashboard?success=vendor`,
-      cancel_url: `${siteUrl}/vendor-registration`,
+      success_url: `${siteUrl}/dashboard?success=consumer`,
+      cancel_url: `${siteUrl}/get-started`,
       client_reference_id: user.id,
       metadata: {
-        package_type: "vendor",
+        package_type: "consumer",
         package_name: selectedPackage.name,
         package_slug: selectedPackage.slug,
         user_id: user.id,
@@ -70,7 +69,7 @@ export async function POST(req: NextRequest) {
       subscription_data: {
         metadata: {
           user_id: user.id,
-          package_type: "vendor",
+          package_type: "consumer",
           package_slug: selectedPackage.slug,
         },
       },
@@ -79,7 +78,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ sessionId: session.id, url: session.url });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("[vendor/checkout]", errorMessage);
+    console.error("[consumer/checkout]", errorMessage);
     return NextResponse.json(
       { error: "Failed to create checkout session" },
       { status: 500 }

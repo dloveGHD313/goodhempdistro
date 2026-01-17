@@ -1,15 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 type VendorPackage = {
   id: string;
   slug: string;
   name: string;
+  stripe_price_id: string | null;
   monthly_price_cents: number;
   commission_bps: number;
   product_limit: number | null;
@@ -65,9 +63,39 @@ export default function VendorRegistrationPage() {
   const [loading, setLoading] = useState(true);
   const [packages, setPackages] = useState<VendorPackage[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [submittingPlan, setSubmittingPlan] = useState<string | null>(null);
 
-  const handleChoosePlan = (packageSlug: string) => {
+  const handleChoosePlan = async (packageSlug: string) => {
     setSelectedPlan(packageSlug);
+    setSubmittingPlan(packageSlug);
+
+    const supabase = createSupabaseBrowserClient();
+    const { data } = await supabase.auth.getUser();
+
+    if (!data.user) {
+      window.location.assign("/login");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/vendor/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packageSlug }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create checkout session");
+      }
+
+      const payload = await response.json();
+      if (payload.url) {
+        window.location.assign(payload.url);
+      }
+    } catch (error) {
+      console.error("Error starting vendor checkout:", error);
+      setSubmittingPlan(null);
+    }
   };
 
   const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
@@ -75,10 +103,10 @@ export default function VendorRegistrationPage() {
   const formatCommission = (bps: number) => `${(bps / 100).toFixed(1).replace(/\.0$/, "")}%`;
 
   const loadPackages = async () => {
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const supabase = createSupabaseBrowserClient();
     const { data, error } = await supabase
       .from("vendor_packages")
-      .select("id, slug, name, monthly_price_cents, commission_bps, product_limit, event_limit, featured, wholesale_access, perks")
+      .select("id, slug, name, stripe_price_id, monthly_price_cents, commission_bps, product_limit, event_limit, featured, wholesale_access, perks")
       .eq("is_active", true)
       .order("sort_order", { ascending: true });
 
@@ -160,7 +188,7 @@ export default function VendorRegistrationPage() {
 
               <button
                 onClick={() => handleChoosePlan(pkg.slug)}
-                disabled={loading}
+                disabled={loading || submittingPlan === pkg.slug}
                 className={`w-full py-3 rounded font-bold transition ${
                   pkg.featured ? "btn-primary" : "btn-secondary"
                 } disabled:opacity-50`}
@@ -223,7 +251,7 @@ export default function VendorRegistrationPage() {
             disabled={loading}
             className="btn-primary px-8 py-3 text-lg disabled:opacity-50"
           >
-            {loading ? "Loading..." : "Get Started Today"}
+            Get Started Today
           </button>
         </div>
       </section>

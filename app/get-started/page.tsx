@@ -1,32 +1,33 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
+import { useSearchParams } from "next/navigation";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 type ConsumerPackage = {
   id: string;
   slug: string;
   name: string;
+  stripe_price_id: string | null;
   monthly_price_cents: number;
   perks: string[];
   loyalty_points_multiplier: number;
 };
 
-export default function GetStartedPage() {
+function GetStartedContent() {
+  const searchParams = useSearchParams();
   const [packages, setPackages] = useState<ConsumerPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [submittingPlan, setSubmittingPlan] = useState<string | null>(null);
 
   useEffect(() => {
     const loadPackages = async () => {
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+      const supabase = createSupabaseBrowserClient();
       const { data, error } = await supabase
         .from("consumer_packages")
-        .select("id, slug, name, monthly_price_cents, perks, loyalty_points_multiplier")
+        .select("id, slug, name, stripe_price_id, monthly_price_cents, perks, loyalty_points_multiplier")
         .eq("is_active", true)
         .order("sort_order", { ascending: true });
 
@@ -43,6 +44,40 @@ export default function GetStartedPage() {
   }, []);
 
   const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+
+  const handleChoosePlan = async (packageSlug: string) => {
+    setSelectedPlan(packageSlug);
+    setSubmittingPlan(packageSlug);
+
+    const supabase = createSupabaseBrowserClient();
+    const { data } = await supabase.auth.getUser();
+
+    if (!data.user) {
+      window.location.assign("/login");
+      return;
+    }
+
+    try {
+      const affiliateCode = searchParams?.get("ref") || "";
+      const response = await fetch("/api/consumer/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packageSlug, affiliateCode }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create checkout session");
+      }
+
+      const payload = await response.json();
+      if (payload.url) {
+        window.location.assign(payload.url);
+      }
+    } catch (error) {
+      console.error("Error starting consumer checkout:", error);
+      setSubmittingPlan(null);
+    }
+  };
 
   return (
     <div className="min-h-screen text-white flex flex-col">
@@ -82,10 +117,15 @@ export default function GetStartedPage() {
                 </ul>
                 <button
                   type="button"
-                  onClick={() => setSelectedPlan(pkg.slug)}
+                  onClick={() => handleChoosePlan(pkg.slug)}
+                  disabled={submittingPlan === pkg.slug}
                   className={selectedPlan === pkg.slug ? "btn-primary" : "btn-secondary"}
                 >
-                  {selectedPlan === pkg.slug ? "Selected" : "Choose Plan"}
+                  {submittingPlan === pkg.slug
+                    ? "Redirecting..."
+                    : selectedPlan === pkg.slug
+                      ? "Selected"
+                      : "Choose Plan"}
                 </button>
               </div>
             ))}
@@ -99,5 +139,27 @@ export default function GetStartedPage() {
       </main>
       <Footer />
     </div>
+  );
+}
+
+export default function GetStartedPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen text-white flex flex-col">
+          <main className="flex-1">
+            <section className="section-shell">
+              <div className="max-w-3xl mx-auto surface-card p-8 text-center">
+                <h1 className="text-4xl font-bold mb-4 text-accent">Get Started</h1>
+                <p className="text-muted">Loading...</p>
+              </div>
+            </section>
+          </main>
+          <Footer />
+        </div>
+      }
+    >
+      <GetStartedContent />
+    </Suspense>
   );
 }
