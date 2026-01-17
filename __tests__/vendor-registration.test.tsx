@@ -41,22 +41,37 @@ const mockPackages = [
   },
 ];
 
-// Mock Supabase
-vi.mock("@supabase/supabase-js", () => ({
-  createClient: () => ({
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          order: () => Promise.resolve({ data: mockPackages, error: null }),
-        }),
-      }),
-    }),
+const mockGetUser = vi.fn();
+const mockFrom = vi.fn();
+
+vi.mock("@/lib/supabase", () => ({
+  createSupabaseBrowserClient: () => ({
+    auth: {
+      getUser: mockGetUser,
+    },
+    from: mockFrom,
   }),
 }));
 
 describe("Vendor Registration Page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFrom.mockReturnValue({
+      select: () => ({
+        eq: () => ({
+          order: () => Promise.resolve({ data: mockPackages, error: null }),
+        }),
+      }),
+    });
+    mockGetUser.mockResolvedValue({ data: { user: { id: "test-user-123" } } });
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ url: "https://checkout.stripe.com/test" }),
+    }) as unknown as typeof fetch;
+    Object.defineProperty(window, "location", {
+      value: { assign: vi.fn() },
+      writable: true,
+    });
   });
 
   it("renders vendor registration page with hero section", async () => {

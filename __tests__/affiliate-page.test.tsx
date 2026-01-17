@@ -14,6 +14,7 @@ vi.mock("next/navigation", () => ({
 const mockGetUser = vi.fn();
 const mockSelect = vi.fn();
 const mockInsert = vi.fn();
+const mockUpsert = vi.fn();
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({
@@ -30,6 +31,11 @@ vi.mock("@supabase/supabase-js", () => ({
       insert: vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({
           single: mockInsert,
+        }),
+      }),
+      upsert: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: mockUpsert,
         }),
       }),
     }),
