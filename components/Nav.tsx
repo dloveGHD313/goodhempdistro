@@ -46,9 +46,9 @@ export default function Nav() {
     <nav aria-label="Main Navigation" className="flex items-center justify-between w-full">
       {/* Logo/Brand - Visible on all sizes */}
       <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition">
-        <BrandLogo size={40} className="hidden sm:block" />
-        <BrandLogo size={32} className="sm:hidden" />
-        <span className="hidden md:inline font-bold text-sm brand-title">
+        <BrandLogo size={44} className="hidden sm:block" />
+        <BrandLogo size={36} className="sm:hidden" />
+        <span className="font-bold text-xs sm:text-sm brand-title">
           {brand.name}
         </span>
       </Link>
@@ -67,7 +67,7 @@ export default function Nav() {
 
       {/* Mobile/Tablet: Get Started + Menu Hamburger */}
       <div className="flex items-center gap-2 lg:hidden">
-        <Link href="/get-started" className="btn-cta text-sm py-2 px-4">
+        <Link href="/get-started" className="btn-primary text-sm py-2 px-4">
           Get Started
         </Link>
         <button
@@ -92,7 +92,7 @@ export default function Nav() {
             Logout
           </button>
         )}
-        <Link href="/get-started" className="btn-cta text-sm py-2 px-4">
+        <Link href="/get-started" className="btn-primary text-sm py-2 px-4">
           Get Started
         </Link>
       </div>
@@ -129,7 +129,7 @@ export default function Nav() {
               {/* Prominent Get Started in drawer */}
               <Link
                 href="/get-started"
-                className="btn-cta text-center py-3 mb-4 font-bold"
+                className="btn-primary text-center py-3 mb-4 font-bold"
                 onClick={() => setDrawerOpen(false)}
               >
                 🚀 Get Started

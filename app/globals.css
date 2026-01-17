@@ -1,26 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  /* Good Hemp Distros Brand Colors */
-  --bg: #05080D;
-  --surface: #0B1220;
-  --text: #EAF2FF;
-  --muted: rgba(234, 242, 255, 0.7);
-  --muted-strong: rgba(234, 242, 255, 0.5);
-  --border: rgba(255, 255, 255, 0.08);
-  --border-light: rgba(255, 255, 255, 0.12);
-  --glass: rgba(11, 18, 32, 0.72);
-  --glass-strong: rgba(11, 18, 32, 0.9);
+  /* Derived tokens (values injected from lib/brand.ts via layout) */
+  --muted-strong: color-mix(in srgb, var(--muted) 70%, transparent);
+  --glass: color-mix(in srgb, var(--surface) 78%, transparent);
+  --glass-strong: color-mix(in srgb, var(--surface) 90%, transparent);
   --shadow: 0 18px 45px rgba(0, 0, 0, 0.45);
   --glow-lime: 0 0 25px rgba(102, 209, 30, 0.2);
+  --bg-deep: color-mix(in srgb, var(--bg) 75%, var(--surface) 25%);
+  --bg-vignette: color-mix(in srgb, var(--bg) 90%, transparent);
 
-  /* Brand Palette (derived from logo) */
-  --brand-lime: #66D11E;           /* Primary green */
-  --brand-lime-secondary: #2F8F1A; /* Deep green */
-  --brand-teal: #1FA6A8;           /* Teal accent */
-  --brand-orange: #F2B233;         /* Amber/gold accent */
-
-  /* Legacy compatibility */
   --accent-green: var(--brand-lime);
   --accent-orange: var(--brand-orange);
   --background: var(--bg);
@@ -44,33 +33,74 @@
 body {
   background-color: var(--bg);
   background-image:
-    radial-gradient(1200px circle at 10% -10%, rgba(102, 209, 30, 0.12), transparent 55%),
-    radial-gradient(900px circle at 90% 10%, rgba(31, 166, 168, 0.12), transparent 50%),
-    linear-gradient(180deg, var(--bg) 0%, #0a0e18 100%);
+    radial-gradient(1200px circle at 10% -10%, color-mix(in srgb, var(--brand-lime) 18%, transparent), transparent 55%),
+    radial-gradient(900px circle at 90% 100%, color-mix(in srgb, var(--brand-teal) 20%, transparent), transparent 55%),
+    radial-gradient(800px circle at 50% 45%, color-mix(in srgb, var(--bg) 25%, transparent), var(--bg-vignette) 60%, var(--bg) 100%),
+    linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
   background-attachment: fixed;
   color: var(--text);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.08;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.25) 0px,
+      rgba(255, 255, 255, 0.25) 1px,
+      transparent 1px,
+      transparent 2px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.25) 0px,
+      rgba(255, 255, 255, 0.25) 1px,
+      transparent 1px,
+      transparent 2px
+    );
+  mix-blend-mode: soft-light;
+  z-index: 0;
+}
+
+main,
+header,
+footer {
+  position: relative;
+  z-index: 1;
+}
+
 .btn-primary {
-  background: linear-gradient(135deg, var(--brand-lime) 0%, var(--brand-lime-secondary) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--brand-orange) 0%,
+    color-mix(in srgb, var(--brand-orange) 85%, var(--brand-lime) 15%) 100%
+  );
   color: var(--bg);
   padding: 0.75rem 1.25rem;
   border-radius: 0.75rem;
   font-weight: 700;
   border: none;
-  box-shadow: var(--glow-lime);
+  box-shadow: 0 12px 30px rgba(242, 178, 51, 0.25);
   transition: transform 0.2s, filter 0.2s, box-shadow 0.2s;
 }
 
 .btn-primary:hover {
   transform: translateY(-2px);
   filter: brightness(1.1);
-  box-shadow: 0 0 30px rgba(102, 209, 30, 0.35);
+  box-shadow: 0 16px 35px rgba(242, 178, 51, 0.35);
 }
 
 .btn-cta {
-  background: linear-gradient(135deg, var(--brand-orange) 0%, #e8a220 100%);
+  background: linear-gradient(
+    135deg,
+    var(--brand-orange) 0%,
+    color-mix(in srgb, var(--brand-orange) 85%, var(--brand-lime) 15%) 100%
+  );
   color: var(--bg);
   padding: 0.75rem 1.25rem;
   border-radius: 0.75rem;
@@ -87,9 +117,9 @@ body {
 }
 
 .btn-secondary {
-  background: transparent;
-  border: 2px solid var(--brand-teal);
-  color: var(--brand-teal);
+  background: color-mix(in srgb, var(--brand-lime) 15%, transparent);
+  border: 2px solid var(--brand-lime);
+  color: var(--brand-lime);
   padding: 0.75rem 1.25rem;
   border-radius: 0.75rem;
   font-weight: 700;
@@ -97,12 +127,26 @@ body {
 }
 
 .btn-secondary:hover {
-  background: rgba(31, 166, 168, 0.1);
+  background: color-mix(in srgb, var(--brand-lime) 25%, transparent);
   transform: translateY(-2px);
 }
 
+.btn-ghost {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--brand-teal);
+  font-weight: 600;
+  transition: color 0.2s, background 0.2s, transform 0.2s;
+}
+
+.btn-ghost:hover {
+  color: var(--brand-lime);
+  background: rgba(31, 166, 168, 0.12);
+  transform: translateY(-1px);
+}
+
 .topbar {
-  background: rgba(5, 8, 13, 0.7);
+  background: color-mix(in srgb, var(--bg) 75%, transparent);
   border-bottom: 1px solid var(--border);
   backdrop-filter: blur(14px);
   position: sticky;
@@ -110,6 +154,7 @@ body {
   z-index: 40;
 }
 
+.surface-card,
 .card {
   background: linear-gradient(140deg, var(--glass) 0%, rgba(5, 8, 13, 0.9) 100%);
   border: 1px solid var(--border);
@@ -118,7 +163,76 @@ body {
   backdrop-filter: blur(14px);
 }
 
+.surface-card--raised,
+.card--raised {
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.55);
+}
+
 .text-muted {
+  color: var(--muted);
+}
+
+.text-accent {
+  color: var(--brand-lime);
+}
+
+.text-accent-orange {
+  color: var(--brand-orange);
+}
+
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.5);
+}
+
+.section-shell {
+  max-width: 70rem;
+  margin: 0 auto;
+  padding: 5rem 1.5rem;
+}
+
+.section-shell--tight {
+  padding-top: 3rem;
+  padding-bottom: 3rem;
+}
+
+.hero-glow {
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-glow::before {
+  content: "";
+  position: absolute;
+  inset: -30% -10% auto -10%;
+  height: 120%;
+  background: radial-gradient(
+    circle at 50% 35%,
+    rgba(102, 209, 30, 0.25),
+    rgba(31, 166, 168, 0.15) 45%,
+    transparent 70%
+  );
+  z-index: 0;
+  pointer-events: none;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+}
+
+.hero-title {
+  font-size: clamp(2.5rem, 5vw, 4.25rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.hero-subtitle {
+  font-size: clamp(1.05rem, 2vw, 1.35rem);
   color: var(--muted);
 }
 

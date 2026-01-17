@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
+import type { CSSProperties } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { validateEnvironmentVariables } from "@/lib/env-validator";
-import { brand } from "@/lib/brand";
+import { brand, colorVars } from "@/lib/brand";
 import Nav from "@/components/Nav";
 import AgeGateClient from "@/components/AgeGateClient";
 
@@ -56,8 +57,10 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const themeVars = colorVars as CSSProperties;
+
   return (
-    <html lang="en">
+    <html lang="en" style={themeVars}>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <header className="topbar">
           <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between w-full">
