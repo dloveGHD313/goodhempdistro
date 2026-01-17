@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
   title: "Products | Good Hemp Distro",
@@ -43,13 +44,13 @@ async function getProducts(): Promise<Product[]> {
 
 function ProductSkeleton() {
   return (
-    <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 animate-pulse">
-      <div className="aspect-square bg-gray-700 rounded-lg mb-4" />
-      <div className="h-6 bg-gray-700 rounded mb-2" />
-      <div className="h-4 bg-gray-700 rounded mb-4" />
+    <div className="surface-card p-6 animate-pulse">
+      <div className="aspect-square bg-[var(--surface)]/60 rounded-lg mb-4" />
+      <div className="h-6 bg-[var(--surface)]/60 rounded mb-2" />
+      <div className="h-4 bg-[var(--surface)]/60 rounded mb-4" />
       <div className="flex justify-between items-center">
-        <div className="h-8 bg-gray-700 rounded w-20" />
-        <div className="h-10 bg-gray-700 rounded w-24" />
+        <div className="h-8 bg-[var(--surface)]/60 rounded w-20" />
+        <div className="h-10 bg-[var(--surface)]/60 rounded w-24" />
       </div>
     </div>
   );
@@ -59,52 +60,51 @@ export default async function ProductsPage() {
   const products = await getProducts();
 
   return (
-    <main className="min-h-screen bg-gray-900 text-white">
-      <div className="container mx-auto px-4 py-16">
-        <h1 className="text-4xl font-bold mb-8">Products</h1>
-        <p className="text-xl text-gray-300 mb-12">
-          Browse our curated selection of premium hemp products.
-        </p>
-
-        {products.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-gray-400 text-lg mb-4">No products available at the moment.</p>
-            <p className="text-gray-500">Check back soon for new arrivals!</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {products.map((product) => (
-              <Link
-                key={product.id}
-                href={`/products/${product.id}`}
-                className="group"
-              >
-                <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 hover:border-green-600 transition h-full cursor-pointer">
-                  <div className="aspect-square bg-gray-700 rounded-lg mb-4 group-hover:bg-gray-600 transition" />
-                  <h3 className="text-xl font-semibold mb-2 group-hover:text-green-400 transition">{product.name}</h3>
-                  <p className="text-gray-400 mb-2 text-sm">{product.category}</p>
-                  <div className="flex justify-between items-center">
-                    <span className="text-2xl font-bold text-green-500">
-                      ${(product.price_cents / 100).toFixed(2)}
-                    </span>
-                    <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition">
-                      View
-                    </button>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-16 text-center">
-          <p className="text-gray-400">
-            {products.length > 0
-              ? "Browse our full selection above"
-              : "More products coming soon. Check back regularly for new additions."}
+    <div className="min-h-screen text-white flex flex-col">
+      <main className="flex-1">
+        <section className="section-shell">
+          <h1 className="text-4xl font-bold mb-6 text-accent">Products</h1>
+          <p className="text-muted mb-12">
+            Browse our curated selection of premium hemp products.
           </p>
-        </div>
-      </div>
-    </main>
+
+          {products.length === 0 ? (
+            <div className="text-center py-16 surface-card p-8">
+              <p className="text-muted text-lg mb-2">No products available at the moment.</p>
+              <p className="text-muted">Check back soon for new arrivals!</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {products.map((product) => (
+                <Link key={product.id} href={`/products/${product.id}`} className="group">
+                  <div className="surface-card p-6 hover-lift h-full cursor-pointer">
+                    <div className="aspect-square bg-[var(--surface)]/60 rounded-lg mb-4 group-hover:bg-[var(--surface)]/80 transition" />
+                    <h3 className="text-xl font-semibold mb-2 group-hover:text-accent transition">{product.name}</h3>
+                    <p className="text-muted mb-2 text-sm">{product.category}</p>
+                    <div className="flex justify-between items-center">
+                      <span className="text-2xl font-bold text-accent">
+                        ${(product.price_cents / 100).toFixed(2)}
+                      </span>
+                      <button className="btn-secondary px-4 py-2 rounded-lg">
+                        View
+                      </button>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-16 text-center">
+            <p className="text-muted">
+              {products.length > 0
+                ? "Browse our full selection above"
+                : "More products coming soon. Check back regularly for new additions."}
+            </p>
+          </div>
+        </section>
+      </main>
+      <Footer />
+    </div>
   );
 }

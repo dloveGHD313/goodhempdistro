@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
+import Footer from "@/components/Footer";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -126,14 +127,17 @@ export default function AffiliatePage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen text-white">
-        <div className="max-w-6xl mx-auto px-6 py-16">
-          <h1 className="text-4xl font-bold mb-4" style={{ color: "var(--accent-green)" }}>
-            Affiliate Program
-          </h1>
-          <p className="text-gray-400">Loading...</p>
-        </div>
-      </main>
+      <div className="min-h-screen text-white flex flex-col">
+        <main className="flex-1">
+          <section className="section-shell">
+            <div className="max-w-4xl mx-auto">
+              <h1 className="text-4xl font-bold mb-4 text-accent">Affiliate Program</h1>
+              <p className="text-muted">Loading...</p>
+            </div>
+          </section>
+        </main>
+        <Footer />
+      </div>
     );
   }
 
@@ -142,113 +146,106 @@ export default function AffiliatePage() {
   }
 
   return (
-    <main className="min-h-screen text-white">
-      <div className="max-w-6xl mx-auto px-6 py-16">
-        <h1 className="text-4xl font-bold mb-4" style={{ color: "var(--accent-green)" }}>
-          Affiliate Program
-        </h1>
+    <div className="min-h-screen text-white flex flex-col">
+      <main className="flex-1">
+        <section className="section-shell">
+          <div className="max-w-6xl mx-auto">
+            <h1 className="text-4xl font-bold mb-4 text-accent">Affiliate Program</h1>
 
-        {/* Referral Link Section */}
-        <div className="card p-6 mb-6">
-          <h2 className="text-2xl font-bold mb-4">Your Referral Link</h2>
-          <div className="flex gap-3 mb-4">
-            <input
-              type="text"
-              readOnly
-              value={referralLink}
-              className="flex-1 px-4 py-2 bg-gray-800 border border-gray-700 rounded text-white"
-            />
-            <button onClick={copyLink} className="btn-primary">
-              {copied ? "✓ Copied!" : "Copy"}
-            </button>
-          </div>
-          <p className="text-sm text-gray-400">
-            Share this link with friends. Earn rewards when they sign up and subscribe!
-          </p>
-        </div>
-
-        {/* Your Rewards Section */}
-        <div className="card p-6 mb-6">
-          <h2 className="text-2xl font-bold mb-4">Your Rewards</h2>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="p-4 rounded bg-gray-800 border border-gray-700">
-              <div className="text-3xl font-bold mb-2" style={{ color: "var(--accent-green)" }}>
-                $5
+            <div className="surface-card p-6 mb-6">
+              <h2 className="text-2xl font-bold mb-4">Your Referral Link</h2>
+              <div className="flex flex-col md:flex-row gap-3 mb-4">
+                <input
+                  type="text"
+                  readOnly
+                  value={referralLink}
+                  className="flex-1 px-4 py-2 bg-[var(--surface)]/70 border border-[var(--border)] rounded text-white"
+                />
+                <button onClick={copyLink} className="btn-secondary">
+                  {copied ? "✓ Copied!" : "Copy"}
+                </button>
               </div>
-              <p className="text-sm text-gray-400">STARTER Package</p>
+              <p className="text-sm text-muted">
+                Share this link with friends. Earn rewards when they sign up and subscribe!
+              </p>
             </div>
-            <div className="p-4 rounded bg-gray-800 border border-gray-700">
-              <div className="text-3xl font-bold mb-2" style={{ color: "var(--accent-orange)" }}>
-                $15
-              </div>
-              <p className="text-sm text-gray-400">PLUS Package</p>
-            </div>
-            <div className="p-4 rounded bg-gray-800 border border-gray-700">
-              <div className="text-3xl font-bold mb-2" style={{ color: "var(--accent-green)" }}>
-                $25
-              </div>
-              <p className="text-sm text-gray-400">VIP Package</p>
-            </div>
-          </div>
-        </div>
 
-        {/* Stats Row */}
-        <div className="grid gap-6 md:grid-cols-3 mb-6">
-          <div className="card p-6">
-            <h3 className="text-lg text-gray-400 mb-2">Total Referrals</h3>
-            <p className="text-4xl font-bold">{earnings.totalReferrals}</p>
-          </div>
-          <div className="card p-6">
-            <h3 className="text-lg text-gray-400 mb-2">Pending Payouts</h3>
-            <p className="text-4xl font-bold text-yellow-400">{earnings.pendingReferrals}</p>
-          </div>
-          <div className="card p-6">
-            <h3 className="text-lg text-gray-400 mb-2">Paid Payouts</h3>
-            <p className="text-4xl font-bold text-green-400">{earnings.paidReferrals}</p>
-          </div>
-        </div>
-
-        {/* Referral History Table */}
-        <div className="card p-6">
-          <h2 className="text-2xl font-bold mb-4">Referral History</h2>
-          {referrals.length === 0 ? (
-            <p className="text-gray-400">No referrals yet. Start sharing your link!</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="border-b border-gray-700">
-                  <tr>
-                    <th className="pb-3 font-semibold text-gray-400">Date</th>
-                    <th className="pb-3 font-semibold text-gray-400">Referred User</th>
-                    <th className="pb-3 font-semibold text-gray-400">Status</th>
-                    <th className="pb-3 font-semibold text-gray-400">Reward</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {referrals.map((referral) => (
-                    <tr key={referral.id} className="border-b border-gray-800">
-                      <td className="py-3 text-gray-300">{formatDate(referral.created_at)}</td>
-                      <td className="py-3 text-gray-300">{maskUserId(referral.referred_user_id)}</td>
-                      <td className="py-3">
-                        <span
-                          className={`px-2 py-1 rounded text-xs font-semibold ${
-                            referral.status === "paid"
-                              ? "bg-green-900 text-green-300"
-                              : "bg-yellow-900 text-yellow-300"
-                          }`}
-                        >
-                          {referral.status.toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="py-3 font-semibold">{getRewardAmount(referral.status)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="surface-card p-6 mb-6">
+              <h2 className="text-2xl font-bold mb-4">Your Rewards</h2>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="surface-card p-4">
+                  <div className="text-3xl font-bold mb-2 text-accent">$5</div>
+                  <p className="text-sm text-muted">STARTER Package</p>
+                </div>
+                <div className="surface-card p-4">
+                  <div className="text-3xl font-bold mb-2 text-accent-orange">$15</div>
+                  <p className="text-sm text-muted">PLUS Package</p>
+                </div>
+                <div className="surface-card p-4">
+                  <div className="text-3xl font-bold mb-2 text-accent">$25</div>
+                  <p className="text-sm text-muted">VIP Package</p>
+                </div>
+              </div>
             </div>
-          )}
-        </div>
-      </div>
-    </main>
+
+            <div className="grid gap-6 md:grid-cols-3 mb-6">
+              <div className="surface-card p-6">
+                <h3 className="text-lg text-muted mb-2">Total Referrals</h3>
+                <p className="text-4xl font-bold">{earnings.totalReferrals}</p>
+              </div>
+              <div className="surface-card p-6">
+                <h3 className="text-lg text-muted mb-2">Pending Payouts</h3>
+                <p className="text-4xl font-bold text-accent-orange">{earnings.pendingReferrals}</p>
+              </div>
+              <div className="surface-card p-6">
+                <h3 className="text-lg text-muted mb-2">Paid Payouts</h3>
+                <p className="text-4xl font-bold text-accent">{earnings.paidReferrals}</p>
+              </div>
+            </div>
+
+            <div className="surface-card p-6">
+              <h2 className="text-2xl font-bold mb-4">Referral History</h2>
+              {referrals.length === 0 ? (
+                <p className="text-muted">No referrals yet. Start sharing your link!</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="border-b border-[var(--border)]">
+                      <tr>
+                        <th className="pb-3 font-semibold text-muted">Date</th>
+                        <th className="pb-3 font-semibold text-muted">Referred User</th>
+                        <th className="pb-3 font-semibold text-muted">Status</th>
+                        <th className="pb-3 font-semibold text-muted">Reward</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {referrals.map((referral) => (
+                        <tr key={referral.id} className="border-b border-[var(--border)]/60">
+                          <td className="py-3 text-muted">{formatDate(referral.created_at)}</td>
+                          <td className="py-3 text-muted">{maskUserId(referral.referred_user_id)}</td>
+                          <td className="py-3">
+                            <span
+                              className={`px-2 py-1 rounded text-xs font-semibold border ${
+                                referral.status === "paid"
+                                  ? "bg-[var(--brand-lime)]/15 text-[var(--brand-lime)] border-[var(--brand-lime)]/40"
+                                  : "bg-[var(--brand-orange)]/15 text-[var(--brand-orange)] border-[var(--brand-orange)]/40"
+                              }`}
+                            >
+                              {referral.status.toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="py-3 font-semibold">{getRewardAmount(referral.status)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      </main>
+      <Footer />
+    </div>
   );
 }

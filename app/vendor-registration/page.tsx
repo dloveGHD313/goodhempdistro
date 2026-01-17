@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+import Footer from "@/components/Footer";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -146,30 +147,32 @@ export default function VendorRegistrationPage() {
   };
 
   return (
-    <main className="min-h-screen text-white bg-gradient-to-b from-black to-gray-950">
-      {/* Hero Section */}
-      <section className="max-w-6xl mx-auto px-6 py-20 text-center">
-        <h1 className="text-5xl font-bold mb-4" style={{ color: "var(--accent-green)" }}>
-          Become a Vendor on Good Hemp Distro
-        </h1>
-        <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
-          Join our thriving marketplace. Reach thousands of customers, showcase your products in our community social feed, participate in exclusive events, and unlock wholesale opportunities. Start your vendor journey today.
-        </p>
-      </section>
+    <div className="min-h-screen text-white flex flex-col">
+      <main className="flex-1">
+        <section className="section-shell text-center hero-glow">
+          <div className="hero-content max-w-3xl mx-auto">
+            <h1 className="text-5xl font-bold mb-4 text-accent">
+              Become a Vendor on Good Hemp Distro
+            </h1>
+            <p className="text-xl text-muted mb-8">
+              Join our thriving marketplace. Reach thousands of customers, showcase your products in our community social feed, participate in exclusive events, and unlock wholesale opportunities. Start your vendor journey today.
+            </p>
+          </div>
+        </section>
 
       {/* Pricing Table */}
-      <section className="max-w-6xl mx-auto px-6 py-16">
-        <h2 className="text-3xl font-bold mb-12 text-center" style={{ color: "var(--accent-green)" }}>
+      <section className="section-shell section-shell--tight">
+        <h2 className="text-3xl font-bold mb-12 text-center text-accent">
           Simple, Transparent Pricing
         </h2>
         <div className="grid gap-8 md:grid-cols-3">
           {vendorPackages.map((pkg) => (
             <div
               key={pkg.name}
-              className={`card p-8 rounded-lg border-2 transition transform ${
+              className={`surface-card p-8 rounded-lg border-2 transition transform ${
                 pkg.featured
-                  ? "border-[var(--accent-orange)] scale-105 shadow-2xl"
-                  : "border-gray-700 hover:border-[var(--accent-green)]"
+                  ? "border-[var(--brand-orange)] scale-105 shadow-2xl"
+                  : "border-[var(--border)] hover:border-[var(--brand-lime)]"
               }`}
             >
               {pkg.featured && (
@@ -177,7 +180,7 @@ export default function VendorRegistrationPage() {
                   <span
                     className="text-xs font-bold px-3 py-1 rounded-full"
                     style={{
-                      backgroundColor: "var(--accent-orange)",
+                      backgroundColor: "var(--brand-orange)",
                       color: "black",
                     }}
                   >
@@ -188,20 +191,20 @@ export default function VendorRegistrationPage() {
 
               <h3 className="text-2xl font-bold mb-2">{pkg.name}</h3>
               <div className="mb-1">
-                <span className="text-4xl font-bold" style={{ color: "var(--accent-green)" }}>
+                <span className="text-4xl font-bold text-accent">
                   {pkg.price}
                 </span>
-                <span className="text-gray-400 ml-2">/ month</span>
+                <span className="text-muted ml-2">/ month</span>
               </div>
-              <p className="text-sm text-gray-400 mb-6">
+              <p className="text-sm text-muted mb-6">
                 {pkg.commission} commission | {pkg.maxProducts} products
               </p>
 
               <ul className="space-y-3 mb-8">
                 {pkg.features.map((feature, i) => (
                   <li key={i} className="flex items-start gap-3">
-                    <span className="text-[var(--accent-green)] font-bold">✓</span>
-                    <span className="text-gray-300 text-sm">{feature}</span>
+                    <span className="text-accent font-bold">✓</span>
+                    <span className="text-muted text-sm">{feature}</span>
                   </li>
                 ))}
               </ul>
@@ -210,7 +213,7 @@ export default function VendorRegistrationPage() {
                 onClick={() => handleChoosePlan(pkg.name)}
                 disabled={loading && selectedPlan === pkg.name}
                 className={`w-full py-3 rounded font-bold transition ${
-                  pkg.featured ? "btn-cta" : "btn-primary"
+                  pkg.featured ? "btn-primary" : "btn-secondary"
                 } disabled:opacity-50`}
               >
                 {loading && selectedPlan === pkg.name ? "Processing..." : "Choose Plan"}
@@ -221,53 +224,57 @@ export default function VendorRegistrationPage() {
       </section>
 
       {/* Vendor Perks */}
-      <section className="max-w-6xl mx-auto px-6 py-16">
-        <h2 className="text-3xl font-bold mb-12 text-center" style={{ color: "var(--accent-green)" }}>
+      <section className="section-shell section-shell--tight">
+        <h2 className="text-3xl font-bold mb-12 text-center text-accent">
           Vendor Perks
         </h2>
         <div className="grid gap-6 md:grid-cols-2">
           {vendorPerks.map((perk, i) => (
-            <div key={i} className="card p-6">
-              <h3 className="text-xl font-bold mb-3" style={{ color: "var(--accent-green)" }}>
+            <div key={i} className="surface-card p-6">
+              <h3 className="text-xl font-bold mb-3 text-accent">
                 {perk.title}
               </h3>
-              <p className="text-gray-300">{perk.description}</p>
+              <p className="text-muted">{perk.description}</p>
             </div>
           ))}
         </div>
       </section>
 
       {/* FAQ Section */}
-      <section className="max-w-4xl mx-auto px-6 py-16">
-        <h2 className="text-3xl font-bold mb-12 text-center" style={{ color: "var(--accent-green)" }}>
+      <section className="section-shell section-shell--tight">
+        <h2 className="text-3xl font-bold mb-12 text-center text-accent">
           Frequently Asked Questions
         </h2>
-        <div className="space-y-6">
+        <div className="space-y-6 max-w-4xl mx-auto">
           {faqItems.map((item, i) => (
-            <div key={i} className="card p-6">
+            <div key={i} className="surface-card p-6">
               <h3 className="text-lg font-bold mb-3">{item.question}</h3>
-              <p className="text-gray-300">{item.answer}</p>
+              <p className="text-muted">{item.answer}</p>
             </div>
           ))}
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="max-w-4xl mx-auto px-6 py-16 text-center">
-        <h2 className="text-3xl font-bold mb-4" style={{ color: "var(--accent-green)" }}>
-          Ready to Grow Your Business?
-        </h2>
-        <p className="text-gray-300 mb-8">
-          Join hundreds of vendors already selling on Good Hemp Distro.
-        </p>
-        <button
-          onClick={() => handleChoosePlan("BASIC")}
-          disabled={loading}
-          className="btn-cta px-8 py-3 text-lg disabled:opacity-50"
-        >
-          {loading ? "Processing..." : "Get Started Today"}
-        </button>
+      <section className="section-shell section-shell--tight text-center">
+        <div className="surface-card surface-card--raised p-10 max-w-4xl mx-auto">
+          <h2 className="text-3xl font-bold mb-4 text-accent">
+            Ready to Grow Your Business?
+          </h2>
+          <p className="text-muted mb-8">
+            Join hundreds of vendors already selling on Good Hemp Distro.
+          </p>
+          <button
+            onClick={() => handleChoosePlan("BASIC")}
+            disabled={loading}
+            className="btn-primary px-8 py-3 text-lg disabled:opacity-50"
+          >
+            {loading ? "Processing..." : "Get Started Today"}
+          </button>
+        </div>
       </section>
     </main>
+    <Footer />
+  </div>
   );
 }
