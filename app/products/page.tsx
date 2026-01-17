@@ -44,7 +44,7 @@ async function getProducts(): Promise<Product[]> {
 
 function ProductSkeleton() {
   return (
-    <div className="surface-card p-6 animate-pulse">
+    <div className="card-glass p-6 animate-pulse">
       <div className="aspect-square bg-[var(--surface)]/60 rounded-lg mb-4" />
       <div className="h-6 bg-[var(--surface)]/60 rounded mb-2" />
       <div className="h-4 bg-[var(--surface)]/60 rounded mb-4" />
@@ -69,7 +69,7 @@ export default async function ProductsPage() {
           </p>
 
           {products.length === 0 ? (
-            <div className="text-center py-16 surface-card p-8">
+            <div className="text-center py-16 card-glass p-8">
               <p className="text-muted text-lg mb-2">No products available at the moment.</p>
               <p className="text-muted">Check back soon for new arrivals!</p>
             </div>
@@ -77,7 +77,7 @@ export default async function ProductsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {products.map((product) => (
                 <Link key={product.id} href={`/products/${product.id}`} className="group">
-                  <div className="surface-card p-6 hover-lift h-full cursor-pointer">
+                  <div className="card-glass p-6 hover-lift h-full cursor-pointer">
                     <div className="aspect-square bg-[var(--surface)]/60 rounded-lg mb-4 group-hover:bg-[var(--surface)]/80 transition" />
                     <h3 className="text-xl font-semibold mb-2 group-hover:text-accent transition">{product.name}</h3>
                     <p className="text-muted mb-2 text-sm">{product.category}</p>

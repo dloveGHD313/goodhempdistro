@@ -62,6 +62,7 @@ export default function RootLayout({
   return (
     <html lang="en" style={themeVars}>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <div className="app-bg" aria-hidden="true" />
         <header className="topbar">
           <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between w-full">
             <Nav />

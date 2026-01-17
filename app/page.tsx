@@ -33,7 +33,7 @@ export default function Home() {
               { icon: "📦", title: "Fast Shipping", desc: "Discreet delivery to all 50 states" },
               { icon: "✅", title: "Lab Verified", desc: "All products tested & certified" }
             ].map((feature, i) => (
-              <div key={i} className="surface-card surface-card--raised p-6">
+              <div key={i} className="card-glass card-glass--raised p-6">
                 <div className="text-4xl mb-3">{feature.icon}</div>
                 <h3 className="font-bold text-lg mb-2 text-accent">{feature.title}</h3>
                 <p className="text-muted text-sm">{feature.desc}</p>
@@ -56,7 +56,7 @@ export default function Home() {
               { emoji: "👥", label: "Groups", href: "/groups", desc: "Join community groups" },
               { emoji: "💬", label: "Forums", href: "/forums", desc: "Discuss & connect" },
             ].map((link, i) => (
-              <Link key={i} href={link.href} className="surface-card p-5 hover-lift">
+              <Link key={i} href={link.href} className="card-glass p-5 hover-lift">
                 <div className="text-2xl mb-2">{link.emoji}</div>
                 <h3 className="font-bold text-lg mb-1">{link.label}</h3>
                 <p className="text-muted text-sm">{link.desc}</p>
@@ -66,7 +66,7 @@ export default function Home() {
         </section>
 
         <section className="section-shell section-shell--tight text-center">
-          <div className="surface-card surface-card--raised p-10">
+          <div className="card-glass card-glass--raised p-10">
             <h3 className="text-2xl md:text-3xl font-bold text-accent mb-4">Ready to Join?</h3>
             <p className="text-muted mb-8 text-lg">
               Start exploring premium hemp products and connect with our community.

@@ -32,39 +32,44 @@
 
 body {
   background-color: var(--bg);
-  background-image:
-    radial-gradient(1200px circle at 10% -10%, color-mix(in srgb, var(--brand-lime) 18%, transparent), transparent 55%),
-    radial-gradient(900px circle at 90% 100%, color-mix(in srgb, var(--brand-teal) 20%, transparent), transparent 55%),
-    radial-gradient(800px circle at 50% 45%, color-mix(in srgb, var(--bg) 25%, transparent), var(--bg-vignette) 60%, var(--bg) 100%),
-    linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
-  background-attachment: fixed;
   color: var(--text);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
 
-body::before {
-  content: "";
+.app-bg {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  opacity: 0.08;
+  background-image:
+    radial-gradient(1200px circle at 10% -10%, color-mix(in srgb, var(--brand-lime) 22%, transparent), transparent 55%),
+    radial-gradient(900px circle at 90% 90%, color-mix(in srgb, var(--brand-teal) 22%, transparent), transparent 55%),
+    radial-gradient(700px circle at 80% 10%, color-mix(in srgb, var(--brand-orange) 12%, transparent), transparent 60%),
+    radial-gradient(800px circle at 50% 45%, color-mix(in srgb, var(--bg) 15%, transparent), var(--bg-vignette) 60%, var(--bg) 100%),
+    linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
+  z-index: 0;
+}
+
+.app-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.06;
   background-image:
     repeating-linear-gradient(
       0deg,
-      rgba(255, 255, 255, 0.25) 0px,
-      rgba(255, 255, 255, 0.25) 1px,
+      color-mix(in srgb, var(--text) 6%, transparent) 0px,
+      color-mix(in srgb, var(--text) 6%, transparent) 1px,
       transparent 1px,
       transparent 2px
     ),
     repeating-linear-gradient(
       90deg,
-      rgba(255, 255, 255, 0.25) 0px,
-      rgba(255, 255, 255, 0.25) 1px,
+      color-mix(in srgb, var(--text) 6%, transparent) 0px,
+      color-mix(in srgb, var(--text) 6%, transparent) 1px,
       transparent 1px,
       transparent 2px
     );
   mix-blend-mode: soft-light;
-  z-index: 0;
 }
 
 main,
@@ -155,8 +160,9 @@ footer {
 }
 
 .surface-card,
-.card {
-  background: linear-gradient(140deg, var(--glass) 0%, rgba(5, 8, 13, 0.9) 100%);
+.card,
+.card-glass {
+  background: linear-gradient(140deg, var(--glass) 0%, color-mix(in srgb, var(--bg) 80%, transparent) 100%);
   border: 1px solid var(--border);
   border-radius: 0.75rem;
   box-shadow: var(--shadow);
@@ -164,7 +170,8 @@ footer {
 }
 
 .surface-card--raised,
-.card--raised {
+.card--raised,
+.card-glass--raised {
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.55);
 }
 
@@ -237,7 +244,7 @@ footer {
 }
 
 .nav-link {
-  color: var(--brand-teal);
+  color: color-mix(in srgb, var(--text) 70%, var(--brand-teal) 30%);
   transition: color 0.2s, opacity 0.2s;
 }
 
