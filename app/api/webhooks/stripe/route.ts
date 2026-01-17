@@ -109,29 +109,27 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
 
   const supabase = await createSupabaseServerClient();
 
-  if (!orderId) {
+  if (orderId) {
+    const { error } = await supabase
+      .from("orders")
+      .update({
+        status: "paid",
+        checkout_session_id: session.id,
+        payment_intent_id: session.payment_intent as string,
+        paid_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", orderId);
+
+    if (error) {
+      console.error(`❌ [handleCheckoutSessionCompleted] Failed to update order_id=${orderId}: ${error.message}`);
+      throw error;
+    }
+
+    console.log(`✅ [handleCheckoutSessionCompleted] Order updated successfully | order_id=${orderId}`);
+  } else {
     console.warn("⚠️ [handleCheckoutSessionCompleted] No order_id in session metadata");
-    return;
   }
-
-  // Update order in database
-  const { error } = await supabase
-    .from("orders")
-    .update({
-      status: "paid",
-      checkout_session_id: session.id,
-      payment_intent_id: session.payment_intent as string,
-      paid_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", orderId);
-
-  if (error) {
-    console.error(`❌ [handleCheckoutSessionCompleted] Failed to update order_id=${orderId}: ${error.message}`);
-    throw error;
-  }
-
-  console.log(`✅ [handleCheckoutSessionCompleted] Order updated successfully | order_id=${orderId}`);
 
   // Handle referral and payout if package was purchased
   if (userId && packageType && packageName && affiliateCode) {
@@ -210,6 +208,8 @@ async function handleSubscriptionChange(
   subscription: Stripe.Subscription
 ) {
   const userId = subscription.metadata?.user_id;
+  const packageType = subscription.metadata?.package_type;
+  const packageSlug = subscription.metadata?.package_slug;
   console.log(`🔄 [handleSubscriptionChange] event_type=${eventType} | subscription=${subscription.id} | user_id=${userId || "N/A"} | status=${subscription.status}`);
 
   const supabase = await createSupabaseServerClient();
@@ -241,6 +241,8 @@ async function handleSubscriptionChange(
     .upsert(
       {
         user_id: userId,
+        package_type: packageType || "consumer",
+        package_slug: packageSlug || null,
         stripe_subscription_id: subscription.id,
         stripe_customer_id: subscription.customer as string,
         status: status,
@@ -258,6 +260,19 @@ async function handleSubscriptionChange(
   if (error) {
     console.error(`❌ [handleSubscriptionChange] Failed to upsert subscription: ${error.message}`);
     throw error;
+  }
+
+  if (packageType && (status === "active" || status === "trialing")) {
+    await supabase
+      .from("profiles")
+      .upsert(
+        {
+          id: userId,
+          role: packageType === "vendor" ? "vendor" : "consumer",
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" }
+      );
   }
 
 }

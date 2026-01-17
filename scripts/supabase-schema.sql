@@ -111,7 +111,7 @@ CREATE TRIGGER update_products_updated_at
 CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   age_verified BOOLEAN NOT NULL DEFAULT false,
-  role TEXT NOT NULL DEFAULT 'consumer' CHECK (role IN ('consumer','vendor','admin')),
+  role TEXT NOT NULL DEFAULT 'consumer' CHECK (role IN ('consumer','vendor','affiliate','admin')),
   loyalty_points INT NOT NULL DEFAULT 0,
   vendor_id UUID,
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -233,6 +233,7 @@ CREATE TABLE IF NOT EXISTS vendor_packages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   slug TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
+  stripe_price_id TEXT,
   monthly_price_cents INT NOT NULL CHECK (monthly_price_cents >= 0),
   commission_bps INT NOT NULL CHECK (commission_bps >= 0),
   product_limit INT,
@@ -260,6 +261,7 @@ CREATE TABLE IF NOT EXISTS consumer_packages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   slug TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
+  stripe_price_id TEXT,
   monthly_price_cents INT NOT NULL CHECK (monthly_price_cents >= 0),
   perks JSONB NOT NULL DEFAULT '[]'::jsonb,
   loyalty_points_multiplier INT NOT NULL DEFAULT 1,
@@ -282,11 +284,47 @@ CREATE TRIGGER update_consumer_packages_updated_at
 CREATE TABLE IF NOT EXISTS affiliates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  role TEXT NOT NULL CHECK (role IN ('consumer','vendor')),
+  role TEXT NOT NULL CHECK (role IN ('consumer','vendor','affiliate')),
   affiliate_code TEXT NOT NULL UNIQUE,
   reward_cents INT NOT NULL DEFAULT 0 CHECK (reward_cents >= 0),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ============================================================================
+-- 9. Subscriptions (Stripe subscriptions for consumer/vendor plans)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  package_type TEXT NOT NULL CHECK (package_type IN ('consumer','vendor')),
+  package_slug TEXT,
+  stripe_subscription_id TEXT UNIQUE NOT NULL,
+  stripe_customer_id TEXT,
+  price_id TEXT,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','past_due','canceled','trialing','incomplete','incomplete_expired','unpaid')),
+  current_period_start TIMESTAMPTZ,
+  current_period_end TIMESTAMPTZ,
+  cancel_at_period_end BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_type ON subscriptions(package_type);
+
+CREATE TRIGGER update_subscriptions_updated_at
+  BEFORE UPDATE ON subscriptions
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
+
+ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view their own subscriptions"
+  ON subscriptions FOR SELECT
+  USING (auth.uid() = user_id);
+CREATE POLICY "Admin can manage subscriptions"
+  ON subscriptions FOR ALL
+  USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
 
 CREATE INDEX IF NOT EXISTS idx_affiliates_user_id ON affiliates(user_id);
 CREATE INDEX IF NOT EXISTS idx_affiliates_code ON affiliates(affiliate_code);
