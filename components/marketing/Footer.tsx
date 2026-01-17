@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Leaf, Twitter, Instagram, MessageCircle, Mail } from "lucide-react";
+import { Twitter, Instagram, MessageCircle, Mail } from "lucide-react";
+import BrandLogo from "@/components/BrandLogo";
 
 const footerLinks = {
   marketplace: [
@@ -43,9 +44,9 @@ export default function Footer() {
       <div className="section-shell section-shell--tight relative z-10">
         <div className="grid md:grid-cols-2 lg:grid-cols-6 gap-10 mb-16">
           <div className="lg:col-span-2">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Leaf className="w-5 h-5 text-primary" />
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                <BrandLogo size={40} />
               </div>
               <span className="text-xl font-bold text-foreground">Good Hemp Distros</span>
             </div>

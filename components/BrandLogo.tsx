@@ -15,7 +15,6 @@ export default function BrandLogo({ size = 40, className }: BrandLogoProps) {
       height={size}
       className={className}
       priority
-      onError={() => console.error("Logo failed to load", brand.logoPath)}
     />
   );
 }
