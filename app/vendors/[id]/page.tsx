@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { redirect } from "next/navigation";
 
 type Vendor = {
   id: string;
@@ -53,6 +54,52 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 
 export default async function VendorDetailPage(props: Props) {
   const params = await props.params;
+  const supabase = await createSupabaseServerClient();
+  const { data: userData } = await supabase.auth.getUser();
+  const user = userData.user;
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  let hasAccess = profile?.role === "vendor" || profile?.role === "admin";
+
+  if (!hasAccess) {
+    const { data: activeSubscription } = await supabase
+      .from("subscriptions")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("package_type", "consumer")
+      .in("status", ["active", "trialing"])
+      .maybeSingle();
+
+    hasAccess = !!activeSubscription;
+  }
+
+  if (!hasAccess) {
+    return (
+      <main className="min-h-screen bg-gray-900 text-white">
+        <div className="container mx-auto px-4 py-16">
+          <div className="bg-gray-800 rounded-lg border border-gray-700 p-8 text-center">
+            <h1 className="text-3xl font-bold mb-4">Membership Required</h1>
+            <p className="text-gray-300 mb-6">
+              Upgrade to a consumer plan to view vendor details.
+            </p>
+            <Link href="/get-started" className="inline-block bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition">
+              View Consumer Plans
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   const vendor = await getVendor(params.id);
 
   if (!vendor) {

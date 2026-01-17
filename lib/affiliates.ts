@@ -34,7 +34,7 @@ export function calculateAffiliateReward(packageName: string): number {
 /**
  * Create or retrieve affiliate record for a user
  */
-export async function ensureAffiliate(userId: string, role: "consumer" | "vendor") {
+export async function ensureAffiliate(userId: string, role: "consumer" | "vendor" | "affiliate") {
   const supabase = await createSupabaseServerClient();
 
   // Check if affiliate exists

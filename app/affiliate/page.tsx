@@ -43,6 +43,12 @@ export default function AffiliatePage() {
 
       setUser(data.user);
 
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", data.user.id)
+        .single();
+
       // Load or create affiliate
       const { data: affiliate } = await supabase
         .from("affiliates")
@@ -57,12 +63,22 @@ export default function AffiliatePage() {
           .from("affiliates")
           .insert({
             user_id: data.user.id,
-            role: "consumer",
+            role: profile?.role === "vendor" ? "vendor" : "affiliate",
             affiliate_code: code,
             reward_cents: 0,
           })
           .select()
           .single();
+
+        if (profile?.role !== "vendor" && profile?.role !== "admin") {
+          await supabase
+            .from("profiles")
+            .upsert({
+              id: data.user.id,
+              role: "affiliate",
+              updated_at: new Date().toISOString(),
+            }, { onConflict: "id" });
+        }
         
         setAffiliateCode(code);
         setReferrals([]);

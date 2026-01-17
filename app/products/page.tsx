@@ -20,10 +20,6 @@ type Product = {
 async function getProducts(): Promise<Product[]> {
   try {
     const supabase = await createSupabaseServerClient();
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData.user) {
-      redirect("/login");
-    }
     const { data, error } = await supabase
       .from("products")
       .select("id, name, category, price_cents, featured")
@@ -57,6 +53,55 @@ function ProductSkeleton() {
 }
 
 export default async function ProductsPage() {
+  const supabase = await createSupabaseServerClient();
+  const { data: userData } = await supabase.auth.getUser();
+  const user = userData.user;
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  let hasAccess = profile?.role === "vendor" || profile?.role === "admin";
+
+  if (!hasAccess) {
+    const { data: activeSubscription } = await supabase
+      .from("subscriptions")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("package_type", "consumer")
+      .in("status", ["active", "trialing"])
+      .maybeSingle();
+
+    hasAccess = !!activeSubscription;
+  }
+
+  if (!hasAccess) {
+    return (
+      <div className="min-h-screen text-white flex flex-col">
+        <main className="flex-1">
+          <section className="section-shell">
+            <div className="surface-card p-8 text-center">
+              <h1 className="text-3xl font-bold mb-4 text-accent">Membership Required</h1>
+              <p className="text-muted mb-6">
+                Upgrade to a consumer plan to browse products.
+              </p>
+              <a href="/get-started" className="btn-primary inline-block">
+                View Consumer Plans
+              </a>
+            </div>
+          </section>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   const products = await getProducts();
 
   return (

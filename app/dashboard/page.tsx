@@ -1,4 +1,6 @@
 import { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { createSupabaseServerClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
@@ -6,7 +8,13 @@ export const metadata: Metadata = {
   description: "Your account dashboard",
 };
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const supabase = await createSupabaseServerClient();
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) {
+    redirect("/login");
+  }
+
   return (
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
