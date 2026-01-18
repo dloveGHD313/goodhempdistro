@@ -17,7 +17,7 @@ export async function getCategories(): Promise<Category[]> {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("categories")
-      .select("id, name")
+      .select("id, name, group")
       .order("name", { ascending: true });
 
     if (error) {
@@ -25,7 +25,7 @@ export async function getCategories(): Promise<Category[]> {
       return [];
     }
 
-    return data || [];
+    return (data || []) as Category[];
   } catch (err) {
     console.error("Fatal error fetching categories:", err);
     return [];
@@ -41,7 +41,7 @@ export async function getCategoriesClient(): Promise<Category[]> {
     const supabase = createSupabaseBrowserClient();
     const { data, error } = await supabase
       .from("categories")
-      .select("id, name")
+      .select("id, name, group")
       .order("name", { ascending: true });
 
     if (error) {
@@ -49,7 +49,7 @@ export async function getCategoriesClient(): Promise<Category[]> {
       return [];
     }
 
-    return data || [];
+    return (data || []) as Category[];
   } catch (err) {
     console.error("Fatal error fetching categories:", err);
     return [];
