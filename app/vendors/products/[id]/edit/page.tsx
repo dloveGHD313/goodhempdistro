@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
 import { getCategoriesClient, type Category } from "@/lib/categories";
+import { getDelta8WarningText, getIntoxicatingCutoffDate, isIntoxicatingAllowedNow } from "@/lib/compliance";
 
 type Product = {
   id: string;
@@ -28,6 +29,9 @@ export default function EditProductPage() {
   const [categoryId, setCategoryId] = useState<string>("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [active, setActive] = useState(true);
+  const [productType, setProductType] = useState<"non_intoxicating" | "intoxicating" | "delta8">("non_intoxicating");
+  const [coaUrl, setCoaUrl] = useState("");
+  const [delta8DisclaimerAck, setDelta8DisclaimerAck] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +47,7 @@ export default function EditProductPage() {
         const supabase = createSupabaseBrowserClient();
         const { data, error: fetchError } = await supabase
           .from("products")
-          .select("id, name, description, price_cents, category_id, active")
+          .select("id, name, description, price_cents, category_id, active, product_type, coa_url, delta8_disclaimer_ack")
           .eq("id", productId)
           .single();
 
@@ -59,6 +63,9 @@ export default function EditProductPage() {
         setPrice(((data.price_cents || 0) / 100).toFixed(2));
         setCategoryId(data.category_id || "");
         setActive(data.active);
+        setProductType((data.product_type as "non_intoxicating" | "intoxicating" | "delta8") || "non_intoxicating");
+        setCoaUrl(data.coa_url || "");
+        setDelta8DisclaimerAck(data.delta8_disclaimer_ack || false);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load product");
       } finally {
@@ -84,6 +91,25 @@ export default function EditProductPage() {
       return;
     }
 
+    // Validate compliance fields
+    if (!coaUrl.trim()) {
+      setError("COA URL is required for all products");
+      setSaving(false);
+      return;
+    }
+
+    if (productType === "intoxicating" && !isIntoxicatingAllowedNow()) {
+      setError(`Intoxicating products are only allowed until ${getIntoxicatingCutoffDate()}. The cutoff date has passed.`);
+      setSaving(false);
+      return;
+    }
+
+    if (productType === "delta8" && !delta8DisclaimerAck) {
+      setError("Delta-8 disclaimer acknowledgement is required");
+      setSaving(false);
+      return;
+    }
+
     try {
       const response = await fetch(`/api/vendors/products/${productId}`, {
         method: "PUT",
@@ -94,6 +120,9 @@ export default function EditProductPage() {
           price_cents: priceCents,
           category_id: categoryId || null,
           active,
+          product_type: productType,
+          coa_url: coaUrl.trim(),
+          delta8_disclaimer_ack: productType === "delta8" ? delta8DisclaimerAck : false,
         }),
       });
 
@@ -216,16 +245,81 @@ export default function EditProductPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="flex items-center gap-2">
+              <div className="border-t border-[var(--border)] pt-6 space-y-6">
+                <div>
+                  <label htmlFor="product_type" className="block text-sm font-medium mb-2">
+                    Product Type <span className="text-red-400">*</span>
+                  </label>
+                  <select
+                    id="product_type"
+                    value={productType}
+                    onChange={(e) => {
+                      setProductType(e.target.value as "non_intoxicating" | "intoxicating" | "delta8");
+                      if (e.target.value !== "delta8") {
+                        setDelta8DisclaimerAck(false);
+                      }
+                    }}
+                    required
+                    className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
+                  >
+                    <option value="non_intoxicating">Non-Intoxicating</option>
+                    <option value="intoxicating" disabled={!isIntoxicatingAllowedNow()}>
+                      Intoxicating {!isIntoxicatingAllowedNow() ? `(Not allowed after ${getIntoxicatingCutoffDate()})` : ""}
+                    </option>
+                    <option value="delta8">Delta-8</option>
+                  </select>
+                  {productType === "intoxicating" && !isIntoxicatingAllowedNow() && (
+                    <p className="text-red-400 text-sm mt-2">
+                      Intoxicating products are only allowed until {getIntoxicatingCutoffDate()}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="coa_url" className="block text-sm font-medium mb-2">
+                    COA URL (Full Panel Required) <span className="text-red-400">*</span>
+                  </label>
                   <input
-                    type="checkbox"
-                    checked={active}
-                    onChange={(e) => setActive(e.target.checked)}
-                    className="w-4 h-4 text-accent"
+                    type="url"
+                    id="coa_url"
+                    value={coaUrl}
+                    onChange={(e) => setCoaUrl(e.target.value)}
+                    required
+                    className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
+                    placeholder="https://example.com/coa.pdf"
                   />
-                  <span>Active (visible to customers)</span>
-                </label>
+                  <p className="text-sm text-muted mt-1">Full panel COA required for all products</p>
+                </div>
+
+                {productType === "delta8" && (
+                  <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-4">
+                    <p className="text-yellow-400 text-sm mb-3">{getDelta8WarningText()}</p>
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={delta8DisclaimerAck}
+                        onChange={(e) => setDelta8DisclaimerAck(e.target.checked)}
+                        required={productType === "delta8"}
+                        className="mt-1 w-4 h-4 accent-accent"
+                      />
+                      <span className="text-sm">
+                        I acknowledge the Delta-8 disclaimer <span className="text-red-400">*</span>
+                      </span>
+                    </label>
+                  </div>
+                )}
+
+                <div>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={active}
+                      onChange={(e) => setActive(e.target.checked)}
+                      className="w-4 h-4 text-accent"
+                    />
+                    <span>Active (visible to customers)</span>
+                  </label>
+                </div>
               </div>
 
               <div className="flex gap-4">

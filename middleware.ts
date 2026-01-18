@@ -44,10 +44,13 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Protected routes - require authentication
-  const protectedRoutes = ["/dashboard", "/account", "/vendors", "/products", "/orders", "/checkout"];
+  const protectedRoutes = ["/dashboard", "/account", "/vendors", "/products", "/orders", "/checkout", "/driver/dashboard"];
   const isProtectedRoute = protectedRoutes.some((route) => 
     pathname === route || pathname.startsWith(`${route}/`)
   );
+  
+  // Admin routes - require admin role (checked at page level, but redirect here if not authenticated)
+  const isAdminRoute = pathname.startsWith("/admin");
 
   // Auth pages - redirect to dashboard if already authenticated
   const authRoutes = ["/login", "/signup"];

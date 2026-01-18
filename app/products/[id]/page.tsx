@@ -3,6 +3,7 @@ import { Metadata, MetadataRoute } from "next";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import BuyButton from "./BuyButton";
+import { getDelta8WarningText, requiresWarning } from "@/lib/compliance";
 
 type Product = {
   id: string;
@@ -11,6 +12,9 @@ type Product = {
   categories: { name: string } | null | { name: string }[];
   price_cents: number;
   featured: boolean;
+  product_type?: "non_intoxicating" | "intoxicating" | "delta8";
+  coa_url?: string | null;
+  coa_verified?: boolean;
   created_at?: string;
 };
 
@@ -26,7 +30,7 @@ async function getProduct(id: string): Promise<Product | null> {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("products")
-      .select("id, name, category_id, categories(name), price_cents, featured, created_at")
+      .select("id, name, category_id, categories(name), price_cents, featured, product_type, coa_url, coa_verified, created_at")
       .eq("id", id)
       .single();
 
@@ -126,6 +130,31 @@ export default async function ProductDetailPage(props: Props) {
             {product.featured && (
               <div className="bg-green-900/30 border border-green-600 rounded-lg p-4">
                 <p className="text-green-400">⭐ Featured Product</p>
+              </div>
+            )}
+
+            {product.coa_url && (
+              <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                <h3 className="text-lg font-semibold mb-2">Certificate of Analysis (COA)</h3>
+                <a
+                  href={product.coa_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-green-400 hover:text-green-300 underline"
+                >
+                  View Full Panel COA →
+                </a>
+                {product.coa_verified && (
+                  <span className="ml-3 px-2 py-1 bg-green-600 text-white rounded text-xs">
+                    Verified
+                  </span>
+                )}
+              </div>
+            )}
+
+            {product.product_type === "delta8" && requiresWarning(product.product_type) && (
+              <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-4">
+                <p className="text-yellow-400 text-sm">{getDelta8WarningText()}</p>
               </div>
             )}
           </div>
