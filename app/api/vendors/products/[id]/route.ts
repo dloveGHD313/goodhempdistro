@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { validateProductCompliance } from "@/lib/compliance";
 
 /**
  * Update or delete a product
@@ -36,7 +37,30 @@ export async function PUT(
       );
     }
 
-    const { name, description, price_cents, category_id, active } = await req.json();
+    const { name, description, price_cents, category_id, active, product_type, coa_url, delta8_disclaimer_ack } = await req.json();
+
+    // Get current product to merge compliance fields for validation
+    const { data: currentProduct } = await supabase
+      .from("products")
+      .select("product_type, coa_url, delta8_disclaimer_ack")
+      .eq("id", id)
+      .single();
+
+    const compliancePayload = {
+      product_type: product_type !== undefined ? product_type : (currentProduct?.product_type || "non_intoxicating"),
+      coa_url: coa_url !== undefined ? coa_url : currentProduct?.coa_url,
+      delta8_disclaimer_ack: delta8_disclaimer_ack !== undefined ? delta8_disclaimer_ack : currentProduct?.delta8_disclaimer_ack,
+    };
+
+    // Validate compliance
+    const complianceErrors = validateProductCompliance(compliancePayload);
+
+    if (complianceErrors.length > 0) {
+      return NextResponse.json(
+        { error: complianceErrors[0].message, complianceErrors },
+        { status: 400 }
+      );
+    }
 
     const updates: Record<string, any> = {
       updated_at: new Date().toISOString(),
@@ -47,6 +71,9 @@ export async function PUT(
     if (price_cents !== undefined) updates.price_cents = parseInt(price_cents);
     if (category_id !== undefined) updates.category_id = category_id || null;
     if (active !== undefined) updates.active = active === true;
+    if (product_type !== undefined) updates.product_type = product_type;
+    if (coa_url !== undefined) updates.coa_url = coa_url?.trim() || null;
+    if (delta8_disclaimer_ack !== undefined) updates.delta8_disclaimer_ack = delta8_disclaimer_ack === true;
 
     const { data: updatedProduct, error: updateError } = await supabase
       .from("products")

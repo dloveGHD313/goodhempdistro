@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { getIntoxicatingCutoffDate } from "@/lib/compliance";
 
 /**
  * Create a new vendor record
@@ -19,11 +20,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { business_name, description } = await req.json();
+    const { business_name, description, coa_attested, intoxicating_policy_ack } = await req.json();
 
     if (!business_name || !business_name.trim()) {
       return NextResponse.json(
         { error: "Business name is required" },
+        { status: 400 }
+      );
+    }
+
+    // Require compliance attestations
+    if (!coa_attested) {
+      return NextResponse.json(
+        { error: "COA attestation is required" },
+        { status: 400 }
+      );
+    }
+
+    if (!intoxicating_policy_ack) {
+      return NextResponse.json(
+        { error: `Intoxicating products policy acknowledgement is required. Intoxicating products are allowed only until ${getIntoxicatingCutoffDate()}.` },
         { status: 400 }
       );
     }
@@ -43,6 +59,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create vendor
+    const now = new Date().toISOString();
     const { data: vendor, error: vendorError } = await supabase
       .from("vendors")
       .insert({
@@ -50,6 +67,10 @@ export async function POST(req: NextRequest) {
         business_name: business_name.trim(),
         description: description?.trim() || null,
         status: "pending",
+        coa_attested: true,
+        coa_attested_at: now,
+        intoxicating_policy_ack: true,
+        intoxicating_policy_ack_at: now,
       })
       .select("id, business_name, status")
       .single();
