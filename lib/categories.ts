@@ -4,11 +4,9 @@
 
 import { createSupabaseServerClient } from "./supabase";
 import { createSupabaseBrowserClient } from "./supabase";
+import type { Category } from "./categories.types";
 
-export type Category = {
-  id: string;
-  name: string;
-};
+export type { Category } from "./categories.types";
 
 /**
  * Fetch all categories (server-side)
