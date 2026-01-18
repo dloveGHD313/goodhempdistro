@@ -59,22 +59,30 @@ These are only available server-side and MUST NOT be exposed to the browser.
 
 ⚠️ **Important:** The `service_role` key bypasses Row Level Security. Keep it secret and only use server-side.
 
-#### 2a. Run Database Migration
+#### 2a. Run Database Migrations
 
-**Before the app can work, you must run the marketplace schema migration:**
+**Before the app can work, you must run all database migrations in order:**
+
+**Migration files (run in order):**
+1. `supabase/migrations/001_marketplace_core.sql` - Core marketplace schema (profiles, vendors, products, orders, order_items)
+2. `supabase/migrations/002_categories.sql` - Categories table for product categorization
+3. `supabase/migrations/003_categories_group.sql` - Add group column to categories table
+
+**Steps for each migration:**
 
 1. In Supabase Dashboard, go to **SQL Editor**
 2. Click **New Query**
-3. Open the file `supabase/migrations/001_marketplace_core.sql` from this repository
+3. Open the migration file from this repository (start with `001_marketplace_core.sql`)
 4. Copy the entire contents of the file
 5. Paste into the SQL Editor
 6. Click **Run** (or press `Ctrl+Enter` / `Cmd+Enter`)
+7. **Repeat steps 2-6 for each migration file in order** (001, then 002, then 003)
 
 **Expected output:** You should see "Success. No rows returned" (this is normal - migrations don't return data).
 
 **Verify migration success:**
 
-After running the migration, verify tables were created:
+After running all migrations, verify tables and columns were created:
 
 ```sql
 -- Check if tables exist
@@ -82,6 +90,7 @@ SELECT to_regclass('public.vendors') AS vendors_exists;
 SELECT to_regclass('public.products') AS products_exists;
 SELECT to_regclass('public.orders') AS orders_exists;
 SELECT to_regclass('public.order_items') AS order_items_exists;
+SELECT to_regclass('public.categories') AS categories_exists;
 
 -- Check if function exists
 SELECT routine_name FROM information_schema.routines 
@@ -91,15 +100,30 @@ AND routine_name = 'update_updated_at_column';
 -- Check RLS is enabled
 SELECT tablename, rowsecurity FROM pg_tables 
 WHERE schemaname = 'public' 
-AND tablename IN ('vendors', 'products', 'orders', 'order_items');
+AND tablename IN ('vendors', 'products', 'orders', 'order_items', 'categories');
+
+-- Verify categories table structure (should show: id, name, group, created_at, updated_at)
+SELECT column_name, data_type, is_nullable 
+FROM information_schema.columns 
+WHERE table_schema = 'public' 
+AND table_name = 'categories'
+ORDER BY ordinal_position;
 ```
 
-**All should return non-null values for tables and show `rowsecurity = true` for RLS.**
+**All should return non-null values for tables and show `rowsecurity = true` for RLS. Categories table should have columns: `id`, `name`, `group`, `created_at`, `updated_at`.**
+
+**Admin Category Management:**
+
+- Admin category management is available at `/admin/categories`
+- **Access requires:** User must have `profile.role = 'admin'` in the `profiles` table
+- To grant admin access: Update the user's profile in Supabase: `UPDATE profiles SET role = 'admin' WHERE id = '<user_id>';`
+- Admin can create, edit, and delete categories with groups: `industrial`, `recreational`, `convenience`, `food`
 
 **If migration fails:**
 - Check error messages in SQL Editor
 - Ensure you have sufficient permissions in Supabase
-- The migration is idempotent - you can run it multiple times safely
+- All migrations are idempotent - you can run them multiple times safely
+- Make sure to run migrations in order (001, 002, 003)
 
 ### 3. Stripe Webhook Configuration
 
