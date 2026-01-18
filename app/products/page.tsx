@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
 
@@ -23,10 +22,7 @@ type Product = {
 async function getProducts(): Promise<Product[]> {
   try {
     const supabase = await createSupabaseServerClient();
-    const { data: userData } = await supabase.auth.getUser();
-    if (!userData.user) {
-      redirect("/login");
-    }
+    // Middleware handles authentication - user is guaranteed to be authenticated here
     const { data, error } = await supabase
       .from("products")
       .select("id, name, category, price_cents, featured")

@@ -1,11 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 type ConsumerPackage = {
   id: string;
@@ -23,7 +20,7 @@ export default function GetStartedPage() {
 
   useEffect(() => {
     const loadPackages = async () => {
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+      const supabase = createSupabaseBrowserClient();
       const { data, error } = await supabase
         .from("consumer_packages")
         .select("id, slug, name, monthly_price_cents, perks, loyalty_points_multiplier")

@@ -1,11 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Footer from "@/components/Footer";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
 type Referral = {
@@ -30,7 +28,7 @@ export default function AffiliatePage() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const supabase = createSupabaseBrowserClient();
 
     async function loadUser() {
       const { data } = await supabase.auth.getUser();
