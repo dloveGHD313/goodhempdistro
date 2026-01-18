@@ -19,12 +19,22 @@ const navLinks = [
 
 export default function Nav() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(async ({ data }) => {
       setIsLoggedIn(!!data.user);
+      if (data.user) {
+        // Check if user is admin
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", data.user.id)
+          .single();
+        setIsAdmin(profile?.role === "admin");
+      }
     });
   }, []);
 
@@ -60,6 +70,11 @@ export default function Nav() {
             {link.label}
           </Link>
         ))}
+        {isAdmin && (
+          <Link href="/admin/categories" className="nav-link text-sm">
+            ⚙️ Admin
+          </Link>
+        )}
         <Link href={accountHref} className="nav-link text-sm">
           Account
         </Link>
@@ -146,6 +161,17 @@ export default function Nav() {
                   {link.label}
                 </Link>
               ))}
+
+              {/* Admin link */}
+              {isAdmin && (
+                <Link
+                  href="/admin/categories"
+                  className="px-4 py-3 rounded-lg text-base drawer-link"
+                  onClick={() => setDrawerOpen(false)}
+                >
+                  ⚙️ Admin - Categories
+                </Link>
+              )}
 
               {/* Account & Logout */}
               <div className="border-t mt-4 pt-4 nav-drawer-header">
