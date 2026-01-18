@@ -59,6 +59,48 @@ These are only available server-side and MUST NOT be exposed to the browser.
 
 ⚠️ **Important:** The `service_role` key bypasses Row Level Security. Keep it secret and only use server-side.
 
+#### 2a. Run Database Migration
+
+**Before the app can work, you must run the marketplace schema migration:**
+
+1. In Supabase Dashboard, go to **SQL Editor**
+2. Click **New Query**
+3. Open the file `supabase/migrations/001_marketplace_core.sql` from this repository
+4. Copy the entire contents of the file
+5. Paste into the SQL Editor
+6. Click **Run** (or press `Ctrl+Enter` / `Cmd+Enter`)
+
+**Expected output:** You should see "Success. No rows returned" (this is normal - migrations don't return data).
+
+**Verify migration success:**
+
+After running the migration, verify tables were created:
+
+```sql
+-- Check if tables exist
+SELECT to_regclass('public.vendors') AS vendors_exists;
+SELECT to_regclass('public.products') AS products_exists;
+SELECT to_regclass('public.orders') AS orders_exists;
+SELECT to_regclass('public.order_items') AS order_items_exists;
+
+-- Check if function exists
+SELECT routine_name FROM information_schema.routines 
+WHERE routine_schema = 'public' 
+AND routine_name = 'update_updated_at_column';
+
+-- Check RLS is enabled
+SELECT tablename, rowsecurity FROM pg_tables 
+WHERE schemaname = 'public' 
+AND tablename IN ('vendors', 'products', 'orders', 'order_items');
+```
+
+**All should return non-null values for tables and show `rowsecurity = true` for RLS.**
+
+**If migration fails:**
+- Check error messages in SQL Editor
+- Ensure you have sufficient permissions in Supabase
+- The migration is idempotent - you can run it multiple times safely
+
 ### 3. Stripe Webhook Configuration
 
 Stripe webhooks notify your app when payments succeed, fail, or subscriptions change.
