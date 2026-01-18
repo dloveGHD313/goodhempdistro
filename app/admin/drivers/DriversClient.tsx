@@ -10,6 +10,9 @@ type Application = {
   city: string;
   state: string;
   vehicle_type: string;
+  driver_license_url?: string | null;
+  insurance_url?: string | null;
+  mvr_report_url?: string | null;
   status: string;
   created_at: string;
 };
@@ -73,6 +76,7 @@ export default function DriversClient({ initialApplications, initialDrivers }: P
                   <th className="pb-3 font-semibold text-muted">Contact</th>
                   <th className="pb-3 font-semibold text-muted">Location</th>
                   <th className="pb-3 font-semibold text-muted">Vehicle</th>
+                  <th className="pb-3 font-semibold text-muted">Documents</th>
                   <th className="pb-3 font-semibold text-muted">Status</th>
                   <th className="pb-3 font-semibold text-muted">Applied</th>
                   <th className="pb-3 font-semibold text-muted">Actions</th>
@@ -85,6 +89,28 @@ export default function DriversClient({ initialApplications, initialDrivers }: P
                     <td className="py-3 text-muted">{app.phone}</td>
                     <td className="py-3 text-muted">{app.city}, {app.state}</td>
                     <td className="py-3 text-muted">{app.vehicle_type}</td>
+                    <td className="py-3">
+                      <div className="flex flex-col gap-1 text-sm">
+                        {app.driver_license_url && (
+                          <a href={app.driver_license_url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                            License
+                          </a>
+                        )}
+                        {app.insurance_url && (
+                          <a href={app.insurance_url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                            Insurance
+                          </a>
+                        )}
+                        {app.mvr_report_url && (
+                          <a href={app.mvr_report_url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                            MVR
+                          </a>
+                        )}
+                        {!app.driver_license_url && !app.insurance_url && !app.mvr_report_url && (
+                          <span className="text-red-400">No documents</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="py-3">
                       <span className={`px-2 py-1 rounded text-xs font-semibold ${
                         app.status === "approved"

@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 
 /**
- * Submit driver application
- * Public endpoint - requires authentication
+ * Submit logistics application
+ * Requires authentication
  */
 export async function POST(req: NextRequest) {
   try {
@@ -14,26 +14,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { full_name, phone, city, state, vehicle_type, driver_license_url, insurance_url, mvr_report_url } = await req.json();
+    const { company_name, authority_url, insurance_cert_url, w9_url } = await req.json();
 
-    if (!full_name || !phone || !city || !state || !vehicle_type) {
+    if (!company_name || !authority_url || !insurance_cert_url) {
       return NextResponse.json(
-        { error: "All fields are required" },
-        { status: 400 }
-      );
-    }
-
-    // Validate required documents
-    if (!driver_license_url || !insurance_url || !mvr_report_url) {
-      return NextResponse.json(
-        { error: "All required documents must be uploaded: Driver License, Insurance, and MVR Report" },
+        { error: "Company name, authority URL, and insurance certificate URL are required" },
         { status: 400 }
       );
     }
 
     // Check if application already exists
     const { data: existing } = await supabase
-      .from("driver_applications")
+      .from("logistics_applications")
       .select("id, status")
       .eq("user_id", user.id)
       .maybeSingle();
@@ -47,24 +39,20 @@ export async function POST(req: NextRequest) {
 
     // Create application
     const { data: application, error } = await supabase
-      .from("driver_applications")
+      .from("logistics_applications")
       .insert({
         user_id: user.id,
-        full_name: full_name.trim(),
-        phone: phone.trim(),
-        city: city.trim(),
-        state: state.trim(),
-        vehicle_type: vehicle_type.trim(),
-        driver_license_url: driver_license_url.trim(),
-        insurance_url: insurance_url.trim(),
-        mvr_report_url: mvr_report_url.trim(),
+        company_name: company_name.trim(),
+        authority_url: authority_url.trim(),
+        insurance_cert_url: insurance_cert_url.trim(),
+        w9_url: w9_url?.trim() || null,
         status: "pending",
       })
       .select("id, status")
       .single();
 
     if (error) {
-      console.error("Error creating driver application:", error);
+      console.error("Error creating logistics application:", error);
       return NextResponse.json(
         { error: "Failed to submit application" },
         { status: 500 }
@@ -76,7 +64,7 @@ export async function POST(req: NextRequest) {
       application: application,
     }, { status: 201 });
   } catch (error) {
-    console.error("Driver application error:", error);
+    console.error("Logistics application error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
