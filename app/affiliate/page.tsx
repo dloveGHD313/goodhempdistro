@@ -10,6 +10,7 @@ type Referral = {
   id: string;
   referred_user_id: string;
   status: "pending" | "paid";
+  reward_cents?: number;
   created_at: string;
 };
 
@@ -55,9 +56,8 @@ export default function AffiliatePage() {
           .from("affiliates")
           .insert({
             user_id: data.user.id,
-            role: "consumer",
             affiliate_code: code,
-            reward_cents: 0,
+            status: "active",
           })
           .select()
           .single();
@@ -70,7 +70,7 @@ export default function AffiliatePage() {
         // Load referrals with details
         const { data: referralData } = await supabase
           .from("affiliate_referrals")
-          .select("id, referred_user_id, status, created_at")
+          .select("id, referred_user_id, status, reward_cents, created_at")
           .eq("affiliate_id", affiliate.id)
           .order("created_at", { ascending: false });
 
@@ -80,11 +80,16 @@ export default function AffiliatePage() {
         const paid = referralList.filter((r) => r.status === "paid").length;
         const pending = referralList.filter((r) => r.status === "pending").length;
 
+        // Calculate total earnings from referrals
+        const totalEarnings = referralList
+          .filter((r) => r.status === "paid")
+          .reduce((sum, r) => sum + (r.reward_cents || 0), 0);
+
         setEarnings({
           totalReferrals: referralList.length,
           paidReferrals: paid,
           pendingReferrals: pending,
-          totalEarnings: affiliate.reward_cents,
+          totalEarnings: totalEarnings,
         });
       }
 

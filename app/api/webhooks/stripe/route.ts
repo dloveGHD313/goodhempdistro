@@ -58,8 +58,15 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        console.log(`📦 Processing checkout.session.completed | order_id=${session.metadata?.order_id || "N/A"} | session=${session.id}`);
+        console.log(`📦 Processing checkout.session.completed | order_id=${session.metadata?.order_id || "N/A"} | mode=${session.mode} | session=${session.id}`);
         await handleCheckoutSessionCompleted(session);
+        break;
+      }
+
+      case "invoice.paid": {
+        const invoice = event.data.object as Stripe.Invoice;
+        console.log(`💰 Processing invoice.paid | subscription=${invoice.subscription || "N/A"} | invoice=${invoice.id}`);
+        await handleInvoicePaid(invoice);
         break;
       }
 
@@ -102,42 +109,76 @@ export async function POST(req: NextRequest) {
 
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
   const orderId = session.metadata?.order_id;
-  const packageType = session.metadata?.package_type; // 'vendor' or 'consumer'
-  const packageName = session.metadata?.package_name;
-  const userId = session.client_reference_id;
+  const planType = session.metadata?.plan_type; // 'vendor' or 'consumer'
+  const planName = session.metadata?.plan_name;
+  const planId = session.metadata?.plan_id;
+  const userId = session.client_reference_id || session.metadata?.user_id;
   const affiliateCode = session.metadata?.affiliate_code;
 
-  console.log(`💰 [handleCheckoutSessionCompleted] order_id=${orderId} | session=${session.id} | user_id=${userId} | package=${packageName} | affiliate=${affiliateCode}`);
+  console.log(`💰 [handleCheckoutSessionCompleted] order_id=${orderId} | mode=${session.mode} | session=${session.id} | user_id=${userId} | plan=${planName} | affiliate=${affiliateCode}`);
 
   const supabase = await createSupabaseServerClient();
 
-  if (!orderId) {
-    console.warn("⚠️ [handleCheckoutSessionCompleted] No order_id in session metadata");
+  // Handle subscription checkout
+  if (session.mode === "subscription" && userId && planId) {
+    const subscriptionId = session.subscription as string;
+    
+    // Create subscription record from checkout
+    const { error: subError } = await supabase
+      .from("subscriptions")
+      .upsert({
+        user_id: userId,
+        plan_type: planType || "consumer",
+        plan_id: planId,
+        stripe_subscription_id: subscriptionId,
+        stripe_customer_id: session.customer as string,
+        status: "active",
+        updated_at: new Date().toISOString(),
+      }, {
+        onConflict: "stripe_subscription_id",
+      });
+
+    if (subError) {
+      console.error(`❌ [handleCheckoutSessionCompleted] Failed to create subscription: ${subError.message}`);
+    } else {
+      console.log(`✅ [handleCheckoutSessionCompleted] Subscription created | subscription_id=${subscriptionId}`);
+
+      // Link subscription to profile
+      if (planId) {
+        await supabase
+          .from("profiles")
+          .update({ active_subscription_id: subscriptionId })
+          .eq("id", userId);
+      }
+    }
+
+    // Handle referral tracking for subscription
+    if (planType && planName && affiliateCode) {
+      await handleReferralTracking(session.id, userId, planType, planName, affiliateCode, supabase);
+    }
+
     return;
   }
 
-  // Update order in database
-  const { error } = await supabase
-    .from("orders")
-    .update({
-      status: "paid",
-      checkout_session_id: session.id,
-      payment_intent_id: session.payment_intent as string,
-      paid_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", orderId);
+  // Handle one-time payment (order)
+  if (orderId) {
+    const { error } = await supabase
+      .from("orders")
+      .update({
+        status: "paid",
+        checkout_session_id: session.id,
+        payment_intent_id: session.payment_intent as string,
+        paid_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", orderId);
 
-  if (error) {
-    console.error(`❌ [handleCheckoutSessionCompleted] Failed to update order_id=${orderId}: ${error.message}`);
-    throw error;
-  }
+    if (error) {
+      console.error(`❌ [handleCheckoutSessionCompleted] Failed to update order_id=${orderId}: ${error.message}`);
+      throw error;
+    }
 
-  console.log(`✅ [handleCheckoutSessionCompleted] Order updated successfully | order_id=${orderId}`);
-
-  // Handle referral and payout if package was purchased
-  if (userId && packageType && packageName && affiliateCode) {
-    await handleReferralTracking(session.id, userId, packageType, packageName, affiliateCode, supabase);
+    console.log(`✅ [handleCheckoutSessionCompleted] Order updated successfully | order_id=${orderId}`);
   }
 }
 
@@ -207,11 +248,55 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
   }
 }
 
+async function handleInvoicePaid(invoice: Stripe.Invoice) {
+  const subscriptionId = invoice.subscription as string;
+  if (!subscriptionId) return;
+
+  const supabase = await createSupabaseServerClient();
+
+  // Get subscription to find user
+  const { data: subscription } = await supabase
+    .from("subscriptions")
+    .select("user_id, plan_type, plan_id")
+    .eq("stripe_subscription_id", subscriptionId)
+    .single();
+
+  if (!subscription) {
+    console.warn(`⚠️ [handleInvoicePaid] Subscription not found for ${subscriptionId}`);
+    return;
+  }
+
+  // Mark referral as paid if this is first invoice for subscription
+  if (subscription.plan_type && subscription.user_id) {
+    const { data: referrals } = await supabase
+      .from("affiliate_referrals")
+      .select("id")
+      .eq("referred_user_id", subscription.user_id)
+      .eq("plan_type", subscription.plan_type)
+      .eq("status", "pending")
+      .limit(1);
+
+    if (referrals && referrals.length > 0) {
+      await supabase
+        .from("affiliate_referrals")
+        .update({ status: "paid", updated_at: new Date().toISOString() })
+        .eq("id", referrals[0].id);
+
+      console.log(`✅ [handleInvoicePaid] Marked referral as paid | referral_id=${referrals[0].id}`);
+    }
+  }
+
+  console.log(`✅ [handleInvoicePaid] Invoice paid processed | subscription=${subscriptionId}`);
+}
+
 async function handleSubscriptionChange(
   eventType: string,
   subscription: Stripe.Subscription
 ) {
   const userId = subscription.metadata?.user_id;
+  const planId = subscription.metadata?.plan_id;
+  const planType = subscription.metadata?.plan_type as "vendor" | "consumer" | undefined;
+  
   console.log(`🔄 [handleSubscriptionChange] event_type=${eventType} | subscription=${subscription.id} | user_id=${userId || "N/A"} | status=${subscription.status}`);
 
   const supabase = await createSupabaseServerClient();
@@ -243,6 +328,8 @@ async function handleSubscriptionChange(
     .upsert(
       {
         user_id: userId,
+        plan_type: planType,
+        plan_id: planId || null,
         stripe_subscription_id: subscription.id,
         stripe_customer_id: subscription.customer as string,
         status: status,
@@ -262,6 +349,20 @@ async function handleSubscriptionChange(
     throw error;
   }
 
+  // Update profile active_subscription_id when active
+  if (status === "active") {
+    await supabase
+      .from("profiles")
+      .update({ active_subscription_id: subscription.id })
+      .eq("id", userId);
+  } else if (status === "canceled") {
+    await supabase
+      .from("profiles")
+      .update({ active_subscription_id: null })
+      .eq("id", userId);
+  }
+
+  console.log(`✅ [handleSubscriptionChange] Subscription ${status} | subscription_id=${subscription.id}`);
 }
 
 /**
@@ -332,6 +433,7 @@ async function handleReferralTracking(
       .insert({
         affiliate_id: affiliate.id,
         referred_user_id: userId,
+        plan_type: packageType as "vendor" | "consumer",
         stripe_session_id: sessionId,
         status: "pending",
         reward_cents: rewardCents,
