@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { validateProductCompliance } from "@/lib/compliance";
 
 /**
  * Create a new product
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
       console.warn(`⚠️ [product/create] Vendor ${vendor.id} has no active subscription`);
     }
 
-    const { name, description, price_cents, category_id, active = true } = await req.json();
+    const { name, description, price_cents, category_id, active = true, product_type, coa_url, delta8_disclaimer_ack } = await req.json();
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -85,6 +86,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validate compliance
+    const complianceErrors = validateProductCompliance({
+      product_type: product_type || "non_intoxicating",
+      coa_url,
+      delta8_disclaimer_ack,
+    });
+
+    if (complianceErrors.length > 0) {
+      return NextResponse.json(
+        { error: complianceErrors[0].message, complianceErrors },
+        { status: 400 }
+      );
+    }
+
     // Create product
     const { data: product, error: productError } = await supabase
       .from("products")
@@ -95,6 +110,9 @@ export async function POST(req: NextRequest) {
         price_cents: parseInt(price_cents),
         category_id: category_id || null,
         active: active === true,
+        product_type: product_type || "non_intoxicating",
+        coa_url: coa_url?.trim() || null,
+        delta8_disclaimer_ack: delta8_disclaimer_ack === true,
       })
       .select("id, name, price_cents")
       .single();
