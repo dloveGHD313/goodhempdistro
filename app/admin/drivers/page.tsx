@@ -7,15 +7,22 @@ import DriversClient from "./DriversClient";
 export const dynamic = 'force-dynamic';
 
 async function getDriversData() {
-  const response = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/api/admin/drivers`, {
-    cache: "no-store",
-  });
+  const admin = getSupabaseAdminClient();
 
-  if (!response.ok) {
-    return { applications: [], drivers: [] };
-  }
+  const { data: applications } = await admin
+    .from("driver_applications")
+    .select("*")
+    .order("created_at", { ascending: false });
 
-  return response.json();
+  const { data: drivers } = await admin
+    .from("drivers")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  return {
+    applications: applications || [],
+    drivers: drivers || [],
+  };
 }
 
 export default async function AdminDriversPage() {
