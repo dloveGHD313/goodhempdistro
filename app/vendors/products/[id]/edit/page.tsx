@@ -5,13 +5,14 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
+import { getCategoriesClient, type Category } from "@/lib/categories";
 
 type Product = {
   id: string;
   name: string;
   description: string | null;
   price_cents: number;
-  category: string | null;
+  category_id: string | null;
   active: boolean;
 };
 
@@ -24,19 +25,25 @@ export default function EditProductPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
-  const [category, setCategory] = useState("");
+  const [categoryId, setCategoryId] = useState<string>("");
+  const [categories, setCategories] = useState<Category[]>([]);
   const [active, setActive] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function loadProduct() {
+    async function loadData() {
       try {
+        // Load categories
+        const cats = await getCategoriesClient();
+        setCategories(cats);
+
+        // Load product
         const supabase = createSupabaseBrowserClient();
         const { data, error: fetchError } = await supabase
           .from("products")
-          .select("id, name, description, price_cents, category, active")
+          .select("id, name, description, price_cents, category_id, active")
           .eq("id", productId)
           .single();
 
@@ -50,7 +57,7 @@ export default function EditProductPage() {
         setName(data.name);
         setDescription(data.description || "");
         setPrice(((data.price_cents || 0) / 100).toFixed(2));
-        setCategory(data.category || "");
+        setCategoryId(data.category_id || "");
         setActive(data.active);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load product");
@@ -60,7 +67,7 @@ export default function EditProductPage() {
     }
 
     if (productId) {
-      loadProduct();
+      loadData();
     }
   }, [productId]);
 
@@ -85,7 +92,7 @@ export default function EditProductPage() {
           name,
           description,
           price_cents: priceCents,
-          category: category || null,
+          category_id: categoryId || null,
           active,
         }),
       });
@@ -193,13 +200,19 @@ export default function EditProductPage() {
                   <label htmlFor="category" className="block text-sm font-medium mb-2">
                     Category
                   </label>
-                  <input
-                    type="text"
+                  <select
                     id="category"
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
+                    value={categoryId}
+                    onChange={(e) => setCategoryId(e.target.value)}
                     className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
-                  />
+                  >
+                    <option value="">Select a category (optional)</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

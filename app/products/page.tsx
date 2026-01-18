@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { Metadata } from "next";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
+import ProductsList from "./ProductsList";
 
 export const metadata: Metadata = {
   title: "Products | Good Hemp Distro",
@@ -14,7 +14,8 @@ export const dynamic = 'force-dynamic';
 type Product = {
   id: string;
   name: string;
-  category: string;
+  category_id: string | null;
+  categories: { name: string } | null | { name: string }[];
   price_cents: number;
   featured: boolean;
 };
@@ -25,7 +26,7 @@ async function getProducts(): Promise<Product[]> {
     // Middleware handles authentication - user is guaranteed to be authenticated here
     const { data, error } = await supabase
       .from("products")
-      .select("id, name, category, price_cents, featured")
+      .select("id, name, category_id, categories(name), price_cents, featured")
       .eq("active", true)
       .order("created_at", { ascending: false });
 
@@ -67,40 +68,7 @@ export default async function ProductsPage() {
             Browse our curated selection of premium hemp products.
           </p>
 
-          {products.length === 0 ? (
-            <div className="text-center py-16 card-glass p-8">
-              <p className="text-muted text-lg mb-2">No products available at the moment.</p>
-              <p className="text-muted">Check back soon for new arrivals!</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {products.map((product) => (
-                <Link key={product.id} href={`/products/${product.id}`} className="group">
-                  <div className="card-glass p-6 hover-lift h-full cursor-pointer">
-                    <div className="aspect-square bg-[var(--surface)]/60 rounded-lg mb-4 group-hover:bg-[var(--surface)]/80 transition" />
-                    <h3 className="text-xl font-semibold mb-2 group-hover:text-accent transition">{product.name}</h3>
-                    <p className="text-muted mb-2 text-sm">{product.category}</p>
-                    <div className="flex justify-between items-center">
-                      <span className="text-2xl font-bold text-accent">
-                        ${(product.price_cents / 100).toFixed(2)}
-                      </span>
-                      <button className="btn-secondary px-4 py-2 rounded-lg">
-                        View
-                      </button>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-
-          <div className="mt-16 text-center">
-            <p className="text-muted">
-              {products.length > 0
-                ? "Browse our full selection above"
-                : "More products coming soon. Check back regularly for new additions."}
-            </p>
-          </div>
+          <ProductsList initialProducts={products} />
         </section>
       </main>
       <Footer />

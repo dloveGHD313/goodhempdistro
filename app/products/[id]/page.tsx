@@ -7,7 +7,8 @@ import BuyButton from "./BuyButton";
 type Product = {
   id: string;
   name: string;
-  category: string;
+  category_id: string | null;
+  categories: { name: string } | null | { name: string }[];
   price_cents: number;
   featured: boolean;
   created_at?: string;
@@ -25,7 +26,7 @@ async function getProduct(id: string): Promise<Product | null> {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("products")
-      .select("id, name, category, price_cents, featured, created_at")
+      .select("id, name, category_id, categories(name), price_cents, featured, created_at")
       .eq("id", id)
       .single();
 
@@ -50,9 +51,13 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     };
   }
 
+  const categoryName = Array.isArray(product.categories) 
+    ? (product.categories[0]?.name || null)
+    : (product.categories?.name || null);
+  
   return {
     title: `${product.name} | Good Hemp Distro`,
-    description: `Shop ${product.name} in the ${product.category} category`,
+    description: `Shop ${product.name}${categoryName ? ` in the ${categoryName} category` : ''}`,
   };
 }
 
@@ -84,7 +89,11 @@ export default async function ProductDetailPage(props: Props) {
           <div className="space-y-6">
             <div>
               <h1 className="text-4xl font-bold mb-2">{product.name}</h1>
-              <p className="text-gray-400 text-lg">Category: {product.category}</p>
+              <p className="text-gray-400 text-lg">
+                Category: {Array.isArray(product.categories) 
+                  ? (product.categories[0]?.name || "Uncategorized")
+                  : (product.categories?.name || "Uncategorized")}
+              </p>
             </div>
 
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">

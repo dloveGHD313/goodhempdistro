@@ -36,7 +36,7 @@ export async function PUT(
       );
     }
 
-    const { name, description, price_cents, category, active } = await req.json();
+    const { name, description, price_cents, category_id, active } = await req.json();
 
     const updates: Record<string, any> = {
       updated_at: new Date().toISOString(),
@@ -45,7 +45,7 @@ export async function PUT(
     if (name !== undefined) updates.name = name.trim();
     if (description !== undefined) updates.description = description?.trim() || null;
     if (price_cents !== undefined) updates.price_cents = parseInt(price_cents);
-    if (category !== undefined) updates.category = category?.trim() || null;
+    if (category_id !== undefined) updates.category_id = category_id || null;
     if (active !== undefined) updates.active = active === true;
 
     const { data: updatedProduct, error: updateError } = await supabase

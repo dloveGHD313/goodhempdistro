@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { name, description, price_cents, category, active = true } = await req.json();
+    const { name, description, price_cents, category_id, active = true } = await req.json();
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
         name: name.trim(),
         description: description?.trim() || null,
         price_cents: parseInt(price_cents),
-        category: category?.trim() || null,
+        category_id: category_id || null,
         active: active === true,
       })
       .select("id, name, price_cents")
