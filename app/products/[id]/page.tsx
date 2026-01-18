@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Metadata, MetadataRoute } from "next";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import BuyButton from "./BuyButton";
 
 type Product = {
   id: string;
@@ -93,14 +94,7 @@ export default async function ProductDetailPage(props: Props) {
               </p>
             </div>
 
-            <div className="space-y-4">
-              <button className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-lg transition">
-                Add to Cart
-              </button>
-              <button className="w-full border border-gray-600 text-white hover:border-green-600 hover:text-green-400 font-bold py-4 px-6 rounded-lg transition">
-                Save for Later
-              </button>
-            </div>
+            <BuyButton productId={product.id} />
 
             <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 space-y-3">
               <h3 className="text-lg font-semibold">About This Product</h3>
