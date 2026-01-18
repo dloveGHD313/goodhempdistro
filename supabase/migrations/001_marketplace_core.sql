@@ -96,7 +96,6 @@ CREATE TABLE IF NOT EXISTS products (
   name TEXT NOT NULL,
   description TEXT,
   price_cents INT NOT NULL CHECK (price_cents >= 0),
-  category TEXT,
   vendor_id UUID REFERENCES vendors(id) ON DELETE SET NULL,
   active BOOLEAN NOT NULL DEFAULT true,
   featured BOOLEAN NOT NULL DEFAULT false,
@@ -141,8 +140,11 @@ END $$;
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_products_vendor_id ON products(vendor_id);
 CREATE INDEX IF NOT EXISTS idx_products_active ON products(active) WHERE active = true;
-CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
 CREATE INDEX IF NOT EXISTS idx_products_featured ON products(featured) WHERE featured = true;
+
+-- Note: category_id index is created in migration 002_categories.sql
+-- Note: products.category (TEXT) is legacy and should not be used
+-- Use products.category_id (UUID FK to categories.id) instead
 
 -- Enable RLS on products
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
