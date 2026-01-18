@@ -15,7 +15,13 @@ async function getDashboardData(userId: string) {
   try {
     const supabase = await createSupabaseServerClient();
     
-    // Fetch orders
+    // Fetch all orders for accurate stats
+    const { data: allOrders, error: allOrdersError } = await supabase
+      .from("orders")
+      .select("id, status, total_cents, created_at")
+      .eq("user_id", userId);
+
+    // Fetch recent orders for display (limit 10)
     const { data: orders, error: ordersError } = await supabase
       .from("orders")
       .select("id, status, total_cents, created_at")
@@ -27,10 +33,10 @@ async function getDashboardData(userId: string) {
       console.error("Error fetching orders:", ordersError);
     }
 
-    // Calculate totals
-    const totalOrders = orders?.length || 0;
-    const activeOrders = orders?.filter(o => o.status === "pending" || o.status === "processing").length || 0;
-    const totalSpent = orders?.reduce((sum, order) => sum + (order.total_cents || 0), 0) || 0;
+    // Calculate totals from all orders
+    const totalOrders = allOrders?.length || 0;
+    const activeOrders = allOrders?.filter(o => o.status === "pending" || o.status === "processing").length || 0;
+    const totalSpent = allOrders?.reduce((sum, order) => sum + (order.total_cents || 0), 0) || 0;
 
     return {
       orders: orders || [],

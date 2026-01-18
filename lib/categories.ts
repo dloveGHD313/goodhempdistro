@@ -1,0 +1,59 @@
+/**
+ * Category helpers - Server and client safe functions to fetch categories
+ */
+
+import { createSupabaseServerClient } from "./supabase";
+import { createSupabaseBrowserClient } from "./supabase";
+
+export type Category = {
+  id: string;
+  name: string;
+};
+
+/**
+ * Fetch all categories (server-side)
+ * Use in server components and API routes
+ */
+export async function getCategories(): Promise<Category[]> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("categories")
+      .select("id, name")
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching categories:", error);
+      return [];
+    }
+
+    return data || [];
+  } catch (err) {
+    console.error("Fatal error fetching categories:", err);
+    return [];
+  }
+}
+
+/**
+ * Fetch all categories (client-side)
+ * Use in client components
+ */
+export async function getCategoriesClient(): Promise<Category[]> {
+  try {
+    const supabase = createSupabaseBrowserClient();
+    const { data, error } = await supabase
+      .from("categories")
+      .select("id, name")
+      .order("name", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching categories:", error);
+      return [];
+    }
+
+    return data || [];
+  } catch (err) {
+    console.error("Fatal error fetching categories:", err);
+    return [];
+  }
+}
