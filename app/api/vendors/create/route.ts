@@ -44,7 +44,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if vendor already exists for this user
+    // Check if vendor application already exists
+    const { data: existingApplication } = await supabase
+      .from("vendor_applications")
+      .select("id, status")
+      .eq("user_id", user.id)
+      .single();
+
+    if (existingApplication) {
+      return NextResponse.json(
+        { 
+          error: "Vendor application already exists", 
+          application_id: existingApplication.id,
+          status: existingApplication.status,
+        },
+        { status: 409 }
+      );
+    }
+
+    // Check if vendor already exists (approved)
     const { data: existingVendor } = await supabase
       .from("vendors")
       .select("id")
@@ -53,48 +71,35 @@ export async function POST(req: NextRequest) {
 
     if (existingVendor) {
       return NextResponse.json(
-        { error: "Vendor already exists for this user", vendor_id: existingVendor.id },
+        { error: "Vendor account already exists", vendor_id: existingVendor.id },
         { status: 409 }
       );
     }
 
-    // Create vendor
-    const now = new Date().toISOString();
-    const { data: vendor, error: vendorError } = await supabase
-      .from("vendors")
+    // Create vendor application
+    const { data: application, error: applicationError } = await supabase
+      .from("vendor_applications")
       .insert({
-        owner_user_id: user.id,
+        user_id: user.id,
         business_name: business_name.trim(),
         description: description?.trim() || null,
         status: "pending",
-        coa_attested: true,
-        coa_attested_at: now,
-        intoxicating_policy_ack: true,
-        intoxicating_policy_ack_at: now,
       })
-      .select("id, business_name, status")
+      .select("id, status")
       .single();
 
-    if (vendorError) {
-      console.error("Error creating vendor:", vendorError);
+    if (applicationError) {
+      console.error("Error creating vendor application:", applicationError);
       return NextResponse.json(
-        { error: "Failed to create vendor" },
+        { error: "Failed to submit vendor application" },
         { status: 500 }
       );
     }
 
-    // Update user profile to vendor role
-    await supabase
-      .from("profiles")
-      .upsert({
-        id: user.id,
-        role: "vendor",
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "id" });
-
     return NextResponse.json({
       success: true,
-      vendor: vendor,
+      application: application,
+      message: "Vendor application submitted. You will be notified once it's reviewed.",
     }, { status: 201 });
   } catch (error) {
     console.error("Vendor creation error:", error);

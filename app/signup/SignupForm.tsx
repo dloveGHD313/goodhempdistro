@@ -49,11 +49,18 @@ export default function SignupForm() {
       }
 
       if (data.user) {
-        setMessage("Account created! Please check your email to verify your account.");
-        // Optionally redirect after a delay
-        setTimeout(() => {
-          router.push("/login");
-        }, 3000);
+        // Check if email confirmation is required
+        if (data.session) {
+          // User is immediately logged in (email confirmation disabled)
+          router.push("/dashboard");
+        } else {
+          // Email confirmation required
+          setMessage("Account created! Please check your email to verify your account before logging in.");
+          // Redirect to login after showing message
+          setTimeout(() => {
+            router.push("/login?message=Please check your email to verify your account");
+          }, 5000);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred");
