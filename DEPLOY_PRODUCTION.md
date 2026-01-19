@@ -59,7 +59,44 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key (server-only)
 STRIPE_SECRET_KEY=your_stripe_secret
 STRIPE_WEBHOOK_SECRET=your_webhook_secret
+DEBUG_KEY=your_debug_key (optional, for production debugging)
 ```
+
+### Production Debug Mode
+
+To enable production debugging for vendor application creation:
+
+1. **Set DEBUG_KEY in Vercel Environment Variables**
+   - Go to Vercel Dashboard > Your Project > Settings > Environment Variables
+   - Add `DEBUG_KEY` with a secure random value (e.g., generate with `openssl rand -hex 32`)
+   - Deploy the changes
+
+2. **Enable Debug Mode in Browser**
+   - Visit `/vendor-registration?debug=1`
+   - Open DevTools Console (F12)
+   - Run: `localStorage.setItem('DEBUG_KEY', 'your-debug-key-value')`
+   - Replace `your-debug-key-value` with the same value you set in Vercel
+
+3. **Submit Form with Debug Enabled**
+   - Fill out and submit the vendor registration form
+   - Open Network tab in DevTools
+   - Find the `create` request
+   - Click on it and view the Response tab
+   - Copy the full JSON response (includes `debug` object with detailed error info)
+
+4. **Debug Response Includes:**
+   - `has_user`: Whether user was authenticated
+   - `user_id`: Authenticated user ID (if available)
+   - `authError`: Authentication error details (if any)
+   - `supabase_error`: Full Supabase error (code, message, details, hint)
+   - `server_timestamp`: When the error occurred
+   - `business_name_length`: Length of business name (not full text)
+   - `description_length`: Length of description (not full text)
+
+**Security Note:** Debug mode only activates when:
+- URL contains `?debug=1`
+- `DEBUG_KEY` environment variable is set
+- Request header `x-debug-key` matches `DEBUG_KEY` value
 
 ## Database Migrations
 
