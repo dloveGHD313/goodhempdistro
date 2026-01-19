@@ -17,10 +17,24 @@ export default function VendorForm() {
   const [submitted, setSubmitted] = useState(false);
   const [debugResponse, setDebugResponse] = useState<any>(null);
   const [isDebugMode, setIsDebugMode] = useState(false);
+  const [debugKeyExists, setDebugKeyExists] = useState(false);
+  const [debugKeyPreview, setDebugKeyPreview] = useState("");
+  const [sendingDebugHeader, setSendingDebugHeader] = useState(false);
 
   // Check if debug mode is enabled
   useEffect(() => {
-    setIsDebugMode(searchParams?.get("debug") === "1");
+    const debugEnabled = searchParams?.get("debug") === "1";
+    setIsDebugMode(debugEnabled);
+    
+    if (debugEnabled && typeof window !== "undefined") {
+      const key = localStorage.getItem("DEBUG_KEY");
+      setDebugKeyExists(!!key);
+      if (key) {
+        setDebugKeyPreview(key.substring(0, 6) + "...");
+      } else {
+        setDebugKeyPreview("");
+      }
+    }
   }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -42,12 +56,11 @@ export default function VendorForm() {
         "Content-Type": "application/json",
       };
 
-      // Add debug key header if in debug mode
+      // Always send x-debug-key header when in debug mode (even if empty)
       if (isDebugMode) {
-        const debugKey = typeof window !== "undefined" ? localStorage.getItem("DEBUG_KEY") : null;
-        if (debugKey) {
-          headers["x-debug-key"] = debugKey;
-        }
+        const debugKey = typeof window !== "undefined" ? localStorage.getItem("DEBUG_KEY") || "" : "";
+        headers["x-debug-key"] = debugKey;
+        setSendingDebugHeader(true);
       }
 
       // Build URL with debug param if enabled
@@ -78,10 +91,16 @@ export default function VendorForm() {
         // Show detailed error message
         const errorMsg = data.error || "Failed to create vendor";
         
-        // Show build marker if present
+        // Show build marker and request_id if present
         let fullErrorMsg = errorMsg;
         if (data.build_marker) {
           fullErrorMsg += `\n[Build: ${data.build_marker}]`;
+        }
+        if (data.request_id) {
+          fullErrorMsg += `\n[Request ID: ${data.request_id}]`;
+        }
+        if (data.debug_status) {
+          fullErrorMsg += `\n[Debug: ${data.debug_status.enabled ? "ON" : "OFF"} - ${data.debug_status.reason}]`;
         }
         
         // Show debug info if available
@@ -116,19 +135,39 @@ export default function VendorForm() {
     <form onSubmit={handleSubmit} className="space-y-6 surface-card p-8 max-w-2xl mx-auto">
       <h2 className="text-2xl font-bold mb-6 text-accent">Create Your Vendor Account</h2>
       
+      {/* Debug Panel - Visible when ?debug=1 */}
+      {isDebugMode && (
+        <div className="bg-yellow-900/30 border-2 border-yellow-600 rounded-lg p-4 text-yellow-300">
+          <div className="font-bold mb-3 text-lg">🔍 DEBUG MODE ENABLED</div>
+          <div className="space-y-2 text-sm font-mono">
+            <div><strong>Origin:</strong> {typeof window !== "undefined" ? window.location.origin : "N/A"}</div>
+            <div><strong>DEBUG_KEY in localStorage:</strong> {debugKeyExists ? "✅ YES" : "❌ NO"}</div>
+            {debugKeyExists && (
+              <div><strong>DEBUG_KEY Preview:</strong> {debugKeyPreview}</div>
+            )}
+            <div><strong>Sending x-debug-key header:</strong> {sendingDebugHeader ? "✅ YES" : "❌ NO"}</div>
+            {!debugKeyExists && (
+              <div className="mt-3 p-2 bg-red-900/50 border border-red-600 rounded text-red-200">
+                ⚠️ WARNING: DEBUG_KEY missing in localStorage for this origin.<br/>
+                Run in console: <code className="bg-black/50 px-1 rounded">localStorage.setItem('DEBUG_KEY', 'your-key-value')</code>
+              </div>
+            )}
+          </div>
+          {debugResponse && (
+            <div className="mt-4 pt-4 border-t border-yellow-600/50">
+              <div className="font-semibold mb-2">Last Response JSON:</div>
+              <pre className="text-xs overflow-auto max-h-96 bg-black/50 p-3 rounded border border-yellow-600/30">
+                {JSON.stringify(debugResponse, null, 2)}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+      
       {error && (
         <div className="bg-red-900/30 border border-red-600 rounded-lg p-4 text-red-400">
           <div className="font-semibold mb-2">Failed to submit vendor application</div>
           <div className="text-sm whitespace-pre-wrap font-mono text-xs">{error}</div>
-        </div>
-      )}
-
-      {isDebugMode && debugResponse && (
-        <div className="bg-blue-900/30 border border-blue-600 rounded-lg p-4 text-blue-400">
-          <div className="font-semibold mb-2">Debug Response (Full JSON)</div>
-          <pre className="text-xs overflow-auto max-h-96 bg-black/30 p-2 rounded">
-            {JSON.stringify(debugResponse, null, 2)}
-          </pre>
         </div>
       )}
 
