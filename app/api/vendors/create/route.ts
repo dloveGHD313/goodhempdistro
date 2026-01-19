@@ -44,24 +44,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if vendor application already exists
-    const { data: existingApplication } = await supabase
-      .from("vendor_applications")
-      .select("id, status")
-      .eq("user_id", user.id)
-      .single();
-
-    if (existingApplication) {
-      return NextResponse.json(
-        { 
-          error: "Vendor application already exists", 
-          application_id: existingApplication.id,
-          status: existingApplication.status,
-        },
-        { status: 409 }
-      );
-    }
-
     // Check if vendor already exists (approved)
     const { data: existingVendor } = await supabase
       .from("vendors")
@@ -74,6 +56,34 @@ export async function POST(req: NextRequest) {
         { error: "Vendor account already exists", vendor_id: existingVendor.id },
         { status: 409 }
       );
+    }
+
+    // Check if vendor application already exists
+    const { data: existingApplication, error: checkError } = await supabase
+      .from("vendor_applications")
+      .select("id, status, business_name")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error("Error checking existing application:", checkError);
+      // Continue to try insert anyway
+    }
+
+    if (existingApplication) {
+      // Return existing application instead of failing
+      return NextResponse.json({
+        success: true,
+        application: {
+          id: existingApplication.id,
+          status: existingApplication.status,
+        },
+        message: existingApplication.status === "pending"
+          ? "Vendor application already submitted and pending review."
+          : existingApplication.status === "approved"
+          ? "Vendor application was already approved."
+          : "Vendor application was previously rejected.",
+      }, { status: 200 });
     }
 
     // Create vendor application
@@ -90,8 +100,18 @@ export async function POST(req: NextRequest) {
 
     if (applicationError) {
       console.error("Error creating vendor application:", applicationError);
+      
+      // Return real Postgres error message in development
+      const errorMessage = process.env.NODE_ENV === "development"
+        ? applicationError.message || applicationError.details || "Failed to submit vendor application"
+        : "Failed to submit vendor application";
+      
       return NextResponse.json(
-        { error: "Failed to submit vendor application" },
+        { 
+          error: errorMessage,
+          code: applicationError.code,
+          details: process.env.NODE_ENV === "development" ? applicationError.details : undefined,
+        },
         { status: 500 }
       );
     }

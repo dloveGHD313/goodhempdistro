@@ -42,31 +42,14 @@ export async function PUT(
       return NextResponse.json({ error: "Application not found" }, { status: 404 });
     }
 
-    // Update application status
-    const { error: updateError } = await admin
-      .from("vendor_applications")
-      .update({
-        status,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id);
-
-    if (updateError) {
-      console.error("Error updating vendor application:", updateError);
-      return NextResponse.json(
-        { error: "Failed to update application status" },
-        { status: 500 }
-      );
-    }
-
-    // If approved, create vendor record and update profile role
+    // If approved, create vendor record and update profile role FIRST
     if (status === "approved") {
       // Check if vendor already exists
       const { data: existingVendor } = await admin
         .from("vendors")
         .select("id")
         .eq("owner_user_id", application.user_id)
-        .single();
+        .maybeSingle();
 
       if (!existingVendor) {
         // Create vendor record
@@ -81,21 +64,51 @@ export async function PUT(
 
         if (vendorError) {
           console.error("Error creating vendor:", vendorError);
-          // Don't fail the request, but log it
+          return NextResponse.json(
+            { error: `Failed to create vendor: ${vendorError.message}` },
+            { status: 500 }
+          );
         }
       }
 
       // Update profile role to vendor
-      await admin
+      const { error: profileError } = await admin
         .from("profiles")
         .update({
           role: "vendor",
           updated_at: new Date().toISOString(),
         })
         .eq("id", application.user_id);
+
+      if (profileError) {
+        console.error("Error updating profile role:", profileError);
+        // Don't fail, but log it
+      }
     }
 
-    return NextResponse.json({ success: true });
+    // Update application status
+    const { data: updatedApplication, error: updateError } = await admin
+      .from("vendor_applications")
+      .update({
+        status,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .select("id, user_id, business_name, description, status, created_at, updated_at")
+      .single();
+
+    if (updateError) {
+      console.error("Error updating vendor application:", updateError);
+      return NextResponse.json(
+        { error: "Failed to update application status" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ 
+      success: true,
+      application: updatedApplication,
+    });
   } catch (error) {
     console.error("Admin vendor approval error:", error);
     return NextResponse.json(

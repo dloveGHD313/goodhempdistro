@@ -34,7 +34,10 @@ export default function VendorForm() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "Failed to create vendor");
+        // Show detailed error message with debug info
+        const errorMsg = data.error || "Failed to create vendor";
+        const debugInfo = data.details ? ` (${data.details})` : "";
+        setError(`${errorMsg}${debugInfo}`);
         setLoading(false);
         return;
       }
@@ -60,7 +63,13 @@ export default function VendorForm() {
       
       {error && (
         <div className="bg-red-900/30 border border-red-600 rounded-lg p-4 text-red-400">
-          {error}
+          <div className="font-semibold mb-1">Failed to submit vendor application</div>
+          <div className="text-sm">{error}</div>
+          {process.env.NODE_ENV === "development" && (
+            <div className="mt-2 text-xs text-red-300 font-mono">
+              Debug: Check browser console and server logs for details
+            </div>
+          )}
         </div>
       )}
 
