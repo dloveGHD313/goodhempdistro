@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type VendorApplication = {
   id: string;
@@ -22,6 +22,26 @@ type Props = {
 
 export default function VendorsClient({ initialApplications }: Props) {
   const [applications, setApplications] = useState<VendorApplication[]>(initialApplications);
+  const [loading, setLoading] = useState(false);
+
+  // Refresh applications from API
+  const refreshApplications = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/admin/vendors");
+      if (response.ok) {
+        const data = await response.json();
+        setApplications(data.applications || []);
+      }
+    } catch (error) {
+      console.error("Error refreshing applications:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Don't auto-refresh on mount since we have initialApplications from server
+  // Only refresh after status updates
 
   const updateApplicationStatus = async (id: string, status: "approved" | "rejected") => {
     try {
@@ -37,16 +57,24 @@ export default function VendorsClient({ initialApplications }: Props) {
         return;
       }
 
-      // Update local state
-      setApplications(applications.map((app) =>
-        app.id === id ? { ...app, status } : app
-      ));
+      const data = await response.json();
 
-      // If approved, refresh to show updated list
-      if (status === "approved") {
-        window.location.reload();
+      // Update local state with returned application
+      if (data.application) {
+        setApplications(applications.map((app) =>
+          app.id === id ? { ...app, ...data.application } : app
+        ));
+      } else {
+        // Fallback: update status manually
+        setApplications(applications.map((app) =>
+          app.id === id ? { ...app, status } : app
+        ));
       }
+
+      // Refresh to get latest data (including profiles)
+      await refreshApplications();
     } catch (error) {
+      console.error("Error updating application status:", error);
       alert("Failed to update application status");
     }
   };
@@ -56,6 +84,11 @@ export default function VendorsClient({ initialApplications }: Props) {
 
   return (
     <div className="space-y-8">
+      {loading && (
+        <div className="card-glass p-4 text-center">
+          <p className="text-muted">Refreshing...</p>
+        </div>
+      )}
       <div className="card-glass p-6">
         <h2 className="text-2xl font-bold mb-4">Pending Applications</h2>
         {pendingApps.length === 0 ? (

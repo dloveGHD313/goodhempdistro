@@ -8,22 +8,29 @@ import VendorsClient from "./VendorsClient";
 export const dynamic = 'force-dynamic';
 
 async function getVendorApplications() {
-  const admin = getSupabaseAdminClient();
+  try {
+    // Use admin client directly in server component (more efficient than API call)
+    const admin = getSupabaseAdminClient();
 
-  const { data: applications, error } = await admin
-    .from("vendor_applications")
-    .select("id, user_id, business_name, description, status, created_at, updated_at, profiles(display_name, email)")
-    .order("created_at", { ascending: false });
+    const { data: applications, error } = await admin
+      .from("vendor_applications")
+      .select("id, user_id, business_name, description, status, created_at, updated_at, profiles(display_name, email)")
+      .order("created_at", { ascending: false });
 
-  if (error) {
+    if (error) {
+      console.error("Error fetching vendor applications:", error);
+      return [];
+    }
+
+    // Normalize profiles relation
+    return (applications || []).map((app: any) => ({
+      ...app,
+      profiles: Array.isArray(app.profiles) ? app.profiles[0] : app.profiles,
+    }));
+  } catch (error) {
     console.error("Error fetching vendor applications:", error);
     return [];
   }
-
-  return (applications || []).map((app: any) => ({
-    ...app,
-    profiles: Array.isArray(app.profiles) ? app.profiles[0] : app.profiles,
-  }));
 }
 
 export default async function AdminVendorsPage() {
