@@ -110,8 +110,8 @@ export default function UploadField({
         setUploadedUrl(publicUrl);
         setUploadProgress(100);
         onUploaded(publicUrl);
+        setUploading(false);
       }
-      setUploading(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Upload failed";
       setError(errorMessage);
