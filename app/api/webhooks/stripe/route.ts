@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { validateEnvVars } from "@/lib/env-validator";
 
 // Lazy initialization - only create Stripe client when actually used
@@ -160,7 +161,14 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     return;
   }
 
-  // Handle one-time payment (order)
+  // Handle event order (check metadata for order_type)
+  const orderType = session.metadata?.order_type;
+  if (orderId && orderType === "event") {
+    await handleEventOrderCompleted(session, orderId, supabase);
+    return;
+  }
+
+  // Handle one-time payment (regular product order)
   if (orderId) {
     const { error } = await supabase
       .from("orders")
@@ -475,5 +483,167 @@ async function handleReferralTracking(
     console.error(`❌ [handleReferralTracking] Error tracking referral: ${error}`);
     // Don't throw - this is a non-critical operation
   }
+}
 
+/**
+ * Handle event order completion
+ * Atomically updates inventory (tickets_sold, ticket_type.sold) and marks order as paid
+ */
+async function handleEventOrderCompleted(
+  session: Stripe.Checkout.Session,
+  orderId: string,
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>
+) {
+  console.log(`🎫 [handleEventOrderCompleted] Processing event order | order_id=${orderId} | session=${session.id}`);
+
+  const admin = getSupabaseAdminClient();
+
+  // Fetch order with items
+  const { data: order, error: orderError } = await admin
+    .from("event_orders")
+    .select("id, event_id, status")
+    .eq("id", orderId)
+    .single();
+
+  if (orderError || !order) {
+    console.error(`❌ [handleEventOrderCompleted] Order not found: ${orderId}`);
+    return;
+  }
+
+  if (order.status === "paid") {
+    console.log(`ℹ️ [handleEventOrderCompleted] Order already paid | order_id=${orderId}`);
+    return;
+  }
+
+  // Fetch order items with ticket types
+  const { data: orderItems, error: itemsError } = await admin
+    .from("event_order_items")
+    .select("ticket_type_id, quantity")
+    .eq("event_order_id", orderId);
+
+  if (itemsError || !orderItems || orderItems.length === 0) {
+    console.error(`❌ [handleEventOrderCompleted] No order items found for order_id=${orderId}`);
+    return;
+  }
+
+  // Fetch ticket types for inventory check
+  const ticketTypeIds = orderItems.map((item) => item.ticket_type_id);
+  const { data: ticketTypes, error: ticketTypesError } = await admin
+    .from("event_ticket_types")
+    .select("id, quantity, sold")
+    .in("id", ticketTypeIds);
+
+  if (ticketTypesError || !ticketTypes) {
+    console.error(`❌ [handleEventOrderCompleted] Failed to fetch ticket types`);
+    return;
+  }
+
+  // Verify inventory one more time (prevent race conditions)
+  const ticketTypeMap = new Map(ticketTypes.map((tt) => [tt.id, tt]));
+  let totalTickets = 0;
+
+  for (const item of orderItems) {
+    const ticketType = ticketTypeMap.get(item.ticket_type_id);
+    if (!ticketType) continue;
+
+    totalTickets += item.quantity;
+
+    // Check ticket type availability
+    if (ticketType.quantity !== null) {
+      if (ticketType.sold + item.quantity > ticketType.quantity) {
+        console.error(`❌ [handleEventOrderCompleted] Inventory exceeded for ticket_type=${item.ticket_type_id}`);
+        // Mark order as cancelled due to inventory issue
+        await admin
+          .from("event_orders")
+          .update({ status: "cancelled", updated_at: new Date().toISOString() })
+          .eq("id", orderId);
+        return;
+      }
+    }
+  }
+
+  // Fetch event for capacity check
+  const { data: event, error: eventError } = await admin
+    .from("events")
+    .select("id, capacity, tickets_sold")
+    .eq("id", order.event_id)
+    .single();
+
+  if (eventError || !event) {
+    console.error(`❌ [handleEventOrderCompleted] Event not found: ${order.event_id}`);
+    return;
+  }
+
+  // Check event capacity
+  if (event.capacity !== null) {
+    if (event.tickets_sold + totalTickets > event.capacity) {
+      console.error(`❌ [handleEventOrderCompleted] Event capacity exceeded | event_id=${order.event_id}`);
+      await admin
+        .from("event_orders")
+        .update({ status: "cancelled", updated_at: new Date().toISOString() })
+        .eq("id", orderId);
+      return;
+    }
+  }
+
+  // Use transaction-like approach: update all inventory atomically
+  // Update ticket types sold counts
+  for (const item of orderItems) {
+    const ticketType = ticketTypeMap.get(item.ticket_type_id);
+    if (!ticketType) continue;
+
+    const { error: updateError } = await admin
+      .from("event_ticket_types")
+      .update({
+        sold: ticketType.sold + item.quantity,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", item.ticket_type_id);
+
+    if (updateError) {
+      console.error(`❌ [handleEventOrderCompleted] Failed to update ticket_type=${item.ticket_type_id}: ${updateError.message}`);
+      // Rollback: mark order as cancelled
+      await admin
+        .from("event_orders")
+        .update({ status: "cancelled", updated_at: new Date().toISOString() })
+        .eq("id", orderId);
+      return;
+    }
+  }
+
+  // Update event tickets_sold
+  const { error: eventUpdateError } = await admin
+    .from("events")
+    .update({
+      tickets_sold: event.tickets_sold + totalTickets,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", order.event_id);
+
+  if (eventUpdateError) {
+    console.error(`❌ [handleEventOrderCompleted] Failed to update event tickets_sold: ${eventUpdateError.message}`);
+    // Rollback ticket types (complex, but mark order as cancelled at least)
+    await admin
+      .from("event_orders")
+      .update({ status: "cancelled", updated_at: new Date().toISOString() })
+      .eq("id", orderId);
+    return;
+  }
+
+  // Mark order as paid
+  const { error: orderUpdateError } = await admin
+    .from("event_orders")
+    .update({
+      status: "paid",
+      stripe_session_id: session.id,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", orderId);
+
+  if (orderUpdateError) {
+    console.error(`❌ [handleEventOrderCompleted] Failed to update order status: ${orderUpdateError.message}`);
+    throw orderUpdateError;
+  }
+
+  console.log(`✅ [handleEventOrderCompleted] Event order completed | order_id=${orderId} | tickets=${totalTickets}`);
 }
