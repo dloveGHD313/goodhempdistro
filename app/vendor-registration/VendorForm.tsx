@@ -13,10 +13,18 @@ export default function VendorForm() {
   const [intoxicatingAck, setIntoxicatingAck] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Prevent duplicate submissions
+    if (loading || submitted) {
+      return;
+    }
+    
     setLoading(true);
+    setSubmitted(true);
     setError(null);
 
     try {
@@ -34,11 +42,23 @@ export default function VendorForm() {
       const data = await response.json();
 
       if (!response.ok) {
-        // Show detailed error message with debug info
+        // Show detailed error message
         const errorMsg = data.error || "Failed to create vendor";
-        const debugInfo = data.details ? ` (${data.details})` : "";
-        setError(`${errorMsg}${debugInfo}`);
+        
+        // In development, show additional debug info
+        let fullErrorMsg = errorMsg;
+        if (process.env.NODE_ENV === "development") {
+          if (data.details) fullErrorMsg += `\nDetails: ${data.details}`;
+          if (data.hint) fullErrorMsg += `\nHint: ${data.hint}`;
+          if (data.code) fullErrorMsg += `\nCode: ${data.code}`;
+          if (data.debug_user_id !== undefined) {
+            fullErrorMsg += `\nDebug: user_id=${data.debug_user_id}, has_user=${data.debug_has_user}`;
+          }
+        }
+        
+        setError(fullErrorMsg);
         setLoading(false);
+        setSubmitted(false); // Allow retry
         return;
       }
 
@@ -52,8 +72,10 @@ export default function VendorForm() {
         router.refresh();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An unexpected error occurred");
+      const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred";
+      setError(errorMessage);
       setLoading(false);
+      setSubmitted(false); // Allow retry
     }
   };
 
@@ -63,11 +85,11 @@ export default function VendorForm() {
       
       {error && (
         <div className="bg-red-900/30 border border-red-600 rounded-lg p-4 text-red-400">
-          <div className="font-semibold mb-1">Failed to submit vendor application</div>
-          <div className="text-sm">{error}</div>
+          <div className="font-semibold mb-2">Failed to submit vendor application</div>
+          <div className="text-sm whitespace-pre-wrap">{error}</div>
           {process.env.NODE_ENV === "development" && (
-            <div className="mt-2 text-xs text-red-300 font-mono">
-              Debug: Check browser console and server logs for details
+            <div className="mt-2 text-xs text-red-300 font-mono border-t border-red-600/50 pt-2">
+              Debug: Check browser Network tab and server console logs for full error details
             </div>
           )}
         </div>
@@ -138,10 +160,10 @@ export default function VendorForm() {
 
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || submitted}
         className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {loading ? "Creating..." : "Create Vendor Account"}
+        {loading ? "Submitting..." : submitted ? "Submitted" : "Create Vendor Account"}
       </button>
 
       <p className="text-sm text-muted text-center">
