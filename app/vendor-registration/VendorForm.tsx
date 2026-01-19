@@ -20,6 +20,11 @@ export default function VendorForm() {
   const [debugKeyExists, setDebugKeyExists] = useState(false);
   const [debugKeyPreview, setDebugKeyPreview] = useState("");
   const [sendingDebugHeader, setSendingDebugHeader] = useState(false);
+  const [debugHeaderValue, setDebugHeaderValue] = useState("");
+  const [responseHeaders, setResponseHeaders] = useState<{
+    buildMarker?: string;
+    requestId?: string;
+  }>({});
 
   // Check if debug mode is enabled
   useEffect(() => {
@@ -27,12 +32,14 @@ export default function VendorForm() {
     setIsDebugMode(debugEnabled);
     
     if (debugEnabled && typeof window !== "undefined") {
-      const key = localStorage.getItem("DEBUG_KEY");
+      const key = localStorage.getItem("DEBUG_KEY") || "";
       setDebugKeyExists(!!key);
       if (key) {
         setDebugKeyPreview(key.substring(0, 6) + "...");
+        setDebugHeaderValue(key.substring(0, 6) + "...");
       } else {
         setDebugKeyPreview("");
+        setDebugHeaderValue("");
       }
     }
   }, [searchParams]);
@@ -57,21 +64,22 @@ export default function VendorForm() {
       };
 
       // Always send x-debug-key header when in debug mode (even if empty)
+      const debugKey = isDebugMode && typeof window !== "undefined" 
+        ? localStorage.getItem("DEBUG_KEY") || "" 
+        : "";
+      
       if (isDebugMode) {
-        const debugKey = typeof window !== "undefined" ? localStorage.getItem("DEBUG_KEY") || "" : "";
         headers["x-debug-key"] = debugKey;
         setSendingDebugHeader(true);
       }
 
       // Build URL with debug param if enabled
-      let url = "/api/vendors/create";
-      if (isDebugMode) {
-        url += "?debug=1";
-      }
+      const url = isDebugMode ? "/api/vendors/create?debug=1" : "/api/vendors/create";
 
       const response = await fetch(url, {
         method: "POST",
         headers,
+        credentials: "include", // Explicitly send cookies
         body: JSON.stringify({
           business_name: businessName,
           description,
@@ -79,6 +87,16 @@ export default function VendorForm() {
           intoxicating_policy_ack: intoxicatingAck,
         }),
       });
+
+      // Read response headers
+      const buildMarker = response.headers.get("x-build-marker");
+      const requestId = response.headers.get("x-request-id");
+      if (isDebugMode) {
+        setResponseHeaders({
+          buildMarker: buildMarker || undefined,
+          requestId: requestId || undefined,
+        });
+      }
 
       const data = await response.json();
 
@@ -91,24 +109,16 @@ export default function VendorForm() {
         // Show detailed error message
         const errorMsg = data.error || "Failed to create vendor";
         
-        // Show build marker and request_id if present
-        let fullErrorMsg = errorMsg;
-        if (data.build_marker) {
-          fullErrorMsg += `\n[Build: ${data.build_marker}]`;
+        // Build error message with marker/id/debug_status
+        const parts: string[] = [errorMsg];
+        if (data.build_marker && data.request_id && data.debug_status) {
+          parts.push(`(${data.build_marker} / ${data.request_id} / ${data.debug_status.reason})`);
         }
-        if (data.request_id) {
-          fullErrorMsg += `\n[Request ID: ${data.request_id}]`;
-        }
-        if (data.debug_status) {
-          fullErrorMsg += `\n[Debug: ${data.debug_status.enabled ? "ON" : "OFF"} - ${data.debug_status.reason}]`;
-        }
-        
-        // Show debug info if available
         if (data.debug) {
-          fullErrorMsg += `\n\nDebug Info:\n${JSON.stringify(data.debug, null, 2)}`;
+          parts.push(`\n\nDebug Info:\n${JSON.stringify(data.debug, null, 2)}`);
         }
         
-        setError(fullErrorMsg);
+        setError(parts.join(" "));
         setLoading(false);
         setSubmitted(false); // Allow retry
         return;
@@ -137,15 +147,25 @@ export default function VendorForm() {
       
       {/* Debug Panel - Visible when ?debug=1 */}
       {isDebugMode && (
-        <div className="bg-yellow-900/30 border-2 border-yellow-600 rounded-lg p-4 text-yellow-300">
+        <div className="bg-yellow-900/30 border-2 border-yellow-600 rounded-lg p-4 text-yellow-300 mb-6">
           <div className="font-bold mb-3 text-lg">🔍 DEBUG MODE ENABLED</div>
           <div className="space-y-2 text-sm font-mono">
             <div><strong>Origin:</strong> {typeof window !== "undefined" ? window.location.origin : "N/A"}</div>
+            <div><strong>URL has debug=1:</strong> {searchParams?.get("debug") === "1" ? "✅ YES" : "❌ NO"}</div>
             <div><strong>DEBUG_KEY in localStorage:</strong> {debugKeyExists ? "✅ YES" : "❌ NO"}</div>
             {debugKeyExists && (
               <div><strong>DEBUG_KEY Preview:</strong> {debugKeyPreview}</div>
             )}
             <div><strong>Sending x-debug-key header:</strong> {sendingDebugHeader ? "✅ YES" : "❌ NO"}</div>
+            {sendingDebugHeader && debugHeaderValue && (
+              <div><strong>Header value (first 6 chars):</strong> {debugHeaderValue}</div>
+            )}
+            {responseHeaders.buildMarker && (
+              <div><strong>Response X-Build-Marker:</strong> {responseHeaders.buildMarker}</div>
+            )}
+            {responseHeaders.requestId && (
+              <div><strong>Response X-Request-Id:</strong> {responseHeaders.requestId}</div>
+            )}
             {!debugKeyExists && (
               <div className="mt-3 p-2 bg-red-900/50 border border-red-600 rounded text-red-200">
                 ⚠️ WARNING: DEBUG_KEY missing in localStorage for this origin.<br/>

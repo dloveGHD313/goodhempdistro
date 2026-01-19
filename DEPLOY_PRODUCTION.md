@@ -62,25 +62,24 @@ STRIPE_WEBHOOK_SECRET=your_webhook_secret
 DEBUG_KEY=your_debug_key (optional, for production debugging)
 ```
 
-### Production Debug Mode
+### How to Verify Deployment
 
-To enable production debugging for vendor application creation:
+1. **Check Debug Endpoint**
+   - Visit `/api/_debug/vendors-create` in your browser
+   - Verify response shows:
+     - `build_marker`: "vendors-create-debug-v3"
+     - `has_DEBUG_KEY_env`: true (if DEBUG_KEY is set in Vercel)
+     - `deployed_at`: ISO timestamp of when endpoint was accessed
 
-1. **Set DEBUG_KEY in Vercel Environment Variables**
-   - Go to Vercel Dashboard > Your Project > Settings > Environment Variables
-   - Add `DEBUG_KEY` with a secure random value (e.g., generate with `openssl rand -hex 32`)
-   - Apply to Production environment
-   - Deploy the changes
-
-2. **Enable Debug Mode in Browser**
+2. **Enable Debug Mode**
    - Visit `/vendor-registration?debug=1` (note the `?debug=1` query parameter)
-   - **Important:** Check the visible DEBUG PANEL on the page to verify setup
+   - Check the visible DEBUG PANEL on the page to verify setup
    - Open DevTools Console (F12)
-   - Run with straight quotes: `localStorage.setItem('DEBUG_KEY', 'your-debug-key-value')`
-   - Replace `your-debug-key-value` with the exact same value you set in Vercel
+   - Run with straight quotes: `localStorage.setItem("DEBUG_KEY", "your-key-value")`
+   - Replace `your-key-value` with the exact same value you set in Vercel
    - Refresh the page to see the DEBUG PANEL update
 
-3. **Verify Debug Header is Sent**
+3. **Verify Request Headers**
    - Open DevTools > Network tab
    - Submit the vendor registration form
    - Find the `create` request (POST to `/api/vendors/create`)
@@ -88,8 +87,12 @@ To enable production debugging for vendor application creation:
    - Under "Request Headers", verify `x-debug-key` is present
    - The value should match your `DEBUG_KEY` (first 6 chars shown in DEBUG PANEL)
 
-4. **View Debug Response**
+4. **Verify Response Headers and Body**
    - In the Network tab, click on the `create` request
+   - Under "Response Headers", verify:
+     - `X-Build-Marker`: "vendors-create-debug-v3"
+     - `X-Request-Id`: UUID string
+     - `Cache-Control`: "no-store"
    - Go to "Response" or "Preview" tab
    - The JSON response will include:
      - `build_marker`: "vendors-create-debug-v3"
@@ -107,6 +110,41 @@ To enable production debugging for vendor application creation:
    - Go to Vercel Dashboard > Your Project > Functions/Logs
    - Search for the `request_id` from the response
    - All server-side logs include the `request_id` for easy tracking
+
+**Important Notes:**
+- localStorage is origin-specific. If you set DEBUG_KEY on `www.yourdomain.com` but visit `yourdomain.com` (or vice versa), they are different origins. Always set the key on the exact origin you're using.
+- The DEBUG PANEL shows the origin, whether debug=1 is in the URL, whether DEBUG_KEY exists in localStorage, whether the header is being sent, and the response headers (marker/id) if available.
+
+### Production Debug Mode
+
+To enable production debugging for vendor application creation:
+
+1. **Set DEBUG_KEY in Vercel Environment Variables**
+   - Go to Vercel Dashboard > Your Project > Settings > Environment Variables
+   - Add `DEBUG_KEY` with a secure random value (e.g., generate with `openssl rand -hex 32`)
+   - Apply to Production environment
+   - Deploy the changes
+
+2. **Verify Debug Endpoint Shows DEBUG_KEY is Set**
+   - Visit `/api/_debug/vendors-create`
+   - Confirm `has_DEBUG_KEY_env: true` in the response
+
+3. **Enable Debug Mode in Browser**
+   - Visit `/vendor-registration?debug=1` (note the `?debug=1` query parameter)
+   - **Important:** Check the visible DEBUG PANEL on the page to verify setup
+   - Open DevTools Console (F12)
+   - Run with straight quotes: `localStorage.setItem("DEBUG_KEY", "your-debug-key-value")`
+   - Replace `your-debug-key-value` with the exact same value you set in Vercel
+   - Refresh the page to see the DEBUG PANEL update with "DEBUG_KEY in localStorage: ✅ YES"
+
+4. **Submit Form and Verify Response**
+   - Fill out and submit the vendor registration form
+   - Check the DEBUG PANEL shows:
+     - Response X-Build-Marker: "vendors-create-debug-v3"
+     - Response X-Request-Id: UUID string
+   - Open Network tab > click on `create` request
+   - Verify Response Headers include X-Build-Marker and X-Request-Id
+   - Verify Response Body includes build_marker, request_id, debug_status, and debug object (if enabled)
 
 **Troubleshooting:**
 
