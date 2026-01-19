@@ -39,9 +39,15 @@ export default function VendorForm() {
         return;
       }
 
-      // Redirect to vendor dashboard
-      router.push("/vendors/dashboard");
-      router.refresh();
+      // Show pending message
+      if (data.application?.status === "pending") {
+        router.push("/vendor-registration?status=pending");
+        router.refresh();
+      } else {
+        // If somehow approved immediately, go to dashboard
+        router.push("/vendors/dashboard");
+        router.refresh();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred");
       setLoading(false);
