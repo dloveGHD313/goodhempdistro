@@ -3,8 +3,8 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 import { extractStoragePath } from "@/lib/storageSignedUrls";
 
 /**
- * Submit driver application
- * Public endpoint - requires authentication
+ * Submit logistics application
+ * Requires authentication
  */
 export async function POST(req: NextRequest) {
   try {
@@ -15,26 +15,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { full_name, phone, city, state, vehicle_type, driver_license_url, insurance_url, mvr_report_url } = await req.json();
+    const { company_name, authority_url, insurance_cert_url, w9_url } = await req.json();
 
-    if (!full_name || !phone || !city || !state || !vehicle_type) {
+    if (!company_name || !authority_url || !insurance_cert_url) {
       return NextResponse.json(
-        { error: "All fields are required" },
-        { status: 400 }
-      );
-    }
-
-    // Validate required documents
-    if (!driver_license_url || !insurance_url || !mvr_report_url) {
-      return NextResponse.json(
-        { error: "All required documents must be uploaded: Driver License, Insurance, and MVR Report" },
+        { error: "Company name, authority URL, and insurance certificate URL are required" },
         { status: 400 }
       );
     }
 
     // Check if application already exists
     const { data: existing } = await supabase
-      .from("driver_applications")
+      .from("logistics_applications")
       .select("id, status")
       .eq("user_id", user.id)
       .maybeSingle();
@@ -48,40 +40,36 @@ export async function POST(req: NextRequest) {
 
     // Normalize URLs to paths for storage
     // Accepts full URLs or bucket/path format, stores as bucket/path
-    const normalizeUrl = (url: string): string => {
-      if (!url) return url;
-      const extracted = extractStoragePath(url, "driver-docs");
+    const normalizeUrl = (url: string | null | undefined): string | null => {
+      if (!url) return null;
+      const extracted = extractStoragePath(url, "logistics-docs");
       if (extracted) {
         return `${extracted.bucket}/${extracted.path}`;
       }
       // If already in bucket/path format, return as-is
-      if (url.startsWith("driver-docs/")) {
+      if (url.startsWith("logistics-docs/")) {
         return url;
       }
       // Fallback: assume it's a path and add bucket prefix
-      return `driver-docs/${url}`;
+      return `logistics-docs/${url}`;
     };
 
     // Create application
     const { data: application, error } = await supabase
-      .from("driver_applications")
+      .from("logistics_applications")
       .insert({
         user_id: user.id,
-        full_name: full_name.trim(),
-        phone: phone.trim(),
-        city: city.trim(),
-        state: state.trim(),
-        vehicle_type: vehicle_type.trim(),
-        driver_license_url: normalizeUrl(driver_license_url),
-        insurance_url: normalizeUrl(insurance_url),
-        mvr_report_url: normalizeUrl(mvr_report_url),
+        company_name: company_name.trim(),
+        authority_url: normalizeUrl(authority_url),
+        insurance_cert_url: normalizeUrl(insurance_cert_url),
+        w9_url: normalizeUrl(w9_url),
         status: "pending",
       })
       .select("id, status")
       .single();
 
     if (error) {
-      console.error("Error creating driver application:", error);
+      console.error("Error creating logistics application:", error);
       return NextResponse.json(
         { error: "Failed to submit application" },
         { status: 500 }
@@ -93,7 +81,7 @@ export async function POST(req: NextRequest) {
       application: application,
     }, { status: 201 });
   } catch (error) {
-    console.error("Driver application error:", error);
+    console.error("Logistics application error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

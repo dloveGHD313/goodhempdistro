@@ -110,12 +110,17 @@ export default function LogisticsPage() {
               <div className="card-glass p-6">
                 <h2 className="text-2xl font-bold mb-4">For Businesses</h2>
                 <p className="text-muted mb-4">Request deliveries for your business needs. Fast and reliable.</p>
-                <button
-                  onClick={() => setShowRequestForm(!showRequestForm)}
-                  className="btn-secondary"
-                >
-                  Request Delivery
-                </button>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => setShowRequestForm(!showRequestForm)}
+                    className="btn-secondary"
+                  >
+                    Request Delivery
+                  </button>
+                  <Link href="/logistics/apply" className="btn-secondary text-center">
+                    Register Logistics Company
+                  </Link>
+                </div>
               </div>
             </div>
 

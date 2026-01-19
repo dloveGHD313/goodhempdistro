@@ -7,6 +7,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
 import { getCategoriesClient, type Category } from "@/lib/categories";
 import { getDelta8WarningText, getIntoxicatingCutoffDate, isIntoxicatingAllowedNow } from "@/lib/compliance";
+import UploadField from "@/components/UploadField";
 
 type Product = {
   id: string;
@@ -31,6 +32,7 @@ export default function EditProductPage() {
   const [active, setActive] = useState(true);
   const [productType, setProductType] = useState<"non_intoxicating" | "intoxicating" | "delta8">("non_intoxicating");
   const [coaUrl, setCoaUrl] = useState("");
+  const [useManualUrl, setUseManualUrl] = useState(false);
   const [delta8DisclaimerAck, setDelta8DisclaimerAck] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -276,19 +278,39 @@ export default function EditProductPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="coa_url" className="block text-sm font-medium mb-2">
-                    COA URL (Full Panel Required) <span className="text-red-400">*</span>
+                  <label className="flex items-center gap-2 mb-2">
+                    <input
+                      type="checkbox"
+                      checked={useManualUrl}
+                      onChange={(e) => setUseManualUrl(e.target.checked)}
+                      className="w-4 h-4 accent-accent"
+                    />
+                    <span className="text-sm text-muted">Paste URL instead</span>
                   </label>
-                  <input
-                    type="url"
-                    id="coa_url"
-                    value={coaUrl}
-                    onChange={(e) => setCoaUrl(e.target.value)}
-                    required
-                    className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
-                    placeholder="https://example.com/coa.pdf"
-                  />
-                  <p className="text-sm text-muted mt-1">Full panel COA required for all products</p>
+                  {useManualUrl ? (
+                    <div>
+                      <input
+                        type="url"
+                        id="coa_url"
+                        value={coaUrl}
+                        onChange={(e) => setCoaUrl(e.target.value)}
+                        required
+                        className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
+                        placeholder="https://example.com/coa.pdf"
+                      />
+                      <p className="text-sm text-muted mt-1">Full panel COA required for all products</p>
+                    </div>
+                  ) : (
+                    <UploadField
+                      bucket="coas"
+                      folderPrefix="coas"
+                      label="COA Document (Full Panel Required)"
+                      required
+                      existingUrl={coaUrl || null}
+                      onUploaded={(url) => setCoaUrl(url)}
+                      helperText="Upload a PDF or image of your full panel COA (max 10MB)"
+                    />
+                  )}
                 </div>
 
                 {productType === "delta8" && (

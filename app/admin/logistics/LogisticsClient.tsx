@@ -6,33 +6,20 @@ import { extractBucketAndPath, needsSignedUrl, fetchSignedUrl } from "@/lib/stor
 type Application = {
   id: string;
   user_id: string;
-  full_name: string;
-  phone: string;
-  city: string;
-  state: string;
-  vehicle_type: string;
-  driver_license_url?: string | null;
-  insurance_url?: string | null;
-  mvr_report_url?: string | null;
-  status: string;
-  created_at: string;
-};
-
-type Driver = {
-  id: string;
-  user_id: string;
+  company_name: string;
+  authority_url: string;
+  insurance_cert_url: string;
+  w9_url: string | null;
   status: string;
   created_at: string;
 };
 
 type Props = {
   initialApplications: Application[];
-  initialDrivers: Driver[];
 };
 
-export default function DriversClient({ initialApplications, initialDrivers }: Props) {
+export default function LogisticsClient({ initialApplications }: Props) {
   const [applications, setApplications] = useState<Application[]>(initialApplications);
-  const [drivers, setDrivers] = useState<Driver[]>(initialDrivers);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
 
   const handleViewDocument = async (url: string | null | undefined, label: string) => {
@@ -70,7 +57,7 @@ export default function DriversClient({ initialApplications, initialDrivers }: P
 
   const updateApplicationStatus = async (id: string, status: "approved" | "rejected") => {
     try {
-      const response = await fetch(`/api/admin/drivers/${id}`, {
+      const response = await fetch(`/api/admin/logistics/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
@@ -82,15 +69,9 @@ export default function DriversClient({ initialApplications, initialDrivers }: P
         return;
       }
 
-      // Update local state
       setApplications(applications.map(app => 
         app.id === id ? { ...app, status } : app
       ));
-
-      // If approved, refresh page to show driver in drivers list
-      if (status === "approved") {
-        window.location.reload();
-      }
     } catch (error) {
       alert("Failed to update application status");
     }
@@ -99,7 +80,7 @@ export default function DriversClient({ initialApplications, initialDrivers }: P
   return (
     <div className="space-y-8">
       <div className="card-glass p-6">
-        <h2 className="text-2xl font-bold mb-4">Driver Applications</h2>
+        <h2 className="text-2xl font-bold mb-4">Logistics Applications</h2>
         {applications.length === 0 ? (
           <p className="text-muted">No applications found.</p>
         ) : (
@@ -107,10 +88,7 @@ export default function DriversClient({ initialApplications, initialDrivers }: P
             <table className="w-full text-left">
               <thead className="border-b border-[var(--border)]">
                 <tr>
-                  <th className="pb-3 font-semibold text-muted">Name</th>
-                  <th className="pb-3 font-semibold text-muted">Contact</th>
-                  <th className="pb-3 font-semibold text-muted">Location</th>
-                  <th className="pb-3 font-semibold text-muted">Vehicle</th>
+                  <th className="pb-3 font-semibold text-muted">Company</th>
                   <th className="pb-3 font-semibold text-muted">Documents</th>
                   <th className="pb-3 font-semibold text-muted">Status</th>
                   <th className="pb-3 font-semibold text-muted">Applied</th>
@@ -120,38 +98,32 @@ export default function DriversClient({ initialApplications, initialDrivers }: P
               <tbody>
                 {applications.map((app) => (
                   <tr key={app.id} className="border-b border-[var(--border)]/60">
-                    <td className="py-3 font-semibold">{app.full_name}</td>
-                    <td className="py-3 text-muted">{app.phone}</td>
-                    <td className="py-3 text-muted">{app.city}, {app.state}</td>
-                    <td className="py-3 text-muted">{app.vehicle_type}</td>
+                    <td className="py-3 font-semibold">{app.company_name}</td>
                     <td className="py-3">
                       <div className="flex flex-col gap-1 text-sm">
-                        {app.driver_license_url && (
+                        {app.authority_url && (
                           <button
-                            onClick={() => handleViewDocument(app.driver_license_url, "License")}
+                            onClick={() => handleViewDocument(app.authority_url, "Authority")}
                             className="text-accent hover:underline text-left"
                           >
-                            License
+                            Authority
                           </button>
                         )}
-                        {app.insurance_url && (
+                        {app.insurance_cert_url && (
                           <button
-                            onClick={() => handleViewDocument(app.insurance_url, "Insurance")}
+                            onClick={() => handleViewDocument(app.insurance_cert_url, "Insurance")}
                             className="text-accent hover:underline text-left"
                           >
                             Insurance
                           </button>
                         )}
-                        {app.mvr_report_url && (
+                        {app.w9_url && (
                           <button
-                            onClick={() => handleViewDocument(app.mvr_report_url, "MVR")}
+                            onClick={() => handleViewDocument(app.w9_url, "W-9")}
                             className="text-accent hover:underline text-left"
                           >
-                            MVR
+                            W-9
                           </button>
-                        )}
-                        {!app.driver_license_url && !app.insurance_url && !app.mvr_report_url && (
-                          <span className="text-red-400">No documents</span>
                         )}
                       </div>
                     </td>
@@ -186,44 +158,6 @@ export default function DriversClient({ initialApplications, initialDrivers }: P
                           </button>
                         </div>
                       )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      <div className="card-glass p-6">
-        <h2 className="text-2xl font-bold mb-4">Approved Drivers</h2>
-        {drivers.length === 0 ? (
-          <p className="text-muted">No approved drivers yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="border-b border-[var(--border)]">
-                <tr>
-                  <th className="pb-3 font-semibold text-muted">User ID</th>
-                  <th className="pb-3 font-semibold text-muted">Status</th>
-                  <th className="pb-3 font-semibold text-muted">Joined</th>
-                </tr>
-              </thead>
-              <tbody>
-                {drivers.map((driver) => (
-                  <tr key={driver.id} className="border-b border-[var(--border)]/60">
-                    <td className="py-3 text-muted font-mono text-sm">{driver.user_id.slice(0, 8)}...</td>
-                    <td className="py-3">
-                      <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                        driver.status === "approved"
-                          ? "bg-green-500/20 text-green-400"
-                          : "bg-red-500/20 text-red-400"
-                      }`}>
-                        {driver.status.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="py-3 text-muted">
-                      {new Date(driver.created_at).toLocaleDateString()}
                     </td>
                   </tr>
                 ))}

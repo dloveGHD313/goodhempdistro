@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
+import UploadField from "@/components/UploadField";
 
 export default function DriverApplyPage() {
   const router = useRouter();
@@ -14,6 +15,9 @@ export default function DriverApplyPage() {
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [vehicleType, setVehicleType] = useState("");
+  const [driverLicenseUrl, setDriverLicenseUrl] = useState("");
+  const [insuranceUrl, setInsuranceUrl] = useState("");
+  const [mvrReportUrl, setMvrReportUrl] = useState("");
   const [licenseAttested, setLicenseAttested] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -41,6 +45,13 @@ export default function DriverApplyPage() {
     setError(null);
 
     try {
+      // Validate required documents
+      if (!driverLicenseUrl || !insuranceUrl || !mvrReportUrl) {
+        setError("All required documents must be uploaded (Driver License, Insurance, MVR Report)");
+        setSubmitting(false);
+        return;
+      }
+
       const response = await fetch("/api/drivers/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -50,6 +61,9 @@ export default function DriverApplyPage() {
           city,
           state,
           vehicle_type: vehicleType,
+          driver_license_url: driverLicenseUrl,
+          insurance_url: insuranceUrl,
+          mvr_report_url: mvrReportUrl,
         }),
       });
 
@@ -191,6 +205,37 @@ export default function DriverApplyPage() {
                     <option value="Truck">Truck</option>
                     <option value="Van">Van</option>
                   </select>
+                </div>
+
+                <div className="border-t border-[var(--border)] pt-6 space-y-6">
+                  <h3 className="text-lg font-semibold">Required Documents</h3>
+                  <UploadField
+                    bucket="driver-docs"
+                    folderPrefix="drivers/license"
+                    label="Driver License"
+                    required
+                    existingUrl={driverLicenseUrl || null}
+                    onUploaded={(url) => setDriverLicenseUrl(url)}
+                    helperText="Upload a clear image or PDF of your valid driver's license (max 10MB)"
+                  />
+                  <UploadField
+                    bucket="driver-docs"
+                    folderPrefix="drivers/insurance"
+                    label="Insurance Certificate"
+                    required
+                    existingUrl={insuranceUrl || null}
+                    onUploaded={(url) => setInsuranceUrl(url)}
+                    helperText="Upload proof of current vehicle insurance (max 10MB)"
+                  />
+                  <UploadField
+                    bucket="driver-docs"
+                    folderPrefix="drivers/mvr"
+                    label="MVR Report (Motor Vehicle Record)"
+                    required
+                    existingUrl={mvrReportUrl || null}
+                    onUploaded={(url) => setMvrReportUrl(url)}
+                    helperText="Upload your MVR report from DMV (max 10MB)"
+                  />
                 </div>
 
                 <div className="space-y-3 border-t border-[var(--border)] pt-4">
