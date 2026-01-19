@@ -92,14 +92,25 @@ export default function UploadField({
         throw uploadError;
       }
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(filePath);
-
-      setUploadedUrl(publicUrl);
-      setUploadProgress(100);
-      onUploaded(publicUrl);
+      // For private buckets (driver-docs, logistics-docs), store the path
+      // For public buckets (coas), use public URL for backward compatibility
+      const isPrivateBucket = bucket === "driver-docs" || bucket === "logistics-docs";
+      
+      if (isPrivateBucket) {
+        // Store path for private buckets
+        const storedValue = `${bucket}/${filePath}`;
+        setUploadedUrl(storedValue); // Display shows path, but component can differentiate
+        setUploadProgress(100);
+        onUploaded(storedValue);
+      } else {
+        // For public buckets, use public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from(bucket)
+          .getPublicUrl(filePath);
+        setUploadedUrl(publicUrl);
+        setUploadProgress(100);
+        onUploaded(publicUrl);
+      }
       setUploading(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Upload failed";

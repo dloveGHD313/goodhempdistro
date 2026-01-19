@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { extractStoragePath } from "@/lib/storageSignedUrls";
 
 /**
  * Submit logistics application
@@ -37,15 +38,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Normalize URLs to paths for storage
+    // Accepts full URLs or bucket/path format, stores as bucket/path
+    const normalizeUrl = (url: string | null | undefined): string | null => {
+      if (!url) return null;
+      const extracted = extractStoragePath(url, "logistics-docs");
+      if (extracted) {
+        return `${extracted.bucket}/${extracted.path}`;
+      }
+      // If already in bucket/path format, return as-is
+      if (url.startsWith("logistics-docs/")) {
+        return url;
+      }
+      // Fallback: assume it's a path and add bucket prefix
+      return `logistics-docs/${url}`;
+    };
+
     // Create application
     const { data: application, error } = await supabase
       .from("logistics_applications")
       .insert({
         user_id: user.id,
         company_name: company_name.trim(),
-        authority_url: authority_url.trim(),
-        insurance_cert_url: insurance_cert_url.trim(),
-        w9_url: w9_url?.trim() || null,
+        authority_url: normalizeUrl(authority_url),
+        insurance_cert_url: normalizeUrl(insurance_cert_url),
+        w9_url: normalizeUrl(w9_url),
         status: "pending",
       })
       .select("id, status")

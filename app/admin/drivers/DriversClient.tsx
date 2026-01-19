@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { extractBucketAndPath, needsSignedUrl, fetchSignedUrl } from "@/lib/storageUtils";
 
 type Application = {
   id: string;
@@ -32,6 +33,40 @@ type Props = {
 export default function DriversClient({ initialApplications, initialDrivers }: Props) {
   const [applications, setApplications] = useState<Application[]>(initialApplications);
   const [drivers, setDrivers] = useState<Driver[]>(initialDrivers);
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+
+  const handleViewDocument = async (url: string | null | undefined, label: string) => {
+    if (!url) return;
+
+    // If it's already a full URL and doesn't need signing, open directly
+    if (!needsSignedUrl(url)) {
+      window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    // Extract bucket and path
+    const bucketPath = extractBucketAndPath(url);
+    if (!bucketPath) {
+      alert("Invalid document URL");
+      return;
+    }
+
+    // Check cache
+    const cacheKey = `${bucketPath.bucket}/${bucketPath.path}`;
+    if (signedUrls[cacheKey]) {
+      window.open(signedUrls[cacheKey], "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    // Fetch signed URL
+    const signedUrl = await fetchSignedUrl(bucketPath.bucket, bucketPath.path);
+    if (signedUrl) {
+      setSignedUrls((prev) => ({ ...prev, [cacheKey]: signedUrl }));
+      window.open(signedUrl, "_blank", "noopener,noreferrer");
+    } else {
+      alert(`Failed to load ${label} document`);
+    }
+  };
 
   const updateApplicationStatus = async (id: string, status: "approved" | "rejected") => {
     try {
@@ -92,19 +127,28 @@ export default function DriversClient({ initialApplications, initialDrivers }: P
                     <td className="py-3">
                       <div className="flex flex-col gap-1 text-sm">
                         {app.driver_license_url && (
-                          <a href={app.driver_license_url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                          <button
+                            onClick={() => handleViewDocument(app.driver_license_url, "License")}
+                            className="text-accent hover:underline text-left"
+                          >
                             License
-                          </a>
+                          </button>
                         )}
                         {app.insurance_url && (
-                          <a href={app.insurance_url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                          <button
+                            onClick={() => handleViewDocument(app.insurance_url, "Insurance")}
+                            className="text-accent hover:underline text-left"
+                          >
                             Insurance
-                          </a>
+                          </button>
                         )}
                         {app.mvr_report_url && (
-                          <a href={app.mvr_report_url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                          <button
+                            onClick={() => handleViewDocument(app.mvr_report_url, "MVR")}
+                            className="text-accent hover:underline text-left"
+                          >
                             MVR
-                          </a>
+                          </button>
                         )}
                         {!app.driver_license_url && !app.insurance_url && !app.mvr_report_url && (
                           <span className="text-red-400">No documents</span>

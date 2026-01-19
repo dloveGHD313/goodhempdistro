@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { extractBucketAndPath, needsSignedUrl, fetchSignedUrl } from "@/lib/storageUtils";
 
 type Application = {
   id: string;
@@ -19,6 +20,40 @@ type Props = {
 
 export default function LogisticsClient({ initialApplications }: Props) {
   const [applications, setApplications] = useState<Application[]>(initialApplications);
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+
+  const handleViewDocument = async (url: string | null | undefined, label: string) => {
+    if (!url) return;
+
+    // If it's already a full URL and doesn't need signing, open directly
+    if (!needsSignedUrl(url)) {
+      window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    // Extract bucket and path
+    const bucketPath = extractBucketAndPath(url);
+    if (!bucketPath) {
+      alert("Invalid document URL");
+      return;
+    }
+
+    // Check cache
+    const cacheKey = `${bucketPath.bucket}/${bucketPath.path}`;
+    if (signedUrls[cacheKey]) {
+      window.open(signedUrls[cacheKey], "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    // Fetch signed URL
+    const signedUrl = await fetchSignedUrl(bucketPath.bucket, bucketPath.path);
+    if (signedUrl) {
+      setSignedUrls((prev) => ({ ...prev, [cacheKey]: signedUrl }));
+      window.open(signedUrl, "_blank", "noopener,noreferrer");
+    } else {
+      alert(`Failed to load ${label} document`);
+    }
+  };
 
   const updateApplicationStatus = async (id: string, status: "approved" | "rejected") => {
     try {
@@ -67,19 +102,28 @@ export default function LogisticsClient({ initialApplications }: Props) {
                     <td className="py-3">
                       <div className="flex flex-col gap-1 text-sm">
                         {app.authority_url && (
-                          <a href={app.authority_url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                          <button
+                            onClick={() => handleViewDocument(app.authority_url, "Authority")}
+                            className="text-accent hover:underline text-left"
+                          >
                             Authority
-                          </a>
+                          </button>
                         )}
                         {app.insurance_cert_url && (
-                          <a href={app.insurance_cert_url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                          <button
+                            onClick={() => handleViewDocument(app.insurance_cert_url, "Insurance")}
+                            className="text-accent hover:underline text-left"
+                          >
                             Insurance
-                          </a>
+                          </button>
                         )}
                         {app.w9_url && (
-                          <a href={app.w9_url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                          <button
+                            onClick={() => handleViewDocument(app.w9_url, "W-9")}
+                            className="text-accent hover:underline text-left"
+                          >
                             W-9
-                          </a>
+                          </button>
                         )}
                       </div>
                     </td>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { extractStoragePath } from "@/lib/storageSignedUrls";
 
 /**
  * Submit driver application
@@ -45,6 +46,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Normalize URLs to paths for storage
+    // Accepts full URLs or bucket/path format, stores as bucket/path
+    const normalizeUrl = (url: string): string => {
+      if (!url) return url;
+      const extracted = extractStoragePath(url, "driver-docs");
+      if (extracted) {
+        return `${extracted.bucket}/${extracted.path}`;
+      }
+      // If already in bucket/path format, return as-is
+      if (url.startsWith("driver-docs/")) {
+        return url;
+      }
+      // Fallback: assume it's a path and add bucket prefix
+      return `driver-docs/${url}`;
+    };
+
     // Create application
     const { data: application, error } = await supabase
       .from("driver_applications")
@@ -55,9 +72,9 @@ export async function POST(req: NextRequest) {
         city: city.trim(),
         state: state.trim(),
         vehicle_type: vehicle_type.trim(),
-        driver_license_url: driver_license_url.trim(),
-        insurance_url: insurance_url.trim(),
-        mvr_report_url: mvr_report_url.trim(),
+        driver_license_url: normalizeUrl(driver_license_url),
+        insurance_url: normalizeUrl(insurance_url),
+        mvr_report_url: normalizeUrl(mvr_report_url),
         status: "pending",
       })
       .select("id, status")
