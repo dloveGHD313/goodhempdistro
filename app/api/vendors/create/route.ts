@@ -336,7 +336,6 @@ export async function POST(req: NextRequest) {
       .insert({
         user_id: user.id,
         business_name: business_name.trim(),
-        description: description?.trim() || null,
         status: "pending",
       })
       .select("id, status")
