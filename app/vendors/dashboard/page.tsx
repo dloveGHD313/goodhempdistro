@@ -10,14 +10,23 @@ async function getVendorData(userId: string) {
   try {
     const supabase = await createSupabaseServerClient();
     
-    // Get vendor with created_at for submission date
+    // Get vendor with created_at for submission date - MUST be scoped to owner_user_id
     const { data: vendor } = await supabase
       .from("vendors")
-      .select("id, business_name, status, created_at")
+      .select("id, owner_user_id, business_name, status, created_at")
       .eq("owner_user_id", userId)
-      .single();
+      .maybeSingle();
 
     if (!vendor) {
+      return null;
+    }
+
+    // DEFENSIVE: Verify the vendor belongs to this user
+    if (vendor.owner_user_id !== userId) {
+      console.error("[vendors/dashboard] SECURITY: Vendor owner_user_id mismatch!", {
+        userId,
+        vendor_owner_user_id: vendor.owner_user_id,
+      });
       return null;
     }
 

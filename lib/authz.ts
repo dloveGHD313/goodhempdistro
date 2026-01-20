@@ -65,9 +65,18 @@ export async function isVendor(
       .from("vendors")
       .select("id, owner_user_id, business_name, status")
       .eq("owner_user_id", userId)
-      .single();
+      .maybeSingle();
 
     if (error || !vendor) {
+      return { isVendor: false, vendor: null };
+    }
+
+    // DEFENSIVE: Verify the vendor belongs to this user
+    if (vendor.owner_user_id !== userId) {
+      console.error("[authz] SECURITY: Vendor owner_user_id mismatch!", {
+        userId,
+        vendor_owner_user_id: vendor.owner_user_id,
+      });
       return { isVendor: false, vendor: null };
     }
 
