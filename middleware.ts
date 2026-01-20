@@ -52,17 +52,19 @@ export async function middleware(request: NextRequest) {
   // Admin routes - require admin role (checked at page level, but redirect here if not authenticated)
   const isAdminRoute = pathname.startsWith("/admin");
 
-  // Auth pages - redirect to dashboard if already authenticated
+  // Auth pages - redirect to dashboard if already authenticated (but NOT reset-password)
   const authRoutes = ["/login", "/signup", "/auth/reset"];
   const isAuthRoute = authRoutes.includes(pathname);
   
-  // Public auth routes - allow unauthenticated access
+  // Public auth routes - allow unauthenticated AND authenticated access
+  // These routes handle their own auth logic (e.g., reset-password needs session for recovery)
   const publicAuthRoutes = ["/auth/callback", "/reset-password"];
   const isPublicAuthRoute = publicAuthRoutes.some((route) => 
     pathname === route || pathname.startsWith(`${route}/`)
   );
 
-  // Allow public auth routes (callback, reset) without authentication
+  // Allow public auth routes (callback, reset) - never redirect away from these
+  // Reset-password needs to work for both authenticated (recovery) and unauthenticated users
   if (isPublicAuthRoute) {
     return response;
   }
@@ -75,8 +77,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // Redirect auth pages to dashboard if already authenticated (except reset password page)
-  if (isAuthRoute && user && pathname !== "/reset-password") {
+  // Redirect auth pages to dashboard if already authenticated
+  // Note: reset-password is excluded from this because it's in publicAuthRoutes above
+  if (isAuthRoute && user) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/dashboard";
     return NextResponse.redirect(redirectUrl);

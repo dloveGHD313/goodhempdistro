@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ResetPasswordRedirect from "@/components/ResetPasswordRedirect";
 
 export default function Home() {
   return (
@@ -81,6 +82,7 @@ export default function Home() {
       <footer className="border-t border-[var(--border)] mt-8 py-8 px-4 text-center text-muted">
         <p>&copy; 2026 Good Hemp Distro. All rights reserved.</p>
       </footer>
+      <ResetPasswordRedirect />
     </div>
   );
 }

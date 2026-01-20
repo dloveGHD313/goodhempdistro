@@ -36,18 +36,33 @@ export async function GET(req: NextRequest) {
     );
 
     // Exchange code for session
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { error, data } = await supabase.auth.exchangeCodeForSession(code);
 
     if (error) {
       console.error("[auth/callback] Error exchanging code:", error);
-      // Redirect to login with error
+      // Check if this is a recovery flow - redirect to reset-password with error
+      const type = requestUrl.searchParams.get("type");
+      if (type === "recovery") {
+        const redirectUrl = new URL("/reset-password", requestUrl.origin);
+        redirectUrl.hash = `error_code=${error.message.includes('expired') ? 'otp_expired' : 'access_denied'}&error_description=${encodeURIComponent(error.message)}`;
+        return NextResponse.redirect(redirectUrl);
+      }
+      // For non-recovery flows, redirect to login with error
       const redirectUrl = new URL("/login", requestUrl.origin);
       redirectUrl.searchParams.set("error", "invalid_reset_link");
       return NextResponse.redirect(redirectUrl);
     }
 
-    // Success - redirect to reset password page (default to /reset-password)
-    const redirectPath = next === "/auth/reset" ? "/reset-password" : next;
+    // Success - determine redirect based on type
+    const type = requestUrl.searchParams.get("type");
+    if (type === "recovery") {
+      // Always redirect recovery flows to reset-password
+      const redirectUrl = new URL("/reset-password", requestUrl.origin);
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    // For other flows, use next param or default to dashboard
+    const redirectPath = next || "/dashboard";
     const redirectUrl = new URL(redirectPath, requestUrl.origin);
     return NextResponse.redirect(redirectUrl);
   }

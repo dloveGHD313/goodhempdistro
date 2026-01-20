@@ -49,7 +49,23 @@ Create a test user in Supabase Auth Dashboard and verify profile is auto-created
 SELECT * FROM public.profiles WHERE email = 'test@example.com';
 ```
 
-## 2. Verify Admin Can See Pending Applications
+## 2. Testing Pending Applications (Optional)
+
+If you want to test pending list behavior cleanly, you can manually set an application to pending status:
+
+```sql
+-- Set a specific application to pending (for testing)
+UPDATE public.vendor_applications
+SET status = 'pending'
+WHERE id = 'APPLICATION_ID_HERE';
+
+-- Or set all applications to pending (use with caution)
+-- UPDATE public.vendor_applications SET status = 'pending';
+```
+
+**Note:** This is for testing only. Do not change production data automatically. Always verify status changes manually.
+
+## 3. Verify Admin Can See Pending Applications
 
 ### Check Admin Role
 
