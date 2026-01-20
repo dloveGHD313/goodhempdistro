@@ -14,7 +14,7 @@ The password reset flow allows users to reset their password via email link. Thi
    https://www.goodhempdistro.com
    ```
 
-2. **Redirect URLs (add all):**
+2. **Redirect URLs (add all - REQUIRED):**
    ```
    https://www.goodhempdistro.com/reset-password
    https://goodhempdistro.com/reset-password
@@ -23,12 +23,15 @@ The password reset flow allows users to reset their password via email link. Thi
    http://localhost:3000/auth/callback
    ```
 
-   **Important:** Use wildcard patterns if supported:
-   ```
-   https://www.goodhempdistro.com/*
-   https://goodhempdistro.com/*
-   http://localhost:3000/*
-   ```
+   **Important:** 
+   - These URLs are REQUIRED for password reset to work
+   - Use wildcard patterns if supported:
+     ```
+     https://www.goodhempdistro.com/*
+     https://goodhempdistro.com/*
+     http://localhost:3000/*
+     ```
+   - Even if Supabase redirects to Site URL root (`/`), the global recovery hash handler will forward to `/reset-password`
 
 ### 2. Email Templates
 
@@ -103,17 +106,20 @@ https://www.goodhempdistro.com/reset-password#access_token=...&refresh_token=...
 - If no tokens found and no existing session
 - Shows error + resend form
 
-### Homepage Hash Handler
+### Global Recovery Hash Handler
 
-**Component:** `components/ResetPasswordRedirect.tsx`
+**Component:** `components/RecoveryHashRedirect.tsx`
 
-- Runs on homepage (`/`)
+- Renders in root layout (`app/layout.tsx`) - runs on EVERY page
 - Detects hash containing:
-  - `type=recovery`
-  - `access_token`
-  - `error_code=otp_expired`
+  - `type=recovery` AND (`access_token` OR `error_code=otp_expired` OR `error=access_denied`)
 - Immediately redirects to `/reset-password` with hash preserved
-- Safety net for mis-redirects from Supabase
+- Safety net for mis-redirects from Supabase (sometimes redirects to Site URL root instead of redirectTo)
+
+**Why Global:**
+- Supabase may redirect to Site URL root (`/`) instead of the specified `redirectTo`
+- By placing handler in root layout, it catches recovery hashes on ANY route
+- Ensures users always reach `/reset-password` regardless of where Supabase sends them
 
 ## Middleware Configuration
 

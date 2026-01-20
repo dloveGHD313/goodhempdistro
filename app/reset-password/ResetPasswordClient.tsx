@@ -117,10 +117,11 @@ export default function ResetPasswordClient({ initialEmail }: Props) {
           return;
         }
 
-        // No valid session or tokens found
-        setError("No active session found. Please use the link from your password reset email.");
+        // No valid session or tokens found - show friendly resend form (not hard error)
+        console.log("[reset-password] No tokens or session found - showing resend form");
         setShowResend(true);
         setInitializing(false);
+        // Don't set error - just show resend form with friendly message
       } catch (err) {
         console.error("[reset-password] Exception in initializeSession:", err);
         setError(err instanceof Error ? err.message : "Failed to process reset link. Please request a new password reset.");
@@ -235,11 +236,16 @@ export default function ResetPasswordClient({ initialEmail }: Props) {
               {error}
             </div>
           )}
-          <p className="text-muted mb-4">
-            {error 
-              ? "Please request a new password reset link below."
-              : "Unable to verify your reset link. Please use the link from your email."}
-          </p>
+          {!error && (
+            <p className="text-muted mb-4">
+              Enter your email below to receive a password reset link.
+            </p>
+          )}
+          {error && (
+            <p className="text-muted mb-4">
+              Please request a new password reset link below.
+            </p>
+          )}
 
           {showResend && (
             <div className="mt-6 p-4 bg-[var(--surface)] border border-[var(--border)] rounded-lg">
