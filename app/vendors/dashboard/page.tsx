@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
+import { unstable_noStore as noStore } from "next/cache";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { hasVendorContext } from "@/lib/authz";
 import Footer from "@/components/Footer";
 
-// Force dynamic rendering since this page requires authentication
+// Force dynamic rendering and disable caching since this page requires authentication
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 async function getVendorData(userId: string) {
   try {
@@ -97,21 +99,28 @@ async function getVendorData(userId: string) {
 }
 
 export default async function VendorDashboardPage() {
+  // Disable caching to ensure fresh data
+  noStore();
+  
   const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
 
+  // CRITICAL: Log SSR user status for debugging
   if (!user) {
-    redirect("/login");
+    console.error("[vendors/dashboard] SSR user is null - no authenticated session!", {
+      userError: userError?.message || null,
+    });
+    redirect("/login?redirect=/vendors/dashboard");
   }
+
+  console.log(`[vendors/dashboard] SSR user exists: userId=${user.id} email=${user.email || 'no-email'}`);
 
   // Check vendor context - redirect only if no context at all
   const { hasContext, _debug } = await hasVendorContext(supabase, user.id);
   
   if (!hasContext) {
     // Log debug info for troubleshooting (server-only)
-    if (_debug) {
-      console.log(`[vendors/dashboard] Redirecting to /vendor-registration - ${JSON.stringify(_debug)}`);
-    }
+    console.error(`[vendors/dashboard] No vendor context found - redirecting to /vendor-registration`, _debug);
     redirect("/vendor-registration");
   }
 

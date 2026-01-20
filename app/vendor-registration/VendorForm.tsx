@@ -124,14 +124,13 @@ export default function VendorForm() {
         return;
       }
 
-      // Show pending message
+      // Show pending message - force refresh to clear cache
       if (data.application?.status === "pending") {
-        router.push("/vendor-registration?status=pending");
-        router.refresh();
+        // Use window.location for hard refresh to bypass Next.js cache
+        window.location.href = "/vendor-registration?status=pending";
       } else {
         // If somehow approved immediately, go to dashboard
-        router.push("/vendors/dashboard");
-        router.refresh();
+        window.location.href = "/vendors/dashboard";
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred";
