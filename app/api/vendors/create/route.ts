@@ -3,6 +3,9 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 import { getIntoxicatingCutoffDate } from "@/lib/compliance";
 import { randomUUID } from "crypto";
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 const BUILD_MARKER = "vendors-create-debug-v3";
 
 /**
@@ -45,6 +48,68 @@ function getDebugStatus(
 }
 
 /**
+ * Helper to create a standardized error response with headers
+ */
+function createErrorResponse(
+  error: string,
+  status: number,
+  requestId: string,
+  debugStatus: { enabled: boolean; reason: string },
+  debugInfo?: Record<string, any>
+): NextResponse {
+  const response: Record<string, any> = {
+    error,
+    build_marker: BUILD_MARKER,
+    request_id: requestId,
+    debug_status: debugStatus,
+  };
+
+  if (debugInfo && debugStatus.enabled) {
+    response.debug = debugInfo;
+  }
+
+  return NextResponse.json(response, {
+    status,
+    headers: {
+      'Cache-Control': 'no-store',
+      'X-Build-Marker': BUILD_MARKER,
+      'X-Request-Id': requestId,
+    },
+  });
+}
+
+/**
+ * Helper to create a standardized success response with headers
+ */
+function createSuccessResponse(
+  data: Record<string, any>,
+  status: number,
+  requestId: string,
+  debugStatus: { enabled: boolean; reason: string },
+  debugInfo?: Record<string, any>
+): NextResponse {
+  const response: Record<string, any> = {
+    ...data,
+    build_marker: BUILD_MARKER,
+    request_id: requestId,
+    debug_status: debugStatus,
+  };
+
+  if (debugInfo && debugStatus.enabled) {
+    response.debug = debugInfo;
+  }
+
+  return NextResponse.json(response, {
+    status,
+    headers: {
+      'Cache-Control': 'no-store',
+      'X-Build-Marker': BUILD_MARKER,
+      'X-Request-Id': requestId,
+    },
+  });
+}
+
+/**
  * Create a new vendor application
  * Server-only route - requires authentication
  */
@@ -52,14 +117,33 @@ export async function POST(req: NextRequest) {
   // Generate unique request ID for tracking
   const requestId = randomUUID();
   
+  // Initialize debug status with defaults
+  let debugStatus = { enabled: false, reason: "missing_debug_param" };
+  let debugInfo: Record<string, any> = {};
+  
   try {
     // Production-safe debug gating
     const url = new URL(req.url);
     const debugParam = url.searchParams.get("debug") === "1";
     const debugKeyEnv = process.env.DEBUG_KEY;
-    const debugKeyHeader = req.headers.get("x-debug-key");
     
-    const debugStatus = getDebugStatus(debugParam, debugKeyEnv, debugKeyHeader);
+    // Case-insensitive header retrieval (x-debug-key, X-Debug-Key, etc.)
+    let debugKeyHeader: string | null = null;
+    const headerKeys = ['x-debug-key', 'X-Debug-Key', 'X-DEBUG-KEY'];
+    for (const key of headerKeys) {
+      const value = req.headers.get(key);
+      if (value) {
+        debugKeyHeader = value;
+        break;
+      }
+    }
+    
+    // Diagnostic logging when ?debug=1 is present (safe: no secrets, only lengths/booleans)
+    if (debugParam) {
+      console.log(`[vendors/create] DEBUG_DIAGNOSTIC | request_id=${requestId} | env_KEY_exists=${!!debugKeyEnv} | env_KEY_length=${debugKeyEnv?.length || 0} | header_KEY_length=${debugKeyHeader?.length || 0} | match=${debugKeyHeader === debugKeyEnv}`);
+    }
+    
+    debugStatus = getDebugStatus(debugParam, debugKeyEnv, debugKeyHeader);
     const debugEnabled = debugStatus.enabled;
     
     // Check for auth cookies in request
@@ -73,7 +157,6 @@ export async function POST(req: NextRequest) {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     
     // Build debug info if enabled
-    let debugInfo: Record<string, any> = {};
     if (debugEnabled) {
       debugInfo = {
         has_user: !!user,
@@ -101,15 +184,21 @@ export async function POST(req: NextRequest) {
         } : null,
       });
       
-      return NextResponse.json(
-        { 
-          error: "Unauthorized - Please log in to submit a vendor application",
-          build_marker: BUILD_MARKER,
-          request_id: requestId,
-          debug_status: debugStatus,
-          ...(debugEnabled ? { debug: debugInfo } : {}),
-        },
-        { status: 401 }
+      // When debug enabled, include auth error details in response
+      const authDebugInfo = debugEnabled ? {
+        ...debugInfo,
+        auth_error: userError ? {
+          message: userError.message,
+          status: userError.status,
+        } : null,
+      } : undefined;
+      
+      return createErrorResponse(
+        "Unauthorized - Please log in to submit a vendor application",
+        401,
+        requestId,
+        debugStatus,
+        authDebugInfo
       );
     }
 
@@ -128,15 +217,18 @@ export async function POST(req: NextRequest) {
         request_id: requestId,
         error: parseError,
       });
-      return NextResponse.json(
-        {
-          error: "Invalid request body",
-          build_marker: BUILD_MARKER,
-          request_id: requestId,
-          debug_status: debugStatus,
-          ...(debugEnabled ? { debug: { ...debugInfo, parseError: parseError instanceof Error ? parseError.message : "Unknown" } } : {}),
-        },
-        { status: 400 }
+      
+      const parseDebugInfo = debugStatus.enabled ? {
+        ...debugInfo,
+        parse_error: parseError instanceof Error ? parseError.message : "Unknown",
+      } : undefined;
+      
+      return createErrorResponse(
+        "Invalid request body",
+        400,
+        requestId,
+        debugStatus,
+        parseDebugInfo
       );
     }
 
@@ -150,42 +242,33 @@ export async function POST(req: NextRequest) {
 
     // Validate required fields
     if (!business_name || !business_name.trim()) {
-      return NextResponse.json(
-        { 
-          error: "Business name is required",
-          build_marker: BUILD_MARKER,
-          request_id: requestId,
-          debug_status: debugStatus,
-          ...(debugEnabled ? { debug: debugInfo } : {}),
-        },
-        { status: 400 }
+      return createErrorResponse(
+        "Business name is required",
+        400,
+        requestId,
+        debugStatus,
+        debugStatus.enabled ? debugInfo : undefined
       );
     }
 
     // Require compliance attestations
     if (!coa_attested) {
-      return NextResponse.json(
-        { 
-          error: "COA attestation is required",
-          build_marker: BUILD_MARKER,
-          request_id: requestId,
-          debug_status: debugStatus,
-          ...(debugEnabled ? { debug: debugInfo } : {}),
-        },
-        { status: 400 }
+      return createErrorResponse(
+        "COA attestation is required",
+        400,
+        requestId,
+        debugStatus,
+        debugStatus.enabled ? debugInfo : undefined
       );
     }
 
     if (!intoxicating_policy_ack) {
-      return NextResponse.json(
-        { 
-          error: `Intoxicating products policy acknowledgement is required. Intoxicating products are allowed only until ${getIntoxicatingCutoffDate()}.`,
-          build_marker: BUILD_MARKER,
-          request_id: requestId,
-          debug_status: debugStatus,
-          ...(debugEnabled ? { debug: debugInfo } : {}),
-        },
-        { status: 400 }
+      return createErrorResponse(
+        `Intoxicating products policy acknowledgement is required. Intoxicating products are allowed only until ${getIntoxicatingCutoffDate()}.`,
+        400,
+        requestId,
+        debugStatus,
+        debugStatus.enabled ? debugInfo : undefined
       );
     }
 
@@ -197,16 +280,12 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (existingVendor) {
-      return NextResponse.json(
-        { 
-          error: "Vendor account already exists", 
-          vendor_id: existingVendor.id,
-          build_marker: BUILD_MARKER,
-          request_id: requestId,
-          debug_status: debugStatus,
-          ...(debugEnabled ? { debug: debugInfo } : {}),
-        },
-        { status: 409 }
+      return createErrorResponse(
+        "Vendor account already exists",
+        409,
+        requestId,
+        debugStatus,
+        debugStatus.enabled ? { ...debugInfo, vendor_id: existingVendor.id } : undefined
       );
     }
 
@@ -231,22 +310,24 @@ export async function POST(req: NextRequest) {
 
     if (existingApplication) {
       // Return existing application instead of failing
-      return NextResponse.json({
-        success: true,
-        application: {
-          id: existingApplication.id,
-          status: existingApplication.status,
+      return createSuccessResponse(
+        {
+          success: true,
+          application: {
+            id: existingApplication.id,
+            status: existingApplication.status,
+          },
+          message: existingApplication.status === "pending"
+            ? "Vendor application already submitted and pending review."
+            : existingApplication.status === "approved"
+            ? "Vendor application was already approved."
+            : "Vendor application was previously rejected.",
         },
-        message: existingApplication.status === "pending"
-          ? "Vendor application already submitted and pending review."
-          : existingApplication.status === "approved"
-          ? "Vendor application was already approved."
-          : "Vendor application was previously rejected.",
-        build_marker: BUILD_MARKER,
-        request_id: requestId,
-        debug_status: debugStatus,
-        ...(debugEnabled ? { debug: debugInfo } : {}),
-      }, { status: 200 });
+        200,
+        requestId,
+        debugStatus,
+        debugStatus.enabled ? debugInfo : undefined
+      );
     }
 
     // Create vendor application
@@ -272,43 +353,42 @@ export async function POST(req: NextRequest) {
         hint: applicationError.hint,
         userId: user.id,
         cookiePresent,
+        hasUser: !!user,
       });
       
-      // Build error response
-      const errorResponse: Record<string, any> = {
-        error: "Failed to submit vendor application. Please try again or contact support.",
-        build_marker: BUILD_MARKER,
-        request_id: requestId,
-        debug_status: debugStatus,
-      };
-
-      // Add detailed error info if debug enabled
-      if (debugEnabled) {
-        errorResponse.debug = {
-          ...debugInfo,
-          supabase_error: {
-            code: applicationError.code,
-            message: applicationError.message,
-            details: applicationError.details,
-            hint: applicationError.hint,
-          },
-        };
-      }
+      // When debug enabled, include full Supabase error in response
+      const supabaseDebugInfo = debugStatus.enabled ? {
+        ...debugInfo,
+        supabase_error: {
+          code: applicationError.code,
+          message: applicationError.message,
+          details: applicationError.details,
+          hint: applicationError.hint,
+        },
+      } : undefined;
       
-      return NextResponse.json(errorResponse, { status: 500 });
+      return createErrorResponse(
+        "Failed to submit vendor application. Please try again or contact support.",
+        500,
+        requestId,
+        debugStatus,
+        supabaseDebugInfo
+      );
     }
 
-    return NextResponse.json({
-      success: true,
-      application: application,
-      message: "Vendor application submitted. You will be notified once it's reviewed.",
-      build_marker: BUILD_MARKER,
-      request_id: requestId,
-      debug_status: debugStatus,
-      ...(debugEnabled ? { debug: debugInfo } : {}),
-    }, { status: 201 });
+    return createSuccessResponse(
+      {
+        success: true,
+        application: application,
+        message: "Vendor application submitted. You will be notified once it's reviewed.",
+      },
+      201,
+      requestId,
+      debugStatus,
+      debugStatus.enabled ? debugInfo : undefined
+    );
   } catch (error) {
-    // Catch any unexpected errors
+    // Catch any unexpected errors - ALWAYS return JSON with marker/id/debug_status
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     const errorStack = error instanceof Error ? error.stack : undefined;
     
@@ -320,14 +400,27 @@ export async function POST(req: NextRequest) {
       const url = new URL(req.url);
       const debugParam = url.searchParams.get("debug") === "1";
       const debugKeyEnv = process.env.DEBUG_KEY;
-      const debugKeyHeader = req.headers.get("x-debug-key");
+      
+      // Case-insensitive header retrieval (same as main try block)
+      let debugKeyHeader: string | null = null;
+      const headerKeys = ['x-debug-key', 'X-Debug-Key', 'X-DEBUG-KEY'];
+      for (const key of headerKeys) {
+        const value = req.headers.get(key);
+        if (value) {
+          debugKeyHeader = value;
+          break;
+        }
+      }
+      
       catchDebugStatus = getDebugStatus(debugParam, debugKeyEnv, debugKeyHeader);
       
       if (catchDebugStatus.enabled) {
+        // Sanitize stack trace - don't include full stack in production, just message
         catchDebugInfo = {
           unexpected_error: {
             message: errorMessage,
-            stack: errorStack,
+            // Only include stack if in debug mode and it's safe
+            ...(errorStack ? { stack: errorStack.substring(0, 500) } : {}),
           },
         };
       }
@@ -343,17 +436,12 @@ export async function POST(req: NextRequest) {
       stack: errorStack,
     });
     
-    return NextResponse.json(
-      { 
-        error: "An unexpected error occurred. Please try again later.",
-        build_marker: BUILD_MARKER,
-        request_id: requestId,
-        debug_status: catchDebugStatus,
-        ...(catchDebugStatus.enabled && Object.keys(catchDebugInfo).length > 0 ? { 
-          debug: catchDebugInfo,
-        } : {}),
-      },
-      { status: 500 }
+    return createErrorResponse(
+      "Internal Server Error",
+      500,
+      requestId,
+      catchDebugStatus,
+      catchDebugStatus.enabled && Object.keys(catchDebugInfo).length > 0 ? catchDebugInfo : undefined
     );
   }
 }
