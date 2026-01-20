@@ -126,7 +126,22 @@ export async function POST(req: NextRequest) {
     const url = new URL(req.url);
     const debugParam = url.searchParams.get("debug") === "1";
     const debugKeyEnv = process.env.DEBUG_KEY;
-    const debugKeyHeader = req.headers.get("x-debug-key");
+    
+    // Case-insensitive header retrieval (x-debug-key, X-Debug-Key, etc.)
+    let debugKeyHeader: string | null = null;
+    const headerKeys = ['x-debug-key', 'X-Debug-Key', 'X-DEBUG-KEY'];
+    for (const key of headerKeys) {
+      const value = req.headers.get(key);
+      if (value) {
+        debugKeyHeader = value;
+        break;
+      }
+    }
+    
+    // Diagnostic logging when ?debug=1 is present (safe: no secrets, only lengths/booleans)
+    if (debugParam) {
+      console.log(`[vendors/create] DEBUG_DIAGNOSTIC | request_id=${requestId} | env_KEY_exists=${!!debugKeyEnv} | env_KEY_length=${debugKeyEnv?.length || 0} | header_KEY_length=${debugKeyHeader?.length || 0} | match=${debugKeyHeader === debugKeyEnv}`);
+    }
     
     debugStatus = getDebugStatus(debugParam, debugKeyEnv, debugKeyHeader);
     const debugEnabled = debugStatus.enabled;
@@ -169,12 +184,21 @@ export async function POST(req: NextRequest) {
         } : null,
       });
       
+      // When debug enabled, include auth error details in response
+      const authDebugInfo = debugEnabled ? {
+        ...debugInfo,
+        auth_error: userError ? {
+          message: userError.message,
+          status: userError.status,
+        } : null,
+      } : undefined;
+      
       return createErrorResponse(
         "Unauthorized - Please log in to submit a vendor application",
         401,
         requestId,
         debugStatus,
-        debugEnabled ? debugInfo : undefined
+        authDebugInfo
       );
     }
 
@@ -329,8 +353,10 @@ export async function POST(req: NextRequest) {
         hint: applicationError.hint,
         userId: user.id,
         cookiePresent,
+        hasUser: !!user,
       });
       
+      // When debug enabled, include full Supabase error in response
       const supabaseDebugInfo = debugStatus.enabled ? {
         ...debugInfo,
         supabase_error: {
@@ -374,7 +400,18 @@ export async function POST(req: NextRequest) {
       const url = new URL(req.url);
       const debugParam = url.searchParams.get("debug") === "1";
       const debugKeyEnv = process.env.DEBUG_KEY;
-      const debugKeyHeader = req.headers.get("x-debug-key");
+      
+      // Case-insensitive header retrieval (same as main try block)
+      let debugKeyHeader: string | null = null;
+      const headerKeys = ['x-debug-key', 'X-Debug-Key', 'X-DEBUG-KEY'];
+      for (const key of headerKeys) {
+        const value = req.headers.get(key);
+        if (value) {
+          debugKeyHeader = value;
+          break;
+        }
+      }
+      
       catchDebugStatus = getDebugStatus(debugParam, debugKeyEnv, debugKeyHeader);
       
       if (catchDebugStatus.enabled) {
