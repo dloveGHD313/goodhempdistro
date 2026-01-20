@@ -6,6 +6,7 @@ import { validateEnvironmentVariables } from "@/lib/env-validator";
 import { brand, colorVars } from "@/lib/brand";
 import Nav from "@/components/Nav";
 import AgeGateClient from "@/components/AgeGateClient";
+import RecoveryHashRedirect from "@/components/RecoveryHashRedirect";
 
 // Validate environment variables at startup (logs warnings, doesn't throw)
 if (typeof window === "undefined") {
@@ -70,6 +71,7 @@ export default function RootLayout({
         </header>
         {children}
         <AgeGateClient />
+        <RecoveryHashRedirect />
       </body>
     </html>
   );
