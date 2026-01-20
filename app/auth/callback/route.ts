@@ -46,8 +46,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // Success - redirect to reset password page
-    const redirectUrl = new URL(next, requestUrl.origin);
+    // Success - redirect to reset password page (default to /reset-password)
+    const redirectPath = next === "/auth/reset" ? "/reset-password" : next;
+    const redirectUrl = new URL(redirectPath, requestUrl.origin);
     return NextResponse.redirect(redirectUrl);
   }
 
