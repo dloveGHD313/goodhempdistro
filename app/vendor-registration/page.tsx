@@ -1,10 +1,14 @@
 import { redirect } from "next/navigation";
+import { unstable_noStore as noStore } from "next/cache";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { hasVendorContext } from "@/lib/authz";
 import Footer from "@/components/Footer";
 import VendorForm from "./VendorForm";
 
+// Force dynamic rendering and disable caching
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 type Vendor = {
   id: string;
@@ -84,18 +88,43 @@ async function getVendorData(userId: string) {
 }
 
 export default async function VendorRegistrationPage() {
+  // Disable caching to ensure fresh data
+  noStore();
+  
   const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
 
+  // CRITICAL: Log SSR user status for debugging
   if (!user) {
+    console.error("[vendor-registration] SSR user is null - no authenticated session!", {
+      userError: userError?.message || null,
+    });
     redirect("/login?redirect=/vendor-registration");
   }
 
-  // Fetch vendor data server-side with proper scoping
-  const vendor = await getVendorData(user.id);
+  console.log(`[vendor-registration] SSR user exists: userId=${user.id} email=${user.email || 'no-email'}`);
 
-  // If vendor exists, show status page
-  if (vendor) {
+  // Check vendor context first
+  const { hasContext, applicationStatus, hasVendor, vendorStatus, _debug } = await hasVendorContext(supabase, user.id);
+  
+  // Log vendor context for debugging (server-only)
+  if (_debug) {
+    console.log(`[vendor-registration] Vendor context check: ${JSON.stringify(_debug)}`);
+  }
+
+  // If has context, fetch full vendor data
+  let vendor: { id: string; business_name: string; status: string; created_at?: string } | null = null;
+  
+  if (hasContext) {
+    vendor = await getVendorData(user.id);
+    
+    if (!vendor && _debug) {
+      console.error(`[vendor-registration] hasContext=true but getVendorData returned null - ${JSON.stringify(_debug)}`);
+    }
+  }
+
+  // If vendor context exists, show status page
+  if (hasContext && vendor) {
     const isPending = vendor.status === "pending";
     const isActive = vendor.status === "active";
     const isRejected = vendor.status === "rejected";
@@ -172,7 +201,12 @@ export default async function VendorRegistrationPage() {
     );
   }
 
-  // Show vendor creation form
+  // If active vendor, redirect to dashboard
+  if (hasContext && vendor && vendor.status === "active") {
+    redirect("/vendors/dashboard");
+  }
+
+  // Show vendor creation form (no context or context but no vendor data)
   return (
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">

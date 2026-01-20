@@ -362,16 +362,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create vendor application
+    // Create vendor application - CRITICAL: Always use user.id from authenticated session
+    // Never accept user_id from client payload
     const { data: application, error: applicationError } = await supabase
       .from("vendor_applications")
       .insert({
-        user_id: user.id,
+        user_id: user.id, // Server-side enforced - always from authenticated session
         business_name: business_name.trim(),
         status: "pending",
       })
-      .select("id, status")
+      .select("id, user_id, status")
       .single();
+
+    // DEFENSIVE: Verify the created application belongs to this user
+    if (application && application.user_id !== user.id) {
+      console.error("[vendors/create] SECURITY: Created application has wrong user_id!", {
+        request_id: requestId,
+        userId: user.id,
+        application_user_id: application.user_id,
+      });
+      return createErrorResponse(
+        "Invalid application data",
+        500,
+        requestId,
+        debugStatus,
+        debugStatus.enabled ? { ...debugInfo, security_error: "created_application_user_id_mismatch" } : undefined
+      );
+    }
 
     if (applicationError) {
       // ALWAYS log full Supabase error object with request_id

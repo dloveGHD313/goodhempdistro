@@ -106,17 +106,75 @@ export async function getCurrentVendor(
  * Check if user has vendor context (application or vendor record)
  * Returns true if user has ANY vendor_applications row OR vendors row
  * Optionally returns the application status for UI
+ * Includes debug information for troubleshooting (server-only)
+ * 
+ * IMPORTANT: userId must be from authenticated session (supabase.auth.getUser())
+ * If userId is null/undefined, this will return hasContext=false and log an error.
  */
 export async function hasVendorContext(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  userId: string
+  userId: string | null | undefined
 ): Promise<{ 
   hasContext: boolean; 
   applicationStatus?: string | null;
   hasVendor: boolean;
+  vendorStatus?: string | null;
+  _debug?: {
+    userId: string | null;
+    userExists: boolean;
+    applicationFound: boolean;
+    applicationStatus: string | null;
+    vendorFound: boolean;
+    vendorStatus: string | null;
+    appError?: string;
+    vendorError?: string;
+  };
 }> {
+  // CRITICAL: Check if userId is null/undefined (no session)
+  if (!userId) {
+    console.error("[authz] hasVendorContext called with null/undefined userId - SSR user session is missing!");
+    console.log(`[authz] VENDOR_CONTEXT_MISSING userId=null applicationFound=false vendorFound=false (no_session)`);
+    return {
+      hasContext: false,
+      hasVendor: false,
+      _debug: {
+        userId: null,
+        userExists: false,
+        applicationFound: false,
+        applicationStatus: null,
+        vendorFound: false,
+        vendorStatus: null,
+      },
+    };
+  }
+
   try {
-    // Check for vendor application first
+    // Verify user session exists by checking auth
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !authUser || authUser.id !== userId) {
+      console.error("[authz] SSR user session mismatch or missing!", {
+        providedUserId: userId,
+        authUserId: authUser?.id || null,
+        authError: authError?.message || null,
+      });
+      console.log(`[authz] VENDOR_CONTEXT_MISSING userId=${userId} applicationFound=false vendorFound=false (session_mismatch)`);
+      return {
+        hasContext: false,
+        hasVendor: false,
+        _debug: {
+          userId,
+          userExists: false,
+          applicationFound: false,
+          applicationStatus: null,
+          vendorFound: false,
+          vendorStatus: null,
+          appError: authError?.message || "Session mismatch",
+        },
+      };
+    }
+
+    // Check for vendor application first - MUST use user_id = userId
     const { data: application, error: appError } = await supabase
       .from("vendor_applications")
       .select("id, user_id, status")
@@ -131,7 +189,7 @@ export async function hasVendorContext(
       });
     }
 
-    // Check for vendor record
+    // Check for vendor record - MUST use owner_user_id = userId
     const { data: vendor, error: vendorError } = await supabase
       .from("vendors")
       .select("id, owner_user_id, status")
@@ -149,13 +207,47 @@ export async function hasVendorContext(
     const hasApplication = !appError && !!application && application.user_id === userId;
     const hasVendor = !vendorError && !!vendor && vendor.owner_user_id === userId;
 
+    // Build debug object (server-only, never sent to client)
+    const debug = {
+      userId,
+      userExists: true,
+      applicationFound: hasApplication,
+      applicationStatus: application?.status || null,
+      vendorFound: hasVendor,
+      vendorStatus: vendor?.status || null,
+      ...(appError && { appError: appError.message }),
+      ...(vendorError && { vendorError: vendorError.message }),
+    };
+
+    // Log if context is missing (for troubleshooting)
+    if (!hasApplication && !hasVendor) {
+      console.log(`[authz] VENDOR_CONTEXT_MISSING userId=${userId} applicationFound=false vendorFound=false`);
+    } else {
+      // Log when context is found (for verification)
+      console.log(`[authz] VENDOR_CONTEXT_FOUND userId=${userId} applicationFound=${hasApplication} vendorFound=${hasVendor} applicationStatus=${application?.status || 'null'} vendorStatus=${vendor?.status || 'null'}`);
+    }
+
     return {
       hasContext: hasApplication || hasVendor,
       applicationStatus: application?.status || null,
       hasVendor,
+      vendorStatus: vendor?.status || null,
+      _debug: debug, // Server-only, will be stripped if serialized
     };
   } catch (error) {
     console.error("[authz] Error checking vendor context:", error);
-    return { hasContext: false, hasVendor: false };
+    console.log(`[authz] VENDOR_CONTEXT_MISSING userId=${userId || 'null'} applicationFound=false vendorFound=false (exception)`);
+    return { 
+      hasContext: false, 
+      hasVendor: false,
+      _debug: {
+        userId: userId || null,
+        userExists: !!userId,
+        applicationFound: false,
+        applicationStatus: null,
+        vendorFound: false,
+        vendorStatus: null,
+      },
+    };
   }
 }
