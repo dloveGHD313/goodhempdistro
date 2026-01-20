@@ -105,9 +105,13 @@ export default async function VendorDashboardPage() {
   }
 
   // Check vendor context - redirect only if no context at all
-  const { hasContext } = await hasVendorContext(supabase, user.id);
+  const { hasContext, _debug } = await hasVendorContext(supabase, user.id);
   
   if (!hasContext) {
+    // Log debug info for troubleshooting (server-only)
+    if (_debug) {
+      console.log(`[vendors/dashboard] Redirecting to /vendor-registration - ${JSON.stringify(_debug)}`);
+    }
     redirect("/vendor-registration");
   }
 

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { hasVendorContext } from "@/lib/authz";
 import Footer from "@/components/Footer";
 import VendorForm from "./VendorForm";
 
@@ -93,6 +94,12 @@ export default async function VendorRegistrationPage() {
 
   // Fetch vendor data server-side with proper scoping
   const vendor = await getVendorData(user.id);
+  
+  // Log vendor context for debugging (server-only)
+  const { _debug } = await hasVendorContext(supabase, user.id);
+  if (_debug && !vendor) {
+    console.log(`[vendor-registration] No vendor data found - ${JSON.stringify(_debug)}`);
+  }
 
   // If vendor exists, show status page
   if (vendor) {

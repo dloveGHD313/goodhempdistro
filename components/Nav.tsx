@@ -71,9 +71,20 @@ export default function Nav() {
           </Link>
         ))}
         {isAdmin && (
-          <Link href="/admin/categories" className="nav-link text-sm">
-            ⚙️ Admin
-          </Link>
+          <div className="relative group">
+            <button className="nav-link text-sm flex items-center gap-1">
+              ⚙️ Admin
+              <span className="text-xs">▼</span>
+            </button>
+            <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[180px]">
+              <Link href="/admin/vendors" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                👥 Vendor Applications
+              </Link>
+              <Link href="/admin/categories" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                📁 Categories
+              </Link>
+            </div>
+          </div>
         )}
         <Link href={accountHref} className="nav-link text-sm">
           Account
@@ -162,15 +173,27 @@ export default function Nav() {
                 </Link>
               ))}
 
-              {/* Admin link */}
+              {/* Admin links */}
               {isAdmin && (
-                <Link
-                  href="/admin/categories"
-                  className="px-4 py-3 rounded-lg text-base drawer-link"
-                  onClick={() => setDrawerOpen(false)}
-                >
-                  ⚙️ Admin - Categories
-                </Link>
+                <>
+                  <div className="border-t mt-2 pt-2 nav-drawer-header">
+                    <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Admin</div>
+                  </div>
+                  <Link
+                    href="/admin/vendors"
+                    className="px-4 py-3 rounded-lg text-base drawer-link"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    👥 Vendor Applications
+                  </Link>
+                  <Link
+                    href="/admin/categories"
+                    className="px-4 py-3 rounded-lg text-base drawer-link"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    📁 Categories
+                  </Link>
+                </>
               )}
 
               {/* Account & Logout */}
