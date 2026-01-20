@@ -33,12 +33,22 @@ export default function ResetPasswordClient({ initialEmail }: Props) {
         const code = searchParams.get("code");
         
         // Check URL hash for tokens (legacy flow)
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const hash = window.location.hash;
+        const hashParams = new URLSearchParams(hash.substring(1));
         const accessToken = hashParams.get("access_token");
         const refreshToken = hashParams.get("refresh_token");
         const type = hashParams.get("type");
         const errorCode = hashParams.get("error_code");
         const errorDescription = hashParams.get("error_description");
+
+        console.log("[reset-password] Initializing session", {
+          hasCode: !!code,
+          hasHash: !!hash,
+          hasAccessToken: !!accessToken,
+          hasRefreshToken: !!refreshToken,
+          type,
+          errorCode,
+        });
 
         // Handle error in hash (e.g., otp_expired)
         if (errorCode) {

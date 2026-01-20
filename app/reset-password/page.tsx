@@ -1,10 +1,16 @@
+import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
 import ResetPasswordClient from "./ResetPasswordClient";
 
+// Disable caching to ensure fresh data
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export default async function ResetPasswordPage() {
+  // Disable caching
+  noStore();
+  
   // Get user email if session exists (for resend functionality)
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
