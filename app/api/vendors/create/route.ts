@@ -407,6 +407,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Revalidate relevant paths for immediate UI update
+    const { revalidatePath } = await import("next/cache");
+    revalidatePath("/vendor-registration");
+    revalidatePath("/vendors/dashboard");
+
     return createSuccessResponse(
       {
         success: true,

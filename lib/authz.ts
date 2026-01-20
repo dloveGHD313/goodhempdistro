@@ -101,3 +101,61 @@ export async function getCurrentVendor(
   const { vendor } = await isVendor(supabase, userId);
   return vendor;
 }
+
+/**
+ * Check if user has vendor context (application or vendor record)
+ * Returns true if user has ANY vendor_applications row OR vendors row
+ * Optionally returns the application status for UI
+ */
+export async function hasVendorContext(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userId: string
+): Promise<{ 
+  hasContext: boolean; 
+  applicationStatus?: string | null;
+  hasVendor: boolean;
+}> {
+  try {
+    // Check for vendor application first
+    const { data: application, error: appError } = await supabase
+      .from("vendor_applications")
+      .select("id, user_id, status")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    // DEFENSIVE: Verify the application belongs to this user
+    if (application && application.user_id !== userId) {
+      console.error("[authz] SECURITY: Application user_id mismatch in hasVendorContext!", {
+        userId,
+        application_user_id: application.user_id,
+      });
+    }
+
+    // Check for vendor record
+    const { data: vendor, error: vendorError } = await supabase
+      .from("vendors")
+      .select("id, owner_user_id, status")
+      .eq("owner_user_id", userId)
+      .maybeSingle();
+
+    // DEFENSIVE: Verify the vendor belongs to this user
+    if (vendor && vendor.owner_user_id !== userId) {
+      console.error("[authz] SECURITY: Vendor owner_user_id mismatch in hasVendorContext!", {
+        userId,
+        vendor_owner_user_id: vendor.owner_user_id,
+      });
+    }
+
+    const hasApplication = !appError && !!application && application.user_id === userId;
+    const hasVendor = !vendorError && !!vendor && vendor.owner_user_id === userId;
+
+    return {
+      hasContext: hasApplication || hasVendor,
+      applicationStatus: application?.status || null,
+      hasVendor,
+    };
+  } catch (error) {
+    console.error("[authz] Error checking vendor context:", error);
+    return { hasContext: false, hasVendor: false };
+  }
+}

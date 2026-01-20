@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
 import VendorForm from "./VendorForm";
@@ -130,23 +131,37 @@ export default async function VendorRegistrationPage() {
                 </span>
               </div>
               {isPending && (
-                <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-4 text-yellow-400">
-                  Your vendor application is pending review. We'll notify you once it's been processed.
-                  {submissionDate !== "N/A" && (
-                    <p className="text-sm mt-2">Submitted on {submissionDate}</p>
-                  )}
-                </div>
+                <>
+                  <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-4 text-yellow-400">
+                    Your vendor application is pending review. We'll notify you once it's been processed.
+                    {submissionDate !== "N/A" && (
+                      <p className="text-sm mt-2">Submitted on {submissionDate}</p>
+                    )}
+                  </div>
+                  <div className="pt-4">
+                    <Link href="/vendors/dashboard" className="btn-primary inline-block">
+                      Go to Vendor Dashboard
+                    </Link>
+                  </div>
+                </>
               )}
               {isRejected && (
-                <div className="bg-red-900/30 border border-red-600 rounded-lg p-4 text-red-400">
-                  Your vendor application was not approved. Please contact support if you have questions.
-                </div>
+                <>
+                  <div className="bg-red-900/30 border border-red-600 rounded-lg p-4 text-red-400">
+                    Your vendor application was not approved. Please contact support if you have questions.
+                  </div>
+                  <div className="pt-4">
+                    <Link href="/vendors/dashboard" className="btn-primary inline-block">
+                      Go to Vendor Dashboard
+                    </Link>
+                  </div>
+                </>
               )}
               {isActive && (
                 <div className="pt-4">
-                  <a href="/vendors/dashboard" className="btn-primary inline-block">
+                  <Link href="/vendors/dashboard" className="btn-primary inline-block">
                     Go to Vendor Dashboard
-                  </a>
+                  </Link>
                 </div>
               )}
             </div>
