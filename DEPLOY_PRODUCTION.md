@@ -17,6 +17,11 @@ In Supabase Dashboard → Authentication → URL Configuration:
    https://goodhempdistro.com/*
    ```
 
+3. **Password Reset Redirect:**
+   - Password reset emails will redirect to: `https://www.goodhempdistro.com/reset-password`
+   - This is configured in code (see `app/login/LoginForm.tsx`)
+   - Ensure this URL is included in the Redirect URLs list above
+
 This ensures password reset links work for both www and non-www domains.
 
 ### Email Confirmation Setup

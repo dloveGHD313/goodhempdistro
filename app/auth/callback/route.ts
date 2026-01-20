@@ -9,7 +9,7 @@ import { cookies } from "next/headers";
 export async function GET(req: NextRequest) {
   const requestUrl = new URL(req.url);
   const code = requestUrl.searchParams.get("code");
-  const next = requestUrl.searchParams.get("next") || "/auth/reset";
+  const next = requestUrl.searchParams.get("next") || "/reset-password";
 
   if (code) {
     // Exchange code for session server-side
