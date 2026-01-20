@@ -10,15 +10,15 @@ export function getSupabaseAdminClient() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl) {
-    throw new Error(
-      "Missing NEXT_PUBLIC_SUPABASE_URL. Please set it in your .env.local"
-    );
+    const error = "Missing NEXT_PUBLIC_SUPABASE_URL. Please set it in your .env.local";
+    console.error(`[admin-client] ${error}`);
+    throw new Error(error);
   }
 
   if (!serviceRoleKey) {
-    throw new Error(
-      "Missing SUPABASE_SERVICE_ROLE_KEY. Please set it in your .env.local"
-    );
+    const error = "Missing SUPABASE_SERVICE_ROLE_KEY. Please set it in your .env.local";
+    console.error(`[admin-client] SUPABASE_SERVICE_ROLE_KEY missing`);
+    throw new Error(error);
   }
 
   return createClient(supabaseUrl, serviceRoleKey, {

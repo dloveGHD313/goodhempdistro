@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase";
-import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { getCurrentUserProfile, isAdmin } from "@/lib/authz";
 import Footer from "@/components/Footer";
 import VendorsClient from "./VendorsClient";
@@ -10,52 +9,102 @@ import VendorsClient from "./VendorsClient";
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-async function getVendorApplications() {
-  try {
-    // Use service role client to bypass RLS - server-only
-    const admin = getSupabaseAdminClient();
+type RPCApplication = {
+  id: string;
+  user_id: string;
+  business_name: string;
+  description: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  user_email: string | null;
+};
 
-    // Fetch all applications (admin can see all statuses)
-    const { data: applications, error } = await admin
-      .from("vendor_applications")
-      .select("id, user_id, business_name, description, status, created_at, updated_at, profiles(display_name, email)")
-      .order("created_at", { ascending: false });
+async function getVendorApplications(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>) {
+  try {
+    // Use RPC function that bypasses RLS (admin-only check inside function)
+    const { data: applications, error } = await supabase.rpc('admin_list_vendor_applications');
 
     if (error) {
-      console.error("[admin/vendors] PostgREST error fetching vendor applications:", {
+      console.error("[admin/vendors] RPC error fetching vendor applications:", {
         code: error.code,
         message: error.message,
         details: error.details,
         hint: error.hint,
       });
-      return { all: [], pending: [], recent: [] };
+      return { 
+        all: [], 
+        pending: [], 
+        recent: [], 
+        error: {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+        }
+      };
     }
 
     if (!applications) {
-      console.warn("[admin/vendors] No applications returned (null/undefined)");
-      return { all: [], pending: [], recent: [] };
+      console.warn("[admin/vendors] No applications returned from RPC (null/undefined)");
+      return { all: [], pending: [], recent: [], error: null };
     }
 
-    // Normalize profiles relation
-    const normalized = applications.map((app: any) => ({
-      ...app,
-      profiles: Array.isArray(app.profiles) ? app.profiles[0] : app.profiles,
+    // Normalize to match VendorsClient expected format
+    type NormalizedApp = {
+      id: string;
+      user_id: string;
+      business_name: string;
+      description: string | null;
+      status: "pending" | "approved" | "rejected";
+      created_at: string;
+      updated_at: string;
+      profiles: {
+        display_name: string | null;
+        email?: string;
+      } | null;
+    };
+    
+    const normalized: NormalizedApp[] = (applications as RPCApplication[]).map((app) => ({
+      id: app.id,
+      user_id: app.user_id,
+      business_name: app.business_name,
+      description: app.description,
+      status: (app.status.toLowerCase() === 'pending' ? 'pending' : 
+               app.status.toLowerCase() === 'approved' ? 'approved' : 
+               'rejected') as "pending" | "approved" | "rejected",
+      created_at: app.created_at,
+      updated_at: app.updated_at,
+      profiles: app.user_email ? {
+        email: app.user_email,
+        display_name: null,
+      } : null,
     }));
 
     // Filter by status (case-insensitive comparison)
-    const pending = normalized.filter((app: any) => 
+    const pending = normalized.filter((app) => 
       app.status && app.status.toLowerCase() === 'pending'
     );
     
     // Get most recent 10 applications of any status (for diagnostics)
     const recent = normalized.slice(0, 10);
 
-    console.log(`[admin/vendors] Fetched ${normalized.length} total applications: ${pending.length} pending, ${normalized.length - pending.length} other statuses`);
+    console.log(`[admin/vendors] RPC returned ${normalized.length} total applications: ${pending.length} pending, ${normalized.length - pending.length} other statuses`);
 
-    return { all: normalized, pending, recent };
+    return { all: normalized, pending, recent, error: null };
   } catch (error) {
     console.error("[admin/vendors] Exception in getVendorApplications:", error);
-    return { all: [], pending: [], recent: [] };
+    return { 
+      all: [], 
+      pending: [], 
+      recent: [], 
+      error: error instanceof Error ? {
+        code: 'EXCEPTION',
+        message: error.message,
+        details: null,
+        hint: null,
+      } : null
+    };
   }
 }
 
@@ -74,15 +123,49 @@ export default async function AdminVendorsPage() {
     redirect("/login?redirect=/admin/vendors");
   }
 
-  if (!isAdmin(profile)) {
-    console.warn(`[admin/vendors] Non-admin access attempt - userId=${user.id} profileRole=${profile?.role || 'null'}`);
-    redirect("/dashboard");
+  // Verify admin role by reading profile directly
+  const { data: profileData, error: profileError } = await supabase
+    .from('profiles')
+    .select('id, email, role')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  const isUserAdmin = profileData?.role === 'admin';
+
+  if (!isUserAdmin) {
+    console.warn(`[admin/vendors] Non-admin access attempt - userId=${user.id} profileRole=${profileData?.role || 'null'} profileExists=${!!profileData}`);
+    return (
+      <div className="min-h-screen text-white flex flex-col">
+        <main className="flex-1">
+          <section className="section-shell">
+            <div className="surface-card p-8 text-center">
+              <h1 className="text-2xl font-bold mb-4 text-red-400">Not Authorized</h1>
+              <p className="text-muted mb-4">You must be an admin to access this page.</p>
+              <p className="text-sm text-muted">
+                Your role: {profileData?.role || 'not found'}
+                {profileError && ` (Error: ${profileError.message})`}
+              </p>
+            </div>
+          </section>
+        </main>
+        <Footer />
+      </div>
+    );
   }
 
-  // Fetch applications using service role
-  const { all: allApplications, pending: pendingApplications, recent: recentApplications } = await getVendorApplications();
+  // Fetch applications using RPC (no service role required)
+  const { all: allApplications, pending: pendingApplications, recent: recentApplications, error: rpcError } = await getVendorApplications(supabase);
   
-  console.log(`[admin/vendors] Admin ${user.email} viewing applications: total=${allApplications.length} pending=${pendingApplications.length}`);
+  const totalCount = allApplications.length;
+  const pendingCount = pendingApplications.length;
+  
+  console.log(`[admin/vendors] Admin ${user.email} viewing applications: total=${totalCount} pending=${pendingCount}`);
+
+  // Get Supabase URL for diagnostics
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'NOT_SET';
+  const supabaseProjectRef = supabaseUrl.includes('supabase.co') 
+    ? supabaseUrl.split('//')[1]?.split('.')[0] || 'unknown'
+    : 'local/custom';
 
   return (
     <div className="min-h-screen text-white flex flex-col">
@@ -90,15 +173,52 @@ export default async function AdminVendorsPage() {
         <section className="section-shell">
           <h1 className="text-4xl font-bold mb-8 text-accent">Vendor Applications</h1>
           
+          {/* Diagnostics Panel (Admin Only) */}
+          <details className="mb-6 surface-card p-4 border border-blue-600/30 rounded-lg bg-blue-900/10">
+            <summary className="cursor-pointer text-sm font-semibold text-blue-400 hover:text-blue-300">
+              🔍 Diagnostics
+            </summary>
+            <div className="mt-4 space-y-2 text-xs font-mono">
+              <div><strong>Supabase URL:</strong> {supabaseUrl}</div>
+              <div><strong>Project Ref:</strong> {supabaseProjectRef}</div>
+              <div><strong>User ID:</strong> {user.id}</div>
+              <div><strong>User Email:</strong> {user.email || 'no-email'}</div>
+              <div><strong>Profile Role:</strong> {profileData?.role || 'NOT FOUND'}</div>
+              <div><strong>Profile Email:</strong> {profileData?.email || 'NOT FOUND'}</div>
+              <div><strong>Total Applications:</strong> {totalCount}</div>
+              <div><strong>Pending Applications:</strong> {pendingCount}</div>
+              {rpcError && (
+                <div className="mt-4 p-2 bg-red-900/30 border border-red-600 rounded">
+                  <div><strong>RPC Error Code:</strong> {rpcError.code}</div>
+                  <div><strong>RPC Error Message:</strong> {rpcError.message}</div>
+                  {rpcError.details && <div><strong>Details:</strong> {rpcError.details}</div>}
+                  {rpcError.hint && <div><strong>Hint:</strong> {rpcError.hint}</div>}
+                </div>
+              )}
+              {totalCount === 0 && (
+                <div className="mt-4 p-2 bg-yellow-900/30 border border-yellow-600 rounded">
+                  <div><strong>⚠️ No applications found.</strong></div>
+                  <div className="mt-2">Possible causes:</div>
+                  <ul className="list-disc list-inside ml-2 space-y-1">
+                    <li>Wrong Supabase project (check URL above)</li>
+                    <li>Admin role missing (check Profile Role above)</li>
+                    <li>Profile row missing (check Profile Email above)</li>
+                    <li>No applications exist in database</li>
+                  </ul>
+                </div>
+              )}
+            </div>
+          </details>
+          
           {/* Summary Stats */}
           <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="surface-card p-4 border border-[var(--border)] rounded-lg">
               <div className="text-sm text-muted mb-1">Total Applications</div>
-              <div className="text-2xl font-bold">{allApplications.length}</div>
+              <div className="text-2xl font-bold">{totalCount}</div>
             </div>
             <div className="surface-card p-4 border border-yellow-600/50 rounded-lg bg-yellow-900/10">
               <div className="text-sm text-muted mb-1">Pending Review</div>
-              <div className="text-2xl font-bold text-yellow-400">{pendingApplications.length}</div>
+              <div className="text-2xl font-bold text-yellow-400">{pendingCount}</div>
             </div>
           </div>
 
