@@ -120,8 +120,11 @@ export default function LoginForm() {
 
                 try {
                   const supabase = createSupabaseBrowserClient();
-                  // Always use www.goodhempdistro.com for password reset redirects
-                  const redirectTo = "https://www.goodhempdistro.com/reset-password";
+                  // Use dynamic origin for password reset redirects (works on localhost and production)
+                  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.goodhempdistro.com';
+                  const redirectTo = `${origin}/reset-password`;
+
+                  console.log(`[login] Requesting password reset for ${email}, redirectTo=${redirectTo}`);
 
                   const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
                     redirectTo,
