@@ -133,9 +133,16 @@ export default async function VendorDashboardPage() {
 
   const { vendor, products, orderCount } = vendorData;
 
+  // Determine status: vendors table should only have 'active', pending/rejected come from applications
+  // If vendor.status is 'pending', it's an anomaly (should be cleaned up)
   const isActive = vendor.status === "active";
-  const isPending = vendor.status === "pending";
+  const isPending = vendor.status === "pending" || (!isActive && vendor.status !== "suspended" && vendor.status !== "rejected");
   const isRejected = vendor.status === "rejected" || vendor.status === "suspended";
+  
+  // Log if vendor has unexpected status
+  if (vendor.status === "pending") {
+    console.warn(`[vendors/dashboard] Vendor ${vendor.id} has status 'pending' - vendors table should only contain active vendors. This may indicate a data integrity issue.`);
+  }
   
   const statusConfig = {
     active: {

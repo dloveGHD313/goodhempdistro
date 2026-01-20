@@ -24,15 +24,21 @@ export default function Nav() {
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
-    supabase.auth.getUser().then(async ({ data }) => {
+    supabase.auth.getUser().then(async ({ data, error }) => {
       setIsLoggedIn(!!data.user);
       if (data.user) {
         // Check if user is admin
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("role")
           .eq("id", data.user.id)
           .single();
+        
+        if (profileError && profileError.code === 'PGRST116') {
+          // Profile not found - log warning but don't break UI
+          console.warn(`[Nav] Profile missing for user ${data.user.id} - profile should be auto-created by trigger`);
+        }
+        
         setIsAdmin(profile?.role === "admin");
       }
     });
@@ -72,10 +78,10 @@ export default function Nav() {
         ))}
         {isAdmin && (
           <div className="relative group">
-            <button className="nav-link text-sm flex items-center gap-1">
+            <Link href="/admin/vendors" className="nav-link text-sm flex items-center gap-1">
               ⚙️ Admin
               <span className="text-xs">▼</span>
-            </button>
+            </Link>
             <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[180px]">
               <Link href="/admin/vendors" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
                 👥 Vendor Applications

@@ -42,36 +42,70 @@ export async function PUT(
       return NextResponse.json({ error: "Application not found" }, { status: 404 });
     }
 
-    // If approved, create vendor record and update profile role FIRST
+    // If approved, create vendor record and update profile role
     if (status === "approved") {
+      console.log(`[admin/vendors] Approving application ${id} for user ${application.user_id}`);
+      
       // Check if vendor already exists
-      const { data: existingVendor } = await admin
+      const { data: existingVendor, error: checkError } = await admin
         .from("vendors")
-        .select("id")
+        .select("id, status, owner_user_id")
         .eq("owner_user_id", application.user_id)
         .maybeSingle();
 
-      if (!existingVendor) {
-        // Create vendor record
-        const { error: vendorError } = await admin
+      if (checkError) {
+        console.error("[admin/vendors] Error checking existing vendor:", checkError);
+      }
+
+      // If vendor exists but status is 'pending', log warning and update to 'active'
+      if (existingVendor) {
+        if (existingVendor.status === 'pending') {
+          console.warn(`[admin/vendors] Vendor row exists with status 'pending' for user ${application.user_id} - updating to 'active'`);
+          const { error: updateVendorError } = await admin
+            .from("vendors")
+            .update({
+              status: "active",
+              business_name: application.business_name,
+              description: application.description,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", existingVendor.id);
+
+          if (updateVendorError) {
+            console.error("[admin/vendors] Error updating vendor status:", updateVendorError);
+            return NextResponse.json(
+              { error: `Failed to update vendor: ${updateVendorError.message}` },
+              { status: 500 }
+            );
+          }
+          console.log(`[admin/vendors] Updated existing vendor ${existingVendor.id} to active status`);
+        } else {
+          console.log(`[admin/vendors] Vendor already exists with status ${existingVendor.status} - skipping creation`);
+        }
+      } else {
+        // Create vendor record with status 'active' (vendors table should only have active vendors)
+        const { data: newVendor, error: vendorError } = await admin
           .from("vendors")
           .insert({
             owner_user_id: application.user_id,
             business_name: application.business_name,
             description: application.description,
-            status: "active",
-          });
+            status: "active", // Vendors table should only contain active vendors
+          })
+          .select("id")
+          .single();
 
         if (vendorError) {
-          console.error("Error creating vendor:", vendorError);
+          console.error("[admin/vendors] Error creating vendor:", vendorError);
           return NextResponse.json(
             { error: `Failed to create vendor: ${vendorError.message}` },
             { status: 500 }
           );
         }
+        console.log(`[admin/vendors] Created vendor record ${newVendor.id} for user ${application.user_id}`);
       }
 
-      // Update profile role to vendor
+      // Update profile role to vendor (if profile exists)
       const { error: profileError } = await admin
         .from("profiles")
         .update({
@@ -81,8 +115,29 @@ export async function PUT(
         .eq("id", application.user_id);
 
       if (profileError) {
-        console.error("Error updating profile role:", profileError);
-        // Don't fail, but log it
+        // Profile might not exist - log but don't fail (trigger should create it)
+        console.warn(`[admin/vendors] Could not update profile role for user ${application.user_id}:`, profileError.message);
+      } else {
+        console.log(`[admin/vendors] Updated profile role to 'vendor' for user ${application.user_id}`);
+      }
+    } else if (status === "rejected") {
+      // On reject, do NOT create vendors row
+      // Only update application status
+      console.log(`[admin/vendors] Rejecting application ${id} for user ${application.user_id}`);
+      
+      // Ensure no vendors row exists for this user (cleanup if somehow created)
+      const { data: orphanedVendor } = await admin
+        .from("vendors")
+        .select("id, status")
+        .eq("owner_user_id", application.user_id)
+        .maybeSingle();
+
+      if (orphanedVendor && orphanedVendor.status === 'pending') {
+        console.warn(`[admin/vendors] Found orphaned pending vendor ${orphanedVendor.id} for rejected application - deleting`);
+        await admin
+          .from("vendors")
+          .delete()
+          .eq("id", orphanedVendor.id);
       }
     }
 
