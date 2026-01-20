@@ -57,7 +57,7 @@ export async function middleware(request: NextRequest) {
   const isAuthRoute = authRoutes.includes(pathname);
   
   // Public auth routes - allow unauthenticated access
-  const publicAuthRoutes = ["/auth/callback", "/auth/reset"];
+  const publicAuthRoutes = ["/auth/callback", "/reset-password"];
   const isPublicAuthRoute = publicAuthRoutes.some((route) => 
     pathname === route || pathname.startsWith(`${route}/`)
   );
@@ -75,8 +75,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // Redirect auth pages to dashboard if already authenticated (except reset page)
-  if (isAuthRoute && user && pathname !== "/auth/reset") {
+  // Redirect auth pages to dashboard if already authenticated (except reset password page)
+  if (isAuthRoute && user && pathname !== "/reset-password") {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/dashboard";
     return NextResponse.redirect(redirectUrl);

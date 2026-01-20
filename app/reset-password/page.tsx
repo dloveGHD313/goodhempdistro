@@ -6,9 +6,6 @@ import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
 
-// Force dynamic rendering - this page requires client-side session handling
-export const dynamic = 'force-dynamic';
-
 export default function ResetPasswordPage() {
   const router = useRouter();
   const [password, setPassword] = useState("");
@@ -17,48 +14,73 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
+  const [initializing, setInitializing] = useState(true);
 
-  // Handle hash-based tokens (fallback for older Supabase flows)
+  // Handle token exchange on mount
   useEffect(() => {
-    const handleHashTokens = async () => {
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const accessToken = hashParams.get("access_token");
-      const refreshToken = hashParams.get("refresh_token");
+    const initializeSession = async () => {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        
+        // Check URL for tokens (query params or hash)
+        const urlParams = new URLSearchParams(window.location.search);
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        
+        const accessToken = urlParams.get("access_token") || hashParams.get("access_token");
+        const refreshToken = urlParams.get("refresh_token") || hashParams.get("refresh_token");
+        const type = urlParams.get("type") || hashParams.get("type");
 
-      if (accessToken && refreshToken) {
-        try {
-          const supabase = createSupabaseBrowserClient();
+        // Only proceed if this is a recovery token
+        if (type !== "recovery") {
+          if (!accessToken && !refreshToken) {
+            // Check if we already have a valid session
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+              setSessionReady(true);
+              setInitializing(false);
+              return;
+            }
+          }
+          
+          // Not a recovery token and no existing session
+          setError("Invalid reset link. This link is not for password recovery.");
+          setInitializing(false);
+          return;
+        }
+
+        // If we have tokens, exchange them for a session
+        if (accessToken && refreshToken) {
           const { error: sessionError } = await supabase.auth.setSession({
             access_token: accessToken,
             refresh_token: refreshToken,
           });
 
           if (sessionError) {
-            setError("Invalid reset link. Please request a new password reset.");
+            setError("Invalid or expired reset link. Please request a new password reset.");
+            setInitializing(false);
             return;
           }
 
-          setSessionReady(true);
-          // Clean up hash from URL
+          // Clean up tokens from URL
           window.history.replaceState(null, "", window.location.pathname);
-        } catch (err) {
-          setError("Failed to process reset link. Please request a new password reset.");
         }
-      } else {
-        // Check if we already have a session (from callback route)
-        const supabase = createSupabaseBrowserClient();
+
+        // Verify we have a session
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
           setSessionReady(true);
         } else {
-          // No session and no hash tokens - redirect to login
-          router.push("/login?error=no_session");
+          setError("No active session found. Please use the link from your password reset email.");
         }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to process reset link. Please request a new password reset.");
+      } finally {
+        setInitializing(false);
       }
     };
 
-    handleHashTokens();
-  }, [router]);
+    initializeSession();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,7 +118,7 @@ export default function ResetPasswordPage() {
 
       setMessage("Password updated successfully! Redirecting to login...");
       
-      // Redirect to login with success message
+      // Wait a moment to show success message, then redirect
       setTimeout(() => {
         router.push("/login?message=password_reset_success");
       }, 2000);
@@ -106,7 +128,7 @@ export default function ResetPasswordPage() {
     }
   };
 
-  if (!sessionReady) {
+  if (initializing) {
     return (
       <div className="min-h-screen text-white flex flex-col">
         <main className="flex-1">
@@ -116,6 +138,36 @@ export default function ResetPasswordPage() {
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-accent"></div>
               </div>
               <p className="text-muted">Verifying reset link...</p>
+            </div>
+          </section>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!sessionReady) {
+    return (
+      <div className="min-h-screen text-white flex flex-col">
+        <main className="flex-1">
+          <section className="section-shell">
+            <div className="max-w-2xl mx-auto surface-card p-8 space-y-6">
+              <div>
+                <h1 className="text-4xl font-bold mb-4 text-accent">Password Reset</h1>
+                {error && (
+                  <div className="bg-red-900/30 border border-red-600 rounded-lg p-4 text-red-400 mb-4">
+                    {error}
+                  </div>
+                )}
+                <p className="text-muted mb-4">
+                  {error 
+                    ? "Please request a new password reset link from the login page."
+                    : "Unable to verify your reset link. Please use the link from your email."}
+                </p>
+                <Link href="/login" className="btn-primary inline-block">
+                  Back to Login
+                </Link>
+              </div>
             </div>
           </section>
         </main>

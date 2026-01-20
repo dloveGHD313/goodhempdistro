@@ -15,14 +15,23 @@ async function getVendorEvents() {
     return [];
   }
 
-  // Get vendor
+  // Get vendor - MUST be scoped to owner_user_id
   const { data: vendor } = await supabase
     .from("vendors")
-    .select("id")
+    .select("id, owner_user_id")
     .eq("owner_user_id", user.id)
-    .single();
+    .maybeSingle();
 
   if (!vendor) {
+    return [];
+  }
+
+  // DEFENSIVE: Verify the vendor belongs to this user
+  if (vendor.owner_user_id !== user.id) {
+    console.error("[vendors/events] SECURITY: Vendor owner_user_id mismatch!", {
+      userId: user.id,
+      vendor_owner_user_id: vendor.owner_user_id,
+    });
     return [];
   }
 

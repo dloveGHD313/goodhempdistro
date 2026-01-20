@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { hasVendorContext } from "@/lib/authz";
 import Footer from "@/components/Footer";
 
 // Force dynamic rendering since this page requires authentication
@@ -10,39 +11,85 @@ async function getVendorData(userId: string) {
   try {
     const supabase = await createSupabaseServerClient();
     
-    // Get vendor with created_at for submission date
-    const { data: vendor } = await supabase
-      .from("vendors")
-      .select("id, business_name, status, created_at")
-      .eq("owner_user_id", userId)
-      .single();
-
-    if (!vendor) {
+    // Check vendor context first - allows pending applications
+    const { hasContext, applicationStatus, hasVendor } = await hasVendorContext(supabase, userId);
+    
+    if (!hasContext) {
       return null;
     }
 
-    // Get products (only if vendor is active)
-    const { data: products } = vendor.status === "active"
-      ? await supabase
-          .from("products")
-          .select("id, name, price_cents, active, created_at")
-          .eq("vendor_id", vendor.id)
-          .order("created_at", { ascending: false })
-      : { data: null };
+    // If user has vendor record, use that
+    if (hasVendor) {
+      const { data: vendor } = await supabase
+        .from("vendors")
+        .select("id, owner_user_id, business_name, status, created_at")
+        .eq("owner_user_id", userId)
+        .maybeSingle();
 
-    // Get order count (only if vendor is active)
-    const { count } = vendor.status === "active"
-      ? await supabase
-          .from("orders")
-          .select("*", { count: "exact", head: true })
-          .eq("vendor_id", vendor.id)
-      : { count: 0 };
+      if (!vendor) {
+        return null;
+      }
 
-    return {
-      vendor,
-      products: products || [],
-      orderCount: count || 0,
-    };
+      // DEFENSIVE: Verify the vendor belongs to this user
+      if (vendor.owner_user_id !== userId) {
+        console.error("[vendors/dashboard] SECURITY: Vendor owner_user_id mismatch!", {
+          userId,
+          vendor_owner_user_id: vendor.owner_user_id,
+        });
+        return null;
+      }
+
+      // Get products (only if vendor is active)
+      const { data: products } = vendor.status === "active"
+        ? await supabase
+            .from("products")
+            .select("id, name, price_cents, active, created_at")
+            .eq("vendor_id", vendor.id)
+            .order("created_at", { ascending: false })
+        : { data: null };
+
+      // Get order count (only if vendor is active)
+      const { count } = vendor.status === "active"
+        ? await supabase
+            .from("orders")
+            .select("*", { count: "exact", head: true })
+            .eq("vendor_id", vendor.id)
+        : { count: 0 };
+
+      return {
+        vendor,
+        products: products || [],
+        orderCount: count || 0,
+      };
+    }
+
+    // If user only has application (pending/rejected), show pending UI
+    if (applicationStatus) {
+      const { data: application } = await supabase
+        .from("vendor_applications")
+        .select("id, user_id, business_name, status, created_at")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (!application || application.user_id !== userId) {
+        return null;
+      }
+
+      // Create a pseudo-vendor object for consistent UI
+      return {
+        vendor: {
+          id: application.id,
+          owner_user_id: userId,
+          business_name: application.business_name,
+          status: application.status === "approved" ? "active" : application.status,
+          created_at: application.created_at,
+        },
+        products: [],
+        orderCount: 0,
+      };
+    }
+
+    return null;
   } catch (error) {
     console.error("Error fetching vendor data:", error);
     return null;
@@ -57,9 +104,17 @@ export default async function VendorDashboardPage() {
     redirect("/login");
   }
 
+  // Check vendor context - redirect only if no context at all
+  const { hasContext } = await hasVendorContext(supabase, user.id);
+  
+  if (!hasContext) {
+    redirect("/vendor-registration");
+  }
+
   const vendorData = await getVendorData(user.id);
 
   if (!vendorData) {
+    // Fallback redirect if data fetch fails
     redirect("/vendor-registration");
   }
 

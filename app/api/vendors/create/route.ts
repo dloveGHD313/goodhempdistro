@@ -272,12 +272,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if vendor already exists (approved)
+    // Check if vendor already exists (approved) - MUST be scoped to owner_user_id
     const { data: existingVendor } = await supabase
       .from("vendors")
-      .select("id")
+      .select("id, owner_user_id")
       .eq("owner_user_id", user.id)
-      .single();
+      .maybeSingle();
+
+    // DEFENSIVE: Verify the vendor belongs to this user
+    if (existingVendor && existingVendor.owner_user_id !== user.id) {
+      console.error("[vendors/create] SECURITY: Vendor owner_user_id mismatch!", {
+        request_id: requestId,
+        userId: user.id,
+        vendor_owner_user_id: existingVendor.owner_user_id,
+      });
+      return createErrorResponse(
+        "Invalid vendor data",
+        500,
+        requestId,
+        debugStatus,
+        debugStatus.enabled ? { ...debugInfo, security_error: "owner_user_id_mismatch" } : undefined
+      );
+    }
 
     if (existingVendor) {
       return createErrorResponse(
@@ -289,10 +305,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if vendor application already exists
+    // Check if vendor application already exists - MUST be scoped to user_id
     const { data: existingApplication, error: checkError } = await supabase
       .from("vendor_applications")
-      .select("id, status, business_name")
+      .select("id, user_id, status, business_name")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -306,6 +322,22 @@ export async function POST(req: NextRequest) {
         userId: user.id,
       });
       // Continue to try insert anyway
+    }
+
+    // DEFENSIVE: Verify the application belongs to this user
+    if (existingApplication && existingApplication.user_id !== user.id) {
+      console.error("[vendors/create] SECURITY: Application user_id mismatch!", {
+        request_id: requestId,
+        userId: user.id,
+        application_user_id: existingApplication.user_id,
+      });
+      return createErrorResponse(
+        "Invalid application data",
+        500,
+        requestId,
+        debugStatus,
+        debugStatus.enabled ? { ...debugInfo, security_error: "user_id_mismatch" } : undefined
+      );
     }
 
     if (existingApplication) {
@@ -374,6 +406,11 @@ export async function POST(req: NextRequest) {
         supabaseDebugInfo
       );
     }
+
+    // Revalidate relevant paths for immediate UI update
+    const { revalidatePath } = await import("next/cache");
+    revalidatePath("/vendor-registration");
+    revalidatePath("/vendors/dashboard");
 
     return createSuccessResponse(
       {

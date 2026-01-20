@@ -120,8 +120,8 @@ export default function LoginForm() {
 
                 try {
                   const supabase = createSupabaseBrowserClient();
-                  const origin = window.location.origin;
-                  const redirectTo = `${origin}/auth/callback?next=/auth/reset`;
+                  // Always use www.goodhempdistro.com for password reset redirects
+                  const redirectTo = "https://www.goodhempdistro.com/reset-password";
 
                   const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
                     redirectTo,

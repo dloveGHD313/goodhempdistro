@@ -105,6 +105,12 @@ export async function PUT(
       );
     }
 
+    // Revalidate relevant paths so vendor sees updated status immediately
+    const { revalidatePath } = await import("next/cache");
+    revalidatePath("/vendor-registration");
+    revalidatePath("/vendors/dashboard");
+    revalidatePath("/admin/vendors");
+
     return NextResponse.json({ 
       success: true,
       application: updatedApplication,

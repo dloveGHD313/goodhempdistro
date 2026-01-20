@@ -9,7 +9,7 @@ import { cookies } from "next/headers";
 export async function GET(req: NextRequest) {
   const requestUrl = new URL(req.url);
   const code = requestUrl.searchParams.get("code");
-  const next = requestUrl.searchParams.get("next") || "/auth/reset";
+  const next = requestUrl.searchParams.get("next") || "/reset-password";
 
   if (code) {
     // Exchange code for session server-side
@@ -46,8 +46,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // Success - redirect to reset password page
-    const redirectUrl = new URL(next, requestUrl.origin);
+    // Success - redirect to reset password page (default to /reset-password)
+    const redirectPath = next === "/auth/reset" ? "/reset-password" : next;
+    const redirectUrl = new URL(redirectPath, requestUrl.origin);
     return NextResponse.redirect(redirectUrl);
   }
 

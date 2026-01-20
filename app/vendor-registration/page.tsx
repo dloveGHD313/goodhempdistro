@@ -1,11 +1,10 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { redirect } from "next/navigation";
 import Link from "next/link";
-import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { createSupabaseServerClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
 import VendorForm from "./VendorForm";
+
+export const dynamic = 'force-dynamic';
 
 type Vendor = {
   id: string;
@@ -13,80 +12,101 @@ type Vendor = {
   status: string;
 };
 
-export default function VendorRegistrationPage() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [vendor, setVendor] = useState<Vendor | null>(null);
-  const [showForm, setShowForm] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+async function getVendorData(userId: string) {
+  try {
+    const supabase = await createSupabaseServerClient();
+    
+    // Check for vendor application first - MUST be scoped to user_id
+    const { data: application, error: appError } = await supabase
+      .from("vendor_applications")
+      .select("id, user_id, business_name, status, created_at")
+      .eq("user_id", userId)
+      .maybeSingle();
 
-  useEffect(() => {
-    async function checkVendor() {
-      try {
-        const supabase = createSupabaseBrowserClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (!user) {
-          router.push("/login?redirect=/vendor-registration");
-          return;
-        }
-
-        // Check for vendor application first
-        const { data: application } = await supabase
-          .from("vendor_applications")
-          .select("id, business_name, status")
-          .eq("user_id", user.id)
-          .single();
-
-        if (application) {
-          // Show application status
-          setVendor({
-            id: application.id,
-            business_name: application.business_name,
-            status: application.status === "approved" ? "active" : application.status,
-          });
-        } else {
-          // Check for existing vendor
-          const { data: vendorData } = await supabase
-            .from("vendors")
-            .select("id, business_name, status")
-            .eq("owner_user_id", user.id)
-            .single();
-
-          if (vendorData) {
-            setVendor(vendorData);
-          } else {
-            // Check URL params for pending status
-            const params = new URLSearchParams(window.location.search);
-            if (params.get("status") === "pending") {
-              setMessage("Your vendor application has been submitted and is pending review.");
-            }
-            setShowForm(true);
-          }
-        }
-      } catch (error) {
-        console.error("Error checking vendor:", error);
-        setShowForm(true);
-      } finally {
-        setLoading(false);
-      }
+    if (appError) {
+      console.error("[vendor-registration] Error fetching application:", appError);
+      return null;
     }
 
-    checkVendor();
-  }, [router]);
+    // DEFENSIVE: Verify the application belongs to this user
+    if (application && application.user_id !== userId) {
+      console.error("[vendor-registration] SECURITY: Application user_id mismatch!", {
+        userId,
+        application_user_id: application.user_id,
+      });
+      return null;
+    }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen text-white flex items-center justify-center">
-        <p className="text-muted">Loading...</p>
-      </div>
-    );
+    if (application) {
+      return {
+        id: application.id,
+        business_name: application.business_name,
+        status: application.status === "approved" ? "active" : application.status,
+        created_at: application.created_at,
+      };
+    }
+
+    // Check for existing vendor - MUST be scoped to owner_user_id
+    const { data: vendorData, error: vendorError } = await supabase
+      .from("vendors")
+      .select("id, owner_user_id, business_name, status, created_at")
+      .eq("owner_user_id", userId)
+      .maybeSingle();
+
+    if (vendorError) {
+      console.error("[vendor-registration] Error fetching vendor:", vendorError);
+      return null;
+    }
+
+    // DEFENSIVE: Verify the vendor belongs to this user
+    if (vendorData && vendorData.owner_user_id !== userId) {
+      console.error("[vendor-registration] SECURITY: Vendor owner_user_id mismatch!", {
+        userId,
+        vendor_owner_user_id: vendorData.owner_user_id,
+      });
+      return null;
+    }
+
+    if (vendorData) {
+      return {
+        id: vendorData.id,
+        business_name: vendorData.business_name,
+        status: vendorData.status,
+        created_at: vendorData.created_at,
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error("[vendor-registration] Error in getVendorData:", error);
+    return null;
+  }
+}
+
+export default async function VendorRegistrationPage() {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login?redirect=/vendor-registration");
   }
 
-  // If vendor exists, show status and link to dashboard
+  // Fetch vendor data server-side with proper scoping
+  const vendor = await getVendorData(user.id);
+
+  // If vendor exists, show status page
   if (vendor) {
     const isPending = vendor.status === "pending";
     const isActive = vendor.status === "active";
+    const isRejected = vendor.status === "rejected";
+
+    const submissionDate = vendor.created_at 
+      ? new Date(vendor.created_at).toLocaleDateString("en-US", { 
+          year: "numeric", 
+          month: "long", 
+          day: "numeric" 
+        })
+      : "N/A";
 
     return (
       <div className="min-h-screen text-white flex flex-col">
@@ -111,9 +131,31 @@ export default function VendorRegistrationPage() {
                 </span>
               </div>
               {isPending && (
-                <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-4 text-yellow-400">
-                  Your vendor application is pending review. You'll be notified once it's approved.
-                </div>
+                <>
+                  <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-4 text-yellow-400">
+                    Your vendor application is pending review. We'll notify you once it's been processed.
+                    {submissionDate !== "N/A" && (
+                      <p className="text-sm mt-2">Submitted on {submissionDate}</p>
+                    )}
+                  </div>
+                  <div className="pt-4">
+                    <Link href="/vendors/dashboard" className="btn-primary inline-block">
+                      Go to Vendor Dashboard
+                    </Link>
+                  </div>
+                </>
+              )}
+              {isRejected && (
+                <>
+                  <div className="bg-red-900/30 border border-red-600 rounded-lg p-4 text-red-400">
+                    Your vendor application was not approved. Please contact support if you have questions.
+                  </div>
+                  <div className="pt-4">
+                    <Link href="/vendors/dashboard" className="btn-primary inline-block">
+                      Go to Vendor Dashboard
+                    </Link>
+                  </div>
+                </>
               )}
               {isActive && (
                 <div className="pt-4">
@@ -131,23 +173,14 @@ export default function VendorRegistrationPage() {
   }
 
   // Show vendor creation form
-  if (showForm) {
-    return (
-      <div className="min-h-screen text-white flex flex-col">
-        <main className="flex-1">
-          <section className="section-shell">
-            {message && (
-              <div className="max-w-2xl mx-auto mb-6 bg-green-900/30 border border-green-600 rounded-lg p-4 text-green-400">
-                {message}
-              </div>
-            )}
-            <VendorForm />
-          </section>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
-
-  return null;
+  return (
+    <div className="min-h-screen text-white flex flex-col">
+      <main className="flex-1">
+        <section className="section-shell">
+          <VendorForm />
+        </section>
+      </main>
+      <Footer />
+    </div>
+  );
 }
