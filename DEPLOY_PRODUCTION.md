@@ -2,6 +2,23 @@
 
 ## Supabase Configuration
 
+### Supabase Auth URL Configuration
+
+In Supabase Dashboard → Authentication → URL Configuration:
+
+1. **Site URL:**
+   ```
+   https://www.goodhempdistro.com
+   ```
+
+2. **Redirect URLs (add both):**
+   ```
+   https://www.goodhempdistro.com/*
+   https://goodhempdistro.com/*
+   ```
+
+This ensures password reset links work for both www and non-www domains.
+
 ### Email Confirmation Setup
 
 1. **Navigate to Supabase Dashboard**
