@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { getCurrentUserProfile, isAdmin } from "@/lib/authz";
 import Footer from "@/components/Footer";
 import VendorsClient from "./VendorsClient";
@@ -65,6 +66,7 @@ async function getVendorApplications(supabase: Awaited<ReturnType<typeof createS
       } | null;
     };
     
+    // Build initial normalized array
     const normalized: NormalizedApp[] = (applications as RPCApplication[]).map((app) => ({
       id: app.id,
       user_id: app.user_id,
@@ -81,17 +83,79 @@ async function getVendorApplications(supabase: Awaited<ReturnType<typeof createS
       } : null,
     }));
 
+    // Identify applications with missing emails
+    const missingEmailUserIds = normalized
+      .filter(app => !app.profiles?.email)
+      .map(app => app.user_id);
+
+    // Lookup missing emails from auth.users using service role client
+    const emailMap = new Map<string, string>();
+    if (missingEmailUserIds.length > 0) {
+      try {
+        const adminClient = getSupabaseAdminClient();
+        // Fetch emails in parallel (batch lookup)
+        const emailPromises = missingEmailUserIds.map(async (userId) => {
+          try {
+            const { data: authUser, error } = await adminClient.auth.admin.getUserById(userId);
+            if (!error && authUser?.user?.email) {
+              return { userId, email: authUser.user.email };
+            }
+            return null;
+          } catch (err) {
+            console.warn(`[admin/vendors] Failed to lookup email for userId=${userId}:`, err);
+            return null;
+          }
+        });
+
+        const emailResults = await Promise.all(emailPromises);
+        emailResults.forEach((result) => {
+          if (result) {
+            emailMap.set(result.userId, result.email);
+          }
+        });
+
+        // Log warnings for any that still couldn't be found
+        missingEmailUserIds.forEach((userId) => {
+          if (!emailMap.has(userId)) {
+            console.warn(`[admin/vendors] Missing applicant email userId=${userId} - email not found in auth.users`);
+          }
+        });
+      } catch (error) {
+        // If service role client fails (e.g., key missing), log but don't break
+        console.error("[admin/vendors] Failed to initialize admin client for email lookup:", error);
+        missingEmailUserIds.forEach((userId) => {
+          console.warn(`[admin/vendors] Missing applicant email userId=${userId} - admin client unavailable`);
+        });
+      }
+    }
+
+    // Update normalized apps with looked-up emails
+    const normalizedWithEmails = normalized.map((app) => {
+      // If email is missing from profiles, try emailMap
+      if (!app.profiles?.email && emailMap.has(app.user_id)) {
+        return {
+          ...app,
+          profiles: {
+            email: emailMap.get(app.user_id)!,
+            display_name: null,
+          },
+        };
+      }
+      // If still no email, keep null but log was already done above
+      return app;
+    });
+
     // Filter by status (case-insensitive comparison)
-    const pending = normalized.filter((app) => 
+    const pending = normalizedWithEmails.filter((app) => 
       app.status && app.status.toLowerCase() === 'pending'
     );
     
     // Get most recent 10 applications of any status (for diagnostics)
-    const recent = normalized.slice(0, 10);
+    const recent = normalizedWithEmails.slice(0, 10);
 
-    console.log(`[admin/vendors] RPC returned ${normalized.length} total applications: ${pending.length} pending, ${normalized.length - pending.length} other statuses`);
+    console.log(`[admin/vendors] RPC returned ${normalizedWithEmails.length} total applications: ${pending.length} pending, ${normalizedWithEmails.length - pending.length} other statuses`);
 
-    return { all: normalized, pending, recent, error: null };
+    return { all: normalizedWithEmails, pending, recent, error: null };
   } catch (error) {
     console.error("[admin/vendors] Exception in getVendorApplications:", error);
     return { 
