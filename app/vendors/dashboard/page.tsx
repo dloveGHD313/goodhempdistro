@@ -262,6 +262,12 @@ export default async function VendorDashboardPage() {
                 <Link href="/vendors/products/new" className="btn-primary">
                   + Add New Product
                 </Link>
+                <Link href="/vendors/services/new" className="btn-primary">
+                  + Create New Service
+                </Link>
+                <Link href="/vendors/services" className="btn-secondary">
+                  📋 My Services
+                </Link>
                 <Link href="/vendors/services/inquiries" className="btn-secondary">
                   💬 Service Inquiries
                 </Link>

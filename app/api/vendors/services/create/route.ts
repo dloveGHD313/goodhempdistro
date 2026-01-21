@@ -194,9 +194,20 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (serviceError) {
-      console.error(`[vendor-services] Error creating service:`, serviceError);
+      console.error(`[vendor-services] Error creating service:`, {
+        message: serviceError.message,
+        details: serviceError.details,
+        hint: serviceError.hint,
+        code: serviceError.code,
+      });
       return NextResponse.json(
-        { error: "Failed to create service" },
+        { 
+          error: "Failed to create service",
+          message: process.env.NODE_ENV !== "production" ? serviceError.message : undefined,
+          details: process.env.NODE_ENV !== "production" ? serviceError.details : undefined,
+          hint: process.env.NODE_ENV !== "production" ? serviceError.hint : undefined,
+          code: process.env.NODE_ENV !== "production" ? serviceError.code : undefined,
+        },
         { status: 500 }
       );
     }

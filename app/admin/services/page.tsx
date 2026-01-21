@@ -34,7 +34,7 @@ async function getPendingServices() {
         profiles!services_owner_user_id_fkey(email, display_name)
       `)
       .eq("status", "pending_review")
-      .order("submitted_at", { ascending: false }); // Newest first
+      .order("created_at", { ascending: false }); // Newest first
 
     if (error) {
       const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "undefined";

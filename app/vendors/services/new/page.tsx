@@ -66,7 +66,13 @@ export default function NewServicePage() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "Failed to create service");
+        setError(
+          data.message ||
+          data.details ||
+          data.hint ||
+          data.error ||
+          "Failed to create service"
+        );
         setLoading(false);
         return;
       }

@@ -69,24 +69,33 @@ export default function ServicesList({ initialServices }: Props) {
       {/* Services Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredServices.map((service) => (
-          <Link
+          <div
             key={service.id}
-            href={`/services/${service.slug || service.id}`}
-            className="card-glass p-6 hover:border-accent transition-colors"
+            className="card-glass p-6 hover:border-accent transition-colors flex flex-col"
           >
-            <h3 className="text-xl font-semibold mb-2">{service.name || service.title}</h3>
-            {service.description && (
-              <p className="text-muted text-sm mb-4 line-clamp-3">{service.description}</p>
-            )}
-            {service.pricing_type && (
-              <div className="text-accent font-semibold mt-4">
-                {formatPrice(service.pricing_type, service.price_cents)}
-              </div>
-            )}
-            {service.categories?.name && (
-              <div className="text-xs text-muted mt-2">{service.categories.name}</div>
-            )}
-          </Link>
+            <Link href={`/services/${service.slug || service.id}`} className="flex-1">
+              <h3 className="text-xl font-semibold mb-2">{service.name || service.title}</h3>
+              {service.description && (
+                <p className="text-muted text-sm mb-4 line-clamp-3">{service.description}</p>
+              )}
+              {service.pricing_type && (
+                <div className="text-accent font-semibold mt-4">
+                  {formatPrice(service.pricing_type, service.price_cents)}
+                </div>
+              )}
+              {service.categories?.name && (
+                <div className="text-xs text-muted mt-2">{service.categories.name}</div>
+              )}
+            </Link>
+            <div className="mt-4 pt-4 border-t border-[var(--border)]">
+              <Link
+                href={`/services/${service.slug || service.id}`}
+                className="btn-primary w-full text-center block"
+              >
+                Request Quote
+              </Link>
+            </div>
+          </div>
         ))}
       </div>
 

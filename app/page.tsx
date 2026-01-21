@@ -1,7 +1,36 @@
 import Link from "next/link";
+import { createSupabaseServerClient } from "@/lib/supabase";
 import ResetPasswordRedirect from "@/components/ResetPasswordRedirect";
 
-export default function Home() {
+async function getFeaturedServices() {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("services")
+      .select("id, name, title, description, pricing_type, price_cents, slug, categories(name)")
+      .eq("status", "approved")
+      .eq("active", true)
+      .order("created_at", { ascending: false })
+      .limit(6);
+
+    if (error) {
+      console.error("[homepage] Error fetching services:", error);
+      return [];
+    }
+
+    // Normalize categories relation
+    return (data || []).map((s: any) => ({
+      ...s,
+      categories: Array.isArray(s.categories) ? s.categories[0] : s.categories,
+    }));
+  } catch (err) {
+    console.error("[homepage] Fatal error fetching services:", err);
+    return [];
+  }
+}
+
+export default async function Home() {
+  const featuredServices = await getFeaturedServices();
   return (
     <div className="min-h-screen text-white flex flex-col">
       <main className="w-full flex-1">
@@ -65,6 +94,57 @@ export default function Home() {
             ))}
           </div>
         </section>
+
+        {/* Browse Services Section */}
+        {featuredServices.length > 0 && (
+          <section className="section-shell section-shell--tight">
+            <div className="text-center mb-10">
+              <h2 className="text-2xl md:text-3xl font-bold text-accent mb-3">
+                Browse Services
+              </h2>
+              <p className="text-muted">Find professional services for your hemp business needs.</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              {featuredServices.map((service: any) => {
+                const formatPrice = (pricingType?: string, priceCents?: number) => {
+                  if (!pricingType || pricingType === 'quote_only') {
+                    return "Quote Only";
+                  }
+                  if (!priceCents) {
+                    return "Price TBD";
+                  }
+                  return `$${((priceCents || 0) / 100).toFixed(2)} ${pricingType === 'hourly' ? '/hr' : pricingType === 'per_project' ? '/project' : ''}`;
+                };
+
+                return (
+                  <Link
+                    key={service.id}
+                    href={`/services/${service.slug || service.id}`}
+                    className="card-glass p-6 hover:border-accent transition-colors"
+                  >
+                    <h3 className="text-xl font-semibold mb-2">{service.name || service.title}</h3>
+                    {service.description && (
+                      <p className="text-muted text-sm mb-4 line-clamp-3">{service.description}</p>
+                    )}
+                    {service.pricing_type && (
+                      <div className="text-accent font-semibold mt-4">
+                        {formatPrice(service.pricing_type, service.price_cents)}
+                      </div>
+                    )}
+                    {service.categories?.name && (
+                      <div className="text-xs text-muted mt-2">{service.categories.name}</div>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+            <div className="text-center">
+              <Link href="/services" className="btn-primary inline-block">
+                View All Services
+              </Link>
+            </div>
+          </section>
+        )}
 
         <section className="section-shell section-shell--tight text-center">
           <div className="card-glass card-glass--raised p-10">
