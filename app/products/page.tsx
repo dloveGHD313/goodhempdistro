@@ -23,21 +23,22 @@ type Product = {
 async function getProducts(): Promise<Product[]> {
   try {
     const supabase = await createSupabaseServerClient();
-    // Middleware handles authentication - user is guaranteed to be authenticated here
+    // Only fetch approved and active products for public view
     const { data, error } = await supabase
       .from("products")
       .select("id, name, category_id, categories(name), price_cents, featured")
-      .eq("active", true)
+      .eq("status", "approved") // Only approved products
+      .eq("active", true) // Only active products
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Error fetching products:", error);
+      console.error("[products] Error fetching products:", error);
       return [];
     }
 
     return data || [];
   } catch (err) {
-    console.error("Fatal error fetching products:", err);
+    console.error("[products] Fatal error fetching products:", err);
     return [];
   }
 }

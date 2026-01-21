@@ -45,8 +45,8 @@ export async function GET(req: NextRequest) {
     const admin = getSupabaseAdminClient();
     const { data, error } = await admin
       .from("categories")
-      .select("id, name, group")
-      .order("group", { ascending: true })
+      .select("id, name, slug, parent_id, requires_coa, category_type, group")
+      .order("parent_id", { ascending: true, nullsFirst: true })
       .order("name", { ascending: true });
 
     if (error) {
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { name, group } = await req.json();
+    const { name, group, parent_id, requires_coa, category_type, slug } = await req.json();
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -93,14 +93,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Generate slug if not provided
+    const categorySlug = slug || name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
     const admin = getSupabaseAdminClient();
     const { data, error } = await admin
       .from("categories")
       .insert({
         name: name.trim(),
+        slug: categorySlug,
+        parent_id: parent_id || null,
+        requires_coa: requires_coa === true,
+        category_type: category_type || 'product',
         group: group as CategoryGroup,
       })
-      .select("id, name, group")
+      .select("id, name, slug, parent_id, requires_coa, category_type, group")
       .single();
 
     if (error) {

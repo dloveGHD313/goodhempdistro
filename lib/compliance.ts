@@ -10,6 +10,7 @@ export interface ProductCompliancePayload {
   product_type: ProductType;
   coa_url?: string | null;
   delta8_disclaimer_ack?: boolean;
+  category_requires_coa?: boolean;
 }
 
 export interface ComplianceErrors {
@@ -51,12 +52,14 @@ export function getDelta8WarningText(): string {
 export function validateProductCompliance(payload: ProductCompliancePayload): ComplianceErrors[] {
   const errors: ComplianceErrors[] = [];
 
-  // COA URL is required for all products
-  if (!payload.coa_url || !payload.coa_url.trim()) {
-    errors.push({
-      field: "coa_url",
-      message: "COA URL is required for all products",
-    });
+  // COA URL is required only if category requires it
+  if (payload.category_requires_coa === true) {
+    if (!payload.coa_url || !payload.coa_url.trim()) {
+      errors.push({
+        field: "coa_url",
+        message: "COA URL is required for this product category",
+      });
+    }
   }
 
   // Intoxicating products are only allowed until cutoff date

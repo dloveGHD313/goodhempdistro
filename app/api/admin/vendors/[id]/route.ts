@@ -42,68 +42,34 @@ export async function PUT(
       return NextResponse.json({ error: "Application not found" }, { status: 404 });
     }
 
-    // If approved, create vendor record and update profile role
+    // If approved, upsert vendor record and update profile role
     if (status === "approved") {
       console.log(`[admin/vendors] Approving application ${id} for user ${application.user_id}`);
       
-      // Check if vendor already exists
-      const { data: existingVendor, error: checkError } = await admin
+      // UPSERT vendor record using ON CONFLICT (guaranteed vendor creation)
+      const { data: vendor, error: vendorError } = await admin
         .from("vendors")
-        .select("id, status, owner_user_id")
-        .eq("owner_user_id", application.user_id)
-        .maybeSingle();
+        .upsert({
+          owner_user_id: application.user_id,
+          business_name: application.business_name,
+          description: application.description,
+          status: "active",
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: "owner_user_id",
+        })
+        .select("id, status")
+        .single();
 
-      if (checkError) {
-        console.error("[admin/vendors] Error checking existing vendor:", checkError);
+      if (vendorError) {
+        console.error(`[admin/vendors] Error upserting vendor:`, vendorError);
+        return NextResponse.json(
+          { error: `Failed to create/update vendor: ${vendorError.message}` },
+          { status: 500 }
+        );
       }
 
-      // If vendor exists but status is 'pending', log warning and update to 'active'
-      if (existingVendor) {
-        if (existingVendor.status === 'pending') {
-          console.warn(`[admin/vendors] Vendor row exists with status 'pending' for user ${application.user_id} - updating to 'active'`);
-          const { error: updateVendorError } = await admin
-            .from("vendors")
-            .update({
-              status: "active",
-              business_name: application.business_name,
-              description: application.description,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", existingVendor.id);
-
-          if (updateVendorError) {
-            console.error("[admin/vendors] Error updating vendor status:", updateVendorError);
-            return NextResponse.json(
-              { error: `Failed to update vendor: ${updateVendorError.message}` },
-              { status: 500 }
-            );
-          }
-          console.log(`[admin/vendors] Updated existing vendor ${existingVendor.id} to active status`);
-        } else {
-          console.log(`[admin/vendors] Vendor already exists with status ${existingVendor.status} - skipping creation`);
-        }
-      } else {
-        // Create vendor record with status 'active' (vendors table should only have active vendors)
-        const { data: newVendor, error: vendorError } = await admin
-          .from("vendors")
-          .insert({
-            owner_user_id: application.user_id,
-            business_name: application.business_name,
-            description: application.description,
-            status: "active", // Vendors table should only contain active vendors
-          })
-          .select("id")
-          .single();
-
-        if (vendorError) {
-          console.error("[admin/vendors] Error creating vendor:", vendorError);
-          return NextResponse.json(
-            { error: `Failed to create vendor: ${vendorError.message}` },
-            { status: 500 }
-          );
-        }
-        console.log(`[admin/vendors] Created vendor record ${newVendor.id} for user ${application.user_id}`);
-      }
+      console.log(`[admin/vendors] Vendor ${vendor.id} created or reused for user ${application.user_id} (status: ${vendor.status})`);
 
       // Update profile role to vendor (if profile exists)
       const { error: profileError } = await admin
