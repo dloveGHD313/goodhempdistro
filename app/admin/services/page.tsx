@@ -26,6 +26,7 @@ async function getPendingServices() {
         price_cents,
         status,
         submitted_at,
+        created_at,
         category_id,
         vendor_id,
         owner_user_id,
@@ -33,16 +34,25 @@ async function getPendingServices() {
         profiles!services_owner_user_id_fkey(email, display_name)
       `)
       .eq("status", "pending_review")
-      .order("submitted_at", { ascending: true });
+      .order("submitted_at", { ascending: false }); // Newest first
 
     if (error) {
-      console.error("[admin/services] Error fetching pending services:", error);
+      const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "undefined";
+      console.error("[admin/services] Error fetching pending services:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        SUPABASE_URL: supabaseUrl,
+        SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? "present" : "missing",
+      });
       return { services: [], error: error.message };
     }
 
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "undefined";
     console.log(
       `[admin/services] Raw pending services rows returned: ${services?.length ?? 0}, ` +
-      `SUPABASE_URL=${process.env.NEXT_PUBLIC_SUPABASE_URL ?? "undefined"}, ` +
+      `SUPABASE_URL=${supabaseUrl}, ` +
       `SERVICE_ROLE_KEY=${process.env.SUPABASE_SERVICE_ROLE_KEY ? "present" : "missing"}`
     );
 
