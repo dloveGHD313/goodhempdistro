@@ -10,6 +10,7 @@ const navLinks = [
   { label: "👥 Groups", href: "/groups" },
   { label: "💬 Forums", href: "/forums" },
   { label: "🛍️ Shop", href: "/products" },
+  { label: "🛠️ Services", href: "/services" },
   { label: "📝 Blog", href: "/blog" },
   { label: "🏢 Wholesale", href: "/wholesale" },
   { label: "🎪 Events", href: "/events" },
