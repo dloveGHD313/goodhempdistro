@@ -13,23 +13,32 @@ export async function POST(
     const supabase = await createSupabaseServerClient();
     const { id } = await params;
     const { requester_name, requester_email, requester_phone, message } = await req.json();
+    
+    // Get authenticated user if logged in
+    const { data: { user } } = await supabase.auth.getUser();
 
     // Validate required fields
-    if (!requester_email || !requester_email.trim()) {
+    // Email is required if user is not logged in
+    if (!user && (!requester_email || !requester_email.trim())) {
       return NextResponse.json(
         { error: "Email is required" },
         { status: 400 }
       );
     }
 
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(requester_email.trim())) {
-      return NextResponse.json(
-        { error: "Invalid email address" },
-        { status: 400 }
-      );
+    // Basic email validation if email is provided
+    if (requester_email && requester_email.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(requester_email.trim())) {
+        return NextResponse.json(
+          { error: "Invalid email address" },
+          { status: 400 }
+        );
+      }
     }
+    
+    // If logged in but no email provided, use user's email
+    const finalEmail = user?.email || requester_email?.trim() || null;
 
     if (!message || !message.trim()) {
       return NextResponse.json(
@@ -72,15 +81,22 @@ export async function POST(
       );
     }
 
-    // Basic rate limiting: check if same email submitted inquiry for this service in last 30 seconds
+    // Basic rate limiting: check if same email or user submitted inquiry for this service in last 30 seconds
     // This is a simple check - can be enhanced with Redis/etc in production
     const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
-    const { count: recentCount } = await supabase
+    const rateLimitQuery = supabase
       .from("service_inquiries")
       .select("*", { count: "exact", head: true })
       .eq("service_id", id)
-      .eq("requester_email", requester_email.trim().toLowerCase())
       .gte("created_at", thirtySecondsAgo);
+    
+    if (user) {
+      rateLimitQuery.eq("requester_user_id", user.id);
+    } else if (finalEmail) {
+      rateLimitQuery.eq("requester_email", finalEmail.toLowerCase());
+    }
+    
+    const { count: recentCount } = await rateLimitQuery;
 
     if (recentCount && recentCount > 0) {
       return NextResponse.json(
@@ -96,8 +112,9 @@ export async function POST(
         service_id: id,
         vendor_id: service.vendor_id, // Derived from service, NOT from client
         owner_user_id: service.owner_user_id, // Derived from service, NOT from client
+        requester_user_id: user?.id || null, // Set if user is logged in
         requester_name: requester_name?.trim() || null,
-        requester_email: requester_email.trim().toLowerCase(),
+        requester_email: finalEmail?.toLowerCase() || null,
         requester_phone: requester_phone?.trim() || null,
         message: message.trim(),
         status: 'new',

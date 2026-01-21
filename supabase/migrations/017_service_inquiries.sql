@@ -18,8 +18,9 @@ CREATE TABLE service_inquiries (
   service_id UUID NOT NULL REFERENCES services(id) ON DELETE CASCADE,
   vendor_id UUID NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
   owner_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  requester_user_id UUID NULL REFERENCES auth.users(id) ON DELETE SET NULL,
   requester_name TEXT,
-  requester_email TEXT NOT NULL,
+  requester_email TEXT,
   requester_phone TEXT,
   message TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'new' 
@@ -49,6 +50,7 @@ ALTER TABLE service_inquiries ENABLE ROW LEVEL SECURITY;
 -- ============================================================================
 
 -- Public (anon/auth): can insert inquiry ONLY if the target service is approved AND active=true
+-- AND vendor_id/owner_user_id match the service's values (security: do not trust client-supplied values)
 CREATE POLICY "Service inquiries: public can create for approved active services" ON service_inquiries
   FOR INSERT WITH CHECK (
     EXISTS (
@@ -56,6 +58,8 @@ CREATE POLICY "Service inquiries: public can create for approved active services
       WHERE services.id = service_inquiries.service_id 
       AND services.status = 'approved' 
       AND services.active = true
+      AND services.vendor_id = service_inquiries.vendor_id
+      AND services.owner_user_id = service_inquiries.owner_user_id
     )
   );
 
@@ -63,17 +67,11 @@ CREATE POLICY "Service inquiries: public can create for approved active services
 CREATE POLICY "Service inquiries: vendor can read own" ON service_inquiries
   FOR SELECT USING (auth.uid() = owner_user_id);
 
--- Vendor (auth): can update status + vendor_note where owner_user_id = auth.uid()
--- Cannot change requester fields (requester_name, requester_email, requester_phone, message)
-CREATE POLICY "Service inquiries: vendor can update status and notes" ON service_inquiries
+-- Vendor (auth): can update inquiries where owner_user_id = auth.uid()
+-- (Trigger enforces that requester fields cannot be changed)
+CREATE POLICY "Service inquiries: vendor can update own" ON service_inquiries
   FOR UPDATE USING (auth.uid() = owner_user_id)
-  WITH CHECK (
-    auth.uid() = owner_user_id
-    AND OLD.requester_name = NEW.requester_name
-    AND OLD.requester_email = NEW.requester_email
-    AND OLD.requester_phone IS NOT DISTINCT FROM NEW.requester_phone
-    AND OLD.message = NEW.message
-  );
+  WITH CHECK (auth.uid() = owner_user_id);
 
 -- Admin: can read/update all (use existing admin role pattern)
 CREATE POLICY "Service inquiries: admin can manage all" ON service_inquiries
@@ -86,7 +84,67 @@ CREATE POLICY "Service inquiries: admin can manage all" ON service_inquiries
   );
 
 -- ============================================================================
--- 6. Trigger for updated_at
+-- 6. Function to Prevent Vendor from Modifying Requester Fields
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION prevent_vendor_modify_requester_fields()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- If user is not admin, prevent changes to requester fields
+  IF NOT EXISTS (
+    SELECT 1 FROM profiles 
+    WHERE profiles.id = auth.uid() 
+    AND profiles.role = 'admin'
+  ) THEN
+    -- Vendors can only update status and vendor_note
+    -- Ensure requester fields are unchanged
+    IF OLD.requester_user_id IS DISTINCT FROM NEW.requester_user_id OR
+       OLD.requester_name IS DISTINCT FROM NEW.requester_name OR
+       OLD.requester_email IS DISTINCT FROM NEW.requester_email OR
+       OLD.requester_phone IS DISTINCT FROM NEW.requester_phone OR
+       OLD.message IS DISTINCT FROM NEW.message THEN
+      RAISE EXCEPTION 'Vendors cannot modify requester fields (requester_user_id, requester_name, requester_email, requester_phone, message). Only status and vendor_note can be updated.';
+    END IF;
+  END IF;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create trigger to enforce requester field immutability
+DROP TRIGGER IF EXISTS prevent_vendor_modify_requester_fields_trigger ON service_inquiries;
+CREATE TRIGGER prevent_vendor_modify_requester_fields_trigger
+  BEFORE UPDATE ON service_inquiries
+  FOR EACH ROW
+  EXECUTE FUNCTION prevent_vendor_modify_requester_fields();
+
+-- Update trigger function to also prevent requester_user_id changes
+CREATE OR REPLACE FUNCTION prevent_vendor_modify_requester_fields()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- If user is not admin, prevent changes to requester fields
+  IF NOT EXISTS (
+    SELECT 1 FROM profiles 
+    WHERE profiles.id = auth.uid() 
+    AND profiles.role = 'admin'
+  ) THEN
+    -- Vendors can only update status and vendor_note
+    -- Ensure requester fields are unchanged
+    IF OLD.requester_user_id IS DISTINCT FROM NEW.requester_user_id OR
+       OLD.requester_name IS DISTINCT FROM NEW.requester_name OR
+       OLD.requester_email IS DISTINCT FROM NEW.requester_email OR
+       OLD.requester_phone IS DISTINCT FROM NEW.requester_phone OR
+       OLD.message IS DISTINCT FROM NEW.message THEN
+      RAISE EXCEPTION 'Vendors cannot modify requester fields (requester_user_id, requester_name, requester_email, requester_phone, message). Only status and vendor_note can be updated.';
+    END IF;
+  END IF;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================================================
+-- 7. Trigger for updated_at
 -- ============================================================================
 
 DROP TRIGGER IF EXISTS update_service_inquiries_updated_at ON service_inquiries;

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 type Service = {
   id: string;
@@ -33,6 +34,22 @@ export default function ServiceDetailClient({ service }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  // Check if user is logged in and prefill email
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    supabase.auth.getUser().then(({ data, error }) => {
+      if (data.user) {
+        setIsLoggedIn(true);
+        setUserEmail(data.user.email || null);
+        if (data.user.email) {
+          setRequesterEmail(data.user.email);
+        }
+      }
+    });
+  }, []);
 
   const formatPrice = (pricingType?: string, priceCents?: number) => {
     if (!pricingType || pricingType === 'quote_only') {
@@ -50,17 +67,20 @@ export default function ServiceDetailClient({ service }: Props) {
     setError(null);
 
     // Client-side validation
-    if (!requesterEmail.trim()) {
+    // Email is required only if not logged in
+    if (!isLoggedIn && !requesterEmail.trim()) {
       setError("Email is required");
       setSubmitting(false);
       return;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(requesterEmail.trim())) {
-      setError("Invalid email address");
-      setSubmitting(false);
-      return;
+    if (requesterEmail.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(requesterEmail.trim())) {
+        setError("Invalid email address");
+        setSubmitting(false);
+        return;
+      }
     }
 
     if (!message.trim()) {
@@ -170,18 +190,21 @@ export default function ServiceDetailClient({ service }: Props) {
 
           <div>
             <label htmlFor="requester_email" className="block text-sm font-medium mb-2">
-              Email <span className="text-red-400">*</span>
+              Email {!isLoggedIn && <span className="text-red-400">*</span>}
             </label>
             <input
               id="requester_email"
               type="email"
               value={requesterEmail}
               onChange={(e) => setRequesterEmail(e.target.value)}
-              required
-              disabled={submitting || submitted}
+              required={!isLoggedIn}
+              disabled={submitting || submitted || isLoggedIn}
               className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white disabled:opacity-50"
               placeholder="john@example.com"
             />
+            {isLoggedIn && (
+              <p className="text-xs text-muted mt-1">Using your account email ({userEmail})</p>
+            )}
           </div>
 
           <div>
