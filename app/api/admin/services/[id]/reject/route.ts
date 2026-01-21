@@ -68,14 +68,37 @@ export async function POST(
       .single();
 
     if (updateError) {
-      console.error("[admin/services/reject] Error updating service:", updateError);
+      console.error(
+        `[admin/services/reject] Error updating service ${id}:`,
+        updateError,
+        `SUPABASE_URL=${process.env.NEXT_PUBLIC_SUPABASE_URL ?? "undefined"}, ` +
+        `SERVICE_ROLE_KEY=${process.env.SUPABASE_SERVICE_ROLE_KEY ? "present" : "missing"}`
+      );
       return NextResponse.json(
         { error: "Failed to reject service" },
         { status: 500 }
       );
     }
 
-    console.log(`[admin/services/reject] Service ${id} rejected by admin ${user.id}: ${reason.substring(0, 50)}...`);
+    // Get updated counts after rejection
+    const { count: pendingCount } = await admin
+      .from("services")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending_review");
+
+    const { count: rejectedCount } = await admin
+      .from("services")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "rejected");
+
+    console.log(
+      `[admin/services/reject] Service ${id} (${service.name || service.title}) rejected by admin ${user.id}. ` +
+      `Reason: ${reason.substring(0, 100)}. ` +
+      `New status: rejected, active: false. ` +
+      `Updated counts: pending=${pendingCount ?? 0}, rejected=${rejectedCount ?? 0}. ` +
+      `SUPABASE_URL=${process.env.NEXT_PUBLIC_SUPABASE_URL ?? "undefined"}, ` +
+      `SERVICE_ROLE_KEY=${process.env.SUPABASE_SERVICE_ROLE_KEY ? "present" : "missing"}`
+    );
 
     // Revalidate paths
     revalidatePath("/admin/services");

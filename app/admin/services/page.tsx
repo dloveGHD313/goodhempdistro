@@ -13,6 +13,8 @@ async function getPendingServices() {
   try {
     const admin = getSupabaseAdminClient();
 
+    console.log("[admin/services] Fetching pending services with filter: status = 'pending_review'");
+
     const { data: services, error } = await admin
       .from("services")
       .select(`
@@ -38,6 +40,34 @@ async function getPendingServices() {
       return { services: [], error: error.message };
     }
 
+    console.log(
+      `[admin/services] Raw pending services rows returned: ${services?.length ?? 0}, ` +
+      `SUPABASE_URL=${process.env.NEXT_PUBLIC_SUPABASE_URL ?? "undefined"}, ` +
+      `SERVICE_ROLE_KEY=${process.env.SUPABASE_SERVICE_ROLE_KEY ? "present" : "missing"}`
+    );
+
+    // Diagnostic query: Get counts grouped by status
+    const { data: allServices, error: statusQueryError } = await admin
+      .from("services")
+      .select("status");
+
+    let statusCounts: Record<string, number> = {};
+    if (!statusQueryError && allServices) {
+      allServices.forEach((s: { status: string }) => {
+        statusCounts[s.status] = (statusCounts[s.status] || 0) + 1;
+      });
+    }
+
+    console.log(
+      `[admin/services] Status counts from DB: ${JSON.stringify(statusCounts)}, ` +
+      `SUPABASE_URL=${process.env.NEXT_PUBLIC_SUPABASE_URL ?? "undefined"}, ` +
+      `SERVICE_ROLE_KEY=${process.env.SUPABASE_SERVICE_ROLE_KEY ? "present" : "missing"}`
+    );
+
+    if (statusQueryError) {
+      console.error("[admin/services] Error fetching status counts:", statusQueryError);
+    }
+
     // Get all services counts for overview
     const { count: totalCount } = await admin
       .from("services")
@@ -57,6 +87,14 @@ async function getPendingServices() {
       .from("services")
       .select("*", { count: "exact", head: true })
       .eq("status", "rejected");
+
+    console.log("[admin/services] Service counts:", {
+      totalCount,
+      approvedCount,
+      draftCount,
+      rejectedCount,
+      pendingCount: services?.length ?? 0,
+    });
 
     // Normalize services (handle array relations)
     const normalizedServices = (services || []).map((s: any) => ({
@@ -100,7 +138,11 @@ export default async function AdminServicesPage() {
 
   const servicesData = await getPendingServices();
 
-  console.log(`[admin/services] Admin ${user.id} viewing services. Pending: ${servicesData.counts?.pending || 0}`);
+  console.log(
+    `[admin/services] Admin ${user.id} (role=${profile?.role ?? "unknown"}) viewing services. Pending: ${
+      servicesData.counts?.pending || 0
+    }`
+  );
 
   return (
     <div className="min-h-screen text-white flex flex-col">
