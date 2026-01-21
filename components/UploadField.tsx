@@ -34,14 +34,15 @@ export default function UploadField({
 
   const validateFile = (file: File): string | null => {
     const validTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp"];
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 50 * 1024 * 1024; // 50MB (configurable via env if needed)
 
     if (!validTypes.includes(file.type)) {
-      return "File must be PDF, PNG, JPG, JPEG, or WEBP";
+      return "File must be PDF, PNG, JPG, or JPEG";
     }
 
     if (file.size > maxSize) {
-      return "File size must be less than 10MB";
+      const maxSizeMB = Math.round(maxSize / (1024 * 1024));
+      return `File size must be less than ${maxSizeMB}MB`;
     }
 
     return null;

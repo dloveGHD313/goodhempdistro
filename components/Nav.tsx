@@ -86,6 +86,12 @@ export default function Nav() {
               <Link href="/admin/vendors" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
                 👥 Vendor Applications
               </Link>
+              <Link href="/admin/products" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                📦 Product Review
+              </Link>
+              <Link href="/admin/services" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                🛠️ Service Review
+              </Link>
               <Link href="/admin/categories" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
                 📁 Categories
               </Link>
@@ -191,6 +197,27 @@ export default function Nav() {
                     onClick={() => setDrawerOpen(false)}
                   >
                     👥 Vendor Applications
+                  </Link>
+                  <Link
+                    href="/admin/vendors/integrity"
+                    className="px-4 py-3 rounded-lg text-base drawer-link"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    🔍 Vendor Integrity
+                  </Link>
+                  <Link
+                    href="/admin/products"
+                    className="px-4 py-3 rounded-lg text-base drawer-link"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    📦 Product Review
+                  </Link>
+                  <Link
+                    href="/admin/services"
+                    className="px-4 py-3 rounded-lg text-base drawer-link"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    🛠️ Service Review
                   </Link>
                   <Link
                     href="/admin/categories"

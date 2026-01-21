@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Footer from "@/components/Footer";
-import { getCategoriesClient, type Category } from "@/lib/categories";
+import { getCategoriesClient, organizeCategoriesHierarchically, type Category } from "@/lib/categories";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { getDelta8WarningText, getIntoxicatingCutoffDate, isIntoxicatingAllowedNow } from "@/lib/compliance";
 import UploadField from "@/components/UploadField";
 
@@ -15,6 +16,8 @@ export default function NewProductPage() {
   const [price, setPrice] = useState("");
   const [categoryId, setCategoryId] = useState<string>("");
   const [categories, setCategories] = useState<Category[]>([]);
+  const [hierarchicalCategories, setHierarchicalCategories] = useState<Array<Category & { children?: Category[] }>>([]);
+  const [categoryRequiresCoa, setCategoryRequiresCoa] = useState(false);
   const [active, setActive] = useState(true);
   const [productType, setProductType] = useState<"non_intoxicating" | "intoxicating" | "delta8">("non_intoxicating");
   const [coaUrl, setCoaUrl] = useState("");
@@ -27,9 +30,56 @@ export default function NewProductPage() {
     async function loadCategories() {
       const cats = await getCategoriesClient();
       setCategories(cats);
+      // Organize into hierarchical structure
+      setHierarchicalCategories(organizeCategoriesHierarchically(cats));
     }
     loadCategories();
   }, []);
+
+  // Check if selected category requires COA
+  useEffect(() => {
+    async function checkCategoryCoa() {
+      if (!categoryId) {
+        setCategoryRequiresCoa(false);
+        return;
+      }
+
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const { data: category } = await supabase
+          .from("categories")
+          .select("id, requires_coa, parent_id")
+          .eq("id", categoryId)
+          .maybeSingle();
+
+        if (category) {
+          let requiresCoa = category.requires_coa || false;
+          
+          // If parent exists, check parent too
+          if (category.parent_id && !requiresCoa) {
+            const { data: parent } = await supabase
+              .from("categories")
+              .select("requires_coa")
+              .eq("id", category.parent_id)
+              .maybeSingle();
+            
+            if (parent?.requires_coa) {
+              requiresCoa = true;
+            }
+          }
+          
+          setCategoryRequiresCoa(requiresCoa);
+        } else {
+          setCategoryRequiresCoa(false);
+        }
+      } catch (err) {
+        console.error("Error checking category COA requirement:", err);
+        setCategoryRequiresCoa(false);
+      }
+    }
+    
+    checkCategoryCoa();
+  }, [categoryId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,9 +95,9 @@ export default function NewProductPage() {
     }
 
     try {
-      // Validate compliance fields
-      if (!coaUrl.trim()) {
-        setError("COA URL is required for all products");
+      // Validate compliance fields - COA only required if category requires it
+      if (categoryRequiresCoa && !coaUrl.trim()) {
+        setError("COA URL is required for this product category");
         setLoading(false);
         return;
       }
@@ -82,7 +132,18 @@ export default function NewProductPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "Failed to create product");
+        // Handle vendor account not found with better message
+        if (response.status === 404 && data.hasApplication) {
+          setError(
+            data.applicationStatus === 'pending'
+              ? "Your vendor application is pending approval. Please wait for admin approval before creating products."
+              : data.applicationStatus === 'rejected'
+              ? "Your vendor application was rejected. Please contact support or submit a new application."
+              : "Vendor account not found. Please complete your vendor registration first."
+          );
+        } else {
+          setError(data.error || "Failed to create product");
+        }
         setLoading(false);
         return;
       }
@@ -166,12 +227,25 @@ export default function NewProductPage() {
                     className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
                   >
                     <option value="">Select a category (optional)</option>
-                    {categories.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
+                    {hierarchicalCategories.map((parent) => (
+                      <optgroup key={parent.id} label={parent.name}>
+                        {parent.children?.map((child) => (
+                          <option key={child.id} value={child.id}>
+                            {child.name}
+                          </option>
+                        ))}
+                        {/* Also show parent as selectable if it's a category itself (has no children) */}
+                        {(!parent.children || parent.children.length === 0) && (
+                          <option value={parent.id}>{parent.name}</option>
+                        )}
+                      </optgroup>
                     ))}
                   </select>
+                  {categoryRequiresCoa && (
+                    <p className="text-yellow-400 text-sm mt-1">
+                      ⚠️ COA is required for this category
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -233,10 +307,12 @@ export default function NewProductPage() {
                       bucket="coas"
                       folderPrefix="coas"
                       label="COA Document (Full Panel Required)"
-                      required
+                      required={categoryRequiresCoa}
                       existingUrl={coaUrl || null}
                       onUploaded={(url) => setCoaUrl(url)}
-                      helperText="Upload a PDF or image of your full panel COA (max 10MB)"
+                      helperText={categoryRequiresCoa 
+                        ? "Upload a PDF or image of your full panel COA (max 50MB)" 
+                        : "Upload a PDF or image of your COA (optional, max 50MB)"}
                     />
                   )}
                 </div>

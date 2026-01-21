@@ -18,8 +18,8 @@ async function getCategories(): Promise<Category[]> {
     const admin = getSupabaseAdminClient();
     const { data, error } = await admin
       .from("categories")
-      .select("id, name, group")
-      .order("group", { ascending: true })
+      .select("id, name, slug, parent_id, requires_coa, category_type, group")
+      .order("parent_id", { ascending: true, nullsFirst: true })
       .order("name", { ascending: true });
 
     if (error) {
