@@ -26,9 +26,10 @@ type Props = {
 };
 
 export default function ServiceDetailClient({ service }: Props) {
-  const [inquiryName, setInquiryName] = useState("");
-  const [inquiryEmail, setInquiryEmail] = useState("");
-  const [inquiryMessage, setInquiryMessage] = useState("");
+  const [requesterName, setRequesterName] = useState("");
+  const [requesterEmail, setRequesterEmail] = useState("");
+  const [requesterPhone, setRequesterPhone] = useState("");
+  const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,14 +49,35 @@ export default function ServiceDetailClient({ service }: Props) {
     setSubmitting(true);
     setError(null);
 
+    // Client-side validation
+    if (!requesterEmail.trim()) {
+      setError("Email is required");
+      setSubmitting(false);
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(requesterEmail.trim())) {
+      setError("Invalid email address");
+      setSubmitting(false);
+      return;
+    }
+
+    if (!message.trim()) {
+      setError("Message is required");
+      setSubmitting(false);
+      return;
+    }
+
     try {
       const response = await fetch(`/api/services/${service.id}/inquire`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: inquiryName.trim(),
-          email: inquiryEmail.trim(),
-          message: inquiryMessage.trim() || null,
+          requester_name: requesterName.trim() || null,
+          requester_email: requesterEmail.trim(),
+          requester_phone: requesterPhone.trim() || null,
+          message: message.trim(),
         }),
       });
 
@@ -68,9 +90,10 @@ export default function ServiceDetailClient({ service }: Props) {
       }
 
       setSubmitted(true);
-      setInquiryName("");
-      setInquiryEmail("");
-      setInquiryMessage("");
+      setRequesterName("");
+      setRequesterEmail("");
+      setRequesterPhone("");
+      setMessage("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred");
       setSubmitting(false);
@@ -113,7 +136,7 @@ export default function ServiceDetailClient({ service }: Props) {
 
       {/* Inquiry Form */}
       <div className="card-glass p-8">
-        <h2 className="text-2xl font-bold mb-6">Request a Quote</h2>
+        <h2 className="text-2xl font-bold mb-6">Request Service</h2>
 
         {submitted && (
           <div className="bg-green-900/30 border border-green-600 rounded-lg p-4 mb-6">
@@ -131,48 +154,66 @@ export default function ServiceDetailClient({ service }: Props) {
 
         <form onSubmit={handleInquiry} className="space-y-4">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium mb-2">
-              Your Name <span className="text-red-400">*</span>
+            <label htmlFor="requester_name" className="block text-sm font-medium mb-2">
+              Your Name
             </label>
             <input
-              id="name"
+              id="requester_name"
               type="text"
-              value={inquiryName}
-              onChange={(e) => setInquiryName(e.target.value)}
-              required
+              value={requesterName}
+              onChange={(e) => setRequesterName(e.target.value)}
               disabled={submitting || submitted}
               className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white disabled:opacity-50"
+              placeholder="John Doe"
             />
           </div>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium mb-2">
+            <label htmlFor="requester_email" className="block text-sm font-medium mb-2">
               Email <span className="text-red-400">*</span>
             </label>
             <input
-              id="email"
+              id="requester_email"
               type="email"
-              value={inquiryEmail}
-              onChange={(e) => setInquiryEmail(e.target.value)}
+              value={requesterEmail}
+              onChange={(e) => setRequesterEmail(e.target.value)}
               required
               disabled={submitting || submitted}
               className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white disabled:opacity-50"
+              placeholder="john@example.com"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="requester_phone" className="block text-sm font-medium mb-2">
+              Phone
+            </label>
+            <input
+              id="requester_phone"
+              type="tel"
+              value={requesterPhone}
+              onChange={(e) => setRequesterPhone(e.target.value)}
+              disabled={submitting || submitted}
+              className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white disabled:opacity-50"
+              placeholder="(555) 123-4567"
             />
           </div>
 
           <div>
             <label htmlFor="message" className="block text-sm font-medium mb-2">
-              Message
+              Message <span className="text-red-400">*</span>
             </label>
             <textarea
               id="message"
-              value={inquiryMessage}
-              onChange={(e) => setInquiryMessage(e.target.value)}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
               rows={4}
+              required
               disabled={submitting || submitted}
               className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white disabled:opacity-50"
               placeholder="Tell the vendor about your service needs..."
             />
+            <p className="text-xs text-muted mt-1">Max 5000 characters</p>
           </div>
 
           <button
@@ -180,7 +221,7 @@ export default function ServiceDetailClient({ service }: Props) {
             disabled={submitting || submitted}
             className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {submitting ? "Sending..." : submitted ? "Sent!" : "Send Inquiry"}
+            {submitting ? "Sending..." : submitted ? "Sent!" : "Request Service"}
           </button>
         </form>
       </div>

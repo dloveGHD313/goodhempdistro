@@ -258,9 +258,12 @@ export default async function VendorDashboardPage() {
           {/* Active Vendor Features */}
           {isActive && (
             <>
-              <div className="mb-6">
+              <div className="mb-6 flex gap-4 flex-wrap">
                 <Link href="/vendors/products/new" className="btn-primary">
                   + Add New Product
+                </Link>
+                <Link href="/vendors/services/inquiries" className="btn-secondary">
+                  💬 Service Inquiries
                 </Link>
               </div>
 

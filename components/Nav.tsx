@@ -92,6 +92,9 @@ export default function Nav() {
               <Link href="/admin/services" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
                 🛠️ Service Review
               </Link>
+              <Link href="/admin/inquiries" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                💬 Service Inquiries
+              </Link>
               <Link href="/admin/categories" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
                 📁 Categories
               </Link>
@@ -218,6 +221,13 @@ export default function Nav() {
                     onClick={() => setDrawerOpen(false)}
                   >
                     🛠️ Service Review
+                  </Link>
+                  <Link
+                    href="/admin/inquiries"
+                    className="px-4 py-3 rounded-lg text-base drawer-link"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    💬 Service Inquiries
                   </Link>
                   <Link
                     href="/admin/categories"

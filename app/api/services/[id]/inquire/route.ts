@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 
 /**
  * Create service inquiry (public endpoint - authenticated or anonymous)
+ * Security: Do NOT accept vendor_id or owner_user_id from client - derive from DB
  */
 export async function POST(
   req: NextRequest,
@@ -11,16 +12,10 @@ export async function POST(
   try {
     const supabase = await createSupabaseServerClient();
     const { id } = await params;
-    const { name, email, message } = await req.json();
+    const { requester_name, requester_email, requester_phone, message } = await req.json();
 
-    if (!name || !name.trim()) {
-      return NextResponse.json(
-        { error: "Name is required" },
-        { status: 400 }
-      );
-    }
-
-    if (!email || !email.trim()) {
+    // Validate required fields
+    if (!requester_email || !requester_email.trim()) {
       return NextResponse.json(
         { error: "Email is required" },
         { status: 400 }
@@ -29,17 +24,33 @@ export async function POST(
 
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email.trim())) {
+    if (!emailRegex.test(requester_email.trim())) {
       return NextResponse.json(
         { error: "Invalid email address" },
         { status: 400 }
       );
     }
 
+    if (!message || !message.trim()) {
+      return NextResponse.json(
+        { error: "Message is required" },
+        { status: 400 }
+      );
+    }
+
+    // Validate message length (reasonable limit)
+    if (message.trim().length > 5000) {
+      return NextResponse.json(
+        { error: "Message is too long (max 5000 characters)" },
+        { status: 400 }
+      );
+    }
+
     // Verify service exists and is approved + active
+    // Also fetch vendor_id and owner_user_id for inquiry creation
     const { data: service, error: serviceError } = await supabase
       .from("services")
-      .select("id, status, active")
+      .select("id, vendor_id, owner_user_id, status, active")
       .eq("id", id)
       .eq("status", "approved")
       .eq("active", true)
@@ -52,21 +63,44 @@ export async function POST(
       );
     }
 
-    // Get user if authenticated (optional)
-    const { data: { user } } = await supabase.auth.getUser();
-    const userId = user?.id || null;
+    // Ensure service has vendor_id and owner_user_id
+    if (!service.vendor_id || !service.owner_user_id) {
+      console.error(`[services/inquire] Service ${id} missing vendor_id or owner_user_id`);
+      return NextResponse.json(
+        { error: "Service configuration error" },
+        { status: 500 }
+      );
+    }
 
-    // Create inquiry
+    // Basic rate limiting: check if same email submitted inquiry for this service in last 30 seconds
+    // This is a simple check - can be enhanced with Redis/etc in production
+    const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
+    const { count: recentCount } = await supabase
+      .from("service_inquiries")
+      .select("*", { count: "exact", head: true })
+      .eq("service_id", id)
+      .eq("requester_email", requester_email.trim().toLowerCase())
+      .gte("created_at", thirtySecondsAgo);
+
+    if (recentCount && recentCount > 0) {
+      return NextResponse.json(
+        { error: "Please wait a moment before submitting another inquiry" },
+        { status: 429 }
+      );
+    }
+
+    // Create inquiry with vendor_id and owner_user_id derived from service (NOT from client)
     const { data: inquiry, error: inquiryError } = await supabase
       .from("service_inquiries")
       .insert({
         service_id: id,
-        user_id: userId, // null if anonymous
-        name: name.trim(),
-        email: email.trim(),
-        message: message?.trim() || null,
+        vendor_id: service.vendor_id, // Derived from service, NOT from client
+        owner_user_id: service.owner_user_id, // Derived from service, NOT from client
+        requester_name: requester_name?.trim() || null,
+        requester_email: requester_email.trim().toLowerCase(),
+        requester_phone: requester_phone?.trim() || null,
+        message: message.trim(),
         status: 'new',
-        vendor_notified: false,
       })
       .select("id")
       .single();
@@ -79,14 +113,10 @@ export async function POST(
       );
     }
 
-    console.log(`[services/inquire] Inquiry ${inquiry.id} created for service ${id} by ${email}`);
-
-    // TODO: Send email notification to vendor (if needed)
-    // For now, vendor can see inquiries in their dashboard
+    console.log(`[services/inquire] Inquiry ${inquiry.id} created for service ${id} by ${requester_email}`);
 
     return NextResponse.json({
-      success: true,
-      inquiry: { id: inquiry.id },
+      ok: true,
       message: "Your inquiry has been sent successfully",
     }, { status: 201 });
   } catch (error) {

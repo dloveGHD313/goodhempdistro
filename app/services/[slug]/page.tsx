@@ -67,7 +67,24 @@ export default async function ServiceDetailPage({
   const service = await getService(slug);
 
   if (!service) {
-    notFound();
+    return (
+      <div className="min-h-screen text-white flex flex-col">
+        <main className="flex-1">
+          <section className="section-shell">
+            <div className="max-w-2xl mx-auto text-center">
+              <h1 className="text-3xl font-bold mb-4 text-accent">Service Not Available</h1>
+              <p className="text-muted mb-6">
+                This service is not available or has been removed.
+              </p>
+              <a href="/services" className="btn-primary">
+                Browse All Services
+              </a>
+            </div>
+          </section>
+        </main>
+        <Footer />
+      </div>
+    );
   }
 
   return (
