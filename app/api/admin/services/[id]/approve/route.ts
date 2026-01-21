@@ -59,14 +59,36 @@ export async function POST(
       .single();
 
     if (updateError) {
-      console.error("[admin/services/approve] Error updating service:", updateError);
+      console.error(
+        `[admin/services/approve] Error updating service ${id}:`,
+        updateError,
+        `SUPABASE_URL=${process.env.NEXT_PUBLIC_SUPABASE_URL ?? "undefined"}, ` +
+        `SERVICE_ROLE_KEY=${process.env.SUPABASE_SERVICE_ROLE_KEY ? "present" : "missing"}`
+      );
       return NextResponse.json(
         { error: "Failed to approve service" },
         { status: 500 }
       );
     }
 
-    console.log(`[admin/services/approve] Service ${id} approved by admin ${user.id}`);
+    // Get updated counts after approval
+    const { count: pendingCount } = await admin
+      .from("services")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "pending_review");
+
+    const { count: approvedCount } = await admin
+      .from("services")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "approved");
+
+    console.log(
+      `[admin/services/approve] Service ${id} (${service.name || service.title}) approved by admin ${user.id}. ` +
+      `New status: approved, active: true. ` +
+      `Updated counts: pending=${pendingCount ?? 0}, approved=${approvedCount ?? 0}. ` +
+      `SUPABASE_URL=${process.env.NEXT_PUBLIC_SUPABASE_URL ?? "undefined"}, ` +
+      `SERVICE_ROLE_KEY=${process.env.SUPABASE_SERVICE_ROLE_KEY ? "present" : "missing"}`
+    );
 
     // Revalidate paths
     revalidatePath("/admin/services");
