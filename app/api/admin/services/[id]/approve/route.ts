@@ -24,7 +24,18 @@ export async function POST(
     }
 
     const { id } = await params;
-    const admin = getSupabaseAdminClient();
+    
+    let admin;
+    try {
+      admin = getSupabaseAdminClient();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to initialize admin client";
+      console.error(`[admin/services/approve] ${errorMessage}`);
+      return NextResponse.json(
+        { error: "Server configuration error: SUPABASE_SERVICE_ROLE_KEY is missing. Set it in Vercel Production environment variables and redeploy." },
+        { status: 500 }
+      );
+    }
 
     // Get service
     const { data: service, error: serviceError } = await admin
