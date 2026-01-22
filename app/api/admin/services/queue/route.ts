@@ -4,6 +4,7 @@ import { getSupabaseAdminClient, getAdminClientDiagnostics } from "@/lib/supabas
 import { getCurrentUserProfile, isAdmin } from "@/lib/authz";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 /**
  * Get pending services queue for admin review
@@ -25,6 +26,13 @@ export async function GET(req: NextRequest) {
 
     // Get diagnostics before attempting to create admin client
     const diagnostics = getAdminClientDiagnostics();
+    
+    // Log safe diagnostics (never log the key itself)
+    console.log(
+      `[admin/services/queue] url=${diagnostics.supabaseUrl.substring(0, 50)}... ` +
+      `keyPresent=${diagnostics.serviceRoleKeyPresent} ` +
+      `keyType=${diagnostics.serviceRoleKeyType}`
+    );
 
     // Create admin client (will throw if service role key is missing)
     let admin;
@@ -36,7 +44,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(
         {
           error: "Server configuration error",
-          message: "SUPABASE_SERVICE_ROLE_KEY is missing. Set it in Vercel Production environment variables and redeploy.",
+          message: "No server-side service key found. Set ONE of: SUPABASE_SERVICE_ROLE_KEY (preferred), SUPABASE_SECRET_KEY (sb_secret_), or SUPABASE_SERVICE_KEY.",
           diagnostics,
         },
         {
@@ -76,13 +84,28 @@ export async function GET(req: NextRequest) {
         details: pendingError.details,
         hint: pendingError.hint,
         code: pendingError.code,
-        SUPABASE_URL: diagnostics.supabaseUrl,
+        url: diagnostics.supabaseUrl.substring(0, 50) + "...",
+        keyPresent: diagnostics.serviceRoleKeyPresent,
+        keyType: diagnostics.serviceRoleKeyType,
       });
       return NextResponse.json(
         {
           error: "Query failed",
           message: pendingError.message,
           diagnostics,
+          pending: [],
+          counts: {
+            total: 0,
+            draft: 0,
+            pending_review: 0,
+            approved: 0,
+            rejected: 0,
+          },
+          sanityCheck: {
+            statusCountsFromGroupBy: {},
+            pendingFromQuery: 0,
+            pendingFromCount: 0,
+          },
         },
         {
           status: 500,
@@ -187,6 +210,7 @@ export async function GET(req: NextRequest) {
         diagnostics: {
           supabaseUrlUsed: diagnostics.supabaseUrl,
           serviceRoleKeyPresent: diagnostics.serviceRoleKeyPresent,
+          serviceRoleKeyType: diagnostics.serviceRoleKeyType,
         },
         sanityCheck: {
           statusCountsFromGroupBy: statusCounts,
@@ -203,10 +227,25 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error("[admin/services/queue] Error:", error);
+    const diagnostics = getAdminClientDiagnostics();
     return NextResponse.json(
       {
         error: "Internal server error",
         message: errorMessage,
+        diagnostics,
+        pending: [],
+        counts: {
+          total: 0,
+          draft: 0,
+          pending_review: 0,
+          approved: 0,
+          rejected: 0,
+        },
+        sanityCheck: {
+          statusCountsFromGroupBy: {},
+          pendingFromQuery: 0,
+          pendingFromCount: 0,
+        },
       },
       {
         status: 500,
