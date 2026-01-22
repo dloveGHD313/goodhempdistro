@@ -13,16 +13,10 @@ type Service = {
   price_cents?: number;
   status: string;
   submitted_at: string;
-  vendor_id: string;
+  category_id?: string;
+  vendor_id?: string;
   owner_user_id: string;
-  vendors: {
-    business_name: string;
-    owner_user_id: string;
-  } | null;
-  profiles: {
-    email?: string;
-    display_name?: string;
-  } | null;
+  created_at?: string;
 };
 
 type Props = {
@@ -115,11 +109,13 @@ export default function ServicesReviewClient({ initialServices, initialCounts }:
   };
 
   const vendorEmail = (service: Service) => {
-    return service.profiles?.email || "N/A";
+    // Profile data not available - show owner user ID instead
+    return service.owner_user_id ? `User: ${service.owner_user_id.substring(0, 8)}...` : "N/A";
   };
 
   const businessName = (service: Service) => {
-    return service.vendors?.business_name || "N/A";
+    // Vendor data not available - show vendor ID if present
+    return service.vendor_id ? `Vendor: ${service.vendor_id.substring(0, 8)}...` : "N/A";
   };
 
   const formatPrice = (pricingType?: string, priceCents?: number) => {

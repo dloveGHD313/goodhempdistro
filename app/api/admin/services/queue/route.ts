@@ -158,6 +158,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Fetch pending services (status = 'pending_review') ordered by created_at desc
+    // Note: No embedded joins to avoid PostgREST FK relationship discovery errors
     const { data: pendingServices, error: pendingError } = await admin
       .from("services")
       .select(`
@@ -172,9 +173,7 @@ export async function GET(req: NextRequest) {
         created_at,
         category_id,
         vendor_id,
-        owner_user_id,
-        vendors!services_vendor_id_fkey(business_name, owner_user_id),
-        profiles!services_owner_user_id_fkey(email, display_name)
+        owner_user_id
       `)
       .eq("status", "pending_review")
       .order("created_at", { ascending: false });
@@ -208,12 +207,8 @@ export async function GET(req: NextRequest) {
       .select("*", { count: "exact", head: true })
       .eq("status", "rejected");
 
-    // Normalize services (handle array relations)
-    const normalizedServices = (pendingServices || []).map((s: any) => ({
-      ...s,
-      vendors: Array.isArray(s.vendors) ? s.vendors[0] : s.vendors,
-      profiles: Array.isArray(s.profiles) ? s.profiles[0] : s.profiles,
-    }));
+    // Return services directly without normalization (no embedded relations)
+    const normalizedServices = pendingServices || [];
 
     // Log comprehensive diagnostics
     const urlPreview = diagnostics.supabaseUrlUsed?.substring(0, 50) || "NOT_SET";
