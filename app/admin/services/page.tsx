@@ -21,6 +21,7 @@ import ServicesReviewClient from "./ServicesReviewClient";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+export const runtime = "nodejs";
 
 type QueueResponse = {
   pending: any[];
@@ -34,6 +35,7 @@ type QueueResponse = {
   diagnostics: {
     supabaseUrlUsed: string;
     serviceRoleKeyPresent: boolean;
+    serviceRoleKeyType?: "jwt" | "sb_secret" | "unknown" | "missing";
   };
   sanityCheck: {
     statusCountsFromGroupBy: Record<string, number>;
@@ -144,7 +146,7 @@ export default async function AdminServicesPage() {
     `Diagnostics: ${JSON.stringify(queueData.diagnostics)}`
   );
 
-  const hasError = !!queueData.error || !queueData.diagnostics.serviceRoleKeyPresent;
+  const hasError = !!queueData.error || (!queueData.diagnostics.serviceRoleKeyPresent && !queueData.error);
 
   // Map counts to match client component expectations
   const counts = {
@@ -168,12 +170,17 @@ export default async function AdminServicesPage() {
               {!queueData.diagnostics.serviceRoleKeyPresent ? (
                 <div className="space-y-2">
                   <p className="text-red-300">
-                    <strong>SUPABASE_SERVICE_ROLE_KEY is missing.</strong>
+                    <strong>No server-side service key found.</strong>
                   </p>
                   <p className="text-sm text-red-200">
-                    Set <code className="bg-red-900/50 px-2 py-1 rounded">SUPABASE_SERVICE_ROLE_KEY</code> in Vercel Production environment variables and redeploy.
+                    Set <strong>ONE</strong> of the following in Vercel Production environment variables:
                   </p>
-                  <p className="text-sm text-red-200">
+                  <ul className="text-sm text-red-200 list-disc list-inside ml-4 space-y-1">
+                    <li><code className="bg-red-900/50 px-2 py-1 rounded">SUPABASE_SERVICE_ROLE_KEY</code> (preferred)</li>
+                    <li><code className="bg-red-900/50 px-2 py-1 rounded">SUPABASE_SECRET_KEY</code> (for sb_secret_ format)</li>
+                    <li><code className="bg-red-900/50 px-2 py-1 rounded">SUPABASE_SERVICE_KEY</code> (alternative)</li>
+                  </ul>
+                  <p className="text-sm text-red-200 mt-2">
                     Also ensure <code className="bg-red-900/50 px-2 py-1 rounded">SUPABASE_URL</code> (or <code className="bg-red-900/50 px-2 py-1 rounded">NEXT_PUBLIC_SUPABASE_URL</code>) points to the correct Supabase project.
                   </p>
                 </div>
@@ -205,11 +212,16 @@ export default async function AdminServicesPage() {
               <div>
                 <strong>Service Role Key:</strong>{" "}
                 {queueData.diagnostics.serviceRoleKeyPresent ? (
-                  <span className="text-green-400">✅ Present</span>
+                  <span className="text-green-400">✅ Present ({queueData.diagnostics.serviceRoleKeyType || "unknown"})</span>
                 ) : (
                   <span className="text-red-400">❌ Missing</span>
                 )}
               </div>
+              {queueData.diagnostics.serviceRoleKeyType && (
+                <div>
+                  <strong>Key Type:</strong> {queueData.diagnostics.serviceRoleKeyType}
+                </div>
+              )}
               <div>
                 <strong>Status Counts (from DB):</strong>
                 <ul className="ml-4 mt-1 space-y-1">
@@ -219,6 +231,9 @@ export default async function AdminServicesPage() {
                   <li>Draft: {counts.draft}</li>
                   <li>Rejected: {counts.rejected}</li>
                 </ul>
+              </div>
+              <div>
+                <strong>Pending List Length:</strong> {queueData.pending?.length || 0}
               </div>
               <div>
                 <strong>Sanity Check:</strong>
