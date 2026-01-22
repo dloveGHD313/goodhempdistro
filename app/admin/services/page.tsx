@@ -232,7 +232,9 @@ export default async function AdminServicesPage() {
     `Env chosenKeyName: ${envDiag.chosenKeyName || "null"}`
   );
 
-  const hasError = !!queueData.error || (!queueData.diagnostics.serviceRoleKeyPresent && !queueData.error) || !envDiag.chosenKeyName;
+  // Determine if there's a missing key issue (takes priority over query errors)
+  const noKeyFound = !envDiag.chosenKeyName || !queueData.diagnostics.serviceRoleKeyPresent;
+  const hasError = !!queueData.error || noKeyFound;
 
   // Map counts to match client component expectations
   const counts = {
@@ -253,7 +255,7 @@ export default async function AdminServicesPage() {
           {hasError && (
             <div className="mb-6 bg-red-900/30 border-2 border-red-600 rounded-lg p-6">
               <h2 className="text-xl font-bold text-red-400 mb-4">⚠️ Configuration Error</h2>
-              {!envDiag.chosenKeyName ? (
+              {noKeyFound ? (
                 <div className="space-y-2">
                   <p className="text-red-300">
                     <strong>No server-side service key found.</strong>

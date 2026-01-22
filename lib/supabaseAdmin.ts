@@ -9,18 +9,26 @@ export type AdminClientDiagnostics = {
 /**
  * Get the service role key from environment variables with fallback support
  * Checks multiple possible env var names in order of preference
- * Matches the order used in /api/admin/diag/env
+ * Matches the order and validation logic used in /api/admin/diag/env
+ * Only returns a key if it's non-empty after trimming (whitespace-only keys are treated as missing)
  */
 function getServiceRoleKey(): string {
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_SECRET_KEY ||
-    process.env.SUPABASE_SERVICE_KEY ||
-    process.env.SUPABASE_SERVICE_ROLE ||
-    "";
-  
-  // Return non-empty string if present, empty string if not
-  return key.trim();
+  // Check each key individually, trim, and only use if non-empty
+  // This matches the logic in /api/admin/diag/env which checks: env && env.trim().length > 0
+  const keys = [
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    process.env.SUPABASE_SECRET_KEY,
+    process.env.SUPABASE_SERVICE_KEY,
+    process.env.SUPABASE_SERVICE_ROLE,
+  ];
+
+  for (const key of keys) {
+    if (key && key.trim().length > 0) {
+      return key.trim();
+    }
+  }
+
+  return "";
 }
 
 /**
