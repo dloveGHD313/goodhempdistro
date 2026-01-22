@@ -46,6 +46,88 @@ type QueueResponse = {
   message?: string;
 };
 
+type EnvDiagnosticsResponse = {
+  has_SUPABASE_SERVICE_ROLE_KEY: boolean;
+  has_SUPABASE_SECRET_KEY: boolean;
+  has_SUPABASE_SERVICE_KEY: boolean;
+  has_SUPABASE_SERVICE_ROLE: boolean;
+  has_SUPABASE_URL: boolean;
+  has_NEXT_PUBLIC_SUPABASE_URL: boolean;
+  has_VERCEL_URL: boolean;
+  has_NEXT_PUBLIC_SITE_URL: boolean;
+  chosenKeyName: string | null;
+  error?: string;
+};
+
+async function fetchEnvDiagnostics(): Promise<EnvDiagnosticsResponse> {
+  noStore();
+  
+  try {
+    // Construct base URL reliably for both local and production
+    let baseUrl: string;
+    if (process.env.NEXT_PUBLIC_SITE_URL) {
+      baseUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    } else if (process.env.VERCEL_URL) {
+      baseUrl = `https://${process.env.VERCEL_URL}`;
+    } else {
+      baseUrl = 'http://localhost:3000';
+    }
+    
+    // Ensure no trailing slash
+    baseUrl = baseUrl.replace(/\/$/, '');
+    
+    const apiUrl = `${baseUrl}/api/admin/diag/env`;
+    
+    // Get cookies to pass for auth
+    const { cookies } = await import("next/headers");
+    const cookieStore = await cookies();
+    const cookieHeader = cookieStore.getAll().map(c => `${c.name}=${c.value}`).join('; ');
+    
+    const response = await fetch(apiUrl, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-store',
+        'Cookie': cookieHeader,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.error(`[admin/services] Env diagnostics API returned ${response.status}:`, errorData);
+      return {
+        has_SUPABASE_SERVICE_ROLE_KEY: false,
+        has_SUPABASE_SECRET_KEY: false,
+        has_SUPABASE_SERVICE_KEY: false,
+        has_SUPABASE_SERVICE_ROLE: false,
+        has_SUPABASE_URL: false,
+        has_NEXT_PUBLIC_SUPABASE_URL: false,
+        has_VERCEL_URL: false,
+        has_NEXT_PUBLIC_SITE_URL: false,
+        chosenKeyName: null,
+        error: errorData.error || errorData.message || `HTTP ${response.status}`,
+      };
+    }
+
+    const data: EnvDiagnosticsResponse = await response.json();
+    return data;
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : "Unknown error";
+    console.error("[admin/services] Error fetching env diagnostics:", err);
+    return {
+      has_SUPABASE_SERVICE_ROLE_KEY: false,
+      has_SUPABASE_SECRET_KEY: false,
+      has_SUPABASE_SERVICE_KEY: false,
+      has_SUPABASE_SERVICE_ROLE: false,
+      has_SUPABASE_URL: false,
+      has_NEXT_PUBLIC_SUPABASE_URL: false,
+      has_VERCEL_URL: false,
+      has_NEXT_PUBLIC_SITE_URL: false,
+      chosenKeyName: null,
+      error: errorMessage,
+    };
+  }
+}
+
 async function fetchQueue(): Promise<QueueResponse> {
   noStore();
   
@@ -138,15 +220,19 @@ export default async function AdminServicesPage() {
     redirect("/dashboard");
   }
 
-  const queueData = await fetchQueue();
+  const [queueData, envDiag] = await Promise.all([
+    fetchQueue(),
+    fetchEnvDiagnostics(),
+  ]);
 
   console.log(
     `[admin/services] Admin ${user.id} (role=${profile?.role ?? "unknown"}) viewing services. ` +
     `Pending: ${queueData.counts?.pending_review || 0}, ` +
-    `Diagnostics: ${JSON.stringify(queueData.diagnostics)}`
+    `Diagnostics: ${JSON.stringify(queueData.diagnostics)}, ` +
+    `Env chosenKeyName: ${envDiag.chosenKeyName || "null"}`
   );
 
-  const hasError = !!queueData.error || (!queueData.diagnostics.serviceRoleKeyPresent && !queueData.error);
+  const hasError = !!queueData.error || (!queueData.diagnostics.serviceRoleKeyPresent && !queueData.error) || !envDiag.chosenKeyName;
 
   // Map counts to match client component expectations
   const counts = {
@@ -167,7 +253,7 @@ export default async function AdminServicesPage() {
           {hasError && (
             <div className="mb-6 bg-red-900/30 border-2 border-red-600 rounded-lg p-6">
               <h2 className="text-xl font-bold text-red-400 mb-4">⚠️ Configuration Error</h2>
-              {!queueData.diagnostics.serviceRoleKeyPresent ? (
+              {!envDiag.chosenKeyName ? (
                 <div className="space-y-2">
                   <p className="text-red-300">
                     <strong>No server-side service key found.</strong>
@@ -199,6 +285,80 @@ export default async function AdminServicesPage() {
               )}
             </div>
           )}
+
+          {/* Runtime Environment Diagnostics */}
+          <details className="mb-6 surface-card p-4 border border-purple-600/30 rounded-lg bg-purple-900/10">
+            <summary className="cursor-pointer text-sm font-semibold text-purple-400 hover:text-purple-300">
+              🔧 Runtime Environment Diagnostics
+            </summary>
+            <div className="mt-4 space-y-2 text-xs font-mono">
+              <div>
+                <strong>Chosen Key Name:</strong>{" "}
+                {envDiag.chosenKeyName ? (
+                  <span className="text-green-400">✅ {envDiag.chosenKeyName}</span>
+                ) : (
+                  <span className="text-red-400">❌ None found</span>
+                )}
+              </div>
+              <div className="mt-3">
+                <strong>Service Role Key Env Vars:</strong>
+                <ul className="ml-4 mt-1 space-y-1">
+                  <li>
+                    SUPABASE_SERVICE_ROLE_KEY: {envDiag.has_SUPABASE_SERVICE_ROLE_KEY ? (
+                      <span className="text-green-400">✅ Present</span>
+                    ) : (
+                      <span className="text-red-400">❌ Missing</span>
+                    )}
+                  </li>
+                  <li>
+                    SUPABASE_SECRET_KEY: {envDiag.has_SUPABASE_SECRET_KEY ? (
+                      <span className="text-green-400">✅ Present</span>
+                    ) : (
+                      <span className="text-red-400">❌ Missing</span>
+                    )}
+                  </li>
+                  <li>
+                    SUPABASE_SERVICE_KEY: {envDiag.has_SUPABASE_SERVICE_KEY ? (
+                      <span className="text-green-400">✅ Present</span>
+                    ) : (
+                      <span className="text-red-400">❌ Missing</span>
+                    )}
+                  </li>
+                  <li>
+                    SUPABASE_SERVICE_ROLE: {envDiag.has_SUPABASE_SERVICE_ROLE ? (
+                      <span className="text-green-400">✅ Present</span>
+                    ) : (
+                      <span className="text-red-400">❌ Missing</span>
+                    )}
+                  </li>
+                </ul>
+              </div>
+              <div className="mt-3">
+                <strong>Supabase URL Env Vars:</strong>
+                <ul className="ml-4 mt-1 space-y-1">
+                  <li>
+                    SUPABASE_URL: {envDiag.has_SUPABASE_URL ? (
+                      <span className="text-green-400">✅ Present</span>
+                    ) : (
+                      <span className="text-red-400">❌ Missing</span>
+                    )}
+                  </li>
+                  <li>
+                    NEXT_PUBLIC_SUPABASE_URL: {envDiag.has_NEXT_PUBLIC_SUPABASE_URL ? (
+                      <span className="text-green-400">✅ Present</span>
+                    ) : (
+                      <span className="text-red-400">❌ Missing</span>
+                    )}
+                  </li>
+                </ul>
+              </div>
+              {envDiag.error && (
+                <div className="text-red-400 mt-2">
+                  <strong>Error:</strong> {envDiag.error}
+                </div>
+              )}
+            </div>
+          </details>
 
           {/* Admin Diagnostics Panel */}
           <details className="mb-6 surface-card p-4 border border-blue-600/30 rounded-lg bg-blue-900/10">
