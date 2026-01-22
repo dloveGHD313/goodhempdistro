@@ -6,10 +6,14 @@ import { getCurrentUserProfile, isAdmin } from "@/lib/authz";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+// Build tag to verify deployed code version
+const BUILD_TAG = "queue-no-joins-2026-01-20-x7k9m";
+
 type QueueResponse = {
   ok: boolean;
   diagnostics: AdminDiagnostics & {
     queryName?: string;
+    buildTag?: string;
   };
   data?: {
     pending: any[];
@@ -57,7 +61,8 @@ function createErrorResponse(
     `url=${urlPreview}... ` +
     `keyPresent=${diagnostics.keyPresent} ` +
     `keyType=${diagnostics.keyType} ` +
-    `keySource=${diagnostics.keySourceName || "none"}`
+    `keySource=${diagnostics.keySourceName || "none"} ` +
+    `buildTag=${BUILD_TAG}`
   );
 
   return NextResponse.json<QueueResponse>(
@@ -66,6 +71,7 @@ function createErrorResponse(
       diagnostics: {
         ...diagnostics,
         queryName,
+        buildTag: BUILD_TAG,
       },
       error: errorDetails,
     },
@@ -96,6 +102,7 @@ export async function GET(req: NextRequest) {
           diagnostics: {
             ...diagnostics,
             queryName: "auth_check",
+            buildTag: BUILD_TAG,
           },
           error: {
             message: "Unauthorized",
@@ -115,6 +122,7 @@ export async function GET(req: NextRequest) {
           diagnostics: {
             ...diagnostics,
             queryName: "auth_check",
+            buildTag: BUILD_TAG,
           },
           error: {
             message: "Forbidden: Not an admin",
@@ -125,6 +133,10 @@ export async function GET(req: NextRequest) {
         { status: 403, headers: { "Cache-Control": "no-store" } }
       );
     }
+
+    // Log marker to confirm this code path is executing
+    console.log("[admin/services/queue] JOIN_MARKER_SHOULD_NOT_EXIST");
+    console.log(`[admin/services/queue] buildTag=${BUILD_TAG}`);
 
     // Get diagnostics before attempting to create admin client
     const diagnostics = getAdminDiagnostics();
@@ -143,6 +155,7 @@ export async function GET(req: NextRequest) {
           diagnostics: {
             ...diagnostics,
             queryName: "admin_client_init",
+            buildTag: BUILD_TAG,
           },
           error: {
             message: errorMessage,
@@ -226,6 +239,7 @@ export async function GET(req: NextRequest) {
         diagnostics: {
           ...diagnostics,
           queryName: "success",
+          buildTag: BUILD_TAG,
         },
         data: {
           pending: normalizedServices,
@@ -255,6 +269,7 @@ export async function GET(req: NextRequest) {
         diagnostics: {
           ...diagnostics,
           queryName: "unexpected_error",
+          buildTag: BUILD_TAG,
         },
         error: {
           message: errorMessage,

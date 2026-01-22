@@ -33,6 +33,7 @@ type QueueResponse = {
     keyLength: number | null;
     keyType: "jwt" | "sb_secret" | "unknown" | "missing";
     queryName?: string;
+    buildTag?: string;
   };
   data?: {
     pending: any[];
@@ -93,9 +94,19 @@ async function fetchQueue(): Promise<QueueResponse> {
       const errorData: QueueResponse = await response.json().catch(() => ({
         ok: false,
         diagnostics: {
-          supabaseUrl: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || null,
+          supabaseUrlUsed: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || null,
+          urlSourceName: process.env.SUPABASE_URL
+            ? "SUPABASE_URL"
+            : process.env.NEXT_PUBLIC_SUPABASE_URL
+              ? "NEXT_PUBLIC_SUPABASE_URL"
+              : "none",
           keyPresent: false,
+          keySourceName: null,
+          keyLength: null,
           keyType: "missing",
+          queryName: "fetch_error",
+          // If we can't parse JSON, we can't know the buildTag.
+          buildTag: undefined,
         },
         error: {
           message: `HTTP ${response.status}`,
@@ -221,6 +232,14 @@ export default async function AdminServicesPage() {
               🔍 Admin Diagnostics
             </summary>
             <div className="mt-4 space-y-2 text-xs font-mono">
+              <div className="mb-3 p-2 bg-yellow-900/30 border border-yellow-600 rounded">
+                <strong className="text-yellow-400">Build Tag:</strong>{" "}
+                {queueData.diagnostics.buildTag ? (
+                  <code className="text-yellow-300 font-bold">{queueData.diagnostics.buildTag}</code>
+                ) : (
+                  <code className="text-red-300 font-bold">MISSING (API not returning buildTag)</code>
+                )}
+              </div>
               <div>
                 <strong>Supabase URL Used:</strong> {queueData.diagnostics.supabaseUrlUsed || "NOT_SET"}
               </div>
