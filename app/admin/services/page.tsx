@@ -36,6 +36,7 @@ type QueueResponse = {
     supabaseUrlUsed: string;
     serviceRoleKeyPresent: boolean;
     serviceRoleKeyType?: "jwt" | "sb_secret" | "unknown" | "missing";
+    chosenKeyName?: string | null;
   };
   sanityCheck: {
     statusCountsFromGroupBy: Record<string, number>;
@@ -56,6 +57,7 @@ type EnvDiagnosticsResponse = {
   has_VERCEL_URL: boolean;
   has_NEXT_PUBLIC_SITE_URL: boolean;
   chosenKeyName: string | null;
+  chosenKeyValueLength: number | null;
   error?: string;
 };
 
@@ -104,6 +106,7 @@ async function fetchEnvDiagnostics(): Promise<EnvDiagnosticsResponse> {
         has_VERCEL_URL: false,
         has_NEXT_PUBLIC_SITE_URL: false,
         chosenKeyName: null,
+        chosenKeyValueLength: null,
         error: errorData.error || errorData.message || `HTTP ${response.status}`,
       };
     }
@@ -121,9 +124,10 @@ async function fetchEnvDiagnostics(): Promise<EnvDiagnosticsResponse> {
       has_SUPABASE_URL: false,
       has_NEXT_PUBLIC_SUPABASE_URL: false,
       has_VERCEL_URL: false,
-      has_NEXT_PUBLIC_SITE_URL: false,
-      chosenKeyName: null,
-      error: errorMessage,
+        has_NEXT_PUBLIC_SITE_URL: false,
+        chosenKeyName: null,
+        chosenKeyValueLength: null,
+        error: errorMessage,
     };
   }
 }
@@ -232,7 +236,13 @@ export default async function AdminServicesPage() {
     `Env chosenKeyName: ${envDiag.chosenKeyName || "null"}`
   );
 
-  const hasError = !!queueData.error || (!queueData.diagnostics.serviceRoleKeyPresent && !queueData.error) || !envDiag.chosenKeyName;
+  // Banner condition depends ONLY on envDiagnostics.chosenKeyName
+  // This is the single source of truth for key presence (uses trim-based detection)
+  // Whitespace-only values should be treated as missing.
+  const noKeyFound = !envDiag.chosenKeyName;
+  const diagnosticsFetchFailed = !!envDiag.error;
+  const queueFetchFailed = !!queueData.error && envDiag.chosenKeyName; // Key exists but queue failed
+  const hasError = diagnosticsFetchFailed || noKeyFound || queueFetchFailed;
 
   // Map counts to match client component expectations
   const counts = {
@@ -253,7 +263,16 @@ export default async function AdminServicesPage() {
           {hasError && (
             <div className="mb-6 bg-red-900/30 border-2 border-red-600 rounded-lg p-6">
               <h2 className="text-xl font-bold text-red-400 mb-4">⚠️ Configuration Error</h2>
-              {!envDiag.chosenKeyName ? (
+              {diagnosticsFetchFailed ? (
+                <div className="space-y-2">
+                  <p className="text-red-300">
+                    <strong>Diagnostics unavailable — cannot verify service role key presence.</strong>
+                  </p>
+                  <p className="text-sm text-red-200">
+                    Error: {envDiag.error}
+                  </p>
+                </div>
+              ) : noKeyFound ? (
                 <div className="space-y-2">
                   <p className="text-red-300">
                     <strong>No server-side service key found.</strong>
@@ -270,10 +289,13 @@ export default async function AdminServicesPage() {
                     Also ensure <code className="bg-red-900/50 px-2 py-1 rounded">SUPABASE_URL</code> (or <code className="bg-red-900/50 px-2 py-1 rounded">NEXT_PUBLIC_SUPABASE_URL</code>) points to the correct Supabase project.
                   </p>
                 </div>
-              ) : (
+              ) : queueFetchFailed ? (
                 <div className="space-y-2">
                   <p className="text-red-300">
-                    <strong>Query Error:</strong> {queueData.error || queueData.message}
+                    <strong>Service role key detected ({envDiag.chosenKeyName}) but admin queue failed — check server logs.</strong>
+                  </p>
+                  <p className="text-sm text-red-200">
+                    Error: {queueData.error || queueData.message}
                   </p>
                   <p className="text-sm text-red-200">
                     Your deployment may be pointing at a different Supabase project than the one you updated with SQL migrations.
@@ -282,7 +304,7 @@ export default async function AdminServicesPage() {
                     Check that <code className="bg-red-900/50 px-2 py-1 rounded">SUPABASE_URL</code> matches your project URL.
                   </p>
                 </div>
-              )}
+              ) : null}
             </div>
           )}
 
@@ -300,6 +322,11 @@ export default async function AdminServicesPage() {
                   <span className="text-red-400">❌ None found</span>
                 )}
               </div>
+              {envDiag.chosenKeyName && envDiag.chosenKeyValueLength !== null && (
+                <div>
+                  <strong>Chosen Key Length:</strong> {envDiag.chosenKeyValueLength} characters
+                </div>
+              )}
               <div className="mt-3">
                 <strong>Service Role Key Env Vars:</strong>
                 <ul className="ml-4 mt-1 space-y-1">

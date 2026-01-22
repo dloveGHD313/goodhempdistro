@@ -9,6 +9,8 @@ export const runtime = "nodejs";
 /**
  * Get pending services queue for admin review
  * Uses service role client to bypass RLS and fetch all services
+ * 
+ * Whitespace-only values should be treated as missing.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -25,6 +27,8 @@ export async function GET(req: NextRequest) {
     }
 
     // Get diagnostics before attempting to create admin client
+    // Uses the same trim-based key detection as getServiceRoleKey() in lib/supabaseAdmin.ts
+    // Whitespace-only values should be treated as missing.
     const diagnostics = getAdminClientDiagnostics();
     
     // Log safe diagnostics (never log the key itself)
@@ -35,6 +39,7 @@ export async function GET(req: NextRequest) {
     );
 
     // Create admin client (will throw if service role key is missing)
+    // getSupabaseAdminClient() uses getServiceRoleKey() which trims and checks each env var
     let admin;
     try {
       admin = getSupabaseAdminClient();
@@ -44,8 +49,24 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(
         {
           error: "Server configuration error",
-          message: "No server-side service key found. Set ONE of: SUPABASE_SERVICE_ROLE_KEY (preferred), SUPABASE_SECRET_KEY (sb_secret_), or SUPABASE_SERVICE_KEY.",
-          diagnostics,
+          message: "No server-side service key found (SUPABASE_SERVICE_ROLE_KEY / SUPABASE_SECRET_KEY / SUPABASE_SERVICE_KEY / SUPABASE_SERVICE_ROLE)",
+          diagnostics: {
+            ...diagnostics,
+            chosenKeyName: null, // Explicitly indicate no key was found
+          },
+          pending: [],
+          counts: {
+            total: 0,
+            draft: 0,
+            pending_review: 0,
+            approved: 0,
+            rejected: 0,
+          },
+          sanityCheck: {
+            statusCountsFromGroupBy: {},
+            pendingFromQuery: 0,
+            pendingFromCount: 0,
+          },
         },
         {
           status: 500,
@@ -211,6 +232,7 @@ export async function GET(req: NextRequest) {
           supabaseUrlUsed: diagnostics.supabaseUrl,
           serviceRoleKeyPresent: diagnostics.serviceRoleKeyPresent,
           serviceRoleKeyType: diagnostics.serviceRoleKeyType,
+          chosenKeyName: null, // Explicitly indicate no key was found when query fails due to missing key
         },
         sanityCheck: {
           statusCountsFromGroupBy: statusCounts,
