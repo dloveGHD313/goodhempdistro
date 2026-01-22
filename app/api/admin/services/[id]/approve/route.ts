@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
-import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { getSupabaseAdminClientOrThrow } from "@/lib/supabaseAdmin";
 import { getCurrentUserProfile, isAdmin } from "@/lib/authz";
 import { revalidatePath } from "next/cache";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 /**
  * Approve service (admin only)
@@ -27,12 +30,12 @@ export async function POST(
     
     let admin;
     try {
-      admin = getSupabaseAdminClient();
+      admin = getSupabaseAdminClientOrThrow();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Failed to initialize admin client";
       console.error(`[admin/services/approve] ${errorMessage}`);
       return NextResponse.json(
-        { error: "Server configuration error: SUPABASE_SERVICE_ROLE_KEY is missing. Set it in Vercel Production environment variables and redeploy." },
+        { error: errorMessage },
         { status: 500 }
       );
     }
