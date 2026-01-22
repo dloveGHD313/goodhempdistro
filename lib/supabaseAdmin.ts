@@ -73,6 +73,19 @@ export function getAdminClientDiagnostics(): AdminClientDiagnostics {
 }
 
 /**
+ * Helper to get safe diagnostics for API responses
+ * Returns only safe information (no secrets)
+ */
+export function getSafeAdminDiagnostics() {
+  const diagnostics = getAdminClientDiagnostics();
+  return {
+    supabaseUrl: diagnostics.supabaseUrl,
+    keyPresent: diagnostics.serviceRoleKeyPresent,
+    keyType: diagnostics.serviceRoleKeyType,
+  };
+}
+
+/**
  * Create a Supabase admin client for server-side operations
  * IMPORTANT: Only use in server-side code (API routes, server actions)
  * Never expose this client to the browser

@@ -24,27 +24,36 @@ export const revalidate = 0;
 export const runtime = "nodejs";
 
 type QueueResponse = {
-  pending: any[];
-  counts: {
-    total: number;
-    draft: number;
-    pending_review: number;
-    approved: number;
-    rejected: number;
-  };
+  ok: boolean;
   diagnostics: {
-    supabaseUrlUsed: string;
-    serviceRoleKeyPresent: boolean;
-    serviceRoleKeyType?: "jwt" | "sb_secret" | "unknown" | "missing";
-    chosenKeyName?: string | null;
+    supabaseUrl: string | null;
+    keyPresent: boolean;
+    keyType: "jwt" | "sb_secret" | "unknown" | "missing";
+    queryName?: string;
   };
-  sanityCheck: {
-    statusCountsFromGroupBy: Record<string, number>;
-    pendingFromQuery: number;
-    pendingFromCount: number;
+  data?: {
+    pending: any[];
+    counts: {
+      total: number;
+      draft: number;
+      pending_review: number;
+      approved: number;
+      rejected: number;
+    };
+    sanityCheck: {
+      statusCountsFromGroupBy: Record<string, number>;
+      pendingFromQuery: number;
+      pendingFromCount: number;
+    };
   };
-  error?: string;
-  message?: string;
+  error?: {
+    message: string;
+    details?: string;
+    hint?: string;
+    code?: string;
+    status?: number;
+    queryContext?: string;
+  };
 };
 
 type EnvDiagnosticsResponse = {
@@ -168,44 +177,48 @@ async function fetchQueue(): Promise<QueueResponse> {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      console.error(`[admin/services] API returned ${response.status}:`, errorData);
-      return {
-        pending: [],
-        counts: { total: 0, draft: 0, pending_review: 0, approved: 0, rejected: 0 },
+      const errorData: QueueResponse = await response.json().catch(() => ({
+        ok: false,
         diagnostics: {
-          supabaseUrlUsed: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || 'NOT_SET',
-          serviceRoleKeyPresent: false,
+          supabaseUrl: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || null,
+          keyPresent: false,
+          keyType: "missing",
         },
-        sanityCheck: {
-          statusCountsFromGroupBy: {},
-          pendingFromQuery: 0,
-          pendingFromCount: 0,
+        error: {
+          message: `HTTP ${response.status}`,
+          status: response.status,
+          queryContext: "fetch_error",
         },
-        error: errorData.error || errorData.message || `HTTP ${response.status}`,
-        message: errorData.message,
-      };
+      }));
+      console.error(`[admin/services] API returned ${response.status}:`, errorData);
+      return errorData;
     }
 
     const data: QueueResponse = await response.json();
-    console.log(`[admin/services] Queue fetched successfully: ${data.pending?.length || 0} pending, total: ${data.counts?.total || 0}`);
+    
+    if (data.ok && data.data) {
+      console.log(`[admin/services] Queue fetched successfully: ${data.data.pending?.length || 0} pending, total: ${data.data.counts?.total || 0}`);
+    } else {
+      console.error(`[admin/services] Queue API returned error:`, data.error);
+    }
+    
     return data;
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : "Unknown error";
     console.error("[admin/services] Error fetching queue:", err);
     return {
-      pending: [],
-      counts: { total: 0, draft: 0, pending_review: 0, approved: 0, rejected: 0 },
+      ok: false,
       diagnostics: {
-        supabaseUrlUsed: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || 'NOT_SET',
-        serviceRoleKeyPresent: false,
+        supabaseUrl: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || null,
+        keyPresent: false,
+        keyType: "missing",
+        queryName: "fetch_exception",
       },
-      sanityCheck: {
-        statusCountsFromGroupBy: {},
-        pendingFromQuery: 0,
-        pendingFromCount: 0,
+      error: {
+        message: errorMessage,
+        status: 500,
+        queryContext: "fetch_exception",
       },
-      error: errorMessage,
     };
   }
 }
@@ -231,7 +244,8 @@ export default async function AdminServicesPage() {
 
   console.log(
     `[admin/services] Admin ${user.id} (role=${profile?.role ?? "unknown"}) viewing services. ` +
-    `Pending: ${queueData.counts?.pending_review || 0}, ` +
+    `Queue ok: ${queueData.ok}, ` +
+    `Pending: ${queueData.data?.counts?.pending_review || 0}, ` +
     `Diagnostics: ${JSON.stringify(queueData.diagnostics)}, ` +
     `Env chosenKeyName: ${envDiag.chosenKeyName || "null"}`
   );
@@ -241,16 +255,16 @@ export default async function AdminServicesPage() {
   // Whitespace-only values should be treated as missing.
   const noKeyFound = !envDiag.chosenKeyName;
   const diagnosticsFetchFailed = !!envDiag.error;
-  const queueFetchFailed = !!queueData.error && envDiag.chosenKeyName; // Key exists but queue failed
+  const queueFetchFailed = !queueData.ok && envDiag.chosenKeyName; // Key exists but queue failed
   const hasError = diagnosticsFetchFailed || noKeyFound || queueFetchFailed;
 
   // Map counts to match client component expectations
   const counts = {
-    total: queueData.counts.total || 0,
-    pending: queueData.counts.pending_review || 0,
-    approved: queueData.counts.approved || 0,
-    draft: queueData.counts.draft || 0,
-    rejected: queueData.counts.rejected || 0,
+    total: queueData.data?.counts?.total || 0,
+    pending: queueData.data?.counts?.pending_review || 0,
+    approved: queueData.data?.counts?.approved || 0,
+    draft: queueData.data?.counts?.draft || 0,
+    rejected: queueData.data?.counts?.rejected || 0,
   };
 
   return (
@@ -290,19 +304,50 @@ export default async function AdminServicesPage() {
                   </p>
                 </div>
               ) : queueFetchFailed ? (
-                <div className="space-y-2">
-                  <p className="text-red-300">
-                    <strong>Service role key detected ({envDiag.chosenKeyName}) but admin queue failed — check server logs.</strong>
+                <div className="space-y-3">
+                  <p className="text-red-300 text-lg font-bold">
+                    ⚠️ Service role key detected ({envDiag.chosenKeyName}) but admin queue failed.
                   </p>
-                  <p className="text-sm text-red-200">
-                    Error: {queueData.error || queueData.message}
-                  </p>
-                  <p className="text-sm text-red-200">
-                    Your deployment may be pointing at a different Supabase project than the one you updated with SQL migrations.
-                  </p>
-                  <p className="text-sm text-red-200">
-                    Check that <code className="bg-red-900/50 px-2 py-1 rounded">SUPABASE_URL</code> matches your project URL.
-                  </p>
+                  {queueData.error && (
+                    <div className="bg-red-950/50 border border-red-700 rounded p-4 space-y-2">
+                      <p className="text-red-200 font-semibold">
+                        <strong>Error Message:</strong> {queueData.error.message}
+                      </p>
+                      {queueData.error.queryContext && (
+                        <p className="text-sm text-red-300">
+                          <strong>Failed Query:</strong> <code className="bg-red-900/50 px-2 py-1 rounded">{queueData.error.queryContext}</code>
+                        </p>
+                      )}
+                      {queueData.error.code && (
+                        <p className="text-sm text-red-300">
+                          <strong>Error Code:</strong> <code className="bg-red-900/50 px-2 py-1 rounded">{queueData.error.code}</code>
+                        </p>
+                      )}
+                      {queueData.error.details && (
+                        <div className="text-sm text-red-300">
+                          <strong>Details:</strong>
+                          <pre className="bg-red-900/30 p-2 rounded mt-1 text-xs overflow-x-auto">{queueData.error.details}</pre>
+                        </div>
+                      )}
+                      {queueData.error.hint && (
+                        <div className="text-sm text-red-300 bg-blue-900/20 border border-blue-700 rounded p-2">
+                          <strong>💡 Hint:</strong> {queueData.error.hint}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div className="text-sm text-red-200 space-y-1">
+                    <p className="font-semibold">Possible causes:</p>
+                    <ul className="list-disc list-inside ml-2 space-y-1">
+                      <li>Service role key does not match the Supabase project URL</li>
+                      <li>Database schema mismatch (missing columns or tables)</li>
+                      <li>RLS policies blocking admin access</li>
+                      <li>Wrong Supabase project URL in environment variables</li>
+                    </ul>
+                    <p className="mt-2">
+                      Verify that <code className="bg-red-900/50 px-2 py-1 rounded">SUPABASE_URL</code> matches your project URL and the service role key is from the same project.
+                    </p>
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -394,54 +439,97 @@ export default async function AdminServicesPage() {
             </summary>
             <div className="mt-4 space-y-2 text-xs font-mono">
               <div>
-                <strong>Supabase URL Used:</strong> {queueData.diagnostics.supabaseUrlUsed}
+                <strong>Supabase URL Used:</strong> {queueData.diagnostics.supabaseUrl || "NOT_SET"}
               </div>
               <div>
                 <strong>Service Role Key:</strong>{" "}
-                {queueData.diagnostics.serviceRoleKeyPresent ? (
-                  <span className="text-green-400">✅ Present ({queueData.diagnostics.serviceRoleKeyType || "unknown"})</span>
+                {queueData.diagnostics.keyPresent ? (
+                  <span className="text-green-400">✅ Present ({queueData.diagnostics.keyType || "unknown"})</span>
                 ) : (
                   <span className="text-red-400">❌ Missing</span>
                 )}
               </div>
-              {queueData.diagnostics.serviceRoleKeyType && (
+              {queueData.diagnostics.keyType && (
                 <div>
-                  <strong>Key Type:</strong> {queueData.diagnostics.serviceRoleKeyType}
+                  <strong>Key Type:</strong> {queueData.diagnostics.keyType}
                 </div>
               )}
-              <div>
-                <strong>Status Counts (from DB):</strong>
-                <ul className="ml-4 mt-1 space-y-1">
-                  <li>Total: {counts.total}</li>
-                  <li>Pending Review: {counts.pending}</li>
-                  <li>Approved: {counts.approved}</li>
-                  <li>Draft: {counts.draft}</li>
-                  <li>Rejected: {counts.rejected}</li>
-                </ul>
-              </div>
-              <div>
-                <strong>Pending List Length:</strong> {queueData.pending?.length || 0}
-              </div>
-              <div>
-                <strong>Sanity Check:</strong>
-                <ul className="ml-4 mt-1 space-y-1">
-                  <li>Pending from query: {queueData.sanityCheck.pendingFromQuery}</li>
-                  <li>Pending from count: {queueData.sanityCheck.pendingFromCount}</li>
-                  <li>Status counts (group by): {JSON.stringify(queueData.sanityCheck.statusCountsFromGroupBy)}</li>
-                </ul>
-              </div>
+              {queueData.diagnostics.queryName && (
+                <div>
+                  <strong>Last Query:</strong> {queueData.diagnostics.queryName}
+                </div>
+              )}
+              {queueData.ok && queueData.data && (
+                <>
+                  <div>
+                    <strong>Status Counts (from DB):</strong>
+                    <ul className="ml-4 mt-1 space-y-1">
+                      <li>Total: {counts.total}</li>
+                      <li>Pending Review: {counts.pending}</li>
+                      <li>Approved: {counts.approved}</li>
+                      <li>Draft: {counts.draft}</li>
+                      <li>Rejected: {counts.rejected}</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <strong>Pending List Length:</strong> {queueData.data.pending?.length || 0}
+                  </div>
+                  <div>
+                    <strong>Sanity Check:</strong>
+                    <ul className="ml-4 mt-1 space-y-1">
+                      <li>Pending from query: {queueData.data.sanityCheck.pendingFromQuery}</li>
+                      <li>Pending from count: {queueData.data.sanityCheck.pendingFromCount}</li>
+                      <li>Status counts (group by): {JSON.stringify(queueData.data.sanityCheck.statusCountsFromGroupBy)}</li>
+                    </ul>
+                  </div>
+                </>
+              )}
               {queueData.error && (
-                <div className="text-red-400">
-                  <strong>Error:</strong> {queueData.error}
+                <div className="text-red-400 space-y-2 bg-red-950/30 border border-red-700 rounded p-3">
+                  <div className="font-semibold text-red-300">
+                    ❌ Error Message: {queueData.error.message}
+                  </div>
+                  {queueData.error.queryContext && (
+                    <div>
+                      <strong>Query Context:</strong> <code className="bg-red-900/50 px-1 rounded">{queueData.error.queryContext}</code>
+                    </div>
+                  )}
+                  {queueData.error.code && (
+                    <div>
+                      <strong>Error Code:</strong> <code className="bg-red-900/50 px-1 rounded">{queueData.error.code}</code>
+                    </div>
+                  )}
+                  {queueData.error.details && (
+                    <div>
+                      <strong>Details:</strong>
+                      <pre className="bg-red-900/30 p-2 rounded mt-1 text-xs overflow-x-auto whitespace-pre-wrap">{queueData.error.details}</pre>
+                    </div>
+                  )}
+                  {queueData.error.hint && (
+                    <div className="bg-blue-900/20 border border-blue-700 rounded p-2">
+                      <strong>💡 Hint:</strong> {queueData.error.hint}
+                    </div>
+                  )}
+                  {queueData.error.status && (
+                    <div>
+                      <strong>HTTP Status:</strong> {queueData.error.status}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </details>
 
-          <ServicesReviewClient 
-            initialServices={queueData.pending || []} 
-            initialCounts={counts} 
-          />
+          {queueData.ok && queueData.data ? (
+            <ServicesReviewClient 
+              initialServices={queueData.data.pending || []} 
+              initialCounts={counts} 
+            />
+          ) : (
+            <div className="card-glass p-8 text-center">
+              <p className="text-muted">Cannot load services queue. Check the error details above.</p>
+            </div>
+          )}
         </section>
       </main>
       <Footer />
