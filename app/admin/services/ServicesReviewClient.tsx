@@ -41,14 +41,42 @@ export default function ServicesReviewClient({ initialServices, initialCounts }:
   const handleApprove = async (serviceId: string) => {
     setLoading(serviceId);
     try {
-      const response = await fetch(`/api/admin/services/${serviceId}/approve`, {
+      const res = await fetch(`/api/admin/services/${serviceId}/approve`, {
         method: "POST",
       });
 
-      const data = await response.json();
+      const text = await res.text();
+      let payload: any = null;
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        // ignore JSON parse errors
+      }
 
-      if (!response.ok) {
-        alert(data.error || "Failed to approve service");
+      if (!res.ok) {
+        const message =
+          payload?.error?.message ||
+          payload?.message ||
+          text ||
+          "Failed to approve service";
+
+        const parts: string[] = [message];
+
+        const code = payload?.error?.code;
+        const details = payload?.error?.details;
+        const hint = payload?.error?.hint;
+        const queryContext = payload?.error?.queryContext;
+        const buildTag = payload?.diagnostics?.buildTag;
+
+        if (queryContext) parts.push(`queryContext=${queryContext}`);
+        if (code) parts.push(`code=${code}`);
+        if (details) parts.push(`details=${details}`);
+        if (hint) parts.push(`hint=${hint}`);
+        if (buildTag) parts.push(`buildTag=${buildTag}`);
+
+        // eslint-disable-next-line no-console
+        console.error("approve failed", { status: res.status, payload, text });
+        alert(parts.join("\n\n"));
         setLoading(null);
         return;
       }
