@@ -11,10 +11,12 @@ export type AdminClientDiagnostics = {
  * Checks multiple possible env var names in order of preference
  * Matches the order and validation logic used in /api/admin/diag/env
  * Only returns a key if it's non-empty after trimming (whitespace-only keys are treated as missing)
+ * 
+ * Whitespace-only values should be treated as missing.
  */
-function getServiceRoleKey(): string {
+function getServiceRoleKey(): string | null {
   // Check each key individually, trim, and only use if non-empty
-  // This matches the logic in /api/admin/diag/env which checks: env && env.trim().length > 0
+  // This matches the logic in /api/admin/diag/env which uses: env?.trim() and checks Boolean(trimmed)
   const keys = [
     process.env.SUPABASE_SERVICE_ROLE_KEY,
     process.env.SUPABASE_SECRET_KEY,
@@ -23,12 +25,13 @@ function getServiceRoleKey(): string {
   ];
 
   for (const key of keys) {
-    if (key && key.trim().length > 0) {
-      return key.trim();
+    const trimmed = key?.trim();
+    if (trimmed && trimmed.length > 0) {
+      return trimmed;
     }
   }
 
-  return "";
+  return null;
 }
 
 /**
@@ -59,7 +62,8 @@ export function getAdminClientDiagnostics(): AdminClientDiagnostics {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const serviceRoleKey = getServiceRoleKey();
   const serviceRoleKeyPresent = !!serviceRoleKey;
-  const serviceRoleKeyType = detectKeyType(serviceRoleKey);
+  // detectKeyType handles null/empty strings by returning "missing"
+  const serviceRoleKeyType = detectKeyType(serviceRoleKey || "");
 
   return {
     supabaseUrl: supabaseUrl || "NOT_SET",
@@ -79,7 +83,7 @@ export function getSupabaseAdminClient() {
   // Prefer server-only env var, fallback to public for backward compatibility
   const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = getServiceRoleKey();
-  const keyType = detectKeyType(serviceRoleKey);
+  const keyType = detectKeyType(serviceRoleKey || "");
 
   if (!supabaseUrl) {
     const error = "[admin-client] MISSING SUPABASE_URL or NEXT_PUBLIC_SUPABASE_URL – admin pages cannot read pending services";
@@ -88,7 +92,7 @@ export function getSupabaseAdminClient() {
   }
 
   if (!serviceRoleKey) {
-    const error = "[admin-client] MISSING service role key – admin pages cannot read pending services. Set ONE of: SUPABASE_SERVICE_ROLE_KEY (preferred), SUPABASE_SECRET_KEY (sb_secret_), or SUPABASE_SERVICE_KEY in Vercel Production environment variables and redeploy.";
+    const error = "[admin-client] No server-side service key found (SUPABASE_SERVICE_ROLE_KEY / SUPABASE_SECRET_KEY / SUPABASE_SERVICE_KEY / SUPABASE_SERVICE_ROLE)";
     console.error(error);
     throw new Error(error);
   }

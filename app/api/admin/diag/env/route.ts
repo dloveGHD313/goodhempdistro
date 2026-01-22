@@ -9,6 +9,8 @@ export const runtime = "nodejs";
  * Safe environment variable presence diagnostics
  * Returns ONLY booleans - never exposes secret values
  * Admin-only endpoint
+ * 
+ * Whitespace-only values should be treated as missing.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -25,27 +27,44 @@ export async function GET(req: NextRequest) {
     }
 
     // Check environment variable presence (only booleans, never values)
+    // Whitespace-only values should be treated as missing
+    const v_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+    const v_SECRET_KEY = process.env.SUPABASE_SECRET_KEY?.trim();
+    const v_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY?.trim();
+    const v_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE?.trim();
+    const v_URL = process.env.SUPABASE_URL?.trim();
+    const v_PUBLIC_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+    const v_VERCEL_URL = process.env.VERCEL_URL?.trim();
+    const v_SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+
     const envChecks = {
-      has_SUPABASE_SERVICE_ROLE_KEY: !!(process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY.trim().length > 0),
-      has_SUPABASE_SECRET_KEY: !!(process.env.SUPABASE_SECRET_KEY && process.env.SUPABASE_SECRET_KEY.trim().length > 0),
-      has_SUPABASE_SERVICE_KEY: !!(process.env.SUPABASE_SERVICE_KEY && process.env.SUPABASE_SERVICE_KEY.trim().length > 0),
-      has_SUPABASE_SERVICE_ROLE: !!(process.env.SUPABASE_SERVICE_ROLE && process.env.SUPABASE_SERVICE_ROLE.trim().length > 0),
-      has_SUPABASE_URL: !!(process.env.SUPABASE_URL && process.env.SUPABASE_URL.trim().length > 0),
-      has_NEXT_PUBLIC_SUPABASE_URL: !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_URL.trim().length > 0),
-      has_VERCEL_URL: !!(process.env.VERCEL_URL && process.env.VERCEL_URL.trim().length > 0),
-      has_NEXT_PUBLIC_SITE_URL: !!(process.env.NEXT_PUBLIC_SITE_URL && process.env.NEXT_PUBLIC_SITE_URL.trim().length > 0),
+      has_SUPABASE_SERVICE_ROLE_KEY: Boolean(v_SERVICE_ROLE_KEY),
+      has_SUPABASE_SECRET_KEY: Boolean(v_SECRET_KEY),
+      has_SUPABASE_SERVICE_KEY: Boolean(v_SERVICE_KEY),
+      has_SUPABASE_SERVICE_ROLE: Boolean(v_SERVICE_ROLE),
+      has_SUPABASE_URL: Boolean(v_URL),
+      has_NEXT_PUBLIC_SUPABASE_URL: Boolean(v_PUBLIC_URL),
+      has_VERCEL_URL: Boolean(v_VERCEL_URL),
+      has_NEXT_PUBLIC_SITE_URL: Boolean(v_SITE_URL),
     };
 
     // Determine which key is chosen (first present in priority order)
+    // Only consider keys whose trimmed value is non-empty
     let chosenKeyName: string | null = null;
-    if (envChecks.has_SUPABASE_SERVICE_ROLE_KEY) {
+    let chosenKeyValueLength: number | null = null;
+    
+    if (v_SERVICE_ROLE_KEY) {
       chosenKeyName = "SUPABASE_SERVICE_ROLE_KEY";
-    } else if (envChecks.has_SUPABASE_SECRET_KEY) {
+      chosenKeyValueLength = v_SERVICE_ROLE_KEY.length;
+    } else if (v_SECRET_KEY) {
       chosenKeyName = "SUPABASE_SECRET_KEY";
-    } else if (envChecks.has_SUPABASE_SERVICE_KEY) {
+      chosenKeyValueLength = v_SECRET_KEY.length;
+    } else if (v_SERVICE_KEY) {
       chosenKeyName = "SUPABASE_SERVICE_KEY";
-    } else if (envChecks.has_SUPABASE_SERVICE_ROLE) {
+      chosenKeyValueLength = v_SERVICE_KEY.length;
+    } else if (v_SERVICE_ROLE) {
       chosenKeyName = "SUPABASE_SERVICE_ROLE";
+      chosenKeyValueLength = v_SERVICE_ROLE.length;
     }
 
     console.log(
@@ -58,6 +77,7 @@ export async function GET(req: NextRequest) {
       {
         ...envChecks,
         chosenKeyName,
+        chosenKeyValueLength,
       },
       {
         headers: {
