@@ -1,15 +1,16 @@
 import Link from "next/link";
-import { Metadata, MetadataRoute } from "next";
+import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import BuyButton from "./BuyButton";
 import { getDelta8WarningText, requiresWarning } from "@/lib/compliance";
+import FavoriteButton from "@/components/engagement/FavoriteButton";
+import ReviewSection from "@/components/engagement/ReviewSection";
 
 type Product = {
   id: string;
   name: string;
   category_id: string | null;
-  categories: { name: string } | null | { name: string }[];
   price_cents: number;
   featured: boolean;
   product_type?: "non_intoxicating" | "intoxicating" | "delta8";
@@ -30,7 +31,7 @@ async function getProduct(id: string): Promise<Product | null> {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("products")
-      .select("id, name, category_id, categories(name), price_cents, featured, product_type, coa_url, coa_verified, created_at")
+      .select("id, name, category_id, price_cents, featured, product_type, coa_url, coa_verified, created_at")
       .eq("id", id)
       .single();
 
@@ -45,6 +46,17 @@ async function getProduct(id: string): Promise<Product | null> {
   }
 }
 
+async function getCategoryName(categoryId: string | null) {
+  if (!categoryId) return null;
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase
+    .from("categories")
+    .select("name")
+    .eq("id", categoryId)
+    .maybeSingle();
+  return data?.name || null;
+}
+
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const params = await props.params;
   const product = await getProduct(params.id);
@@ -55,9 +67,7 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
     };
   }
 
-  const categoryName = Array.isArray(product.categories) 
-    ? (product.categories[0]?.name || null)
-    : (product.categories?.name || null);
+  const categoryName = await getCategoryName(product.category_id);
   
   return {
     title: `${product.name} | Good Hemp Distro`,
@@ -72,6 +82,8 @@ export default async function ProductDetailPage(props: Props) {
   if (!product) {
     notFound();
   }
+
+  const categoryName = await getCategoryName(product.category_id);
 
   return (
     <main className="min-h-screen bg-gray-900 text-white">
@@ -92,11 +104,12 @@ export default async function ProductDetailPage(props: Props) {
           {/* Product Details */}
           <div className="space-y-6">
             <div>
-              <h1 className="text-4xl font-bold mb-2">{product.name}</h1>
+              <div className="flex items-start justify-between gap-4">
+                <h1 className="text-4xl font-bold mb-2">{product.name}</h1>
+                <FavoriteButton entityType="product" entityId={product.id} size="md" />
+              </div>
               <p className="text-gray-400 text-lg">
-                Category: {Array.isArray(product.categories) 
-                  ? (product.categories[0]?.name || "Uncategorized")
-                  : (product.categories?.name || "Uncategorized")}
+                Category: {categoryName || "Uncategorized"}
               </p>
             </div>
 
@@ -160,15 +173,23 @@ export default async function ProductDetailPage(props: Props) {
           </div>
         </div>
 
-        {/* Related Products Section */}
-        <div className="mt-16">
-          <h2 className="text-2xl font-bold mb-8">More Products</h2>
-          <Link
-            href="/products"
-            className="inline-block bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition"
-          >
-            Browse All Products
-          </Link>
+        <div className="mt-16 space-y-6">
+          <ReviewSection
+            entityType="product"
+            entityId={product.id}
+            className="bg-gray-800 rounded-lg border border-gray-700 p-6"
+            title="Product Reviews"
+          />
+
+          <div>
+            <h2 className="text-2xl font-bold mb-6">More Products</h2>
+            <Link
+              href="/products"
+              className="inline-block bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition"
+            >
+              Browse All Products
+            </Link>
+          </div>
         </div>
       </div>
     </main>

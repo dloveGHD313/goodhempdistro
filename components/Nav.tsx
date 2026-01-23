@@ -59,7 +59,7 @@ export default function Nav() {
     window.location.href = "/";
   }, []);
 
-  const accountHref = isLoggedIn ? "/dashboard" : "/login";
+  const accountHref = isLoggedIn ? "/account" : "/login";
 
   return (
     <nav aria-label="Main Navigation" className="flex items-center justify-between w-full">
@@ -104,9 +104,26 @@ export default function Nav() {
             </div>
           </div>
         )}
-        <Link href={accountHref} className="nav-link text-sm">
-          Account
-        </Link>
+        {isLoggedIn ? (
+          <div className="relative group">
+            <Link href={accountHref} className="nav-link text-sm flex items-center gap-1">
+              Account
+              <span className="text-xs">▼</span>
+            </Link>
+            <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[180px]">
+              <Link href="/account" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                Account Overview
+              </Link>
+              <Link href="/account/favorites" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                Favorites
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <Link href={accountHref} className="nav-link text-sm">
+            Account
+          </Link>
+        )}
       </div>
 
       {/* Mobile/Tablet: Get Started + Menu Hamburger */}
@@ -249,8 +266,17 @@ export default function Nav() {
                   className="px-4 py-3 rounded-lg text-base block drawer-link"
                   onClick={() => setDrawerOpen(false)}
                 >
-                  {isLoggedIn ? "📊 Dashboard" : "🔐 Login"}
+                  {isLoggedIn ? "👤 Account" : "🔐 Login"}
                 </Link>
+                {isLoggedIn && (
+                  <Link
+                    href="/account/favorites"
+                    className="px-4 py-3 rounded-lg text-base block drawer-link"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    ⭐ Favorites
+                  </Link>
+                )}
                 {isLoggedIn && (
                   <button
                     type="button"

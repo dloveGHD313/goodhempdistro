@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Footer from "@/components/Footer";
 import type { EventWithTicketTypes, TicketPurchase } from "@/lib/events.types";
+import FavoriteButton from "@/components/engagement/FavoriteButton";
+import ReviewSection from "@/components/engagement/ReviewSection";
+import EventEngagementButtons from "@/components/engagement/EventEngagementButtons";
 
 export default function EventDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -135,7 +138,10 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mt-8">
             <div>
-              <h1 className="text-4xl font-bold mb-4 text-accent">{event.title}</h1>
+              <div className="flex items-start justify-between gap-4">
+                <h1 className="text-4xl font-bold mb-4 text-accent">{event.title}</h1>
+                <FavoriteButton entityType="event" entityId={event.id} size="md" />
+              </div>
               {event.description && (
                 <div className="text-muted mb-4 whitespace-pre-wrap">{event.description}</div>
               )}
@@ -151,6 +157,7 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
                   This event is sold out.
                 </div>
               )}
+              <EventEngagementButtons eventId={event.id} />
             </div>
 
             <div className="card-glass p-6">
@@ -231,6 +238,9 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
                 {checkingOut ? "Processing..." : soldOut ? "Sold Out" : totalSelected === 0 ? "Select Tickets" : "Buy Tickets"}
               </button>
             </div>
+          </div>
+          <div className="mt-12">
+            <ReviewSection entityType="event" entityId={event.id} title="Event Reviews" />
           </div>
         </section>
       </main>

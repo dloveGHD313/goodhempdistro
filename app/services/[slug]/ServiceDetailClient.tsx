@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import FavoriteButton from "@/components/engagement/FavoriteButton";
+import ReviewSection from "@/components/engagement/ReviewSection";
 
 type Service = {
   id: string;
@@ -129,7 +131,10 @@ export default function ServiceDetailClient({ service }: Props) {
       </Link>
 
       <div className="card-glass p-8 mb-8">
-        <h1 className="text-4xl font-bold mb-4 text-accent">{service.name || service.title}</h1>
+        <div className="flex items-start justify-between gap-4">
+          <h1 className="text-4xl font-bold mb-4 text-accent">{service.name || service.title}</h1>
+          <FavoriteButton entityType="service" entityId={service.id} size="md" />
+        </div>
         
         {service.vendors?.business_name && (
           <p className="text-muted mb-4">By {service.vendors.business_name}</p>
@@ -153,6 +158,8 @@ export default function ServiceDetailClient({ service }: Props) {
           </div>
         )}
       </div>
+
+      <ReviewSection entityType="service" entityId={service.id} title="Service Reviews" />
 
       {/* Inquiry Form */}
       <div className="card-glass p-8">

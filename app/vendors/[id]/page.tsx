@@ -3,6 +3,8 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
+import FavoriteButton from "@/components/engagement/FavoriteButton";
+import ReviewSection from "@/components/engagement/ReviewSection";
 
 type Vendor = {
   id: string;
@@ -143,6 +145,9 @@ export default async function VendorDetailPage(props: Props) {
                 <div className="text-sm text-[var(--brand-lime)] border border-[var(--brand-lime)]/40 bg-[var(--brand-lime)]/15 px-3 py-1 rounded-full inline-flex mb-4">
                   Verified & Approved
                 </div>
+                <div className="flex justify-center mb-4">
+                  <FavoriteButton entityType="vendor" entityId={vendor.id} size="md" />
+                </div>
                 <div className="text-7xl mb-4">🌿</div>
                 <h1 className="text-3xl font-bold mb-2">{vendor.business_name}</h1>
                 <p className="text-muted mb-4">
@@ -188,6 +193,8 @@ export default async function VendorDetailPage(props: Props) {
                     "This vendor specializes in premium hemp products with a commitment to quality and sustainability."}
                 </p>
               </div>
+
+              <ReviewSection entityType="vendor" entityId={vendor.id} title="Vendor Reviews" />
 
               <div className="surface-card p-8">
                 <div className="flex items-center justify-between mb-4">

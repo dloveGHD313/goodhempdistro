@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import SearchInput from "@/components/discovery/SearchInput";
 import FilterSelect from "@/components/discovery/FilterSelect";
+import FavoriteButton from "@/components/engagement/FavoriteButton";
+import RatingBadge from "@/components/engagement/RatingBadge";
 
 type Vendor = {
   id: string;
@@ -31,6 +33,8 @@ export default function VendorsDirectoryClient({ vendors }: Props) {
   const [cityFilter, setCityFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [tagFilter, setTagFilter] = useState("");
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [ratings, setRatings] = useState<Record<string, { avg: number; count: number }>>({});
 
   const normalizedVendors = useMemo(
     () =>
@@ -95,6 +99,28 @@ export default function VendorsDirectoryClient({ vendors }: Props) {
     return matchesSearch && matchesState && matchesCity && matchesType && matchesTag;
   });
 
+  useEffect(() => {
+    if (!normalizedVendors.length) return;
+    const ids = normalizedVendors.map((vendor) => vendor.id).join(",");
+    fetch(`/api/reviews/summary?entity_type=vendor&entity_ids=${ids}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.summaries) {
+          setRatings(data.summaries);
+        }
+      })
+      .catch(() => undefined);
+
+    fetch(`/api/favorites?entity_type=vendor&entity_ids=${ids}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const next = new Set<string>();
+        (data?.favorites || []).forEach((fav: any) => next.add(fav.entity_id));
+        setFavorites(next);
+      })
+      .catch(() => undefined);
+  }, [normalizedVendors]);
+
   return (
     <div className="space-y-10">
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
@@ -144,9 +170,10 @@ export default function VendorsDirectoryClient({ vendors }: Props) {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
-          {filteredVendors.map((vendor) => (
-            <Link key={vendor.id} href={`/vendors/${vendor.id}`} className="group">
-              <div className="surface-card p-8 hover-lift h-full cursor-pointer">
+          {filteredVendors.map((vendor) => {
+            const rating = ratings[vendor.id];
+            return (
+              <div key={vendor.id} className="surface-card p-8 hover-lift h-full">
                 <div className="flex items-center justify-between mb-4">
                   <div className="text-sm text-[var(--brand-lime)] border border-[var(--brand-lime)]/40 bg-[var(--brand-lime)]/15 px-3 py-1 rounded-full">
                     Verified & Approved
@@ -157,33 +184,43 @@ export default function VendorsDirectoryClient({ vendors }: Props) {
                     </span>
                   )}
                 </div>
-                <div className="w-20 h-20 bg-[var(--surface)]/60 rounded-full mb-4 group-hover:bg-[var(--surface)]/80 transition flex items-center justify-center text-3xl">
-                  🌿
+                <div className="flex items-center justify-between mb-4">
+                  <RatingBadge average={rating?.avg ?? null} count={rating?.count ?? 0} />
+                  <FavoriteButton
+                    entityType="vendor"
+                    entityId={vendor.id}
+                    initialFavorited={favorites.has(vendor.id)}
+                  />
                 </div>
-                <h3 className="text-2xl font-semibold mb-2 group-hover:text-accent transition">
-                  {vendor.business_name}
-                </h3>
-                <p className="text-muted mb-3 text-sm">
-                  {vendor.description || "Trusted hemp products and services."}
-                </p>
-                <div className="text-sm text-muted mb-4">
-                  {[vendor.city, vendor.state].filter(Boolean).join(", ") || "Location available on profile"}
-                </div>
-                {(vendor.categories?.length || vendor.tags?.length) && (
-                  <div className="flex gap-2 flex-wrap">
-                    {[...(vendor.categories || []), ...(vendor.tags || [])].slice(0, 6).map((tag) => (
-                      <span
-                        key={tag}
-                        className="bg-[var(--brand-lime)]/15 text-[var(--brand-lime)] px-3 py-1 rounded text-sm border border-[var(--brand-lime)]/40"
-                      >
-                        {tag}
-                      </span>
-                    ))}
+                <Link href={`/vendors/${vendor.id}`} className="group">
+                  <div className="w-20 h-20 bg-[var(--surface)]/60 rounded-full mb-4 group-hover:bg-[var(--surface)]/80 transition flex items-center justify-center text-3xl">
+                    🌿
                   </div>
-                )}
+                  <h3 className="text-2xl font-semibold mb-2 group-hover:text-accent transition">
+                    {vendor.business_name}
+                  </h3>
+                  <p className="text-muted mb-3 text-sm">
+                    {vendor.description || "Trusted hemp products and services."}
+                  </p>
+                  <div className="text-sm text-muted mb-4">
+                    {[vendor.city, vendor.state].filter(Boolean).join(", ") || "Location available on profile"}
+                  </div>
+                  {(vendor.categories?.length || vendor.tags?.length) && (
+                    <div className="flex gap-2 flex-wrap">
+                      {[...(vendor.categories || []), ...(vendor.tags || [])].slice(0, 6).map((tag) => (
+                        <span
+                          key={tag}
+                          className="bg-[var(--brand-lime)]/15 text-[var(--brand-lime)] px-3 py-1 rounded text-sm border border-[var(--brand-lime)]/40"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </Link>
               </div>
-            </Link>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

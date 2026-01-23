@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import SearchInput from "@/components/discovery/SearchInput";
 import FilterSelect from "@/components/discovery/FilterSelect";
+import FavoriteButton from "@/components/engagement/FavoriteButton";
+import RatingBadge from "@/components/engagement/RatingBadge";
+import EventEngagementButtons from "@/components/engagement/EventEngagementButtons";
 
 type Event = {
   id: string;
@@ -24,6 +27,8 @@ export default function EventsList({ initialEvents }: Props) {
   const [events] = useState<Event[]>(initialEvents);
   const [search, setSearch] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [ratings, setRatings] = useState<Record<string, { avg: number; count: number }>>({});
 
   const locationOptions = useMemo(() => {
     const values = new Set(events.map((event) => event.location).filter(Boolean) as string[]);
@@ -49,6 +54,28 @@ export default function EventsList({ initialEvents }: Props) {
       </div>
     );
   }
+
+  useEffect(() => {
+    if (!events.length) return;
+    const ids = events.map((event) => event.id).join(",");
+    fetch(`/api/reviews/summary?entity_type=event&entity_ids=${ids}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.summaries) {
+          setRatings(data.summaries);
+        }
+      })
+      .catch(() => undefined);
+
+    fetch(`/api/favorites?entity_type=event&entity_ids=${ids}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const next = new Set<string>();
+        (data?.favorites || []).forEach((fav: any) => next.add(fav.entity_id));
+        setFavorites(next);
+      })
+      .catch(() => undefined);
+  }, [events]);
 
   return (
     <div className="space-y-6">
@@ -78,10 +105,19 @@ export default function EventsList({ initialEvents }: Props) {
       {filteredEvents.map((event) => {
         const soldOut = event.capacity !== null && event.tickets_sold >= event.capacity;
         const remaining = event.capacity !== null ? event.capacity - event.tickets_sold : null;
+        const rating = ratings[event.id];
 
         return (
-          <Link key={event.id} href={`/events/${event.id}`} className="group">
-            <div className="card-glass p-6 hover-lift h-full cursor-pointer">
+          <div key={event.id} className="card-glass p-6 hover-lift h-full">
+            <div className="flex items-center justify-between mb-3">
+              <RatingBadge average={rating?.avg ?? null} count={rating?.count ?? 0} />
+              <FavoriteButton
+                entityType="event"
+                entityId={event.id}
+                initialFavorited={favorites.has(event.id)}
+              />
+            </div>
+            <Link href={`/events/${event.id}`} className="group">
               <div className="aspect-square bg-[var(--surface)]/60 rounded-lg mb-4 group-hover:bg-[var(--surface)]/80 transition flex items-center justify-center">
                 <span className="text-4xl">🎉</span>
               </div>
@@ -94,18 +130,23 @@ export default function EventsList({ initialEvents }: Props) {
               {event.location && (
                 <p className="text-muted mb-4 text-sm">📍 {event.location}</p>
               )}
-              <div className="flex justify-between items-center">
-                {soldOut ? (
-                  <span className="text-red-400 font-semibold">Sold Out</span>
-                ) : (
-                  <span className="text-green-400 font-semibold">
-                    {remaining !== null ? `${remaining} tickets remaining` : "Tickets Available"}
-                  </span>
-                )}
-                <button className="btn-secondary px-4 py-2 rounded-lg">View</button>
-              </div>
+            </Link>
+            <div className="flex justify-between items-center">
+              {soldOut ? (
+                <span className="text-red-400 font-semibold">Sold Out</span>
+              ) : (
+                <span className="text-green-400 font-semibold">
+                  {remaining !== null ? `${remaining} tickets remaining` : "Tickets Available"}
+                </span>
+              )}
+              <Link href={`/events/${event.id}`} className="btn-secondary px-4 py-2 rounded-lg">
+                View
+              </Link>
             </div>
-          </Link>
+            <div className="mt-4">
+              <EventEngagementButtons eventId={event.id} />
+            </div>
+          </div>
         );
       })}
         </div>

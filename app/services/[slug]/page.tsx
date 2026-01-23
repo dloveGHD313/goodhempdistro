@@ -1,4 +1,4 @@
-import { redirect, notFound } from "next/navigation";
+import { notFound } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
@@ -15,21 +15,9 @@ async function getService(slugOrId: string) {
     // Try by slug first, then by id
     let { data: service, error } = await supabase
       .from("services")
-      .select(`
-        id,
-        name,
-        title,
-        description,
-        pricing_type,
-        price_cents,
-        slug,
-        category_id,
-        subcategory_id,
-        status,
-        active,
-        categories(name, slug),
-        vendors(business_name)
-      `)
+      .select(
+        "id, name, title, description, pricing_type, price_cents, slug, category_id, subcategory_id, status, active, vendor_id"
+      )
       .or(`slug.eq.${slugOrId},id.eq.${slugOrId}`)
       .eq("status", "approved")
       .eq("active", true)
@@ -44,11 +32,32 @@ async function getService(slugOrId: string) {
       return null;
     }
 
-    // Normalize relations
+    let category = null;
+    if (service.category_id) {
+      const { data: categoryData } = await supabase
+        .from("categories")
+        .select("name, slug")
+        .eq("id", service.category_id)
+        .maybeSingle();
+      category = categoryData || null;
+    }
+
+    let vendor = null;
+    if (service.vendor_id) {
+      const { data: vendorData } = await supabase
+        .from("vendors")
+        .select("business_name")
+        .eq("id", service.vendor_id)
+        .eq("is_active", true)
+        .eq("is_approved", true)
+        .maybeSingle();
+      vendor = vendorData || null;
+    }
+
     const normalizedService = {
       ...service,
-      categories: Array.isArray(service.categories) ? service.categories[0] : service.categories,
-      vendors: Array.isArray(service.vendors) ? service.vendors[0] : service.vendors,
+      categories: category,
+      vendors: vendor,
     };
 
     return normalizedService;

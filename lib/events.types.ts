@@ -2,7 +2,7 @@
  * TypeScript types for Events + Ticketing system
  */
 
-export type EventStatus = "draft" | "published" | "cancelled";
+export type EventStatus = "draft" | "pending_review" | "approved" | "rejected" | "published" | "cancelled";
 export type EventOrderStatus = "pending" | "paid" | "cancelled";
 
 export type Event = {

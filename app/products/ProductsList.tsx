@@ -5,6 +5,8 @@ import Link from "next/link";
 import { getCategoriesClient, type Category } from "@/lib/categories";
 import SearchInput from "@/components/discovery/SearchInput";
 import FilterSelect from "@/components/discovery/FilterSelect";
+import FavoriteButton from "@/components/engagement/FavoriteButton";
+import RatingBadge from "@/components/engagement/RatingBadge";
 
 type Product = {
   id: string;
@@ -24,6 +26,8 @@ export default function ProductsList({ initialProducts, initialCategoryId }: Pro
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(initialCategoryId || "");
   const [search, setSearch] = useState("");
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [ratings, setRatings] = useState<Record<string, { avg: number; count: number }>>({});
 
   useEffect(() => {
     async function loadCategories() {
@@ -45,6 +49,28 @@ export default function ProductsList({ initialProducts, initialCategoryId }: Pro
     }
     setProducts(filtered);
   }, [selectedCategoryId, search, initialProducts]);
+
+  useEffect(() => {
+    if (!initialProducts.length) return;
+    const ids = initialProducts.map((product) => product.id).join(",");
+    fetch(`/api/reviews/summary?entity_type=product&entity_ids=${ids}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.summaries) {
+          setRatings(data.summaries);
+        }
+      })
+      .catch(() => undefined);
+
+    fetch(`/api/favorites?entity_type=product&entity_ids=${ids}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const next = new Set<string>();
+        (data?.favorites || []).forEach((fav: any) => next.add(fav.entity_id));
+        setFavorites(next);
+      })
+      .catch(() => undefined);
+  }, [initialProducts]);
 
   return (
     <>
@@ -74,24 +100,33 @@ export default function ProductsList({ initialProducts, initialCategoryId }: Pro
           {products.map((product) => {
             const categoryName =
               categories.find((cat) => cat.id === product.category_id)?.name || "Uncategorized";
+            const rating = ratings[product.id];
             return (
-            <Link key={product.id} href={`/products/${product.id}`} className="group">
-              <div className="card-glass p-6 hover-lift h-full cursor-pointer">
+            <div key={product.id} className="card-glass p-6 hover-lift h-full">
+              <div className="flex items-center justify-between mb-3">
+                <RatingBadge average={rating?.avg ?? null} count={rating?.count ?? 0} />
+                <FavoriteButton
+                  entityType="product"
+                  entityId={product.id}
+                  initialFavorited={favorites.has(product.id)}
+                />
+              </div>
+              <Link href={`/products/${product.id}`} className="group">
                 <div className="aspect-square bg-[var(--surface)]/60 rounded-lg mb-4 group-hover:bg-[var(--surface)]/80 transition" />
                 <h3 className="text-xl font-semibold mb-2 group-hover:text-accent transition">{product.name}</h3>
                 <p className="text-muted mb-2 text-sm">
                   {categoryName}
                 </p>
-                <div className="flex justify-between items-center">
-                  <span className="text-2xl font-bold text-accent">
-                    ${(product.price_cents / 100).toFixed(2)}
-                  </span>
-                  <button className="btn-secondary px-4 py-2 rounded-lg">
-                    View
-                  </button>
-                </div>
+              </Link>
+              <div className="flex justify-between items-center">
+                <span className="text-2xl font-bold text-accent">
+                  ${(product.price_cents / 100).toFixed(2)}
+                </span>
+                <Link href={`/products/${product.id}`} className="btn-secondary px-4 py-2 rounded-lg">
+                  View
+                </Link>
               </div>
-            </Link>
+            </div>
           );
           })}
         </div>
