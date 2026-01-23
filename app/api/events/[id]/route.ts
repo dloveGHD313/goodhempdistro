@@ -16,7 +16,7 @@ export async function GET(
       .from("events")
       .select("*, event_ticket_types(*), vendors(business_name)")
       .eq("id", id)
-      .eq("status", "published")
+      .in("status", ["approved", "published"])
       .single();
 
     if (error || !event) {

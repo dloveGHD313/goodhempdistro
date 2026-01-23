@@ -7,6 +7,13 @@ import Footer from "@/components/Footer";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+type StatusCounts = {
+  draft: number;
+  pending_review: number;
+  approved: number;
+  rejected: number;
+};
+
 async function getVendorData(userId: string) {
   try {
     const supabase = await createSupabaseServerClient();
@@ -30,7 +37,37 @@ async function getVendorData(userId: string) {
       return null;
     }
 
-    return vendor;
+    const { data: productStatuses } = await supabase
+      .from("products")
+      .select("status")
+      .eq("owner_user_id", userId);
+
+    const { data: serviceStatuses } = await supabase
+      .from("services")
+      .select("status")
+      .eq("owner_user_id", userId);
+
+    const tally = (rows: Array<{ status: string }> | null): StatusCounts => {
+      const counts: StatusCounts = {
+        draft: 0,
+        pending_review: 0,
+        approved: 0,
+        rejected: 0,
+      };
+      (rows || []).forEach((row) => {
+        if (row.status === "draft") counts.draft += 1;
+        if (row.status === "pending_review") counts.pending_review += 1;
+        if (row.status === "approved") counts.approved += 1;
+        if (row.status === "rejected") counts.rejected += 1;
+      });
+      return counts;
+    };
+
+    return {
+      vendor,
+      productCounts: tally(productStatuses),
+      serviceCounts: tally(serviceStatuses),
+    };
   } catch (error) {
     console.error("[vendors/dashboard] Error fetching vendor data:", error);
     return null;
@@ -50,11 +87,13 @@ export default async function VendorDashboardPage() {
     redirect("/login?redirect=/vendors/dashboard");
   }
 
-  const vendor = await getVendorData(user.id);
+  const vendorData = await getVendorData(user.id);
 
-  if (!vendor) {
+  if (!vendorData) {
     redirect("/vendor-registration");
   }
+
+  const { vendor, productCounts, serviceCounts } = vendorData;
 
   const onboardingComplete =
     vendor.vendor_onboarding_completed &&
@@ -120,7 +159,12 @@ export default async function VendorDashboardPage() {
           </div>
 
           <div className="surface-card p-6 mb-8">
-            <h2 className="text-2xl font-semibold mb-3">Vendor profile</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-2xl font-semibold">Vendor profile</h2>
+              <Link href="/vendors/dashboard/profile" className="text-accent text-sm">
+                View profile
+              </Link>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-muted">
               <div>
                 <div className="text-xs uppercase tracking-wide">Vendor type</div>
@@ -131,6 +175,47 @@ export default async function VendorDashboardPage() {
               <div>
                 <div className="text-xs uppercase tracking-wide">Member since</div>
                 <div className="text-base text-white">{submittedDate}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div className="surface-card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold">Products</h2>
+                <Link href="/vendors/dashboard/products" className="text-accent text-sm">
+                  Manage
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm text-muted">
+                <div>Drafts: <span className="text-white">{productCounts.draft}</span></div>
+                <div>Pending: <span className="text-white">{productCounts.pending_review}</span></div>
+                <div>Approved: <span className="text-white">{productCounts.approved}</span></div>
+                <div>Rejected: <span className="text-white">{productCounts.rejected}</span></div>
+              </div>
+              <div className="mt-4">
+                <Link href="/vendors/products/new" className="btn-primary">
+                  Create new product
+                </Link>
+              </div>
+            </div>
+            <div className="surface-card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold">Services</h2>
+                <Link href="/vendors/dashboard/services" className="text-accent text-sm">
+                  Manage
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm text-muted">
+                <div>Drafts: <span className="text-white">{serviceCounts.draft}</span></div>
+                <div>Pending: <span className="text-white">{serviceCounts.pending_review}</span></div>
+                <div>Approved: <span className="text-white">{serviceCounts.approved}</span></div>
+                <div>Rejected: <span className="text-white">{serviceCounts.rejected}</span></div>
+              </div>
+              <div className="mt-4">
+                <Link href="/vendors/services/new" className="btn-primary">
+                  Create new service
+                </Link>
               </div>
             </div>
           </div>

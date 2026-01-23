@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase";
-import { hasVendorContext } from "@/lib/authz";
 import Footer from "@/components/Footer";
 import ProductsClient from "./ProductsClient";
 
@@ -15,12 +14,19 @@ async function getVendorProducts(userId: string) {
     // Get vendor
     const { data: vendor } = await supabase
       .from("vendors")
-      .select("id, owner_user_id")
+      .select("id, owner_user_id, vendor_onboarding_completed, terms_accepted_at, compliance_acknowledged_at")
       .eq("owner_user_id", userId)
       .maybeSingle();
 
     if (!vendor) {
       return null;
+    }
+    if (
+      !vendor.vendor_onboarding_completed ||
+      !vendor.terms_accepted_at ||
+      !vendor.compliance_acknowledged_at
+    ) {
+      redirect("/onboarding/vendor");
     }
 
     // Get all products for this vendor (all statuses)
@@ -68,13 +74,6 @@ export default async function VendorProductsPage() {
 
   if (!user) {
     redirect("/login?redirect=/vendors/products");
-  }
-
-  // Check vendor context
-  const { hasContext } = await hasVendorContext(supabase, user.id);
-
-  if (!hasContext) {
-    redirect("/vendor-registration");
   }
 
   const productsData = await getVendorProducts(user.id);

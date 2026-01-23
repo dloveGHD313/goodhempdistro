@@ -77,17 +77,21 @@ export async function POST(req: NextRequest) {
     const admin = getSupabaseAdminClient();
 
     // Create event
+    const safeStatus = status === "pending_review" ? "pending_review" : "draft";
+
     const { data: event, error: eventError } = await admin
       .from("events")
       .insert({
         vendor_id: vendor.id,
+        owner_user_id: user.id,
         title: title.trim(),
         description: description?.trim() || null,
         location: location?.trim() || null,
         start_time,
         end_time,
         capacity: capacity || null,
-        status,
+        status: safeStatus,
+        submitted_at: safeStatus === "pending_review" ? new Date().toISOString() : null,
       })
       .select("id")
       .single();

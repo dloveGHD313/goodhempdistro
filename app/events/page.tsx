@@ -30,7 +30,7 @@ async function getPublishedEvents(): Promise<Event[]> {
     const { data, error } = await supabase
       .from("events")
       .select("id, title, description, location, start_time, end_time, capacity, tickets_sold, vendors(business_name)")
-      .eq("status", "published")
+      .in("status", ["approved", "published"])
       .gte("start_time", new Date().toISOString())
       .order("start_time", { ascending: true });
 

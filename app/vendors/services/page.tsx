@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase";
-import { hasVendorContext } from "@/lib/authz";
 import Footer from "@/components/Footer";
 import ServicesClient from "./ServicesClient";
 
@@ -15,12 +14,19 @@ async function getVendorServices(userId: string) {
     // Get vendor
     const { data: vendor } = await supabase
       .from("vendors")
-      .select("id, owner_user_id")
+      .select("id, owner_user_id, vendor_onboarding_completed, terms_accepted_at, compliance_acknowledged_at")
       .eq("owner_user_id", userId)
       .maybeSingle();
 
     if (!vendor) {
       return null;
+    }
+    if (
+      !vendor.vendor_onboarding_completed ||
+      !vendor.terms_accepted_at ||
+      !vendor.compliance_acknowledged_at
+    ) {
+      redirect("/onboarding/vendor");
     }
 
     // Get all services for this vendor (all statuses)
@@ -65,13 +71,6 @@ export default async function VendorServicesPage() {
 
   if (!user) {
     redirect("/login?redirect=/vendors/services");
-  }
-
-  // Check vendor context
-  const { hasContext } = await hasVendorContext(supabase, user.id);
-
-  if (!hasContext) {
-    redirect("/vendor-registration");
   }
 
   const servicesData = await getVendorServices(user.id);
