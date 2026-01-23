@@ -202,13 +202,14 @@ export async function POST(req: NextRequest) {
         hint: serviceError.hint,
         code: serviceError.code,
       });
+      const includeDetails = process.env.NODE_ENV !== "production";
       return NextResponse.json(
         { 
           error: "Failed to create service",
-          message: serviceError.message,
-          details: serviceError.details,
-          hint: serviceError.hint,
-          code: serviceError.code,
+          message: includeDetails ? serviceError.message : undefined,
+          details: includeDetails ? serviceError.details : undefined,
+          hint: includeDetails ? serviceError.hint : undefined,
+          code: includeDetails ? serviceError.code : undefined,
         },
         { status: 500 }
       );

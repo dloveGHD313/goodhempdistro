@@ -252,13 +252,14 @@ export async function POST(req: NextRequest) {
         hint: productError.hint,
         code: productError.code,
       });
+      const includeDetails = process.env.NODE_ENV !== "production";
       return NextResponse.json(
         {
           error: "Failed to create product",
-          message: productError.message,
-          details: productError.details,
-          hint: productError.hint,
-          code: productError.code,
+          message: includeDetails ? productError.message : undefined,
+          details: includeDetails ? productError.details : undefined,
+          hint: includeDetails ? productError.hint : undefined,
+          code: includeDetails ? productError.code : undefined,
         },
         { status: 500 }
       );

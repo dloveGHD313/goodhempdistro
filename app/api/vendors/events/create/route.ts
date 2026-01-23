@@ -100,13 +100,14 @@ export async function POST(req: NextRequest) {
         hint: eventError?.hint,
         code: eventError?.code,
       });
+      const includeDetails = process.env.NODE_ENV !== "production";
       return NextResponse.json(
         {
           error: "Failed to create event",
-          message: eventError?.message,
-          details: eventError?.details,
-          hint: eventError?.hint,
-          code: eventError?.code,
+          message: includeDetails ? eventError?.message : undefined,
+          details: includeDetails ? eventError?.details : undefined,
+          hint: includeDetails ? eventError?.hint : undefined,
+          code: includeDetails ? eventError?.code : undefined,
         },
         { status: 500 }
       );
@@ -132,15 +133,16 @@ export async function POST(req: NextRequest) {
         hint: ticketTypesError.hint,
         code: ticketTypesError.code,
       });
+      const includeDetails = process.env.NODE_ENV !== "production";
       // Cleanup event
       await supabase.from("events").delete().eq("id", event.id);
       return NextResponse.json(
         {
           error: "Failed to create ticket types",
-          message: ticketTypesError.message,
-          details: ticketTypesError.details,
-          hint: ticketTypesError.hint,
-          code: ticketTypesError.code,
+          message: includeDetails ? ticketTypesError.message : undefined,
+          details: includeDetails ? ticketTypesError.details : undefined,
+          hint: includeDetails ? ticketTypesError.hint : undefined,
+          code: includeDetails ? ticketTypesError.code : undefined,
         },
         { status: 500 }
       );
