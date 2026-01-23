@@ -142,7 +142,13 @@ export default function NewProductPage() {
               : "Vendor account not found. Please complete your vendor registration first."
           );
         } else {
-          setError(data.error || "Failed to create product");
+          setError(
+            data.message ||
+            data.details ||
+            data.hint ||
+            data.error ||
+            "Failed to create product"
+          );
         }
         setLoading(false);
         return;

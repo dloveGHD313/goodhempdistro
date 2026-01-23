@@ -85,7 +85,13 @@ export default function NewEventForm() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "Failed to create event");
+        setError(
+          data.message ||
+          data.details ||
+          data.hint ||
+          data.error ||
+          "Failed to create event"
+        );
         setLoading(false);
         return;
       }

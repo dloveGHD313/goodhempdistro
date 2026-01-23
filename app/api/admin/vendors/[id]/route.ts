@@ -54,6 +54,8 @@ export async function PUT(
           business_name: application.business_name,
           description: application.description,
           status: "active",
+          is_active: true,
+          is_approved: true,
           updated_at: new Date().toISOString(),
         }, {
           onConflict: "owner_user_id",

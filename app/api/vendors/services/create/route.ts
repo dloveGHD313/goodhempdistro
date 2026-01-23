@@ -62,6 +62,8 @@ export async function POST(req: NextRequest) {
               business_name: application.business_name || "Auto-provisioned Vendor",
               description: application.description || null,
               status: "active",
+              is_active: true,
+              is_approved: true,
               updated_at: new Date().toISOString(),
             }, {
               onConflict: "owner_user_id",
@@ -203,10 +205,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { 
           error: "Failed to create service",
-          message: process.env.NODE_ENV !== "production" ? serviceError.message : undefined,
-          details: process.env.NODE_ENV !== "production" ? serviceError.details : undefined,
-          hint: process.env.NODE_ENV !== "production" ? serviceError.hint : undefined,
-          code: process.env.NODE_ENV !== "production" ? serviceError.code : undefined,
+          message: serviceError.message,
+          details: serviceError.details,
+          hint: serviceError.hint,
+          code: serviceError.code,
         },
         { status: 500 }
       );

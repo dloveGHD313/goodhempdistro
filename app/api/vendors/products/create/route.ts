@@ -66,6 +66,8 @@ export async function POST(req: NextRequest) {
               business_name: application.business_name || "Auto-provisioned Vendor",
               description: application.description || null,
               status: "active",
+              is_active: true,
+              is_approved: true,
               updated_at: new Date().toISOString(),
             }, {
               onConflict: "owner_user_id",
@@ -244,9 +246,20 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (productError) {
-      console.error(`[vendor-products] Error creating product:`, productError);
+      console.error(`[vendor-products] Error creating product:`, {
+        message: productError.message,
+        details: productError.details,
+        hint: productError.hint,
+        code: productError.code,
+      });
       return NextResponse.json(
-        { error: "Failed to create product" },
+        {
+          error: "Failed to create product",
+          message: productError.message,
+          details: productError.details,
+          hint: productError.hint,
+          code: productError.code,
+        },
         { status: 500 }
       );
     }

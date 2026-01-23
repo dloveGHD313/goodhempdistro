@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
-import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 /**
  * Create event with ticket types
@@ -74,12 +73,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const admin = getSupabaseAdminClient();
-
     // Create event
     const safeStatus = status === "pending_review" ? "pending_review" : "draft";
 
-    const { data: event, error: eventError } = await admin
+    const { data: event, error: eventError } = await supabase
       .from("events")
       .insert({
         vendor_id: vendor.id,
@@ -97,9 +94,20 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (eventError || !event) {
-      console.error("Error creating event:", eventError);
+      console.error("Error creating event:", {
+        message: eventError?.message,
+        details: eventError?.details,
+        hint: eventError?.hint,
+        code: eventError?.code,
+      });
       return NextResponse.json(
-        { error: "Failed to create event" },
+        {
+          error: "Failed to create event",
+          message: eventError?.message,
+          details: eventError?.details,
+          hint: eventError?.hint,
+          code: eventError?.code,
+        },
         { status: 500 }
       );
     }
@@ -113,16 +121,27 @@ export async function POST(req: NextRequest) {
       sold: 0,
     }));
 
-    const { error: ticketTypesError } = await admin
+    const { error: ticketTypesError } = await supabase
       .from("event_ticket_types")
       .insert(ticketTypeInserts);
 
     if (ticketTypesError) {
-      console.error("Error creating ticket types:", ticketTypesError);
+      console.error("Error creating ticket types:", {
+        message: ticketTypesError.message,
+        details: ticketTypesError.details,
+        hint: ticketTypesError.hint,
+        code: ticketTypesError.code,
+      });
       // Cleanup event
-      await admin.from("events").delete().eq("id", event.id);
+      await supabase.from("events").delete().eq("id", event.id);
       return NextResponse.json(
-        { error: "Failed to create ticket types" },
+        {
+          error: "Failed to create ticket types",
+          message: ticketTypesError.message,
+          details: ticketTypesError.details,
+          hint: ticketTypesError.hint,
+          code: ticketTypesError.code,
+        },
         { status: 500 }
       );
     }
