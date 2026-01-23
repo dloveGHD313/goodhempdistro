@@ -5,9 +5,10 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 
 type Vendor = {
   id: string;
-  name: string;
-  description?: string;
-  specialties?: string;
+  business_name: string;
+  description?: string | null;
+  categories?: string[] | null;
+  tags?: string[] | null;
   created_at?: string;
 };
 
@@ -23,8 +24,10 @@ async function getVendor(id: string): Promise<Vendor | null> {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("vendors")
-      .select("id, name, description, specialties, created_at")
+      .select("id, business_name, description, categories, tags, created_at")
       .eq("id", id)
+      .eq("is_active", true)
+      .eq("is_approved", true)
       .single();
 
     if (error || !data) {
@@ -49,8 +52,8 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   }
 
   return {
-    title: `${vendor.name} | Good Hemp Distro`,
-    description: vendor.description || `Learn more about ${vendor.name}`,
+    title: `${vendor.business_name} | Good Hemp Distro`,
+    description: vendor.description || `Learn more about ${vendor.business_name}`,
   };
 }
 
@@ -74,15 +77,15 @@ export default async function VendorDetailPage(props: Props) {
           <div className="md:col-span-1">
             <div className="bg-gray-800 rounded-lg border border-gray-700 p-8 text-center">
               <div className="text-8xl mb-6">🌿</div>
-              <h1 className="text-3xl font-bold mb-4">{vendor.name}</h1>
-              {vendor.specialties && (
+              <h1 className="text-3xl font-bold mb-4">{vendor.business_name}</h1>
+              {(vendor.categories?.length || vendor.tags?.length) && (
                 <div className="flex gap-2 flex-wrap justify-center mb-6">
-                  {vendor.specialties.split(",").map((specialty) => (
+                  {[...(vendor.categories || []), ...(vendor.tags || [])].map((tag) => (
                     <span
-                      key={specialty.trim()}
+                      key={tag}
                       className="bg-green-600 text-white px-3 py-1 rounded text-sm"
                     >
-                      {specialty.trim()}
+                      {tag}
                     </span>
                   ))}
                 </div>
@@ -98,7 +101,8 @@ export default async function VendorDetailPage(props: Props) {
             <div className="bg-gray-800 rounded-lg border border-gray-700 p-8">
               <h2 className="text-2xl font-bold mb-4">About</h2>
               <p className="text-gray-300 leading-relaxed">
-                {vendor.description || "This vendor specializes in premium hemp products with a commitment to quality and sustainability."}
+                {vendor.description ||
+                  "This vendor specializes in premium hemp products with a commitment to quality and sustainability."}
               </p>
             </div>
 

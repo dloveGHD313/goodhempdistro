@@ -13,9 +13,12 @@ export const dynamic = 'force-dynamic';
 
 type Vendor = {
   id: string;
-  name: string;
-  description?: string;
-  specialties?: string;
+  business_name: string;
+  description?: string | null;
+  categories?: string[] | null;
+  tags?: string[] | null;
+  state?: string | null;
+  city?: string | null;
 };
 
 async function getVendors(): Promise<Vendor[]> {
@@ -24,8 +27,10 @@ async function getVendors(): Promise<Vendor[]> {
     // Middleware handles authentication - user is guaranteed to be authenticated here
     const { data, error } = await supabase
       .from("vendors")
-      .select("id, name, description, specialties")
-      .order("name", { ascending: true });
+      .select("id, business_name, description, categories, tags, state, city")
+      .eq("is_active", true)
+      .eq("is_approved", true)
+      .order("business_name", { ascending: true });
 
     if (error) {
       console.error("Error fetching vendors:", error);
@@ -78,18 +83,20 @@ export default async function VendorsPage() {
                     <div className="w-24 h-24 bg-[var(--surface)]/60 rounded-full mb-4 group-hover:bg-[var(--surface)]/80 transition mx-auto flex items-center justify-center text-4xl">
                       🌿
                     </div>
-                    <h3 className="text-2xl font-semibold mb-2 text-center group-hover:text-accent transition">{vendor.name}</h3>
+                    <h3 className="text-2xl font-semibold mb-2 text-center group-hover:text-accent transition">
+                      {vendor.business_name}
+                    </h3>
                     <p className="text-muted mb-4 text-center text-sm">
                       {vendor.description || "Premium hemp products"}
                     </p>
-                    {vendor.specialties && (
+                    {(vendor.categories?.length || vendor.tags?.length) && (
                       <div className="flex gap-2 flex-wrap justify-center">
-                        {vendor.specialties.split(",").map((specialty) => (
+                        {[...(vendor.categories || []), ...(vendor.tags || [])].map((tag) => (
                           <span
-                            key={specialty.trim()}
+                            key={tag}
                             className="bg-[var(--brand-lime)]/15 text-[var(--brand-lime)] px-3 py-1 rounded text-sm border border-[var(--brand-lime)]/40"
                           >
-                            {specialty.trim()}
+                            {tag}
                           </span>
                         ))}
                       </div>

@@ -15,5 +15,11 @@ export default async function OnboardingIndexPage() {
     redirect(`/login?redirect=${encodeURIComponent("/onboarding/consumer")}`);
   }
 
-  redirect("/onboarding/consumer");
+  const { data: vendor } = await supabase
+    .from("vendors")
+    .select("id")
+    .eq("owner_user_id", user.id)
+    .maybeSingle();
+
+  redirect(vendor ? "/onboarding/vendor" : "/onboarding/consumer");
 }

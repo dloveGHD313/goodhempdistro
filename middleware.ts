@@ -47,12 +47,17 @@ export async function middleware(request: NextRequest) {
   const protectedRoutes = [
     "/dashboard",
     "/account",
-    "/vendors",
     "/products",
     "/orders",
     "/checkout",
     "/driver/dashboard",
     "/onboarding",
+    "/vendors/dashboard",
+    "/vendors/products",
+    "/vendors/services",
+    "/vendors/events",
+    "/vendors/settings",
+    "/vendor",
   ];
   const isProtectedRoute = protectedRoutes.some((route) => 
     pathname === route || pathname.startsWith(`${route}/`)
@@ -66,6 +71,7 @@ export async function middleware(request: NextRequest) {
   const isAuthRoute = authRoutes.includes(pathname);
   
   const isOnboardingRoute = pathname === "/onboarding" || pathname.startsWith("/onboarding/");
+  const isVendorOnboardingRoute = pathname === "/onboarding/vendor" || pathname.startsWith("/onboarding/vendor/");
   const isApiRoute = pathname.startsWith("/api");
 
   // Public auth routes - allow unauthenticated AND authenticated access
@@ -121,6 +127,48 @@ export async function middleware(request: NextRequest) {
     if (role === "consumer" && !onboardingCompleted) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = "/onboarding/consumer";
+      return NextResponse.redirect(redirectUrl);
+    }
+  }
+
+  const vendorToolingRoutes = [
+    "/vendor",
+    "/vendors/dashboard",
+    "/vendors/products",
+    "/vendors/services",
+    "/vendors/events",
+    "/vendors/settings",
+  ];
+  const isVendorToolingRoute = vendorToolingRoutes.some((route) =>
+    pathname === route || pathname.startsWith(`${route}/`)
+  );
+
+  // Vendor onboarding enforcement: block vendor tooling until onboarding complete + terms accepted.
+  if (user && isVendorToolingRoute && !isVendorOnboardingRoute && !isApiRoute) {
+    const { data: vendor, error: vendorError } = await supabase
+      .from("vendors")
+      .select("id, owner_user_id, vendor_onboarding_completed, terms_accepted_at, compliance_acknowledged_at")
+      .eq("owner_user_id", user.id)
+      .maybeSingle();
+
+    if (vendorError) {
+      console.error("[middleware] Error fetching vendor onboarding status:", vendorError.message);
+    }
+
+    if (!vendor) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/vendor-registration";
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    const vendorOnboardingComplete =
+      vendor.vendor_onboarding_completed &&
+      vendor.terms_accepted_at &&
+      vendor.compliance_acknowledged_at;
+
+    if (!vendorOnboardingComplete) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/onboarding/vendor";
       return NextResponse.redirect(redirectUrl);
     }
   }
