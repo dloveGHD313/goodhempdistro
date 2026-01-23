@@ -47,6 +47,7 @@ function createErrorResponse(params: {
   const urlPreview = diagnostics.supabaseUrlUsed?.substring(0, 50) || "NOT_SET";
   console.error(
     `[admin/services/approve] Query failed: ${queryContext} ` +
+      `message=${supabaseError?.message || message} ` +
       `code=${supabaseError?.code || "unknown"} ` +
       `url=${urlPreview}... ` +
       `keyType=${diagnostics.keyType} ` +
@@ -136,7 +137,7 @@ export async function POST(
         diagnostics,
         queryContext: "service_get",
         status: 404,
-        message: "Service not found",
+        message: serviceError?.message || "Service not found",
         supabaseError: serviceError || undefined,
       });
     }
@@ -169,7 +170,7 @@ export async function POST(
         diagnostics,
         queryContext: "service_update",
         status: 500,
-        message: "Failed to approve service",
+        message: updateError?.message || "Failed to approve service",
         supabaseError: updateError,
       });
     }
