@@ -5,16 +5,12 @@ import Link from "next/link";
 
 type Service = {
   id: string;
-  name?: string;
   title: string;
   description?: string;
-  pricing_type?: string;
-  price_cents?: number;
-  slug?: string;
-  category_id?: string;
-  categories?: {
-    name: string;
-  } | null;
+  pricing?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  status?: string;
 };
 
 type Props = {
@@ -25,24 +21,23 @@ export default function ServicesList({ initialServices }: Props) {
   const [services] = useState<Service[]>(initialServices);
   const [filter, setFilter] = useState<string>("");
 
-  const filteredServices = services.filter(service => {
+  const filteredServices = services.filter((service) => {
     if (!filter) return true;
     const searchTerm = filter.toLowerCase();
     return (
-      (service.name || service.title).toLowerCase().includes(searchTerm) ||
-      service.description?.toLowerCase().includes(searchTerm) ||
-      service.categories?.name?.toLowerCase().includes(searchTerm)
+      service.title.toLowerCase().includes(searchTerm) ||
+      service.description?.toLowerCase().includes(searchTerm)
     );
   });
 
-  const formatPrice = (pricingType?: string, priceCents?: number) => {
-    if (!pricingType || pricingType === 'quote_only') {
+  const formatPricing = (pricing?: string | null) => {
+    if (!pricing || pricing === "quote_only") {
       return "Quote Only";
     }
-    if (!priceCents) {
-      return "Price TBD";
-    }
-    return `$${((priceCents || 0) / 100).toFixed(2)} ${pricingType === 'hourly' ? '/hr' : pricingType === 'per_project' ? '/project' : ''}`;
+    if (pricing === "hourly") return "Hourly";
+    if (pricing === "per_project") return "Per Project";
+    if (pricing === "flat_fee") return "Flat Fee";
+    return pricing;
   };
 
   if (services.length === 0) {
@@ -73,23 +68,18 @@ export default function ServicesList({ initialServices }: Props) {
             key={service.id}
             className="card-glass p-6 hover:border-accent transition-colors flex flex-col"
           >
-            <Link href={`/services/${service.slug || service.id}`} className="flex-1">
-              <h3 className="text-xl font-semibold mb-2">{service.name || service.title}</h3>
+            <Link href={`/services/${service.id}`} className="flex-1">
+              <h3 className="text-xl font-semibold mb-2">{service.title}</h3>
               {service.description && (
                 <p className="text-muted text-sm mb-4 line-clamp-3">{service.description}</p>
               )}
-              {service.pricing_type && (
-                <div className="text-accent font-semibold mt-4">
-                  {formatPrice(service.pricing_type, service.price_cents)}
-                </div>
-              )}
-              {service.categories?.name && (
-                <div className="text-xs text-muted mt-2">{service.categories.name}</div>
-              )}
+              <div className="text-accent font-semibold mt-4">
+                {formatPricing(service.pricing)}
+              </div>
             </Link>
             <div className="mt-4 pt-4 border-t border-[var(--border)]">
               <Link
-                href={`/services/${service.slug || service.id}`}
+                href={`/services/${service.id}`}
                 className="btn-primary w-full text-center block"
               >
                 Request Quote

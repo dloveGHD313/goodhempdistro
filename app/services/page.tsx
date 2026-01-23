@@ -14,50 +14,39 @@ export const revalidate = 0;
 
 type Service = {
   id: string;
-  name?: string;
   title: string;
   description?: string;
-  pricing_type?: string;
-  price_cents?: number;
-  slug?: string;
-  category_id?: string;
-  categories?: {
-    name: string;
-  } | null;
+  pricing?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  status?: string;
 };
 
-async function getServices(): Promise<Service[]> {
+async function getServices(): Promise<{ services: Service[]; errorMessage?: string }> {
   try {
     noStore();
     const supabase = await createSupabaseServerClient();
-    // Only fetch approved and active services for public view
+    // Only fetch approved services for public view
     const { data, error } = await supabase
       .from("services")
-      .select("id, name, title, description, pricing_type, price_cents, slug, category_id, categories(name)")
-      .eq("status", "approved") // Only approved services
-      .eq("active", true) // Only active services
-      .order("created_at", { ascending: false });
+      .select("id, title, description, pricing:pricing_type, created_at, updated_at, status")
+      .eq("status", "approved")
+      .order("updated_at", { ascending: false });
 
     if (error) {
       console.error("[services] Error fetching services:", error);
-      return [];
+      return { services: [], errorMessage: "Unable to load services right now." };
     }
 
-    // Normalize categories relation (handle array)
-    const normalizedServices = (data || []).map((s: any) => ({
-      ...s,
-      categories: Array.isArray(s.categories) ? s.categories[0] : s.categories,
-    }));
-
-    return normalizedServices;
+    return { services: (data || []) as Service[] };
   } catch (err) {
     console.error("[services] Fatal error fetching services:", err);
-    return [];
+    return { services: [], errorMessage: "Unable to load services right now." };
   }
 }
 
 export default async function ServicesPage() {
-  const services = await getServices();
+  const { services, errorMessage } = await getServices();
 
   return (
     <div className="min-h-screen text-white flex flex-col">
@@ -67,6 +56,12 @@ export default async function ServicesPage() {
           <p className="text-muted mb-12">
             Find professional services for your hemp business needs.
           </p>
+
+          {errorMessage && (
+            <div className="card-glass p-4 mb-6 border border-red-500/40 text-red-300">
+              {errorMessage}
+            </div>
+          )}
 
           <ServicesList initialServices={services} />
         </section>
