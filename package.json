@@ -11,6 +11,7 @@
     "test:watch": "vitest --watch",
     "seed:supabase": "tsx scripts/seed-supabase.ts",
     "verify:consumer-onboarding": "tsx scripts/verify-consumer-onboarding.ts",
+    "verify:discovery": "tsx scripts/verify-discovery.ts",
     "autopush": "powershell -ExecutionPolicy Bypass -File scripts/ai_autopush.ps1"
   },
   "dependencies": {
