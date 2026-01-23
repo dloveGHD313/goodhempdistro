@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 type ConsumerType = "individual" | "business";
@@ -124,6 +124,7 @@ export default function ConsumerOnboardingClient({
   initialError,
 }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [currentStep, setCurrentStep] = useState(0);
@@ -259,10 +260,12 @@ export default function ConsumerOnboardingClient({
 
     const isFinalStep = currentStep === steps.length - 1;
     const nextStepIndex = Math.min(currentStep + 1, steps.length - 1);
+    // Persist the step the user will see next to resume accurately.
+    const stepToPersist = isFinalStep ? steps.length - 1 : nextStepIndex;
 
     try {
       setSaving(true);
-      await saveProfile(isFinalStep ? currentStep : nextStepIndex, isFinalStep);
+      await saveProfile(stepToPersist, isFinalStep);
       if (isFinalStep) {
         router.replace("/dashboard");
       } else {
@@ -283,6 +286,8 @@ export default function ConsumerOnboardingClient({
 
   const progressPercent = Math.round(((currentStep + 1) / steps.length) * 100);
   const stepKey = steps[currentStep]?.key;
+  const showDebug =
+    process.env.NODE_ENV === "development" || searchParams?.get("debug") === "1";
 
   return (
     <div className="w-full max-w-3xl mx-auto">
@@ -498,6 +503,32 @@ export default function ConsumerOnboardingClient({
           </button>
         </div>
       </div>
+
+      {showDebug && (
+        <details className="mt-6 text-xs text-muted">
+          <summary className="cursor-pointer text-sm text-accent">Debug</summary>
+          <pre className="mt-3 bg-[var(--surface)] border border-[var(--border)] rounded-lg p-3 overflow-auto">
+            {JSON.stringify(
+              {
+                currentStep,
+                steps: steps.map((step) => step.key),
+                consumerType,
+                businessType,
+                purchaseIntent,
+                companySize,
+                interests,
+                experienceLevel,
+                state: stateValue,
+                city,
+                onboardingStep: initialProfile.consumer_onboarding_step,
+                onboardingCompleted: initialProfile.consumer_onboarding_completed,
+              },
+              null,
+              2
+            )}
+          </pre>
+        </details>
+      )}
     </div>
   );
 }
