@@ -76,10 +76,29 @@ export default function UploadField({
         throw new Error("User ID required");
       }
 
+      const logUpload = (payload: {
+        event: "attempt" | "error";
+        bucket: string;
+        key: string;
+        errorCode?: string | null;
+      }) => {
+        if (process.env.NODE_ENV === "production") {
+          return;
+        }
+        void fetch("/api/_debug/storage-upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }).catch(() => {});
+      };
+
       // Generate safe filename
       const timestamp = Date.now();
       const safeFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-      const filePath = `${folderPrefix}/${userForUpload}/${timestamp}-${safeFileName}`;
+      const normalizedPrefix = bucket === "coas" ? "coas" : folderPrefix;
+      const filePath = `${normalizedPrefix}/${userForUpload}/${timestamp}-${safeFileName}`;
+
+      logUpload({ event: "attempt", bucket, key: filePath });
 
       // Upload file
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -90,6 +109,16 @@ export default function UploadField({
         });
 
       if (uploadError) {
+        const errorCode =
+          uploadError && typeof uploadError === "object" && "code" in uploadError
+            ? String((uploadError as { code?: string }).code || "")
+            : null;
+        logUpload({
+          event: "error",
+          bucket,
+          key: filePath,
+          errorCode,
+        });
         throw uploadError;
       }
 

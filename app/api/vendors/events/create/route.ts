@@ -76,12 +76,15 @@ export async function POST(req: NextRequest) {
     // Create event
     const safeStatus = status === "pending_review" ? "pending_review" : "draft";
 
-    const isMissingColumn = (message?: string | null) => {
-      const normalized = (message || "").toLowerCase();
-      return normalized.includes("column") && normalized.includes("does not exist");
+    const getMissingColumn = (message?: string | null) => {
+      if (!message) {
+        return null;
+      }
+      const match = message.match(/column \"([^\"]+)\" does not exist/i);
+      return match?.[1] || null;
     };
 
-    const primaryPayload = {
+    const basePayload = {
       vendor_id: vendor.id,
       owner_user_id: user.id,
       title: title.trim(),
@@ -94,32 +97,43 @@ export async function POST(req: NextRequest) {
       submitted_at: safeStatus === "pending_review" ? new Date().toISOString() : null,
     };
 
-    let { data: event, error: eventError } = await supabase
-      .from("events")
-      .insert(primaryPayload)
-      .select("id")
-      .single();
+    const insertEvent = async (payload: typeof basePayload) => {
+      return supabase.from("events").insert(payload).select("id").single();
+    };
 
-    if (eventError && isMissingColumn(eventError.message)) {
-      const legacyPayload = {
-        vendor_id: vendor.id,
-        title: title.trim(),
-        description: description?.trim() || null,
-        location: location?.trim() || null,
-        start_time,
-        end_time,
-        capacity: capacity || null,
-        status: safeStatus,
-      };
+    let payload = { ...basePayload };
+    let { data: event, error: eventError } = await insertEvent(payload);
 
-      const legacyInsert = await supabase
-        .from("events")
-        .insert(legacyPayload)
-        .select("id")
-        .single();
+    const missingColumn = getMissingColumn(eventError?.message);
+    if (missingColumn) {
+      if (missingColumn === "owner_user_id") {
+        delete (payload as Partial<typeof basePayload>).owner_user_id;
+        delete (payload as Partial<typeof basePayload>).submitted_at;
+      } else if (missingColumn === "submitted_at") {
+        delete (payload as Partial<typeof basePayload>).submitted_at;
+      } else {
+        delete (payload as Record<string, unknown>)[missingColumn];
+      }
 
-      event = legacyInsert.data;
-      eventError = legacyInsert.error;
+      const retry = await insertEvent(payload);
+      event = retry.data;
+      eventError = retry.error;
+
+      const secondMissing = getMissingColumn(eventError?.message);
+      if (secondMissing) {
+        if (secondMissing === "owner_user_id") {
+          delete (payload as Partial<typeof basePayload>).owner_user_id;
+          delete (payload as Partial<typeof basePayload>).submitted_at;
+        } else if (secondMissing === "submitted_at") {
+          delete (payload as Partial<typeof basePayload>).submitted_at;
+        } else {
+          delete (payload as Record<string, unknown>)[secondMissing];
+        }
+
+        const secondRetry = await insertEvent(payload);
+        event = secondRetry.data;
+        eventError = secondRetry.error;
+      }
     }
 
     if (eventError || !event) {
@@ -186,3 +200,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
