@@ -44,7 +44,16 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Protected routes - require authentication
-  const protectedRoutes = ["/dashboard", "/account", "/vendors", "/products", "/orders", "/checkout", "/driver/dashboard"];
+  const protectedRoutes = [
+    "/dashboard",
+    "/account",
+    "/vendors",
+    "/products",
+    "/orders",
+    "/checkout",
+    "/driver/dashboard",
+    "/onboarding",
+  ];
   const isProtectedRoute = protectedRoutes.some((route) => 
     pathname === route || pathname.startsWith(`${route}/`)
   );
@@ -56,6 +65,9 @@ export async function middleware(request: NextRequest) {
   const authRoutes = ["/login", "/signup", "/auth/reset"];
   const isAuthRoute = authRoutes.includes(pathname);
   
+  const isOnboardingRoute = pathname === "/onboarding" || pathname.startsWith("/onboarding/");
+  const isApiRoute = pathname.startsWith("/api");
+
   // Public auth routes - allow unauthenticated AND authenticated access
   // These routes handle their own auth logic (e.g., reset-password needs session for recovery)
   const publicAuthRoutes = ["/auth/callback", "/reset-password"];
@@ -75,6 +87,28 @@ export async function middleware(request: NextRequest) {
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(redirectUrl);
+  }
+
+  // Consumer onboarding enforcement
+  if (user && !isOnboardingRoute && !isApiRoute) {
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role, consumer_onboarding_completed")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error("[middleware] Error fetching consumer onboarding status:", profileError.message);
+    }
+
+    const role = profile?.role ?? "consumer";
+    const onboardingCompleted = profile?.consumer_onboarding_completed ?? false;
+
+    if (role === "consumer" && !onboardingCompleted) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/onboarding/consumer";
+      return NextResponse.redirect(redirectUrl);
+    }
   }
 
   // Redirect auth pages to dashboard if already authenticated
