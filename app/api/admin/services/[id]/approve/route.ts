@@ -52,6 +52,7 @@ function createErrorResponse(params: {
       `url=${urlPreview}... ` +
       `keyType=${diagnostics.keyType} ` +
       `keySource=${diagnostics.keySourceName || "none"} ` +
+      `keyLength=${diagnostics.keyLength ?? "unknown"} ` +
       `buildTag=${BUILD_TAG}`
   );
 
@@ -125,6 +126,14 @@ export async function POST(
       });
     }
 
+    console.log(
+      `[admin/services/approve] Admin client initialized ` +
+        `keySource=${diagnostics.keySourceName || "none"} ` +
+        `keyType=${diagnostics.keyType} ` +
+        `keyLength=${diagnostics.keyLength ?? "unknown"} ` +
+        `buildTag=${BUILD_TAG}`
+    );
+
     // Get service
     const { data: service, error: serviceError } = await admin
       .from("services")
@@ -191,6 +200,7 @@ export async function POST(
       `[admin/services/approve] Approved ${id} (${service.name || service.title}) by admin ${user.id}. ` +
         `pending=${pendingCount ?? 0} approved=${approvedCount ?? 0} ` +
         `url=${urlPreview}... keyType=${diagnostics.keyType} keySource=${diagnostics.keySourceName || "none"} ` +
+        `keyLength=${diagnostics.keyLength ?? "unknown"} ` +
         `buildTag=${BUILD_TAG}`
     );
 
