@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import SearchInput from "@/components/discovery/SearchInput";
+import FilterSelect from "@/components/discovery/FilterSelect";
 
 type Service = {
   id: string;
@@ -20,6 +22,7 @@ type Props = {
 export default function ServicesList({ initialServices }: Props) {
   const [services] = useState<Service[]>(initialServices);
   const [filter, setFilter] = useState<string>("");
+  const [pricingFilter, setPricingFilter] = useState<string>("");
 
   const filteredServices = services.filter((service) => {
     if (!filter) return true;
@@ -28,6 +31,12 @@ export default function ServicesList({ initialServices }: Props) {
       service.title.toLowerCase().includes(searchTerm) ||
       service.description?.toLowerCase().includes(searchTerm)
     );
+  });
+
+  const filteredByPricing = filteredServices.filter((service) => {
+    if (!pricingFilter) return true;
+    const pricingValue = service.pricing || "quote_only";
+    return pricingValue === pricingFilter;
   });
 
   const formatPricing = (pricing?: string | null) => {
@@ -40,6 +49,16 @@ export default function ServicesList({ initialServices }: Props) {
     return pricing;
   };
 
+  const pricingOptions = useMemo(() => {
+    const values = new Set(
+      services.map((service) => service.pricing || "quote_only")
+    );
+    return Array.from(values).map((value) => ({
+      value,
+      label: formatPricing(value),
+    }));
+  }, [services]);
+
   if (services.length === 0) {
     return (
       <div className="card-glass p-8 text-center">
@@ -49,21 +68,26 @@ export default function ServicesList({ initialServices }: Props) {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Search */}
-      <div>
-        <input
-          type="text"
-          placeholder="Search services..."
+      <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <SearchInput
+          label="Search services"
+          placeholder="Search by title or description..."
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="w-full max-w-md px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
+          onChange={setFilter}
+        />
+        <FilterSelect
+          label="Pricing"
+          value={pricingFilter}
+          options={pricingOptions}
+          placeholder="All pricing"
+          onChange={setPricingFilter}
         />
       </div>
 
       {/* Services Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredServices.map((service) => (
+        {filteredByPricing.map((service) => (
           <div
             key={service.id}
             className="card-glass p-6 hover:border-accent transition-colors flex flex-col"
@@ -89,9 +113,9 @@ export default function ServicesList({ initialServices }: Props) {
         ))}
       </div>
 
-      {filteredServices.length === 0 && filter && (
+      {filteredByPricing.length === 0 && (filter || pricingFilter) && (
         <div className="card-glass p-8 text-center">
-          <p className="text-muted">No services match your search.</p>
+          <p className="text-muted">No services match your filters.</p>
         </div>
       )}
     </div>

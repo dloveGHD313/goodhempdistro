@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import SearchInput from "@/components/discovery/SearchInput";
+import FilterSelect from "@/components/discovery/FilterSelect";
 
 type Event = {
   id: string;
@@ -12,9 +14,6 @@ type Event = {
   end_time: string;
   capacity: number | null;
   tickets_sold: number;
-  vendors: {
-    business_name: string;
-  } | null;
 };
 
 type Props = {
@@ -23,6 +22,24 @@ type Props = {
 
 export default function EventsList({ initialEvents }: Props) {
   const [events] = useState<Event[]>(initialEvents);
+  const [search, setSearch] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
+
+  const locationOptions = useMemo(() => {
+    const values = new Set(events.map((event) => event.location).filter(Boolean) as string[]);
+    return Array.from(values)
+      .sort()
+      .map((value) => ({ label: value, value }));
+  }, [events]);
+
+  const filteredEvents = events.filter((event) => {
+    const matchesSearch =
+      !search ||
+      event.title.toLowerCase().includes(search.toLowerCase()) ||
+      event.location?.toLowerCase().includes(search.toLowerCase());
+    const matchesLocation = !locationFilter || event.location === locationFilter;
+    return matchesSearch && matchesLocation;
+  });
 
   if (events.length === 0) {
     return (
@@ -34,8 +51,31 @@ export default function EventsList({ initialEvents }: Props) {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-      {events.map((event) => {
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <SearchInput
+          label="Search events"
+          placeholder="Search by title or location..."
+          value={search}
+          onChange={setSearch}
+        />
+        <FilterSelect
+          label="Location"
+          value={locationFilter}
+          options={locationOptions}
+          placeholder="All locations"
+          onChange={setLocationFilter}
+        />
+      </div>
+
+      {filteredEvents.length === 0 ? (
+        <div className="text-center py-16 card-glass p-8">
+          <p className="text-muted text-lg mb-2">No events match your filters.</p>
+          <p className="text-muted">Try adjusting your search or location.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      {filteredEvents.map((event) => {
         const soldOut = event.capacity !== null && event.tickets_sold >= event.capacity;
         const remaining = event.capacity !== null ? event.capacity - event.tickets_sold : null;
 
@@ -48,9 +88,6 @@ export default function EventsList({ initialEvents }: Props) {
               <h3 className="text-xl font-semibold mb-2 group-hover:text-accent transition">
                 {event.title}
               </h3>
-              {event.vendors && (
-                <p className="text-muted mb-2 text-sm">By {event.vendors.business_name}</p>
-              )}
               <p className="text-muted mb-2 text-sm">
                 {new Date(event.start_time).toLocaleDateString()} at {new Date(event.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
@@ -71,6 +108,8 @@ export default function EventsList({ initialEvents }: Props) {
           </Link>
         );
       })}
+        </div>
+      )}
     </div>
   );
 }

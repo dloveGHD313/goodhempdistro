@@ -22,39 +22,71 @@ type Service = {
   status?: string;
 };
 
-async function getServices(): Promise<{ services: Service[]; errorMessage?: string }> {
+async function getServices(
+  vendorId?: string | null
+): Promise<{ services: Service[]; errorMessage?: string; vendorName?: string | null }> {
   try {
     noStore();
     const supabase = await createSupabaseServerClient();
+    let vendorName: string | null = null;
+    if (vendorId) {
+      const { data: vendor } = await supabase
+        .from("vendors")
+        .select("id, business_name")
+        .eq("id", vendorId)
+        .eq("is_active", true)
+        .eq("is_approved", true)
+        .maybeSingle();
+
+      if (!vendor) {
+        return { services: [], vendorName: null };
+      }
+      vendorName = vendor.business_name;
+    }
+
     // Only fetch approved services for public view
-    const { data, error } = await supabase
+    const baseQuery = supabase
       .from("services")
       .select("id, title, description, pricing:pricing_type, created_at, updated_at, status")
       .eq("status", "approved")
+      .eq("active", true)
       .order("updated_at", { ascending: false });
+
+    const { data, error } = vendorId
+      ? await baseQuery.eq("vendor_id", vendorId)
+      : await baseQuery;
 
     if (error) {
       console.error("[services] Error fetching services:", error);
-      return { services: [], errorMessage: "Unable to load services right now." };
+      return { services: [], errorMessage: "Unable to load services right now.", vendorName };
     }
 
-    return { services: (data || []) as Service[] };
+    return { services: (data || []) as Service[], vendorName };
   } catch (err) {
     console.error("[services] Fatal error fetching services:", err);
     return { services: [], errorMessage: "Unable to load services right now." };
   }
 }
 
-export default async function ServicesPage() {
-  const { services, errorMessage } = await getServices();
+export default async function ServicesPage({
+  searchParams,
+}: {
+  searchParams?: { vendor?: string };
+}) {
+  const vendorId = searchParams?.vendor || null;
+  const { services, errorMessage, vendorName } = await getServices(vendorId);
 
   return (
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
         <section className="section-shell">
-          <h1 className="text-4xl font-bold mb-6 text-accent">Services</h1>
+          <h1 className="text-4xl font-bold mb-6 text-accent">
+            {vendorName ? `Services from ${vendorName}` : "Services"}
+          </h1>
           <p className="text-muted mb-12">
-            Find professional services for your hemp business needs.
+            {vendorName
+              ? "Explore approved services from this vendor."
+              : "Find professional services for your hemp business needs."}
           </p>
 
           {errorMessage && (

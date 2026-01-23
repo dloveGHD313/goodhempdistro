@@ -1,14 +1,14 @@
-import Link from "next/link";
 import { Metadata } from "next";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
+import VendorsDirectoryClient from "./VendorsDirectoryClient";
 
 export const metadata: Metadata = {
   title: "Vendors | Good Hemp Distro",
   description: "Meet our trusted hemp product vendors",
 };
 
-// Force dynamic rendering since this page requires authentication
+// Force dynamic rendering for live filters
 export const dynamic = 'force-dynamic';
 
 type Vendor = {
@@ -19,15 +19,15 @@ type Vendor = {
   tags?: string[] | null;
   state?: string | null;
   city?: string | null;
+  vendor_type?: string | null;
 };
 
 async function getVendors(): Promise<Vendor[]> {
   try {
     const supabase = await createSupabaseServerClient();
-    // Middleware handles authentication - user is guaranteed to be authenticated here
     const { data, error } = await supabase
       .from("vendors")
-      .select("id, business_name, description, categories, tags, state, city")
+      .select("id, business_name, description, categories, tags, state, city, vendor_type")
       .eq("is_active", true)
       .eq("is_approved", true)
       .order("business_name", { ascending: true });
@@ -76,35 +76,7 @@ export default async function VendorsPage() {
               <p className="text-muted">Check back soon!</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
-              {vendors.map((vendor) => (
-                <Link key={vendor.id} href={`/vendors/${vendor.id}`} className="group">
-                  <div className="surface-card p-8 hover-lift h-full cursor-pointer">
-                    <div className="w-24 h-24 bg-[var(--surface)]/60 rounded-full mb-4 group-hover:bg-[var(--surface)]/80 transition mx-auto flex items-center justify-center text-4xl">
-                      🌿
-                    </div>
-                    <h3 className="text-2xl font-semibold mb-2 text-center group-hover:text-accent transition">
-                      {vendor.business_name}
-                    </h3>
-                    <p className="text-muted mb-4 text-center text-sm">
-                      {vendor.description || "Premium hemp products"}
-                    </p>
-                    {(vendor.categories?.length || vendor.tags?.length) && (
-                      <div className="flex gap-2 flex-wrap justify-center">
-                        {[...(vendor.categories || []), ...(vendor.tags || [])].map((tag) => (
-                          <span
-                            key={tag}
-                            className="bg-[var(--brand-lime)]/15 text-[var(--brand-lime)] px-3 py-1 rounded text-sm border border-[var(--brand-lime)]/40"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
+            <VendorsDirectoryClient vendors={vendors} />
           )}
 
           <div className="surface-card p-8">
@@ -113,9 +85,9 @@ export default async function VendorsPage() {
               Interested in partnering with Good Hemp Distro? We're always looking for 
               high-quality vendors who share our commitment to excellence.
             </p>
-            <button className="btn-primary">
+            <a href="/vendor-registration" className="btn-primary">
               Apply Now
-            </button>
+            </a>
           </div>
         </section>
       </main>

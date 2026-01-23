@@ -19,47 +19,72 @@ type Event = {
   end_time: string;
   capacity: number | null;
   tickets_sold: number;
-  vendors: {
-    business_name: string;
-  } | null;
+  vendor_id?: string | null;
 };
 
-async function getPublishedEvents(): Promise<Event[]> {
+async function getPublishedEvents(
+  vendorId?: string | null
+): Promise<{ events: Event[]; vendorName?: string | null }> {
   try {
     const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase
+    let vendorName: string | null = null;
+    if (vendorId) {
+      const { data: vendor } = await supabase
+        .from("vendors")
+        .select("id, business_name")
+        .eq("id", vendorId)
+        .eq("is_active", true)
+        .eq("is_approved", true)
+        .maybeSingle();
+
+      if (!vendor) {
+        return { events: [], vendorName: null };
+      }
+      vendorName = vendor.business_name;
+    }
+
+    const baseQuery = supabase
       .from("events")
-      .select("id, title, description, location, start_time, end_time, capacity, tickets_sold, vendors(business_name)")
+      .select("id, title, description, location, start_time, end_time, capacity, tickets_sold, vendor_id")
       .in("status", ["approved", "published"])
       .gte("start_time", new Date().toISOString())
       .order("start_time", { ascending: true });
 
+    const { data, error } = vendorId
+      ? await baseQuery.eq("vendor_id", vendorId)
+      : await baseQuery;
+
     if (error) {
       console.error("Error fetching events:", error);
-      return [];
+      return { events: [], vendorName };
     }
 
-    // Normalize vendors relation (may be array or object)
-    return (data || []).map((event: any) => ({
-      ...event,
-      vendors: Array.isArray(event.vendors) ? event.vendors[0] : event.vendors,
-    }));
+    return { events: (data || []) as Event[], vendorName };
   } catch (err) {
     console.error("Fatal error fetching events:", err);
-    return [];
+    return { events: [], vendorName: null };
   }
 }
 
-export default async function EventsPage() {
-  const events = await getPublishedEvents();
+export default async function EventsPage({
+  searchParams,
+}: {
+  searchParams?: { vendor?: string };
+}) {
+  const vendorId = searchParams?.vendor || null;
+  const { events, vendorName } = await getPublishedEvents(vendorId);
 
   return (
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
         <section className="section-shell">
-          <h1 className="text-4xl font-bold mb-6 text-accent">Upcoming Events</h1>
+          <h1 className="text-4xl font-bold mb-6 text-accent">
+            {vendorName ? `Events from ${vendorName}` : "Upcoming Events"}
+          </h1>
           <p className="text-muted mb-12">
-            Join us for exciting hemp industry events and networking opportunities.
+            {vendorName
+              ? "Explore approved events hosted by this vendor."
+              : "Join us for exciting hemp industry events and networking opportunities."}
           </p>
 
           <EventsList initialEvents={events} />

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import Footer from "@/components/Footer";
 
 type Vendor = {
   id: string;
@@ -9,6 +10,10 @@ type Vendor = {
   description?: string | null;
   categories?: string[] | null;
   tags?: string[] | null;
+  state?: string | null;
+  city?: string | null;
+  vendor_type?: string | null;
+  website?: string | null;
   created_at?: string;
 };
 
@@ -24,7 +29,7 @@ async function getVendor(id: string): Promise<Vendor | null> {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("vendors")
-      .select("id, business_name, description, categories, tags, created_at")
+      .select("id, business_name, description, categories, tags, state, city, vendor_type, website, created_at")
       .eq("id", id)
       .eq("is_active", true)
       .eq("is_approved", true)
@@ -39,6 +44,63 @@ async function getVendor(id: string): Promise<Vendor | null> {
     console.error("Error fetching vendor:", err);
     return null;
   }
+}
+
+type ListingProduct = {
+  id: string;
+  name: string;
+  price_cents: number;
+  category_id: string | null;
+};
+
+type ListingService = {
+  id: string;
+  title: string;
+  description?: string | null;
+  pricing_type?: string | null;
+};
+
+type ListingEvent = {
+  id: string;
+  title: string;
+  start_time: string;
+  location?: string | null;
+};
+
+async function getVendorListings(vendorId: string) {
+  const supabase = await createSupabaseServerClient();
+
+  const { data: products } = await supabase
+    .from("products")
+    .select("id, name, price_cents, category_id")
+    .eq("vendor_id", vendorId)
+    .eq("status", "approved")
+    .eq("active", true)
+    .order("created_at", { ascending: false })
+    .limit(6);
+
+  const { data: services } = await supabase
+    .from("services")
+    .select("id, title, description, pricing_type")
+    .eq("vendor_id", vendorId)
+    .eq("status", "approved")
+    .eq("active", true)
+    .order("updated_at", { ascending: false })
+    .limit(6);
+
+  const { data: events } = await supabase
+    .from("events")
+    .select("id, title, start_time, location")
+    .eq("vendor_id", vendorId)
+    .in("status", ["approved", "published"])
+    .order("start_time", { ascending: true })
+    .limit(6);
+
+  return {
+    products: (products || []) as ListingProduct[],
+    services: (services || []) as ListingService[],
+    events: (events || []) as ListingEvent[],
+  };
 }
 
 export async function generateMetadata(props: Props): Promise<Metadata> {
@@ -65,88 +127,142 @@ export default async function VendorDetailPage(props: Props) {
     notFound();
   }
 
-  return (
-    <main className="min-h-screen bg-gray-900 text-white">
-      <div className="container mx-auto px-4 py-16">
-        <Link href="/vendors" className="text-green-400 hover:text-green-300 transition mb-8 inline-block">
-          ← Back to Vendors
-        </Link>
+  const listings = await getVendorListings(vendor.id);
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mt-8">
-          {/* Vendor Profile */}
-          <div className="md:col-span-1">
-            <div className="bg-gray-800 rounded-lg border border-gray-700 p-8 text-center">
-              <div className="text-8xl mb-6">🌿</div>
-              <h1 className="text-3xl font-bold mb-4">{vendor.business_name}</h1>
+  return (
+    <div className="min-h-screen text-white flex flex-col">
+      <main className="flex-1">
+        <section className="section-shell">
+          <Link href="/vendors" className="text-accent hover:underline mb-8 inline-block">
+            ← Back to Vendors
+          </Link>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+            <div className="space-y-6">
+              <div className="surface-card p-8 text-center">
+                <div className="text-sm text-[var(--brand-lime)] border border-[var(--brand-lime)]/40 bg-[var(--brand-lime)]/15 px-3 py-1 rounded-full inline-flex mb-4">
+                  Verified & Approved
+                </div>
+                <div className="text-7xl mb-4">🌿</div>
+                <h1 className="text-3xl font-bold mb-2">{vendor.business_name}</h1>
+                <p className="text-muted mb-4">
+                  {vendor.vendor_type ? vendor.vendor_type.replace(/_/g, " ") : "Hemp vendor"}
+                </p>
+                <p className="text-muted text-sm mb-4">
+                  {[vendor.city, vendor.state].filter(Boolean).join(", ") || "Location available on profile"}
+                </p>
+                {vendor.website && (
+                  <a
+                    href={vendor.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-secondary w-full inline-flex justify-center"
+                  >
+                    Visit Website
+                  </a>
+                )}
+              </div>
+
               {(vendor.categories?.length || vendor.tags?.length) && (
-                <div className="flex gap-2 flex-wrap justify-center mb-6">
-                  {[...(vendor.categories || []), ...(vendor.tags || [])].map((tag) => (
-                    <span
-                      key={tag}
-                      className="bg-green-600 text-white px-3 py-1 rounded text-sm"
-                    >
-                      {tag}
-                    </span>
-                  ))}
+                <div className="surface-card p-6">
+                  <h2 className="text-xl font-semibold mb-4">Specialties</h2>
+                  <div className="flex gap-2 flex-wrap">
+                    {[...(vendor.categories || []), ...(vendor.tags || [])].map((tag) => (
+                      <span
+                        key={tag}
+                        className="bg-[var(--brand-lime)]/15 text-[var(--brand-lime)] px-3 py-1 rounded text-sm border border-[var(--brand-lime)]/40"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
-              <button className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition">
-                Contact Vendor
-              </button>
+            </div>
+
+            <div className="lg:col-span-2 space-y-8">
+              <div className="surface-card p-8">
+                <h2 className="text-2xl font-bold mb-4">About</h2>
+                <p className="text-muted leading-relaxed">
+                  {vendor.description ||
+                    "This vendor specializes in premium hemp products with a commitment to quality and sustainability."}
+                </p>
+              </div>
+
+              <div className="surface-card p-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-2xl font-bold">Approved Products</h2>
+                  <Link href={`/products?vendor=${vendor.id}`} className="text-accent hover:underline text-sm">
+                    View all products
+                  </Link>
+                </div>
+                {listings.products.length === 0 ? (
+                  <p className="text-muted">No approved products yet.</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {listings.products.map((product) => (
+                      <Link key={product.id} href={`/products/${product.id}`} className="card-glass p-4 hover-lift">
+                        <div className="font-semibold mb-2">{product.name}</div>
+                        <div className="text-sm text-muted">
+                          ${((product.price_cents || 0) / 100).toFixed(2)}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="surface-card p-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-2xl font-bold">Approved Services</h2>
+                  <Link href={`/services?vendor=${vendor.id}`} className="text-accent hover:underline text-sm">
+                    View all services
+                  </Link>
+                </div>
+                {listings.services.length === 0 ? (
+                  <p className="text-muted">No approved services yet.</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {listings.services.map((service) => (
+                      <Link key={service.id} href={`/services/${service.id}`} className="card-glass p-4 hover-lift">
+                        <div className="font-semibold mb-2">{service.title}</div>
+                        {service.description && (
+                          <p className="text-sm text-muted line-clamp-2">{service.description}</p>
+                        )}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="surface-card p-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-2xl font-bold">Events</h2>
+                  <Link href={`/events?vendor=${vendor.id}`} className="text-accent hover:underline text-sm">
+                    View all events
+                  </Link>
+                </div>
+                {listings.events.length === 0 ? (
+                  <p className="text-muted">No upcoming events yet.</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {listings.events.map((event) => (
+                      <Link key={event.id} href={`/events/${event.id}`} className="card-glass p-4 hover-lift">
+                        <div className="font-semibold mb-2">{event.title}</div>
+                        <div className="text-sm text-muted">
+                          {new Date(event.start_time).toLocaleDateString()}
+                          {event.location ? ` • ${event.location}` : ""}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-
-          {/* Vendor Details */}
-          <div className="md:col-span-2 space-y-8">
-            <div className="bg-gray-800 rounded-lg border border-gray-700 p-8">
-              <h2 className="text-2xl font-bold mb-4">About</h2>
-              <p className="text-gray-300 leading-relaxed">
-                {vendor.description ||
-                  "This vendor specializes in premium hemp products with a commitment to quality and sustainability."}
-              </p>
-            </div>
-
-            <div className="bg-gray-800 rounded-lg border border-gray-700 p-8">
-              <h2 className="text-2xl font-bold mb-4">Why Choose This Vendor?</h2>
-              <ul className="text-gray-300 space-y-3">
-                <li className="flex items-start">
-                  <span className="text-green-500 mr-3 text-lg">✓</span>
-                  <span>Rigorous quality control standards</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-green-500 mr-3 text-lg">✓</span>
-                  <span>Third-party laboratory testing</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-green-500 mr-3 text-lg">✓</span>
-                  <span>Sustainable and ethical practices</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-green-500 mr-3 text-lg">✓</span>
-                  <span>Fast and discreet shipping</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-green-500 mr-3 text-lg">✓</span>
-                  <span>Excellent customer service</span>
-                </li>
-              </ul>
-            </div>
-
-            <div className="bg-gray-800 rounded-lg border border-gray-700 p-8">
-              <h2 className="text-2xl font-bold mb-4">Products</h2>
-              <p className="text-gray-400 mb-6">
-                Browse all products from this vendor.
-              </p>
-              <Link
-                href="/products"
-                className="inline-block bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition"
-              >
-                View Products
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    </main>
+        </section>
+      </main>
+      <Footer />
+    </div>
   );
 }

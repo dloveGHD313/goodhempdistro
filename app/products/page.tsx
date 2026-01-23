@@ -8,38 +8,59 @@ export const metadata: Metadata = {
   description: "Browse our premium hemp products",
 };
 
-// Force dynamic rendering since this page requires authentication
+// Force dynamic rendering for filtering
 export const dynamic = 'force-dynamic';
 
 type Product = {
   id: string;
   name: string;
   category_id: string | null;
-  categories: { name: string } | null | { name: string }[];
   price_cents: number;
   featured: boolean;
 };
 
-async function getProducts(): Promise<Product[]> {
+async function getProducts(vendorId?: string | null): Promise<{
+  products: Product[];
+  vendorName?: string | null;
+}> {
   try {
     const supabase = await createSupabaseServerClient();
-    // Only fetch approved and active products for public view
-    const { data, error } = await supabase
+    let vendorName: string | null = null;
+    if (vendorId) {
+      const { data: vendor } = await supabase
+        .from("vendors")
+        .select("id, business_name")
+        .eq("id", vendorId)
+        .eq("is_active", true)
+        .eq("is_approved", true)
+        .maybeSingle();
+
+      if (!vendor) {
+        return { products: [], vendorName: null };
+      }
+      vendorName = vendor.business_name;
+    }
+
+    const query = supabase
       .from("products")
-      .select("id, name, category_id, categories(name), price_cents, featured")
+      .select("id, name, category_id, price_cents, featured")
       .eq("status", "approved") // Only approved products
       .eq("active", true) // Only active products
       .order("created_at", { ascending: false });
 
+    const { data, error } = vendorId
+      ? await query.eq("vendor_id", vendorId)
+      : await query;
+
     if (error) {
       console.error("[products] Error fetching products:", error);
-      return [];
+      return { products: [], vendorName };
     }
 
-    return data || [];
+    return { products: data || [], vendorName };
   } catch (err) {
     console.error("[products] Fatal error fetching products:", err);
-    return [];
+    return { products: [], vendorName: null };
   }
 }
 
@@ -57,16 +78,25 @@ function ProductSkeleton() {
   );
 }
 
-export default async function ProductsPage() {
-  const products = await getProducts();
+export default async function ProductsPage({
+  searchParams,
+}: {
+  searchParams?: { vendor?: string };
+}) {
+  const vendorId = searchParams?.vendor || null;
+  const { products, vendorName } = await getProducts(vendorId);
 
   return (
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
         <section className="section-shell">
-          <h1 className="text-4xl font-bold mb-6 text-accent">Products</h1>
+          <h1 className="text-4xl font-bold mb-6 text-accent">
+            {vendorName ? `Products from ${vendorName}` : "Products"}
+          </h1>
           <p className="text-muted mb-12">
-            Browse our curated selection of premium hemp products.
+            {vendorName
+              ? "Explore approved products from this vendor."
+              : "Browse our curated selection of premium hemp products."}
           </p>
 
           <ProductsList initialProducts={products} />
