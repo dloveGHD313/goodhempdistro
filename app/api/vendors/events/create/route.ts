@@ -76,11 +76,33 @@ export async function POST(req: NextRequest) {
     // Create event
     const safeStatus = status === "pending_review" ? "pending_review" : "draft";
 
-    const { data: event, error: eventError } = await supabase
+    const isMissingColumn = (message?: string | null) => {
+      const normalized = (message || "").toLowerCase();
+      return normalized.includes("column") && normalized.includes("does not exist");
+    };
+
+    const primaryPayload = {
+      vendor_id: vendor.id,
+      owner_user_id: user.id,
+      title: title.trim(),
+      description: description?.trim() || null,
+      location: location?.trim() || null,
+      start_time,
+      end_time,
+      capacity: capacity || null,
+      status: safeStatus,
+      submitted_at: safeStatus === "pending_review" ? new Date().toISOString() : null,
+    };
+
+    let { data: event, error: eventError } = await supabase
       .from("events")
-      .insert({
+      .insert(primaryPayload)
+      .select("id")
+      .single();
+
+    if (eventError && isMissingColumn(eventError.message)) {
+      const legacyPayload = {
         vendor_id: vendor.id,
-        owner_user_id: user.id,
         title: title.trim(),
         description: description?.trim() || null,
         location: location?.trim() || null,
@@ -88,10 +110,17 @@ export async function POST(req: NextRequest) {
         end_time,
         capacity: capacity || null,
         status: safeStatus,
-        submitted_at: safeStatus === "pending_review" ? new Date().toISOString() : null,
-      })
-      .select("id")
-      .single();
+      };
+
+      const legacyInsert = await supabase
+        .from("events")
+        .insert(legacyPayload)
+        .select("id")
+        .single();
+
+      event = legacyInsert.data;
+      eventError = legacyInsert.error;
+    }
 
     if (eventError || !event) {
       console.error("Error creating event:", {

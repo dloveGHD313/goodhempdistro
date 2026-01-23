@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     // Get vendor with auto-provisioning safety net (same as products)
     let { data: vendor, error: vendorError } = await supabase
       .from("vendors")
-      .select("id, owner_user_id, tier, status")
+      .select("id, owner_user_id, status")
       .eq("owner_user_id", user.id)
       .maybeSingle();
 
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
             }, {
               onConflict: "owner_user_id",
             })
-            .select("id, owner_user_id, tier, status")
+            .select("id, owner_user_id, status")
             .single();
 
           if (autoVendorError || !autoVendor) {

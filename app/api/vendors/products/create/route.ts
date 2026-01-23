@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     // Get vendor for this user with error handling
     let { data: vendor, error: vendorError } = await supabase
       .from("vendors")
-      .select("id, vendor_plan_id, status, owner_user_id")
+      .select("id, status, owner_user_id")
       .eq("owner_user_id", user.id)
       .maybeSingle();
 
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
             }, {
               onConflict: "owner_user_id",
             })
-            .select("id, vendor_plan_id, status, owner_user_id")
+            .select("id, status, owner_user_id")
             .single();
 
           if (autoVendorError || !autoVendor) {
