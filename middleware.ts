@@ -89,6 +89,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
+  // Checkout is gated so consumers complete onboarding before purchase.
   const consumerGateRoutes = [
     "/dashboard",
     "/products",
