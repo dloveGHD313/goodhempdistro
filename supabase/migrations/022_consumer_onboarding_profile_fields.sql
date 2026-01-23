@@ -7,7 +7,7 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS consumer_type TEXT
   CHECK (consumer_type IN ('individual', 'business'));
 
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS business_type TEXT
-  CHECK (business_type IN ('hotel', 'apartment', 'spa', 'office', 'retail', 'event', 'other'));
+  CHECK (business_type IN ('hotel', 'apartment', 'spa', 'office', 'retail', 'event', 'staff_buyers', 'b2b', 'other'));
 
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS purchase_intent TEXT[];
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS interests TEXT[];

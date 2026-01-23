@@ -5,7 +5,16 @@ import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 type ConsumerType = "individual" | "business";
-type BusinessType = "hotel" | "apartment" | "spa" | "office" | "retail" | "event" | "other";
+type BusinessType =
+  | "hotel"
+  | "apartment"
+  | "spa"
+  | "office"
+  | "retail"
+  | "event"
+  | "staff_buyers"
+  | "b2b"
+  | "other";
 type PurchaseIntent = "bulk" | "recurring" | "one-time";
 type Interest = "products" | "services" | "education" | "events";
 type ExperienceLevel = "new" | "experienced";
@@ -91,6 +100,8 @@ const BUSINESS_TYPES: { value: BusinessType; label: string }[] = [
   { value: "office", label: "Office / Corporate" },
   { value: "retail", label: "Retail" },
   { value: "event", label: "Event / Venue" },
+  { value: "staff_buyers", label: "Staff buyers / employee programs" },
+  { value: "b2b", label: "B2B / wholesale" },
   { value: "other", label: "Other" },
 ];
 

@@ -18,6 +18,8 @@ type ConsumerProfile = {
     | "office"
     | "retail"
     | "event"
+    | "staff_buyers"
+    | "b2b"
     | "other"
     | null;
   purchase_intent: ("bulk" | "recurring" | "one-time")[] | null;

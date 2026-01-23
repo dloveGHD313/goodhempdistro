@@ -89,8 +89,21 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // Consumer onboarding enforcement
-  if (user && !isOnboardingRoute && !isApiRoute) {
+  const consumerGateRoutes = [
+    "/dashboard",
+    "/products",
+    "/services",
+    "/events",
+    "/vendors",
+    "/orders",
+    "/checkout",
+  ];
+  const isConsumerGateRoute = consumerGateRoutes.some((route) =>
+    pathname === route || pathname.startsWith(`${route}/`)
+  );
+
+  // Consumer onboarding enforcement (marketplace-only)
+  if (user && isConsumerGateRoute && !isOnboardingRoute && !isApiRoute) {
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("role, consumer_onboarding_completed")
