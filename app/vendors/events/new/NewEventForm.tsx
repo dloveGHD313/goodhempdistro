@@ -20,7 +20,6 @@ export default function NewEventForm() {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [capacity, setCapacity] = useState("");
-  const [status, setStatus] = useState<"draft" | "published">("draft");
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +74,6 @@ export default function NewEventForm() {
           start_time: startTime,
           end_time: endTime,
           capacity: capacity ? parseInt(capacity) : null,
-          status,
           ticket_types: ticketTypes.map((tt) => ({
             name: tt.name.trim(),
             price_cents: Math.round(parseFloat(tt.price) * 100),
@@ -268,16 +266,8 @@ export default function NewEventForm() {
                 )}
               </div>
 
-              <div>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={status === "published"}
-                    onChange={(e) => setStatus(e.target.checked ? "published" : "draft")}
-                    className="w-4 h-4 accent-accent"
-                  />
-                  <span>Publish immediately (uncheck to save as draft)</span>
-                </label>
+              <div className="text-sm text-muted">
+                Events are created as drafts. Submit for review from your Events list when ready.
               </div>
 
               <div className="flex gap-4">

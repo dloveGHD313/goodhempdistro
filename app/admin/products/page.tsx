@@ -15,19 +15,9 @@ async function getPendingProducts() {
 
     const { data: products, error } = await admin
       .from("products")
-      .select(`
-        id,
-        name,
-        description,
-        price_cents,
-        status,
-        submitted_at,
-        coa_url,
-        vendor_id,
-        owner_user_id,
-        vendors!products_vendor_id_fkey(business_name, owner_user_id),
-        profiles!products_owner_user_id_fkey(email, display_name)
-      `)
+      .select(
+        "id, name, description, price_cents, status, submitted_at, coa_url, vendor_id, owner_user_id"
+      )
       .eq("status", "pending_review")
       .order("submitted_at", { ascending: true });
 
@@ -39,6 +29,36 @@ async function getPendingProducts() {
         error: error.message 
       };
     }
+
+    const vendorIds = Array.from(
+      new Set((products || []).map((p: any) => p.vendor_id).filter(Boolean))
+    );
+    const ownerIds = Array.from(
+      new Set((products || []).map((p: any) => p.owner_user_id).filter(Boolean))
+    );
+
+    const { data: vendors } = vendorIds.length
+      ? await admin
+          .from("vendors")
+          .select("id, business_name, owner_user_id")
+          .in("id", vendorIds)
+      : { data: [] };
+
+    const { data: profiles } = ownerIds.length
+      ? await admin
+          .from("profiles")
+          .select("id, email, display_name")
+          .in("id", ownerIds)
+      : { data: [] };
+
+    const vendorMap = new Map((vendors || []).map((v: any) => [v.id, v]));
+    const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+
+    const normalizedProducts = (products || []).map((p: any) => ({
+      ...p,
+      vendors: vendorMap.get(p.vendor_id) || null,
+      profiles: profileMap.get(p.owner_user_id) || null,
+    }));
 
     // Get all products counts for overview
     const { count: totalCount } = await admin
@@ -59,13 +79,6 @@ async function getPendingProducts() {
       .from("products")
       .select("*", { count: "exact", head: true })
       .eq("status", "rejected");
-
-    // Normalize products (handle array relations)
-    const normalizedProducts = (products || []).map((p: any) => ({
-      ...p,
-      vendors: Array.isArray(p.vendors) ? p.vendors[0] : p.vendors,
-      profiles: Array.isArray(p.profiles) ? p.profiles[0] : p.profiles,
-    }));
 
     return {
       products: normalizedProducts,

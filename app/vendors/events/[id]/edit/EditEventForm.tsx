@@ -13,7 +13,9 @@ export default function EditEventForm({ eventId }: { eventId: string }) {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [capacity, setCapacity] = useState("");
-  const [status, setStatus] = useState<"draft" | "published" | "cancelled">("draft");
+  const [status, setStatus] = useState<
+    "draft" | "pending_review" | "approved" | "rejected" | "published" | "cancelled"
+  >("draft");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +66,6 @@ export default function EditEventForm({ eventId }: { eventId: string }) {
           start_time: startTime,
           end_time: endTime,
           capacity: capacity ? parseInt(capacity) : null,
-          status,
         }),
       });
 
@@ -196,15 +197,12 @@ export default function EditEventForm({ eventId }: { eventId: string }) {
 
               <div>
                 <label className="block text-sm font-medium mb-2">Status</label>
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as any)}
-                  className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
-                >
-                  <option value="draft">Draft</option>
-                  <option value="published">Published</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
+                <div className="px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-white">
+                  {status.replace(/_/g, " ")}
+                </div>
+                <p className="text-xs text-muted mt-2">
+                  Submit your event for review from the Events list once you are ready.
+                </p>
               </div>
 
               <div className="flex gap-4">

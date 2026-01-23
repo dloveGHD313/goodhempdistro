@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
-import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 /**
  * Get event details (vendor only)
@@ -30,14 +29,11 @@ export async function GET(
       return NextResponse.json({ error: "Vendor account required" }, { status: 403 });
     }
 
-    const admin = getSupabaseAdminClient();
-
-    // Get event with ticket types
-    const { data: event, error: eventError } = await admin
+    const { data: event, error: eventError } = await supabase
       .from("events")
-      .select("*, event_ticket_types(*)")
+      .select("id, title, description, location, start_time, end_time, capacity, status, submitted_at, reviewed_at, rejection_reason")
       .eq("id", id)
-      .eq("vendor_id", vendor.id)
+      .eq("owner_user_id", user.id)
       .single();
 
     if (eventError || !event) {
@@ -89,21 +85,7 @@ export async function PUT(
       start_time,
       end_time,
       capacity,
-      status,
     } = await req.json();
-
-    const admin = getSupabaseAdminClient();
-
-    // Verify event ownership
-    const { data: existingEvent } = await admin
-      .from("events")
-      .select("id, vendor_id")
-      .eq("id", id)
-      .single();
-
-    if (!existingEvent || existingEvent.vendor_id !== vendor.id) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 });
-    }
 
     // Update event
     const updates: Record<string, any> = {
@@ -116,12 +98,14 @@ export async function PUT(
     if (start_time !== undefined) updates.start_time = start_time;
     if (end_time !== undefined) updates.end_time = end_time;
     if (capacity !== undefined) updates.capacity = capacity || null;
-    if (status !== undefined) updates.status = status;
 
-    const { error: updateError } = await admin
+    const { data: updatedEvent, error: updateError } = await supabase
       .from("events")
       .update(updates)
-      .eq("id", id);
+      .eq("id", id)
+      .eq("owner_user_id", user.id)
+      .select("id")
+      .maybeSingle();
 
     if (updateError) {
       console.error("Error updating event:", updateError);
@@ -129,6 +113,10 @@ export async function PUT(
         { error: "Failed to update event" },
         { status: 500 }
       );
+    }
+
+    if (!updatedEvent) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
 
     return NextResponse.json({ success: true });

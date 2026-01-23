@@ -38,7 +38,7 @@ async function getVendorEvents() {
   // Get events with ticket types
   const { data: events } = await supabase
     .from("events")
-    .select("id, title, start_time, status, capacity, tickets_sold, created_at")
+    .select("id, title, start_time, status, capacity, tickets_sold, created_at, submitted_at, reviewed_at, rejection_reason")
     .eq("vendor_id", vendor.id)
     .order("created_at", { ascending: false });
 
