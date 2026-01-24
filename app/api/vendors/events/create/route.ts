@@ -114,43 +114,28 @@ export async function POST(req: NextRequest) {
       submitted_at: safeStatus === "pending_review" ? new Date().toISOString() : null,
     };
 
-    const insertEvent = async (payload: typeof basePayload) => {
+    const insertEvent = async (payload: Record<string, any>) => {
       return supabase.from("events").insert(payload).select("id").single();
     };
 
-    let payload = { ...basePayload };
+    let payload: Record<string, any> = { ...basePayload };
     let { data: event, error: eventError } = await insertEvent(payload);
 
+    // Legacy schema fallback: strip missing columns and retry exactly once
     const missingColumn = getMissingColumn(eventError?.message);
-    if (missingColumn) {
+    if (eventError && missingColumn) {
+      const colsToRemove = new Set<string>([missingColumn]);
+      // Legacy schemas often miss both owner_user_id and submitted_at together
       if (missingColumn === "owner_user_id") {
-        delete (payload as Partial<typeof basePayload>).owner_user_id;
-        delete (payload as Partial<typeof basePayload>).submitted_at;
-      } else if (missingColumn === "submitted_at") {
-        delete (payload as Partial<typeof basePayload>).submitted_at;
-      } else {
-        delete (payload as Record<string, unknown>)[missingColumn];
+        colsToRemove.add("submitted_at");
+      }
+      for (const col of colsToRemove) {
+        delete payload[col];
       }
 
       const retry = await insertEvent(payload);
       event = retry.data;
       eventError = retry.error;
-
-      const secondMissing = getMissingColumn(eventError?.message);
-      if (secondMissing) {
-        if (secondMissing === "owner_user_id") {
-          delete (payload as Partial<typeof basePayload>).owner_user_id;
-          delete (payload as Partial<typeof basePayload>).submitted_at;
-        } else if (secondMissing === "submitted_at") {
-          delete (payload as Partial<typeof basePayload>).submitted_at;
-        } else {
-          delete (payload as Record<string, unknown>)[secondMissing];
-        }
-
-        const secondRetry = await insertEvent(payload);
-        event = secondRetry.data;
-        eventError = secondRetry.error;
-      }
     }
 
     if (eventError || !event) {

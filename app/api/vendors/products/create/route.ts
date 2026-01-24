@@ -177,7 +177,17 @@ export async function POST(req: NextRequest) {
       console.warn(`⚠️ [product/create] Vendor ${vendor.id} has no active subscription`);
     }
 
-    const { name, description, price_cents, category_id, active = true, product_type, coa_url, coa_object_path, delta8_disclaimer_ack } = await req.json();
+    const {
+      name,
+      description,
+      price_cents,
+      category_id,
+      active = true,
+      product_type,
+      coa_url,
+      coa_object_path,
+      delta8_disclaimer_ack,
+    } = await req.json();
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -240,25 +250,61 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const getMissingColumn = (message?: string | null) => {
+      if (!message) {
+        return null;
+      }
+      const match = message.match(/column \"([^\"]+)\" does not exist/i);
+      return match?.[1] || null;
+    };
+
     // Create product with draft status (requires admin approval)
-    const { data: product, error: productError } = await supabase
+    const baseInsertPayload: Record<string, any> = {
+      vendor_id: vendor.id,
+      owner_user_id: user.id, // Direct reference for RLS
+      name: name.trim(),
+      description: description?.trim() || null,
+      price_cents: parseInt(price_cents),
+      category_id: category_id || null,
+      status: "draft", // Always start as draft
+      active: false, // Not active until approved
+      product_type: product_type || "non_intoxicating",
+      // COA is optional at create time; never block product creation
+      coa_url: coa_url?.trim() || null,
+      coa_object_path: typeof coa_object_path === "string" ? coa_object_path.trim() || null : null,
+      delta8_disclaimer_ack: delta8_disclaimer_ack === true,
+    };
+
+    if (
+      typeof baseInsertPayload.coa_object_path === "string" &&
+      baseInsertPayload.coa_object_path.length > 0 &&
+      !baseInsertPayload.coa_object_path.includes("/")
+    ) {
+      console.warn(
+        `[vendor-products] coa_object_path does not look like a storage key:`,
+        baseInsertPayload.coa_object_path
+      );
+    }
+
+    let payload = { ...baseInsertPayload };
+    let { data: product, error: productError } = await supabase
       .from("products")
-      .insert({
-        vendor_id: vendor.id,
-        owner_user_id: user.id, // Direct reference for RLS
-        name: name.trim(),
-        description: description?.trim() || null,
-        price_cents: parseInt(price_cents),
-        category_id: category_id || null,
-        status: 'draft', // Always start as draft
-        active: false, // Not active until approved
-        product_type: product_type || "non_intoxicating",
-        coa_url: coa_url?.trim() || null,
-        coa_object_path: coa_object_path?.trim() || null,
-        delta8_disclaimer_ack: delta8_disclaimer_ack === true,
-      })
+      .insert(payload)
       .select("id, name, price_cents, status")
       .single();
+
+    // Back-compat for deployments missing newer columns (e.g. coa_object_path)
+    const missingColumn = getMissingColumn(productError?.message);
+    if (productError && missingColumn) {
+      delete payload[missingColumn];
+      const retry = await supabase
+        .from("products")
+        .insert(payload)
+        .select("id, name, price_cents, status")
+        .single();
+      product = retry.data;
+      productError = retry.error;
+    }
 
     if (productError) {
       console.error(`[vendor-products] Error creating product:`, {
@@ -280,7 +326,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log(`[vendor-products] Product created: id=${product.id}, status=${product.status}`);
+    if (!product) {
+      console.error(`[vendor-products] Product insert returned no row (no error).`);
+      return NextResponse.json({ error: "Failed to create product" }, { status: 500 });
+    }
+
+    console.log(
+      `[vendor-products] Product created: id=${product.id}, status=${product.status}`
+    );
 
     return NextResponse.json({
       success: true,
