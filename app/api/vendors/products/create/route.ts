@@ -9,20 +9,20 @@ import { validateProductCompliance } from "@/lib/compliance";
  */
 export async function POST(req: NextRequest) {
   try {
+    const supabase = await createSupabaseServerClient();
     const requestId =
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    const supabase = await createSupabaseServerClient();
-    
+
     const { data: { user }, error: userError } = await supabase.auth.getUser();
-    
+
     console.log(
       `[vendor-products] requestId=${requestId} SSR user check: ${
         user ? `found ${user.id} (${user.email})` : "not found"
       }`
     );
-    
+
     if (userError || !user) {
       console.error(`[vendor-products] requestId=${requestId} Auth error:`, {
         message: userError?.message,
@@ -104,7 +104,11 @@ export async function POST(req: NextRequest) {
         .eq("user_id", user.id)
         .maybeSingle();
 
-      console.log(`[vendor-products] No vendor found. Application status: ${application ? application.status : 'none'}`);
+      console.log(
+        `[vendor-products] requestId=${requestId} No vendor found. Application status: ${
+          application ? application.status : "none"
+        }`
+      );
 
       // If approved application exists but no vendor row, auto-create it
       if (application && application.status === 'approved') {
@@ -130,12 +134,15 @@ export async function POST(req: NextRequest) {
             .single();
 
           if (autoVendorError || !autoVendor) {
-            console.error(`[vendor-products] requestId=${requestId} AUTO-PROVISION FAILED:`, {
-              message: autoVendorError?.message,
-              details: autoVendorError?.details,
-              hint: autoVendorError?.hint,
-              code: autoVendorError?.code,
-            });
+            console.error(
+              `[vendor-products] requestId=${requestId} AUTO-PROVISION FAILED:`,
+              {
+                message: autoVendorError?.message,
+                details: autoVendorError?.details,
+                hint: autoVendorError?.hint,
+                code: autoVendorError?.code,
+              }
+            );
             return NextResponse.json(
               process.env.NODE_ENV === "production"
                 ? { error: "Vendor account provisioning failed. Please contact support." }
@@ -255,17 +262,11 @@ export async function POST(req: NextRequest) {
       description,
       price_cents,
       category_id,
-      category,
       product_type,
       coa_url,
       coa_object_path,
       delta8_disclaimer_ack,
     } = await req.json();
-    const normalizedCoaObjectPath =
-      typeof coa_object_path === "string" ? coa_object_path.trim() : null;
-    if (coa_object_path && !normalizedCoaObjectPath) {
-      console.warn("[vendor-products] Ignoring invalid coa_object_path payload");
-    }
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -281,100 +282,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const normalizeProductType = (value?: string | null) => {
-      if (!value) {
-        return null;
-      }
-      const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
-      if (normalized === "non_intoxicating" || normalized === "nonintoxicating") {
-        return "non_intoxicating";
-      }
-      if (normalized === "intoxicating") {
-        return "intoxicating";
-      }
-      if (normalized === "delta8" || normalized === "delta_8") {
-        return "delta8";
-      }
-      return null;
-    };
-
-    const normalizedProductType = normalizeProductType(product_type);
-    if (!normalizedProductType) {
-      return NextResponse.json(
-        { error: "Invalid product_type" },
-        { status: 400 }
-      );
-    }
-
-    // Resolve category_id from provided category or category_id
-    let resolvedCategoryId: string | null = category_id || null;
-    if (!resolvedCategoryId && typeof category === "string" && category.trim()) {
-      const categoryValue = category.trim();
-      const { data: categoryRow, error: categoryLookupError } = await supabase
-        .from("categories")
-        .select("id")
-        .or(`id.eq.${categoryValue},slug.eq.${categoryValue},name.eq.${categoryValue}`)
-        .maybeSingle();
-
-      if (categoryLookupError) {
-        console.error(`[vendor-products] requestId=${requestId} Category lookup error:`, {
-          message: categoryLookupError.message,
-          details: categoryLookupError.details,
-          hint: categoryLookupError.hint,
-          code: categoryLookupError.code,
-        });
-      }
-
-      if (!categoryRow?.id) {
-        return NextResponse.json(
-          { error: "Invalid category" },
-          { status: 400 }
-        );
-      }
-      resolvedCategoryId = categoryRow.id;
-    } else if (resolvedCategoryId) {
-      const { data: categoryRow, error: categoryLookupError } = await supabase
-        .from("categories")
-        .select("id")
-        .eq("id", resolvedCategoryId)
-        .maybeSingle();
-
-      if (categoryLookupError) {
-        console.error(`[vendor-products] requestId=${requestId} Category lookup error:`, {
-          message: categoryLookupError.message,
-          details: categoryLookupError.details,
-          hint: categoryLookupError.hint,
-          code: categoryLookupError.code,
-        });
-      }
-
-      if (!categoryRow?.id) {
-        return NextResponse.json(
-          { error: "Invalid category" },
-          { status: 400 }
-        );
-      }
-    }
-
     // Check if category requires COA
     let categoryRequiresCoa = false;
-    if (resolvedCategoryId) {
-      const { data: categoryRow } = await supabase
+    if (category_id) {
+      const { data: category } = await supabase
         .from("categories")
         .select("id, name, requires_coa, parent_id")
-        .eq("id", resolvedCategoryId)
+        .eq("id", category_id)
         .maybeSingle();
 
-      if (categoryRow) {
+      if (category) {
         // Check category itself or parent category for requires_coa
-        categoryRequiresCoa = categoryRow.requires_coa;
+        categoryRequiresCoa = category.requires_coa;
         
         // If parent exists, check parent too (parent's requires_coa applies to all children)
-        if (categoryRow.parent_id && !categoryRequiresCoa) {
+        if (category.parent_id && !categoryRequiresCoa) {
           const { data: parent } = await supabase
             .from("categories")
             .select("requires_coa")
-            .eq("id", categoryRow.parent_id)
+            .eq("id", category.parent_id)
             .maybeSingle();
           
           if (parent?.requires_coa) {
@@ -385,13 +311,13 @@ export async function POST(req: NextRequest) {
     }
 
     console.log(
-      `[vendor-products] Category COA requirement: category_id=${resolvedCategoryId}, requires_coa=${categoryRequiresCoa}`
+      `[vendor-products] requestId=${requestId} Category COA requirement: category_id=${category_id}, requires_coa=${categoryRequiresCoa}`
     );
 
     // Validate compliance (COA only required if category requires it)
     const requireCoaForDrafts = false;
     const complianceErrors = validateProductCompliance({
-      product_type: normalizedProductType,
+      product_type: product_type || "non_intoxicating",
       coa_url,
       coa_object_path,
       delta8_disclaimer_ack,
@@ -405,47 +331,59 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const getMissingColumns = (message?: string | null) => {
-      if (!message) {
-        return [];
-      }
-      const matches = Array.from(
-        message.matchAll(/column \"([^\"]+)\" does not exist/gi)
-      );
-      return matches.map((match) => match[1]).filter(Boolean);
-    };
-
     // Create product with draft status (requires admin approval)
-    const basePayload = {
+    const baseInsertPayload: Record<string, any> = {
       vendor_id: vendor.id,
       owner_user_id: user.id, // Direct reference for RLS
       name: name.trim(),
       description: description?.trim() || null,
       price_cents: parseInt(price_cents),
-      category_id: resolvedCategoryId,
+      category_id: category_id || null,
       status: "draft", // Always start as draft
       active: false, // Not active until approved
-      product_type: normalizedProductType,
+      product_type: product_type || "non_intoxicating",
+      // COA is optional at create time; never block product creation
       coa_url: coa_url?.trim() || null,
-      coa_object_path: normalizedCoaObjectPath,
+      coa_object_path:
+        typeof coa_object_path === "string" ? coa_object_path.trim() || null : null,
       delta8_disclaimer_ack: delta8_disclaimer_ack === true,
     };
 
-    const insertProduct = async (payload: typeof basePayload) => {
-      return supabase.from("products").insert(payload).select("id, name, price_cents, status").single();
+    if (
+      typeof baseInsertPayload.coa_object_path === "string" &&
+      baseInsertPayload.coa_object_path.length > 0 &&
+      !baseInsertPayload.coa_object_path.includes("/")
+    ) {
+      console.warn(
+        `[vendor-products] requestId=${requestId} coa_object_path does not look like a storage key:`,
+        baseInsertPayload.coa_object_path
+      );
+    }
+
+    const getMissingColumn = (message?: string | null) => {
+      if (!message) {
+        return null;
+      }
+      const match = message.match(/column \"([^\"]+)\" does not exist/i);
+      return match?.[1] || null;
     };
 
-    let { data: product, error: productError } = await insertProduct(basePayload);
-    const missingColumns = getMissingColumns(productError?.message);
-    if (productError && missingColumns.length > 0) {
-      const retryPayload = { ...basePayload } as Record<string, unknown>;
-      if (missingColumns.includes("owner_user_id")) {
-        delete retryPayload.owner_user_id;
-      }
-      missingColumns.forEach((column) => {
-        delete retryPayload[column];
-      });
-      const retry = await insertProduct(retryPayload as typeof basePayload);
+    let payload = { ...baseInsertPayload };
+    let { data: product, error: productError } = await supabase
+      .from("products")
+      .insert(payload)
+      .select("id, name, price_cents, status")
+      .single();
+
+    // Back-compat for deployments missing newer columns (e.g. coa_object_path)
+    const missingColumn = getMissingColumn(productError?.message);
+    if (productError && missingColumn) {
+      delete payload[missingColumn];
+      const retry = await supabase
+        .from("products")
+        .insert(payload)
+        .select("id, name, price_cents, status")
+        .single();
       product = retry.data;
       productError = retry.error;
     }

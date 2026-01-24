@@ -8,14 +8,24 @@ import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
  */
 export async function POST(req: NextRequest) {
   try {
+    const supabase = await createSupabaseServerClient();
     const requestId =
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    const supabase = await createSupabaseServerClient();
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
+    console.log(
+      `[vendor-events] requestId=${requestId} SSR user check: ${
+        user ? `found ${user.id} (${user.email})` : "not found"
+      }`
+    );
+
     if (userError || !user) {
+      console.error(`[vendor-events] requestId=${requestId} Auth error:`, {
+        message: userError?.message,
+        details: (userError as { details?: string })?.details,
+      });
       return NextResponse.json(
         process.env.NODE_ENV === "production"
           ? { error: "Unauthorized" }
@@ -82,6 +92,7 @@ export async function POST(req: NextRequest) {
       start_time,
       end_time,
       capacity,
+      status = "draft",
       ticket_types,
     } = await req.json();
 
@@ -101,15 +112,9 @@ export async function POST(req: NextRequest) {
 
     // Validate ticket types
     for (const tt of ticket_types) {
-      const hasPriceCents = typeof tt.price_cents === "number";
-      const hasPrice = typeof tt.price === "string" && tt.price.trim().length > 0;
-      const derivedPrice = hasPrice ? Math.round(parseFloat(tt.price) * 100) : null;
-      const isValidPrice =
-        (hasPriceCents && Number.isFinite(tt.price_cents) && tt.price_cents >= 0) ||
-        (hasPrice && derivedPrice !== null && Number.isFinite(derivedPrice) && derivedPrice >= 0);
-      if (!tt.name || (!hasPriceCents && !hasPrice) || !isValidPrice) {
+      if (!tt.name || tt.price_cents === undefined) {
         return NextResponse.json(
-          { error: "All ticket types must have a name and price" },
+          { error: "All ticket types must have name and price_cents" },
           { status: 400 }
         );
       }
@@ -126,16 +131,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Create event
-    const safeStatus = "draft";
+    const safeStatus = status === "pending_review" ? "pending_review" : "draft";
 
-    const getMissingColumns = (message?: string | null) => {
+    const getMissingColumn = (message?: string | null) => {
       if (!message) {
-        return [];
+        return null;
       }
-      const matches = Array.from(
-        message.matchAll(/column \"([^\"]+)\" does not exist/gi)
-      );
-      return matches.map((match) => match[1]).filter(Boolean);
+      const match = message.match(/column \"([^\"]+)\" does not exist/i);
+      return match?.[1] || null;
     };
 
     const basePayload = {
@@ -148,27 +151,29 @@ export async function POST(req: NextRequest) {
       end_time,
       capacity: capacity || null,
       status: safeStatus,
-      submitted_at: null,
+      submitted_at: safeStatus === "pending_review" ? new Date().toISOString() : null,
     };
 
-    const insertEvent = async (payload: typeof basePayload) => {
+    const insertEvent = async (payload: Record<string, any>) => {
       return supabase.from("events").insert(payload).select("id").single();
     };
 
-    const payload = { ...basePayload };
+    let payload: Record<string, any> = { ...basePayload };
     let { data: event, error: eventError } = await insertEvent(payload);
 
-    const missingColumns = getMissingColumns(eventError?.message);
-    if (eventError && missingColumns.length > 0) {
-      const retryPayload = { ...payload } as Record<string, unknown>;
-      if (missingColumns.includes("owner_user_id")) {
-        delete retryPayload.owner_user_id;
-        delete retryPayload.submitted_at;
+    // Legacy schema fallback: strip missing columns and retry exactly once
+    const missingColumn = getMissingColumn(eventError?.message);
+    if (eventError && missingColumn) {
+      const colsToRemove = new Set<string>([missingColumn]);
+      // Legacy schemas often miss both owner_user_id and submitted_at together
+      if (missingColumn === "owner_user_id") {
+        colsToRemove.add("submitted_at");
       }
-      missingColumns.forEach((column) => {
-        delete retryPayload[column];
-      });
-      const retry = await insertEvent(retryPayload as typeof basePayload);
+      for (const col of colsToRemove) {
+        delete payload[col];
+      }
+
+      const retry = await insertEvent(payload);
       event = retry.data;
       eventError = retry.error;
     }
@@ -200,27 +205,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Create ticket types
-    const ticketTypeInserts = ticket_types.map((tt: any) => {
-      const priceCents =
-        typeof tt.price_cents === "number"
-          ? tt.price_cents
-          : Math.round(parseFloat(tt.price) * 100);
-      const rawQuantity =
-        tt.quantity === null || tt.quantity === undefined || tt.quantity === ""
-          ? null
-          : Number(tt.quantity);
-      const quantityValue =
-        typeof rawQuantity === "number" && Number.isFinite(rawQuantity) && rawQuantity > 0
-          ? rawQuantity
-          : null;
-      return {
-        event_id: event.id,
-        name: tt.name.trim(),
-        price_cents: priceCents,
-        quantity: quantityValue,
-        sold: 0,
-      };
-    });
+    const ticketTypeInserts = ticket_types.map((tt: any) => ({
+      event_id: event.id,
+      name: tt.name.trim(),
+      price_cents: tt.price_cents,
+      quantity: tt.quantity || null,
+      sold: 0,
+    }));
 
     const { error: ticketTypesError } = await supabase
       .from("event_ticket_types")
@@ -263,4 +254,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-
