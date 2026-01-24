@@ -82,7 +82,6 @@ export async function POST(req: NextRequest) {
       start_time,
       end_time,
       capacity,
-      status = "draft",
       ticket_types,
     } = await req.json();
 
@@ -102,9 +101,15 @@ export async function POST(req: NextRequest) {
 
     // Validate ticket types
     for (const tt of ticket_types) {
-      if (!tt.name || tt.price_cents === undefined) {
+      const hasPriceCents = typeof tt.price_cents === "number";
+      const hasPrice = typeof tt.price === "string" && tt.price.trim().length > 0;
+      const derivedPrice = hasPrice ? Math.round(parseFloat(tt.price) * 100) : null;
+      const isValidPrice =
+        (hasPriceCents && Number.isFinite(tt.price_cents) && tt.price_cents >= 0) ||
+        (hasPrice && derivedPrice !== null && Number.isFinite(derivedPrice) && derivedPrice >= 0);
+      if (!tt.name || (!hasPriceCents && !hasPrice) || !isValidPrice) {
         return NextResponse.json(
-          { error: "All ticket types must have name and price_cents" },
+          { error: "All ticket types must have a name and price" },
           { status: 400 }
         );
       }
@@ -121,7 +126,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create event
-    const safeStatus = status === "pending_review" ? "pending_review" : "draft";
+    const safeStatus = "draft";
 
     const getMissingColumns = (message?: string | null) => {
       if (!message) {
@@ -143,7 +148,7 @@ export async function POST(req: NextRequest) {
       end_time,
       capacity: capacity || null,
       status: safeStatus,
-      submitted_at: safeStatus === "pending_review" ? new Date().toISOString() : null,
+      submitted_at: null,
     };
 
     const insertEvent = async (payload: typeof basePayload) => {
@@ -195,13 +200,27 @@ export async function POST(req: NextRequest) {
     }
 
     // Create ticket types
-    const ticketTypeInserts = ticket_types.map((tt: any) => ({
-      event_id: event.id,
-      name: tt.name.trim(),
-      price_cents: tt.price_cents,
-      quantity: tt.quantity || null,
-      sold: 0,
-    }));
+    const ticketTypeInserts = ticket_types.map((tt: any) => {
+      const priceCents =
+        typeof tt.price_cents === "number"
+          ? tt.price_cents
+          : Math.round(parseFloat(tt.price) * 100);
+      const rawQuantity =
+        tt.quantity === null || tt.quantity === undefined || tt.quantity === ""
+          ? null
+          : Number(tt.quantity);
+      const quantityValue =
+        typeof rawQuantity === "number" && Number.isFinite(rawQuantity) && rawQuantity > 0
+          ? rawQuantity
+          : null;
+      return {
+        event_id: event.id,
+        name: tt.name.trim(),
+        price_cents: priceCents,
+        quantity: quantityValue,
+        sold: 0,
+      };
+    });
 
     const { error: ticketTypesError } = await supabase
       .from("event_ticket_types")

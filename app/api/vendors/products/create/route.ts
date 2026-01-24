@@ -250,7 +250,17 @@ export async function POST(req: NextRequest) {
       console.warn(`⚠️ [product/create] Vendor ${vendor.id} has no active subscription`);
     }
 
-    const { name, description, price_cents, category_id, active = true, product_type, coa_url, coa_object_path, delta8_disclaimer_ack } = await req.json();
+    const {
+      name,
+      description,
+      price_cents,
+      category_id,
+      category,
+      product_type,
+      coa_url,
+      coa_object_path,
+      delta8_disclaimer_ack,
+    } = await req.json();
     const normalizedCoaObjectPath =
       typeof coa_object_path === "string" ? coa_object_path.trim() : null;
     if (coa_object_path && !normalizedCoaObjectPath) {
@@ -271,25 +281,100 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if category requires COA
-    let categoryRequiresCoa = false;
-    if (category_id) {
-      const { data: category } = await supabase
+    const normalizeProductType = (value?: string | null) => {
+      if (!value) {
+        return null;
+      }
+      const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
+      if (normalized === "non_intoxicating" || normalized === "nonintoxicating") {
+        return "non_intoxicating";
+      }
+      if (normalized === "intoxicating") {
+        return "intoxicating";
+      }
+      if (normalized === "delta8" || normalized === "delta_8") {
+        return "delta8";
+      }
+      return null;
+    };
+
+    const normalizedProductType = normalizeProductType(product_type);
+    if (!normalizedProductType) {
+      return NextResponse.json(
+        { error: "Invalid product_type" },
+        { status: 400 }
+      );
+    }
+
+    // Resolve category_id from provided category or category_id
+    let resolvedCategoryId: string | null = category_id || null;
+    if (!resolvedCategoryId && typeof category === "string" && category.trim()) {
+      const categoryValue = category.trim();
+      const { data: categoryRow, error: categoryLookupError } = await supabase
         .from("categories")
-        .select("id, name, requires_coa, parent_id")
-        .eq("id", category_id)
+        .select("id")
+        .or(`id.eq.${categoryValue},slug.eq.${categoryValue},name.eq.${categoryValue}`)
         .maybeSingle();
 
-      if (category) {
+      if (categoryLookupError) {
+        console.error(`[vendor-products] requestId=${requestId} Category lookup error:`, {
+          message: categoryLookupError.message,
+          details: categoryLookupError.details,
+          hint: categoryLookupError.hint,
+          code: categoryLookupError.code,
+        });
+      }
+
+      if (!categoryRow?.id) {
+        return NextResponse.json(
+          { error: "Invalid category" },
+          { status: 400 }
+        );
+      }
+      resolvedCategoryId = categoryRow.id;
+    } else if (resolvedCategoryId) {
+      const { data: categoryRow, error: categoryLookupError } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("id", resolvedCategoryId)
+        .maybeSingle();
+
+      if (categoryLookupError) {
+        console.error(`[vendor-products] requestId=${requestId} Category lookup error:`, {
+          message: categoryLookupError.message,
+          details: categoryLookupError.details,
+          hint: categoryLookupError.hint,
+          code: categoryLookupError.code,
+        });
+      }
+
+      if (!categoryRow?.id) {
+        return NextResponse.json(
+          { error: "Invalid category" },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Check if category requires COA
+    let categoryRequiresCoa = false;
+    if (resolvedCategoryId) {
+      const { data: categoryRow } = await supabase
+        .from("categories")
+        .select("id, name, requires_coa, parent_id")
+        .eq("id", resolvedCategoryId)
+        .maybeSingle();
+
+      if (categoryRow) {
         // Check category itself or parent category for requires_coa
-        categoryRequiresCoa = category.requires_coa;
+        categoryRequiresCoa = categoryRow.requires_coa;
         
         // If parent exists, check parent too (parent's requires_coa applies to all children)
-        if (category.parent_id && !categoryRequiresCoa) {
+        if (categoryRow.parent_id && !categoryRequiresCoa) {
           const { data: parent } = await supabase
             .from("categories")
             .select("requires_coa")
-            .eq("id", category.parent_id)
+            .eq("id", categoryRow.parent_id)
             .maybeSingle();
           
           if (parent?.requires_coa) {
@@ -299,12 +384,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    console.log(`[vendor-products] Category COA requirement: category_id=${category_id}, requires_coa=${categoryRequiresCoa}`);
+    console.log(
+      `[vendor-products] Category COA requirement: category_id=${resolvedCategoryId}, requires_coa=${categoryRequiresCoa}`
+    );
 
     // Validate compliance (COA only required if category requires it)
     const requireCoaForDrafts = false;
     const complianceErrors = validateProductCompliance({
-      product_type: product_type || "non_intoxicating",
+      product_type: normalizedProductType,
       coa_url,
       coa_object_path,
       delta8_disclaimer_ack,
@@ -335,10 +422,10 @@ export async function POST(req: NextRequest) {
       name: name.trim(),
       description: description?.trim() || null,
       price_cents: parseInt(price_cents),
-      category_id: category_id || null,
+      category_id: resolvedCategoryId,
       status: "draft", // Always start as draft
       active: false, // Not active until approved
-      product_type: product_type || "non_intoxicating",
+      product_type: normalizedProductType,
       coa_url: coa_url?.trim() || null,
       coa_object_path: normalizedCoaObjectPath,
       delta8_disclaimer_ack: delta8_disclaimer_ack === true,
