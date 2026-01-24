@@ -8,11 +8,20 @@ import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
  */
 export async function POST(req: NextRequest) {
   try {
+    const requestId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const supabase = await createSupabaseServerClient();
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        process.env.NODE_ENV === "production"
+          ? { error: "Unauthorized" }
+          : { requestId, error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
     // Verify vendor
@@ -23,7 +32,13 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (vendorError) {
-      console.error("[vendor-events] Vendor query error (user client):", vendorError);
+      console.error("[vendor-events] Vendor query error (user client):", {
+        requestId,
+        message: vendorError.message,
+        details: vendorError.details,
+        hint: vendorError.hint,
+        code: vendorError.code,
+      });
       const admin = getSupabaseAdminClient();
       const { data: adminVendor, error: adminVendorError } = await admin
         .from("vendors")
@@ -31,7 +46,13 @@ export async function POST(req: NextRequest) {
         .eq("owner_user_id", user.id)
         .maybeSingle();
       if (adminVendorError) {
-        console.error("[vendor-events] Vendor query error (admin client):", adminVendorError);
+        console.error("[vendor-events] Vendor query error (admin client):", {
+          requestId,
+          message: adminVendorError.message,
+          details: adminVendorError.details,
+          hint: adminVendorError.hint,
+          code: adminVendorError.code,
+        });
       } else {
         vendor = adminVendor;
         vendorError = null;
@@ -40,10 +61,19 @@ export async function POST(req: NextRequest) {
 
     if (vendorError || !vendor) {
       return NextResponse.json(
-        { error: "Vendor account required" },
+        process.env.NODE_ENV === "production"
+          ? { error: "Vendor account required" }
+          : { requestId, error: "Vendor account required" },
         { status: 403 }
       );
     }
+
+    console.log("[vendor-events] Vendor lookup result", {
+      requestId,
+      userId: user.id,
+      vendorFound: !!vendor,
+      vendorId: vendor?.id || null,
+    });
 
     const {
       title,
@@ -93,12 +123,14 @@ export async function POST(req: NextRequest) {
     // Create event
     const safeStatus = status === "pending_review" ? "pending_review" : "draft";
 
-    const getMissingColumn = (message?: string | null) => {
+    const getMissingColumns = (message?: string | null) => {
       if (!message) {
-        return null;
+        return [];
       }
-      const match = message.match(/column \"([^\"]+)\" does not exist/i);
-      return match?.[1] || null;
+      const matches = Array.from(
+        message.matchAll(/column \"([^\"]+)\" does not exist/gi)
+      );
+      return matches.map((match) => match[1]).filter(Boolean);
     };
 
     const basePayload = {
@@ -114,32 +146,31 @@ export async function POST(req: NextRequest) {
       submitted_at: safeStatus === "pending_review" ? new Date().toISOString() : null,
     };
 
-    const insertEvent = async (payload: Record<string, any>) => {
+    const insertEvent = async (payload: typeof basePayload) => {
       return supabase.from("events").insert(payload).select("id").single();
     };
 
-    let payload: Record<string, any> = { ...basePayload };
+    const payload = { ...basePayload };
     let { data: event, error: eventError } = await insertEvent(payload);
 
-    // Legacy schema fallback: strip missing columns and retry exactly once
-    const missingColumn = getMissingColumn(eventError?.message);
-    if (eventError && missingColumn) {
-      const colsToRemove = new Set<string>([missingColumn]);
-      // Legacy schemas often miss both owner_user_id and submitted_at together
-      if (missingColumn === "owner_user_id") {
-        colsToRemove.add("submitted_at");
+    const missingColumns = getMissingColumns(eventError?.message);
+    if (eventError && missingColumns.length > 0) {
+      const retryPayload = { ...payload } as Record<string, unknown>;
+      if (missingColumns.includes("owner_user_id")) {
+        delete retryPayload.owner_user_id;
+        delete retryPayload.submitted_at;
       }
-      for (const col of colsToRemove) {
-        delete payload[col];
-      }
-
-      const retry = await insertEvent(payload);
+      missingColumns.forEach((column) => {
+        delete retryPayload[column];
+      });
+      const retry = await insertEvent(retryPayload as typeof basePayload);
       event = retry.data;
       eventError = retry.error;
     }
 
     if (eventError || !event) {
       console.error("Error creating event:", {
+        requestId,
         message: eventError?.message,
         details: eventError?.details,
         hint: eventError?.hint,
@@ -147,13 +178,18 @@ export async function POST(req: NextRequest) {
       });
       const includeDetails = process.env.NODE_ENV !== "production";
       return NextResponse.json(
-        {
-          error: "Failed to create event",
-          message: includeDetails ? eventError?.message : undefined,
-          details: includeDetails ? eventError?.details : undefined,
-          hint: includeDetails ? eventError?.hint : undefined,
-          code: includeDetails ? eventError?.code : undefined,
-        },
+        includeDetails
+          ? {
+              requestId,
+              error: "Failed to create event",
+              debug: {
+                supabase_code: eventError?.code,
+                message: eventError?.message,
+                details: eventError?.details,
+                hint: eventError?.hint,
+              },
+            }
+          : { error: "Failed to create event" },
         { status: 500 }
       );
     }
@@ -173,6 +209,7 @@ export async function POST(req: NextRequest) {
 
     if (ticketTypesError) {
       console.error("Error creating ticket types:", {
+        requestId,
         message: ticketTypesError.message,
         details: ticketTypesError.details,
         hint: ticketTypesError.hint,
@@ -182,13 +219,18 @@ export async function POST(req: NextRequest) {
       // Cleanup event
       await supabase.from("events").delete().eq("id", event.id);
       return NextResponse.json(
-        {
-          error: "Failed to create ticket types",
-          message: includeDetails ? ticketTypesError.message : undefined,
-          details: includeDetails ? ticketTypesError.details : undefined,
-          hint: includeDetails ? ticketTypesError.hint : undefined,
-          code: includeDetails ? ticketTypesError.code : undefined,
-        },
+        includeDetails
+          ? {
+              requestId,
+              error: "Failed to create ticket types",
+              debug: {
+                supabase_code: ticketTypesError.code,
+                message: ticketTypesError.message,
+                details: ticketTypesError.details,
+                hint: ticketTypesError.hint,
+              },
+            }
+          : { error: "Failed to create ticket types" },
         { status: 500 }
       );
     }

@@ -9,16 +9,29 @@ import { validateProductCompliance } from "@/lib/compliance";
  */
 export async function POST(req: NextRequest) {
   try {
+    const requestId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const supabase = await createSupabaseServerClient();
     
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     
-    console.log(`[vendor-products] SSR user check: ${user ? `found ${user.id} (${user.email})` : 'not found'}`);
+    console.log(
+      `[vendor-products] requestId=${requestId} SSR user check: ${
+        user ? `found ${user.id} (${user.email})` : "not found"
+      }`
+    );
     
     if (userError || !user) {
-      console.error(`[vendor-products] Auth error:`, userError);
+      console.error(`[vendor-products] requestId=${requestId} Auth error:`, {
+        message: userError?.message,
+        details: (userError as { details?: string })?.details,
+      });
       return NextResponse.json(
-        { error: "Unauthorized" },
+        process.env.NODE_ENV === "production"
+          ? { error: "Unauthorized" }
+          : { requestId, error: "Unauthorized" },
         { status: 401 }
       );
     }
@@ -31,7 +44,12 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (vendorError) {
-      console.error(`[vendor-products] Vendor query error (user client):`, vendorError);
+      console.error(`[vendor-products] requestId=${requestId} Vendor query error (user client):`, {
+        message: vendorError.message,
+        details: vendorError.details,
+        hint: vendorError.hint,
+        code: vendorError.code,
+      });
       const admin = getSupabaseAdminClient();
       const { data: adminVendor, error: adminVendorError } = await admin
         .from("vendors")
@@ -39,18 +57,40 @@ export async function POST(req: NextRequest) {
         .eq("owner_user_id", user.id)
         .maybeSingle();
       if (adminVendorError) {
-        console.error(`[vendor-products] Vendor query error (admin client):`, adminVendorError);
+        console.error(`[vendor-products] requestId=${requestId} Vendor query error (admin client):`, {
+          message: adminVendorError.message,
+          details: adminVendorError.details,
+          hint: adminVendorError.hint,
+          code: adminVendorError.code,
+        });
       } else {
         vendor = adminVendor;
         vendorError = null;
       }
     }
 
-    console.log(`[vendor-products] Vendor lookup for user ${user.id}: ${vendor ? `found ${vendor.id}` : 'not found'}`);
+    console.log(
+      `[vendor-products] requestId=${requestId} Vendor lookup result`,
+      {
+        userId: user.id,
+        vendorFound: !!vendor,
+        vendorId: vendor?.id || null,
+      }
+    );
     
     if (vendorError) {
       return NextResponse.json(
-        { error: "Failed to verify vendor account" },
+        process.env.NODE_ENV === "production"
+          ? { error: "Failed to verify vendor account" }
+          : {
+              requestId,
+              error: "Failed to verify vendor account",
+              debug: {
+                supabase_code: vendorError.code,
+                message: vendorError.message,
+                hint: vendorError.hint,
+              },
+            },
         { status: 500 }
       );
     }
@@ -68,7 +108,9 @@ export async function POST(req: NextRequest) {
 
       // If approved application exists but no vendor row, auto-create it
       if (application && application.status === 'approved') {
-        console.warn(`[vendor-products] AUTO-PROVISION: Approved application exists but vendor row missing for user ${user.id} - creating vendor row`);
+        console.warn(
+          `[vendor-products] requestId=${requestId} AUTO-PROVISION: Approved application exists but vendor row missing for user ${user.id} - creating vendor row`
+        );
         
         try {
           const admin = getSupabaseAdminClient();
@@ -88,44 +130,71 @@ export async function POST(req: NextRequest) {
             .single();
 
           if (autoVendorError || !autoVendor) {
-            console.error(`[vendor-products] AUTO-PROVISION FAILED:`, autoVendorError);
+            console.error(`[vendor-products] requestId=${requestId} AUTO-PROVISION FAILED:`, {
+              message: autoVendorError?.message,
+              details: autoVendorError?.details,
+              hint: autoVendorError?.hint,
+              code: autoVendorError?.code,
+            });
             return NextResponse.json(
-              { 
-                error: "Vendor account provisioning failed. Please contact support.",
-                autoProvisionAttempted: true,
-              },
+              process.env.NODE_ENV === "production"
+                ? { error: "Vendor account provisioning failed. Please contact support." }
+                : {
+                    requestId,
+                    error: "Vendor account provisioning failed. Please contact support.",
+                    autoProvisionAttempted: true,
+                  },
               { status: 500 }
             );
           }
 
-          console.log(`[vendor-products] AUTO-PROVISION SUCCESS: Created vendor ${autoVendor.id} for user ${user.id}`);
+          console.log(
+            `[vendor-products] requestId=${requestId} AUTO-PROVISION SUCCESS: Created vendor ${autoVendor.id} for user ${user.id}`
+          );
           
           // Retry product creation with newly created vendor
           // Fall through to product creation logic below with autoVendor
           // Set vendor to autoVendor and continue
           vendor = autoVendor;
         } catch (autoProvisionError) {
-          console.error(`[vendor-products] AUTO-PROVISION EXCEPTION:`, autoProvisionError);
+          console.error(
+            `[vendor-products] requestId=${requestId} AUTO-PROVISION EXCEPTION:`,
+            autoProvisionError
+          );
           return NextResponse.json(
-            { 
-              error: "Vendor account provisioning error. Please contact support.",
-              autoProvisionAttempted: true,
-            },
+            process.env.NODE_ENV === "production"
+              ? { error: "Vendor account provisioning error. Please contact support." }
+              : {
+                  requestId,
+                  error: "Vendor account provisioning error. Please contact support.",
+                  autoProvisionAttempted: true,
+                },
             { status: 500 }
           );
         }
       } else {
         // No approved application - return friendly error
         return NextResponse.json(
-          { 
-            error: application?.status === 'pending' 
-              ? "Your vendor application is pending approval. Please wait for admin approval before creating products."
-              : application?.status === 'rejected'
-              ? "Your vendor application was rejected. Please contact support if you believe this is an error."
-              : "Vendor account required. Please apply to become a vendor first.",
-            hasApplication: !!application,
-            applicationStatus: application?.status || null,
-          },
+          process.env.NODE_ENV === "production"
+            ? {
+                error:
+                  application?.status === "pending"
+                    ? "Your vendor application is pending approval. Please wait for admin approval before creating products."
+                    : application?.status === "rejected"
+                      ? "Your vendor application was rejected. Please contact support if you believe this is an error."
+                      : "Vendor account required. Please apply to become a vendor first.",
+              }
+            : {
+                requestId,
+                error:
+                  application?.status === "pending"
+                    ? "Your vendor application is pending approval. Please wait for admin approval before creating products."
+                    : application?.status === "rejected"
+                      ? "Your vendor application was rejected. Please contact support if you believe this is an error."
+                      : "Vendor account required. Please apply to become a vendor first.",
+                hasApplication: !!application,
+                applicationStatus: application?.status || null,
+              },
           { status: 404 }
         );
       }
@@ -133,9 +202,13 @@ export async function POST(req: NextRequest) {
 
     // DEFENSIVE: Verify vendor belongs to this user
     if (vendor.owner_user_id !== user.id) {
-      console.error(`[vendor-products] SECURITY: Vendor owner mismatch! user_id=${user.id}, vendor.owner_user_id=${vendor.owner_user_id}`);
+      console.error(
+        `[vendor-products] requestId=${requestId} SECURITY: Vendor owner mismatch! user_id=${user.id}, vendor.owner_user_id=${vendor.owner_user_id}`
+      );
       return NextResponse.json(
-        { error: "Vendor account access denied" },
+        process.env.NODE_ENV === "production"
+          ? { error: "Vendor account access denied" }
+          : { requestId, error: "Vendor account access denied" },
         { status: 403 }
       );
     }
@@ -177,17 +250,12 @@ export async function POST(req: NextRequest) {
       console.warn(`⚠️ [product/create] Vendor ${vendor.id} has no active subscription`);
     }
 
-    const {
-      name,
-      description,
-      price_cents,
-      category_id,
-      active = true,
-      product_type,
-      coa_url,
-      coa_object_path,
-      delta8_disclaimer_ack,
-    } = await req.json();
+    const { name, description, price_cents, category_id, active = true, product_type, coa_url, coa_object_path, delta8_disclaimer_ack } = await req.json();
+    const normalizedCoaObjectPath =
+      typeof coa_object_path === "string" ? coa_object_path.trim() : null;
+    if (coa_object_path && !normalizedCoaObjectPath) {
+      console.warn("[vendor-products] Ignoring invalid coa_object_path payload");
+    }
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -250,16 +318,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const getMissingColumn = (message?: string | null) => {
+    const getMissingColumns = (message?: string | null) => {
       if (!message) {
-        return null;
+        return [];
       }
-      const match = message.match(/column \"([^\"]+)\" does not exist/i);
-      return match?.[1] || null;
+      const matches = Array.from(
+        message.matchAll(/column \"([^\"]+)\" does not exist/gi)
+      );
+      return matches.map((match) => match[1]).filter(Boolean);
     };
 
     // Create product with draft status (requires admin approval)
-    const baseInsertPayload: Record<string, any> = {
+    const basePayload = {
       vendor_id: vendor.id,
       owner_user_id: user.id, // Direct reference for RLS
       name: name.trim(),
@@ -269,45 +339,32 @@ export async function POST(req: NextRequest) {
       status: "draft", // Always start as draft
       active: false, // Not active until approved
       product_type: product_type || "non_intoxicating",
-      // COA is optional at create time; never block product creation
       coa_url: coa_url?.trim() || null,
-      coa_object_path: typeof coa_object_path === "string" ? coa_object_path.trim() || null : null,
+      coa_object_path: normalizedCoaObjectPath,
       delta8_disclaimer_ack: delta8_disclaimer_ack === true,
     };
 
-    if (
-      typeof baseInsertPayload.coa_object_path === "string" &&
-      baseInsertPayload.coa_object_path.length > 0 &&
-      !baseInsertPayload.coa_object_path.includes("/")
-    ) {
-      console.warn(
-        `[vendor-products] coa_object_path does not look like a storage key:`,
-        baseInsertPayload.coa_object_path
-      );
-    }
+    const insertProduct = async (payload: typeof basePayload) => {
+      return supabase.from("products").insert(payload).select("id, name, price_cents, status").single();
+    };
 
-    let payload = { ...baseInsertPayload };
-    let { data: product, error: productError } = await supabase
-      .from("products")
-      .insert(payload)
-      .select("id, name, price_cents, status")
-      .single();
-
-    // Back-compat for deployments missing newer columns (e.g. coa_object_path)
-    const missingColumn = getMissingColumn(productError?.message);
-    if (productError && missingColumn) {
-      delete payload[missingColumn];
-      const retry = await supabase
-        .from("products")
-        .insert(payload)
-        .select("id, name, price_cents, status")
-        .single();
+    let { data: product, error: productError } = await insertProduct(basePayload);
+    const missingColumns = getMissingColumns(productError?.message);
+    if (productError && missingColumns.length > 0) {
+      const retryPayload = { ...basePayload } as Record<string, unknown>;
+      if (missingColumns.includes("owner_user_id")) {
+        delete retryPayload.owner_user_id;
+      }
+      missingColumns.forEach((column) => {
+        delete retryPayload[column];
+      });
+      const retry = await insertProduct(retryPayload as typeof basePayload);
       product = retry.data;
       productError = retry.error;
     }
 
     if (productError) {
-      console.error(`[vendor-products] Error creating product:`, {
+      console.error(`[vendor-products] requestId=${requestId} Error creating product:`, {
         message: productError.message,
         details: productError.details,
         hint: productError.hint,
@@ -315,24 +372,36 @@ export async function POST(req: NextRequest) {
       });
       const includeDetails = process.env.NODE_ENV !== "production";
       return NextResponse.json(
-        {
-          error: "Failed to create product",
-          message: includeDetails ? productError.message : undefined,
-          details: includeDetails ? productError.details : undefined,
-          hint: includeDetails ? productError.hint : undefined,
-          code: includeDetails ? productError.code : undefined,
-        },
+        includeDetails
+          ? {
+              requestId,
+              error: "Failed to create product",
+              debug: {
+                supabase_code: productError.code,
+                message: productError.message,
+                details: productError.details,
+                hint: productError.hint,
+              },
+            }
+          : { error: "Failed to create product" },
         { status: 500 }
       );
     }
 
     if (!product) {
-      console.error(`[vendor-products] Product insert returned no row (no error).`);
-      return NextResponse.json({ error: "Failed to create product" }, { status: 500 });
+      console.error(
+        `[vendor-products] requestId=${requestId} Product insert returned no row (no error).`
+      );
+      return NextResponse.json(
+        process.env.NODE_ENV === "production"
+          ? { error: "Failed to create product" }
+          : { requestId, error: "Failed to create product" },
+        { status: 500 }
+      );
     }
 
     console.log(
-      `[vendor-products] Product created: id=${product.id}, status=${product.status}`
+      `[vendor-products] requestId=${requestId} Product created: id=${product.id}, status=${product.status}`
     );
 
     return NextResponse.json({
