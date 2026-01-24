@@ -31,13 +31,23 @@ interface SupabaseMock {
     getUser: ReturnType<typeof vi.fn>;
     signOut: ReturnType<typeof vi.fn>;
   };
+  from: ReturnType<typeof vi.fn>;
 }
+
+const mockProfileSingle = vi.fn();
 
 const supabaseMock: SupabaseMock = {
   auth: {
     getUser: vi.fn(),
     signOut: vi.fn(),
   },
+  from: vi.fn(() => ({
+    select: () => ({
+      eq: () => ({
+        single: mockProfileSingle,
+      }),
+    }),
+  })),
 };
 
 vi.mock("@/lib/supabase", () => ({
@@ -50,6 +60,7 @@ describe("Nav - Logout Button", () => {
     vi.clearAllMocks();
     supabaseMock.auth.getUser.mockResolvedValue({ data: { user: null } });
     supabaseMock.auth.signOut.mockResolvedValue({ error: null });
+    mockProfileSingle.mockResolvedValue({ data: { role: null }, error: null });
     global.fetch = vi.fn();
     delete (window as Record<string, unknown>).location;
     (window as Record<string, unknown>).location = { href: "" };

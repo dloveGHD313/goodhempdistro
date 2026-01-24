@@ -12,27 +12,47 @@ vi.mock("next/navigation", () => ({
 
 // Mock Supabase client
 const mockGetUser = vi.fn();
-const mockSelect = vi.fn();
-const mockInsert = vi.fn();
+const mockAffiliateSingle = vi.fn();
+const mockReferralOrder = vi.fn();
+const mockAffiliateInsertSingle = vi.fn();
 
-vi.mock("@supabase/supabase-js", () => ({
-  createClient: () => ({
+vi.mock("@/lib/supabase", () => ({
+  createSupabaseBrowserClient: () => ({
     auth: {
       getUser: mockGetUser,
     },
-    from: (table: string) => ({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          single: mockSelect,
-          order: vi.fn().mockReturnValue(mockSelect),
+    from: (table: string) => {
+      if (table === "affiliates") {
+        return {
+          select: () => ({
+            eq: () => ({
+              single: mockAffiliateSingle,
+            }),
+          }),
+          insert: () => ({
+            select: () => ({
+              single: mockAffiliateInsertSingle,
+            }),
+          }),
+        };
+      }
+      if (table === "affiliate_referrals") {
+        return {
+          select: () => ({
+            eq: () => ({
+              order: mockReferralOrder,
+            }),
+          }),
+        };
+      }
+      return {
+        select: () => ({
+          eq: () => ({
+            single: vi.fn(),
+          }),
         }),
-      }),
-      insert: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          single: mockInsert,
-        }),
-      }),
-    }),
+      };
+    },
   }),
 }));
 
@@ -51,6 +71,8 @@ describe("Affiliate Page", () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "test-key";
     process.env.NEXT_PUBLIC_SITE_URL = "https://test-site.com";
+
+    mockReferralOrder.mockResolvedValue({ data: [] });
   });
 
   it("redirects to login when user is not authenticated", async () => {
@@ -73,7 +95,7 @@ describe("Affiliate Page", () => {
     };
 
     mockGetUser.mockResolvedValue({ data: { user: mockUser } });
-    mockSelect.mockResolvedValue({ data: mockAffiliate });
+    mockAffiliateSingle.mockResolvedValue({ data: mockAffiliate });
 
     render(<AffiliatePage />);
 
@@ -92,7 +114,7 @@ describe("Affiliate Page", () => {
     };
 
     mockGetUser.mockResolvedValue({ data: { user: mockUser } });
-    mockSelect.mockResolvedValue({ data: mockAffiliate });
+    mockAffiliateSingle.mockResolvedValue({ data: mockAffiliate });
 
     render(<AffiliatePage />);
 
@@ -112,7 +134,7 @@ describe("Affiliate Page", () => {
     };
 
     mockGetUser.mockResolvedValue({ data: { user: mockUser } });
-    mockSelect.mockResolvedValue({ data: mockAffiliate });
+    mockAffiliateSingle.mockResolvedValue({ data: mockAffiliate });
 
     render(<AffiliatePage />);
 
@@ -139,7 +161,7 @@ describe("Affiliate Page", () => {
     };
 
     mockGetUser.mockResolvedValue({ data: { user: mockUser } });
-    mockSelect.mockResolvedValue({ data: mockAffiliate });
+    mockAffiliateSingle.mockResolvedValue({ data: mockAffiliate });
 
     render(<AffiliatePage />);
 
@@ -161,7 +183,7 @@ describe("Affiliate Page", () => {
     };
 
     mockGetUser.mockResolvedValue({ data: { user: mockUser } });
-    mockSelect.mockResolvedValue({ data: mockAffiliate });
+    mockAffiliateSingle.mockResolvedValue({ data: mockAffiliate });
 
     render(<AffiliatePage />);
 
@@ -174,8 +196,8 @@ describe("Affiliate Page", () => {
     const mockUser = { id: "test-user-123" };
 
     mockGetUser.mockResolvedValue({ data: { user: mockUser } });
-    mockSelect.mockResolvedValue({ data: null }); // No existing affiliate
-    mockInsert.mockResolvedValue({
+    mockAffiliateSingle.mockResolvedValue({ data: null }); // No existing affiliate
+    mockAffiliateInsertSingle.mockResolvedValue({
       data: {
         id: "new-affiliate-123",
         user_id: "test-user-123",

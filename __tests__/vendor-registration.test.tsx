@@ -1,53 +1,43 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import VendorRegistrationPage from "@/app/vendor-registration/page";
 
-const mockPackages = [
-  {
-    id: "pkg-basic",
-    slug: "basic",
-    name: "Basic",
-    monthly_price_cents: 5000,
-    commission_bps: 700,
-    product_limit: 25,
-    event_limit: 5,
-    featured: false,
-    wholesale_access: false,
-    perks: ["Starter listing", "Limited events", "Basic analytics"],
-  },
-  {
-    id: "pkg-plus",
-    slug: "plus",
-    name: "Plus",
-    monthly_price_cents: 12500,
-    commission_bps: 400,
-    product_limit: 100,
-    event_limit: null,
-    featured: false,
-    wholesale_access: false,
-    perks: ["Unlimited events", "More visibility", "Priority placement"],
-  },
-  {
-    id: "pkg-premium",
-    slug: "premium",
-    name: "Premium",
-    monthly_price_cents: 25000,
-    commission_bps: 200,
-    product_limit: null,
-    event_limit: null,
-    featured: true,
-    wholesale_access: true,
-    perks: ["Featured vendor", "Discounted COAs", "Wholesale access"],
-  },
-];
+const mockGetUser = vi.fn();
+const mockRedirect = vi.fn((url: string) => {
+  throw new Error(`NEXT_REDIRECT:${url}`);
+});
+const mockHasVendorContext = vi.fn();
+const mockVendorApplication = vi.fn();
+const mockVendorRow = vi.fn();
 
-// Mock Supabase
-vi.mock("@supabase/supabase-js", () => ({
-  createClient: () => ({
-    from: () => ({
+vi.mock("next/navigation", () => ({
+  redirect: (url: string) => mockRedirect(url),
+  useRouter: () => ({
+    push: vi.fn(),
+  }),
+  useSearchParams: () => ({
+    get: () => null,
+  }),
+}));
+
+vi.mock("next/cache", () => ({
+  unstable_noStore: () => undefined,
+}));
+
+vi.mock("@/lib/authz", () => ({
+  hasVendorContext: (...args: unknown[]) => mockHasVendorContext(...args),
+}));
+
+vi.mock("@/lib/supabase", () => ({
+  createSupabaseServerClient: () => ({
+    auth: {
+      getUser: mockGetUser,
+    },
+    from: (table: string) => ({
       select: () => ({
         eq: () => ({
-          order: () => Promise.resolve({ data: mockPackages, error: null }),
+          maybeSingle:
+            table === "vendor_applications" ? mockVendorApplication : mockVendorRow,
         }),
       }),
     }),
@@ -57,90 +47,64 @@ vi.mock("@supabase/supabase-js", () => ({
 describe("Vendor Registration Page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHasVendorContext.mockResolvedValue({
+      hasContext: false,
+      hasVendor: false,
+    });
+    mockVendorApplication.mockResolvedValue({ data: null, error: null });
+    mockVendorRow.mockResolvedValue({ data: null, error: null });
   });
 
-  it("renders vendor registration page with hero section", async () => {
-    render(<VendorRegistrationPage />);
+  it("redirects to login when no user session exists", async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+
+    await expect(VendorRegistrationPage()).rejects.toThrow("NEXT_REDIRECT");
+    expect(mockRedirect).toHaveBeenCalledWith("/login?redirect=/vendor-registration");
+  });
+
+  it("renders vendor form when user has no vendor context", async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "user-123", email: "test@example.com" } },
+      error: null,
+    });
+
+    const ui = await VendorRegistrationPage();
+    render(ui);
 
     expect(
-      screen.getByText("Become a Vendor on Good Hemp Distro")
+      screen.getByText("Create Your Vendor Account")
     ).toBeInTheDocument();
-    expect(screen.getByText(/Join our thriving marketplace/i)).toBeInTheDocument();
   });
 
-  it("displays all three pricing tiers", async () => {
-    render(<VendorRegistrationPage />);
-
-    expect(await screen.findByText("Basic")).toBeInTheDocument();
-    expect(screen.getByText("Plus")).toBeInTheDocument();
-    expect(screen.getByText("Premium")).toBeInTheDocument();
-  });
-
-  it("displays correct pricing and commission info", async () => {
-    render(<VendorRegistrationPage />);
-
-    expect(await screen.findByText("$50.00")).toBeInTheDocument();
-    expect(screen.getByText(/7%\s+commission/)).toBeInTheDocument();
-    expect(screen.getByText(/25 products/)).toBeInTheDocument();
-
-    expect(screen.getByText("$125.00")).toBeInTheDocument();
-    expect(screen.getByText(/4%\s+commission/)).toBeInTheDocument();
-
-    expect(screen.getByText("$250.00")).toBeInTheDocument();
-    expect(screen.getByText(/2%\s+commission/)).toBeInTheDocument();
-  });
-
-  it("marks Premium as most popular", async () => {
-    render(<VendorRegistrationPage />);
-
-    expect(await screen.findByText("MOST POPULAR")).toBeInTheDocument();
-  });
-
-  it("displays vendor perks section", async () => {
-    render(<VendorRegistrationPage />);
-
-    expect(screen.getByText("Vendor Perks")).toBeInTheDocument();
-    expect(screen.getByText("Built-in Social Feed")).toBeInTheDocument();
-    expect(screen.getByText("Event Access")).toBeInTheDocument();
-    expect(screen.getByText("Wholesale Opportunities")).toBeInTheDocument();
-  });
-
-  it("displays FAQ section with questions", async () => {
-    render(<VendorRegistrationPage />);
-
-    expect(screen.getByText("Frequently Asked Questions")).toBeInTheDocument();
-    expect(screen.getByText("Can I change my plan later?")).toBeInTheDocument();
-    expect(screen.getByText("What payment methods do you accept?")).toBeInTheDocument();
-  });
-
-  it("displays all package features", async () => {
-    render(<VendorRegistrationPage />);
-
-    expect(await screen.findByText("Starter listing")).toBeInTheDocument();
-    expect(screen.getByText("Limited events")).toBeInTheDocument();
-
-    expect(screen.getByText("Priority placement")).toBeInTheDocument();
-    expect(screen.getByText("More visibility")).toBeInTheDocument();
-
-    expect(screen.getByText("Featured vendor")).toBeInTheDocument();
-    expect(screen.getByText("Wholesale access")).toBeInTheDocument();
-  });
-
-  it("has CTA section at bottom", async () => {
-    render(<VendorRegistrationPage />);
-
-    expect(await screen.findByText("Ready to Grow Your Business?")).toBeInTheDocument();
-    expect(screen.getByText("Get Started Today")).toBeInTheDocument();
-  });
-
-  it("marks a package as selected when chosen", async () => {
-    render(<VendorRegistrationPage />);
-
-    const chooseButtons = await screen.findAllByText("Choose Plan");
-    fireEvent.click(chooseButtons[0]);
-
-    await waitFor(() => {
-      expect(screen.getByText("Selected")).toBeInTheDocument();
+  it("renders pending status when application exists", async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: "user-123", email: "test@example.com" } },
+      error: null,
     });
+    mockHasVendorContext.mockResolvedValue({
+      hasContext: true,
+      hasVendor: false,
+      _debug: null,
+    });
+    mockVendorApplication.mockResolvedValue({
+      data: {
+        id: "app-123",
+        user_id: "user-123",
+        business_name: "Test Brand",
+        status: "pending",
+        created_at: "2024-01-01T00:00:00.000Z",
+      },
+      error: null,
+    });
+
+    const ui = await VendorRegistrationPage();
+    render(ui);
+
+    expect(screen.getByText("Vendor Account")).toBeInTheDocument();
+    expect(screen.getByText("Test Brand")).toBeInTheDocument();
+    expect(screen.getByText("pending")).toBeInTheDocument();
+    expect(
+      screen.getByText(/pending review/i)
+    ).toBeInTheDocument();
   });
 });
