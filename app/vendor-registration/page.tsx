@@ -123,6 +123,11 @@ export default async function VendorRegistrationPage() {
     }
   }
 
+  // Approved/active vendors should land on the vendor dashboard
+  if (vendor?.status === "active") {
+    redirect("/vendors/dashboard");
+  }
+
   // If vendor context exists, show status page
   if (hasContext && vendor) {
     const isPending = vendor.status === "pending";
@@ -199,11 +204,6 @@ export default async function VendorRegistrationPage() {
         <Footer />
       </div>
     );
-  }
-
-  // If active vendor, redirect to dashboard
-  if (hasContext && vendor && vendor.status === "active") {
-    redirect("/vendors/dashboard");
   }
 
   // Show vendor creation form (no context or context but no vendor data)
