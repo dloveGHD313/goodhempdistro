@@ -11,26 +11,25 @@ if (!supabaseUrl || !supabaseAnonKey) {
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 async function main() {
+  const { data: bucket, error: bucketError } = await supabase.storage.getBucket("coas");
+
+  if (bucketError || !bucket) {
+    console.error("COA bucket lookup failed:", bucketError?.message || "Not found");
+    process.exit(1);
+  }
+
   const { data: rootItems, error: rootError } = await supabase.storage
     .from("coas")
-    .list("");
+    .list("", { limit: 1 });
 
   if (rootError) {
-    console.error("COA bucket access failed:", rootError.message);
-    process.exit(1);
+    console.warn("COA bucket list blocked (expected if public policy is restricted):", rootError.message);
+  } else {
+    console.log("COA bucket list succeeded (policy may be too permissive).");
+    console.log("Root items:", rootItems?.length ?? 0);
   }
 
-  const { error: prefixError } = await supabase.storage
-    .from("coas")
-    .list("coas", { limit: 1 });
-
-  if (prefixError) {
-    console.error("COA prefix access failed:", prefixError.message);
-    process.exit(1);
-  }
-
-  console.log("COA bucket is accessible via anon key.");
-  console.log("Root items:", rootItems?.length ?? 0);
+  console.log("COA bucket exists:", bucket.name);
 }
 
 main().catch((error) => {

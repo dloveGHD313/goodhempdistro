@@ -16,7 +16,7 @@ async function getService(slugOrId: string) {
     let { data: service, error } = await supabase
       .from("services")
       .select(
-        "id, name, title, description, pricing_type, price_cents, slug, category_id, subcategory_id, status, active, vendor_id"
+        "id, name, title, description, pricing_type, price_cents, slug, category_id, subcategory_id, status, active, vendor_id, coa_object_path"
       )
       .or(`slug.eq.${slugOrId},id.eq.${slugOrId}`)
       .eq("status", "approved")
@@ -54,10 +54,15 @@ async function getService(slugOrId: string) {
       vendor = vendorData || null;
     }
 
+    const coaPublicUrl = service.coa_object_path
+      ? supabase.storage.from("coas").getPublicUrl(service.coa_object_path).data.publicUrl
+      : null;
+
     const normalizedService = {
       ...service,
       categories: category,
       vendors: vendor,
+      coa_public_url: coaPublicUrl,
     };
 
     return normalizedService;

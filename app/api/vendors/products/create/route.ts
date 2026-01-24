@@ -26,14 +26,29 @@ export async function POST(req: NextRequest) {
     // Get vendor for this user with error handling
     let { data: vendor, error: vendorError } = await supabase
       .from("vendors")
-      .select("id, status, owner_user_id")
+      .select("id, owner_user_id")
       .eq("owner_user_id", user.id)
       .maybeSingle();
 
-    console.log(`[vendor-products] Vendor lookup for user ${user.id}: ${vendor ? `found ${vendor.id} (status: ${vendor.status})` : 'not found'}`);
+    if (vendorError) {
+      console.error(`[vendor-products] Vendor query error (user client):`, vendorError);
+      const admin = getSupabaseAdminClient();
+      const { data: adminVendor, error: adminVendorError } = await admin
+        .from("vendors")
+        .select("id, owner_user_id")
+        .eq("owner_user_id", user.id)
+        .maybeSingle();
+      if (adminVendorError) {
+        console.error(`[vendor-products] Vendor query error (admin client):`, adminVendorError);
+      } else {
+        vendor = adminVendor;
+        vendorError = null;
+      }
+    }
+
+    console.log(`[vendor-products] Vendor lookup for user ${user.id}: ${vendor ? `found ${vendor.id}` : 'not found'}`);
     
     if (vendorError) {
-      console.error(`[vendor-products] Vendor query error:`, vendorError);
       return NextResponse.json(
         { error: "Failed to verify vendor account" },
         { status: 500 }
@@ -65,14 +80,11 @@ export async function POST(req: NextRequest) {
               owner_user_id: user.id,
               business_name: application.business_name || "Auto-provisioned Vendor",
               description: application.description || null,
-              status: "active",
-              is_active: true,
-              is_approved: true,
               updated_at: new Date().toISOString(),
             }, {
               onConflict: "owner_user_id",
             })
-            .select("id, status, owner_user_id")
+            .select("id, owner_user_id")
             .single();
 
           if (autoVendorError || !autoVendor) {
@@ -165,7 +177,7 @@ export async function POST(req: NextRequest) {
       console.warn(`⚠️ [product/create] Vendor ${vendor.id} has no active subscription`);
     }
 
-    const { name, description, price_cents, category_id, active = true, product_type, coa_url, delta8_disclaimer_ack } = await req.json();
+    const { name, description, price_cents, category_id, active = true, product_type, coa_url, coa_object_path, delta8_disclaimer_ack } = await req.json();
 
     if (!name || !name.trim()) {
       return NextResponse.json(
@@ -212,11 +224,13 @@ export async function POST(req: NextRequest) {
     console.log(`[vendor-products] Category COA requirement: category_id=${category_id}, requires_coa=${categoryRequiresCoa}`);
 
     // Validate compliance (COA only required if category requires it)
+    const requireCoaForDrafts = false;
     const complianceErrors = validateProductCompliance({
       product_type: product_type || "non_intoxicating",
       coa_url,
+      coa_object_path,
       delta8_disclaimer_ack,
-      category_requires_coa: categoryRequiresCoa,
+      category_requires_coa: categoryRequiresCoa && requireCoaForDrafts,
     });
 
     if (complianceErrors.length > 0) {
@@ -240,6 +254,7 @@ export async function POST(req: NextRequest) {
         active: false, // Not active until approved
         product_type: product_type || "non_intoxicating",
         coa_url: coa_url?.trim() || null,
+        coa_object_path: coa_object_path?.trim() || null,
         delta8_disclaimer_ack: delta8_disclaimer_ack === true,
       })
       .select("id, name, price_cents, status")

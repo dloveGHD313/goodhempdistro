@@ -21,6 +21,7 @@ export default function NewProductPage() {
   const [active, setActive] = useState(true);
   const [productType, setProductType] = useState<"non_intoxicating" | "intoxicating" | "delta8">("non_intoxicating");
   const [coaUrl, setCoaUrl] = useState("");
+  const [coaObjectPath, setCoaObjectPath] = useState("");
   const [useManualUrl, setUseManualUrl] = useState(false);
   const [delta8DisclaimerAck, setDelta8DisclaimerAck] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -95,12 +96,7 @@ export default function NewProductPage() {
     }
 
     try {
-      // Validate compliance fields - COA only required if category requires it
-      if (categoryRequiresCoa && !coaUrl.trim()) {
-        setError("COA URL is required for this product category");
-        setLoading(false);
-        return;
-      }
+      // COA is optional for drafts; validation happens on review if required
 
       if (productType === "intoxicating" && !isIntoxicatingAllowedNow()) {
         setError(`Intoxicating products are only allowed until ${getIntoxicatingCutoffDate()}. The cutoff date has passed.`);
@@ -124,7 +120,8 @@ export default function NewProductPage() {
           category_id: categoryId || null,
           active,
           product_type: productType,
-          coa_url: coaUrl.trim(),
+          coa_url: useManualUrl ? coaUrl.trim() : null,
+          coa_object_path: !useManualUrl ? coaObjectPath.trim() || null : null,
           delta8_disclaimer_ack: productType === "delta8" ? delta8DisclaimerAck : false,
         }),
       });
@@ -249,7 +246,7 @@ export default function NewProductPage() {
                   </select>
                   {categoryRequiresCoa && (
                     <p className="text-yellow-400 text-sm mt-1">
-                      ⚠️ COA is required for this category
+                      ⚠️ COA is required before approval for this category
                     </p>
                   )}
                 </div>
@@ -290,7 +287,15 @@ export default function NewProductPage() {
                     <input
                       type="checkbox"
                       checked={useManualUrl}
-                      onChange={(e) => setUseManualUrl(e.target.checked)}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setUseManualUrl(checked);
+                        if (checked) {
+                          setCoaObjectPath("");
+                        } else {
+                          setCoaUrl("");
+                        }
+                      }}
                       className="w-4 h-4 accent-accent"
                     />
                     <span className="text-sm text-muted">Paste URL instead</span>
@@ -302,20 +307,19 @@ export default function NewProductPage() {
                         id="coa_url"
                         value={coaUrl}
                         onChange={(e) => setCoaUrl(e.target.value)}
-                        required
                         className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
                         placeholder="https://example.com/coa.pdf"
                       />
-                      <p className="text-sm text-muted mt-1">Full panel COA required for all products</p>
+                      <p className="text-sm text-muted mt-1">Full panel COA required before approval</p>
                     </div>
                   ) : (
                     <UploadField
                       bucket="coas"
                       folderPrefix="coas"
                       label="COA Document (Full Panel Required)"
-                      required={categoryRequiresCoa}
-                      existingUrl={coaUrl || null}
-                      onUploaded={(url) => setCoaUrl(url)}
+                      required={false}
+                      existingUrl={null}
+                      onUploaded={(path) => setCoaObjectPath(path)}
                       helperText={categoryRequiresCoa 
                         ? "Upload a PDF or image of your full panel COA (max 50MB)" 
                         : "Upload a PDF or image of your COA (optional, max 50MB)"}

@@ -55,7 +55,8 @@ export async function PUT(
       category_id, 
       subcategory_id, 
       pricing_type,
-      price_cents 
+      price_cents,
+      coa_object_path
     } = await req.json();
 
     const serviceName = (name?.trim() || title?.trim());
@@ -115,6 +116,7 @@ export async function PUT(
         pricing_type: pricing_type || null,
         price_cents: price_cents ? parseInt(price_cents) : null,
         slug: serviceSlug || undefined,
+        coa_object_path: coa_object_path?.trim() || null,
       })
       .eq("id", id)
       .select("id, name, title, status")

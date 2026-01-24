@@ -16,12 +16,24 @@ async function getComplianceData() {
 
   const { data: products } = await admin
     .from("products")
-    .select("id, name, product_type, coa_url, coa_verified, delta8_disclaimer_ack, vendor_id, vendors!inner(business_name)")
+    .select("id, name, product_type, coa_url, coa_object_path, coa_verified, delta8_disclaimer_ack, vendor_id, vendors!inner(business_name)")
     .order("created_at", { ascending: false });
+
+  const productsWithCoaUrls = await Promise.all(
+    (products || []).map(async (product: any) => {
+      if (!product.coa_object_path) {
+        return { ...product, coa_review_url: null };
+      }
+      const { data } = await admin.storage
+        .from("coas")
+        .createSignedUrl(product.coa_object_path, 60 * 10);
+      return { ...product, coa_review_url: data?.signedUrl || null };
+    })
+  );
 
   return {
     vendors: vendors || [],
-    products: products || [],
+    products: productsWithCoaUrls || [],
   };
 }
 

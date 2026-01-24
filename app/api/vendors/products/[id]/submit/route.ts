@@ -26,7 +26,7 @@ export async function POST(
     // Verify product exists and belongs to this vendor
     const { data: product, error: productError } = await supabase
       .from("products")
-      .select("id, owner_user_id, status, category_id, coa_url")
+      .select("id, owner_user_id, status, category_id, coa_url, coa_object_path")
       .eq("id", id)
       .eq("owner_user_id", user.id)
       .maybeSingle();
@@ -89,7 +89,10 @@ export async function POST(
     }
 
     // Require COA if category requires it
-    if (categoryRequiresCoa && !product.coa_url) {
+    const hasCoa =
+      !!product.coa_url ||
+      !!product.coa_object_path;
+    if (categoryRequiresCoa && !hasCoa) {
       return NextResponse.json(
         { error: "COA is required for this product category before submission" },
         { status: 400 }

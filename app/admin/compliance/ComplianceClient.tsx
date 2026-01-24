@@ -18,6 +18,8 @@ type Product = {
   name: string;
   product_type: string;
   coa_url: string | null;
+  coa_object_path?: string | null;
+  coa_review_url?: string | null;
   coa_verified: boolean;
   delta8_disclaimer_ack: boolean;
   vendor_id: string;
@@ -32,6 +34,16 @@ type Props = {
 export default function ComplianceClient({ initialVendors, initialProducts }: Props) {
   const [vendors, setVendors] = useState<Vendor[]>(initialVendors);
   const [products, setProducts] = useState<Product[]>(initialProducts);
+
+  const resolveCoaUrl = (product: Product) => {
+    if (product.coa_review_url) {
+      return product.coa_review_url;
+    }
+    if (product.coa_object_path && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/coas/${product.coa_object_path}`;
+    }
+    return product.coa_url || null;
+  };
 
   const toggleCoaVerified = async (productId: string, currentValue: boolean) => {
     try {
@@ -129,8 +141,8 @@ export default function ComplianceClient({ initialVendors, initialProducts }: Pr
                     </td>
                     <td className="py-3 text-muted capitalize">{product.product_type}</td>
                     <td className="py-3">
-                      {product.coa_url ? (
-                        <a href={product.coa_url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline text-sm">
+                      {resolveCoaUrl(product) ? (
+                        <a href={resolveCoaUrl(product) as string} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline text-sm">
                           View COA
                         </a>
                       ) : (

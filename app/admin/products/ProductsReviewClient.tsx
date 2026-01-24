@@ -12,6 +12,8 @@ type Product = {
   status: string;
   submitted_at: string;
   coa_url?: string;
+  coa_object_path?: string | null;
+  coa_review_url?: string | null;
   vendor_id: string;
   owner_user_id: string;
   vendors: {
@@ -121,6 +123,16 @@ export default function ProductsReviewClient({ initialProducts, initialCounts }:
     return product.vendors?.business_name || "N/A";
   };
 
+  const resolveCoaUrl = (product: Product) => {
+    if (product.coa_review_url) {
+      return product.coa_review_url;
+    }
+    if (product.coa_object_path && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/coas/${product.coa_object_path}`;
+    }
+    return product.coa_url || null;
+  };
+
   return (
     <div className="space-y-6">
       {/* Summary */}
@@ -178,11 +190,11 @@ export default function ProductsReviewClient({ initialProducts, initialCounts }:
                     <div>
                       <strong>Submitted:</strong> {new Date(product.submitted_at).toLocaleString()}
                     </div>
-                    {product.coa_url && (
+                    {resolveCoaUrl(product) && (
                       <div>
                         <strong>COA:</strong>{" "}
                         <a
-                          href={product.coa_url}
+                          href={resolveCoaUrl(product) as string}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-accent hover:underline"

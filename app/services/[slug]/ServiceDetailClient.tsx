@@ -14,6 +14,7 @@ type Service = {
   pricing_type?: string;
   price_cents?: number;
   slug?: string;
+  coa_public_url?: string | null;
   category_id?: string;
   categories?: {
     name: string;
@@ -155,6 +156,20 @@ export default function ServiceDetailClient({ service }: Props) {
         {service.description && (
           <div className="prose prose-invert max-w-none mb-8">
             <p className="text-lg text-muted whitespace-pre-line">{service.description}</p>
+          </div>
+        )}
+
+        {service.coa_public_url && (
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-lg p-6">
+            <h3 className="text-lg font-semibold mb-2">Certificate of Analysis (COA)</h3>
+            <a
+              href={service.coa_public_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent hover:text-accent/80 underline"
+            >
+              View Full Panel COA →
+            </a>
           </div>
         )}
       </div>

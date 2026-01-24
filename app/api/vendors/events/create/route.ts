@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 /**
  * Create event with ticket types
@@ -15,11 +16,27 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify vendor
-    const { data: vendor, error: vendorError } = await supabase
+    let { data: vendor, error: vendorError } = await supabase
       .from("vendors")
-      .select("id")
+      .select("id, owner_user_id")
       .eq("owner_user_id", user.id)
-      .single();
+      .maybeSingle();
+
+    if (vendorError) {
+      console.error("[vendor-events] Vendor query error (user client):", vendorError);
+      const admin = getSupabaseAdminClient();
+      const { data: adminVendor, error: adminVendorError } = await admin
+        .from("vendors")
+        .select("id, owner_user_id")
+        .eq("owner_user_id", user.id)
+        .maybeSingle();
+      if (adminVendorError) {
+        console.error("[vendor-events] Vendor query error (admin client):", adminVendorError);
+      } else {
+        vendor = adminVendor;
+        vendorError = null;
+      }
+    }
 
     if (vendorError || !vendor) {
       return NextResponse.json(

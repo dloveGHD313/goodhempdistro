@@ -15,7 +15,9 @@ type Product = {
   featured: boolean;
   product_type?: "non_intoxicating" | "intoxicating" | "delta8";
   coa_url?: string | null;
+  coa_object_path?: string | null;
   coa_verified?: boolean;
+  coa_public_url?: string | null;
   created_at?: string;
 };
 
@@ -31,7 +33,7 @@ async function getProduct(id: string): Promise<Product | null> {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("products")
-      .select("id, name, category_id, price_cents, featured, product_type, coa_url, coa_verified, created_at")
+      .select("id, name, category_id, price_cents, featured, product_type, coa_url, coa_object_path, coa_verified, created_at")
       .eq("id", id)
       .single();
 
@@ -39,7 +41,14 @@ async function getProduct(id: string): Promise<Product | null> {
       return null;
     }
 
-    return data;
+    const coaPublicUrl = data.coa_object_path
+      ? supabase.storage.from("coas").getPublicUrl(data.coa_object_path).data.publicUrl
+      : data.coa_url || null;
+
+    return {
+      ...data,
+      coa_public_url: coaPublicUrl,
+    };
   } catch (err) {
     console.error("Error fetching product:", err);
     return null;
@@ -146,11 +155,11 @@ export default async function ProductDetailPage(props: Props) {
               </div>
             )}
 
-            {product.coa_url && (
+            {product.coa_public_url && (
               <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
                 <h3 className="text-lg font-semibold mb-2">Certificate of Analysis (COA)</h3>
                 <a
-                  href={product.coa_url}
+                  href={product.coa_public_url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-green-400 hover:text-green-300 underline"

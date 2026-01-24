@@ -37,18 +37,19 @@ export async function PUT(
       );
     }
 
-    const { name, description, price_cents, category_id, active, product_type, coa_url, delta8_disclaimer_ack } = await req.json();
+    const { name, description, price_cents, category_id, active, product_type, coa_url, coa_object_path, delta8_disclaimer_ack } = await req.json();
 
     // Get current product to merge compliance fields for validation
     const { data: currentProduct } = await supabase
       .from("products")
-      .select("product_type, coa_url, delta8_disclaimer_ack")
+      .select("product_type, coa_url, coa_object_path, delta8_disclaimer_ack")
       .eq("id", id)
       .single();
 
     const compliancePayload = {
       product_type: product_type !== undefined ? product_type : (currentProduct?.product_type || "non_intoxicating"),
       coa_url: coa_url !== undefined ? coa_url : currentProduct?.coa_url,
+      coa_object_path: coa_object_path !== undefined ? coa_object_path : currentProduct?.coa_object_path,
       delta8_disclaimer_ack: delta8_disclaimer_ack !== undefined ? delta8_disclaimer_ack : currentProduct?.delta8_disclaimer_ack,
     };
 
@@ -73,6 +74,7 @@ export async function PUT(
     if (active !== undefined) updates.active = active === true;
     if (product_type !== undefined) updates.product_type = product_type;
     if (coa_url !== undefined) updates.coa_url = coa_url?.trim() || null;
+    if (coa_object_path !== undefined) updates.coa_object_path = coa_object_path?.trim() || null;
     if (delta8_disclaimer_ack !== undefined) updates.delta8_disclaimer_ack = delta8_disclaimer_ack === true;
 
     const { data: updatedProduct, error: updateError } = await supabase

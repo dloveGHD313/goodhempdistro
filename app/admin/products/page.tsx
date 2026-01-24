@@ -16,7 +16,7 @@ async function getPendingProducts() {
     const { data: products, error } = await admin
       .from("products")
       .select(
-        "id, name, description, price_cents, status, submitted_at, coa_url, vendor_id, owner_user_id"
+        "id, name, description, price_cents, status, submitted_at, coa_url, coa_object_path, vendor_id, owner_user_id"
       )
       .eq("status", "pending_review")
       .order("submitted_at", { ascending: true });
@@ -60,6 +60,18 @@ async function getPendingProducts() {
       profiles: profileMap.get(p.owner_user_id) || null,
     }));
 
+    const productsWithCoaUrls = await Promise.all(
+      normalizedProducts.map(async (product: any) => {
+        if (!product.coa_object_path) {
+          return { ...product, coa_review_url: null };
+        }
+        const { data } = await admin.storage
+          .from("coas")
+          .createSignedUrl(product.coa_object_path, 60 * 10);
+        return { ...product, coa_review_url: data?.signedUrl || null };
+      })
+    );
+
     // Get all products counts for overview
     const { count: totalCount } = await admin
       .from("products")
@@ -81,7 +93,7 @@ async function getPendingProducts() {
       .eq("status", "rejected");
 
     return {
-      products: normalizedProducts,
+      products: productsWithCoaUrls,
       counts: {
         total: totalCount || 0,
         pending: normalizedProducts.length,

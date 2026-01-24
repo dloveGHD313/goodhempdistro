@@ -32,11 +32,16 @@ export default function EditProductPage() {
   const [active, setActive] = useState(true);
   const [productType, setProductType] = useState<"non_intoxicating" | "intoxicating" | "delta8">("non_intoxicating");
   const [coaUrl, setCoaUrl] = useState("");
+  const [coaObjectPath, setCoaObjectPath] = useState("");
   const [useManualUrl, setUseManualUrl] = useState(false);
   const [delta8DisclaimerAck, setDelta8DisclaimerAck] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const coaObjectUrl =
+    coaObjectPath && process.env.NEXT_PUBLIC_SUPABASE_URL
+      ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/coas/${coaObjectPath}`
+      : null;
 
   useEffect(() => {
     async function loadData() {
@@ -49,7 +54,7 @@ export default function EditProductPage() {
         const supabase = createSupabaseBrowserClient();
         const { data, error: fetchError } = await supabase
           .from("products")
-          .select("id, name, description, price_cents, category_id, active, product_type, coa_url, delta8_disclaimer_ack")
+          .select("id, name, description, price_cents, category_id, active, product_type, coa_url, coa_object_path, delta8_disclaimer_ack")
           .eq("id", productId)
           .single();
 
@@ -67,6 +72,8 @@ export default function EditProductPage() {
         setActive(data.active);
         setProductType((data.product_type as "non_intoxicating" | "intoxicating" | "delta8") || "non_intoxicating");
         setCoaUrl(data.coa_url || "");
+        setCoaObjectPath(data.coa_object_path || "");
+        setUseManualUrl(!!data.coa_url);
         setDelta8DisclaimerAck(data.delta8_disclaimer_ack || false);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load product");
@@ -93,12 +100,7 @@ export default function EditProductPage() {
       return;
     }
 
-    // Validate compliance fields
-    if (!coaUrl.trim()) {
-      setError("COA URL is required for all products");
-      setSaving(false);
-      return;
-    }
+    // COA is optional while editing drafts; enforcement happens on review if required
 
     if (productType === "intoxicating" && !isIntoxicatingAllowedNow()) {
       setError(`Intoxicating products are only allowed until ${getIntoxicatingCutoffDate()}. The cutoff date has passed.`);
@@ -123,7 +125,8 @@ export default function EditProductPage() {
           category_id: categoryId || null,
           active,
           product_type: productType,
-          coa_url: coaUrl.trim(),
+          coa_url: useManualUrl ? coaUrl.trim() : null,
+          coa_object_path: !useManualUrl ? coaObjectPath.trim() || null : null,
           delta8_disclaimer_ack: productType === "delta8" ? delta8DisclaimerAck : false,
         }),
       });
@@ -282,7 +285,15 @@ export default function EditProductPage() {
                     <input
                       type="checkbox"
                       checked={useManualUrl}
-                      onChange={(e) => setUseManualUrl(e.target.checked)}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setUseManualUrl(checked);
+                        if (checked) {
+                          setCoaObjectPath("");
+                        } else {
+                          setCoaUrl("");
+                        }
+                      }}
                       className="w-4 h-4 accent-accent"
                     />
                     <span className="text-sm text-muted">Paste URL instead</span>
@@ -294,20 +305,19 @@ export default function EditProductPage() {
                         id="coa_url"
                         value={coaUrl}
                         onChange={(e) => setCoaUrl(e.target.value)}
-                        required
                         className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
                         placeholder="https://example.com/coa.pdf"
                       />
-                      <p className="text-sm text-muted mt-1">Full panel COA required for all products</p>
+                      <p className="text-sm text-muted mt-1">Full panel COA required before approval</p>
                     </div>
                   ) : (
                     <UploadField
                       bucket="coas"
                       folderPrefix="coas"
                       label="COA Document (Full Panel Required)"
-                      required
-                      existingUrl={coaUrl || null}
-                      onUploaded={(url) => setCoaUrl(url)}
+                      required={false}
+                      existingUrl={coaObjectUrl}
+                      onUploaded={(path) => setCoaObjectPath(path)}
                       helperText="Upload a PDF or image of your full panel COA (max 10MB)"
                     />
                   )}

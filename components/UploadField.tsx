@@ -95,8 +95,14 @@ export default function UploadField({
       // Generate safe filename
       const timestamp = Date.now();
       const safeFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-      const normalizedPrefix = bucket === "coas" ? "coas" : folderPrefix;
-      const filePath = `${normalizedPrefix}/${userForUpload}/${timestamp}-${safeFileName}`;
+      const uniquePrefix =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : String(timestamp);
+      const isCoaBucket = bucket === "coas";
+      const filePath = isCoaBucket
+        ? `${userForUpload}/${uniquePrefix}_${safeFileName}`
+        : `${folderPrefix}/${userForUpload}/${timestamp}-${safeFileName}`;
 
       logUpload({ event: "attempt", bucket, key: filePath });
 
@@ -123,10 +129,20 @@ export default function UploadField({
       }
 
       // For private buckets (driver-docs, logistics-docs), store the path
-      // For public buckets (coas), use public URL for backward compatibility
       const isPrivateBucket = bucket === "driver-docs" || bucket === "logistics-docs";
       
-      if (isPrivateBucket) {
+      if (isCoaBucket) {
+        const { data: signedUrl } = await supabase.storage
+          .from(bucket)
+          .createSignedUrl(filePath, 60 * 5);
+        const fallbackUrl = supabase.storage
+          .from(bucket)
+          .getPublicUrl(filePath).data.publicUrl;
+        setUploadedUrl(signedUrl?.signedUrl || fallbackUrl);
+        setUploadProgress(100);
+        onUploaded(filePath);
+        setUploading(false);
+      } else if (isPrivateBucket) {
         // Store path for private buckets
         const storedValue = `${bucket}/${filePath}`;
         setUploadedUrl(storedValue); // Display shows path, but component can differentiate

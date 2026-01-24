@@ -9,6 +9,7 @@ export type ProductType = "non_intoxicating" | "intoxicating" | "delta8";
 export interface ProductCompliancePayload {
   product_type: ProductType;
   coa_url?: string | null;
+  coa_object_path?: string | null;
   delta8_disclaimer_ack?: boolean;
   category_requires_coa?: boolean;
 }
@@ -54,10 +55,13 @@ export function validateProductCompliance(payload: ProductCompliancePayload): Co
 
   // COA URL is required only if category requires it
   if (payload.category_requires_coa === true) {
-    if (!payload.coa_url || !payload.coa_url.trim()) {
+    const hasCoaUrl = !!payload.coa_url && payload.coa_url.trim().length > 0;
+    const hasCoaObjectPath =
+      !!payload.coa_object_path && payload.coa_object_path.trim().length > 0;
+    if (!hasCoaUrl && !hasCoaObjectPath) {
       errors.push({
         field: "coa_url",
-        message: "COA URL is required for this product category",
+        message: "COA is required for this product category",
       });
     }
   }
