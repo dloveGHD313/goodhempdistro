@@ -92,7 +92,6 @@ export async function POST(req: NextRequest) {
       start_time,
       end_time,
       capacity,
-      status = "draft",
       ticket_types,
     } = await req.json();
 
@@ -130,18 +129,54 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create event
-    const safeStatus = status === "pending_review" ? "pending_review" : "draft";
+    const fetchColumnSet = async (tableName: string) => {
+      try {
+        const { data, error } = await supabase
+          .schema("information_schema")
+          .from("columns")
+          .select("column_name")
+          .eq("table_schema", "public")
+          .eq("table_name", tableName);
 
-    const getMissingColumn = (message?: string | null) => {
-      if (!message) {
+        if (error || !data) {
+          return null;
+        }
+
+        return new Set(data.map((row) => row.column_name));
+      } catch (error) {
+        console.warn(
+          `[vendor-events] requestId=${requestId} Failed to read schema for ${tableName}:`,
+          error
+        );
         return null;
       }
-      const match = message.match(/column \"([^\"]+)\" does not exist/i);
-      return match?.[1] || null;
     };
 
-    const basePayload = {
+    const filterPayload = (
+      payload: Record<string, unknown>,
+      columnSet: Set<string> | null
+    ) => {
+      if (!columnSet) {
+        return payload;
+      }
+      return Object.fromEntries(
+        Object.entries(payload).filter(([key]) => columnSet.has(key))
+      );
+    };
+
+    const getMissingColumns = (error?: { message?: string | null; details?: string | null }) => {
+      const sources = [error?.message, error?.details].filter(Boolean) as string[];
+      const matches = new Set<string>();
+      sources.forEach((source) => {
+        for (const match of source.matchAll(/column \"([^\"]+)\" does not exist/gi)) {
+          matches.add(match[1]);
+        }
+      });
+      return Array.from(matches);
+    };
+
+    // Create event (always draft)
+    const basePayload: Record<string, unknown> = {
       vendor_id: vendor.id,
       owner_user_id: user.id,
       title: title.trim(),
@@ -150,29 +185,23 @@ export async function POST(req: NextRequest) {
       start_time,
       end_time,
       capacity: capacity || null,
-      status: safeStatus,
-      submitted_at: safeStatus === "pending_review" ? new Date().toISOString() : null,
+      status: "draft",
     };
 
-    const insertEvent = async (payload: Record<string, any>) => {
+    const insertEvent = async (payload: Record<string, unknown>) => {
       return supabase.from("events").insert(payload).select("id").single();
     };
 
-    let payload: Record<string, any> = { ...basePayload };
+    const eventColumns = await fetchColumnSet("events");
+    let payload: Record<string, unknown> = filterPayload(basePayload, eventColumns);
     let { data: event, error: eventError } = await insertEvent(payload);
 
     // Legacy schema fallback: strip missing columns and retry exactly once
-    const missingColumn = getMissingColumn(eventError?.message);
-    if (eventError && missingColumn) {
-      const colsToRemove = new Set<string>([missingColumn]);
-      // Legacy schemas often miss both owner_user_id and submitted_at together
-      if (missingColumn === "owner_user_id") {
-        colsToRemove.add("submitted_at");
-      }
-      for (const col of colsToRemove) {
-        delete payload[col];
-      }
-
+    const missingColumns = getMissingColumns(eventError || undefined);
+    if (eventError && missingColumns.length > 0) {
+      missingColumns.forEach((column) => {
+        delete payload[column];
+      });
       const retry = await insertEvent(payload);
       event = retry.data;
       eventError = retry.error;
@@ -205,13 +234,19 @@ export async function POST(req: NextRequest) {
     }
 
     // Create ticket types
-    const ticketTypeInserts = ticket_types.map((tt: any) => ({
-      event_id: event.id,
-      name: tt.name.trim(),
-      price_cents: tt.price_cents,
-      quantity: tt.quantity || null,
-      sold: 0,
-    }));
+    const ticketColumns = await fetchColumnSet("event_ticket_types");
+    const ticketTypeInserts = ticket_types.map((tt: any) =>
+      filterPayload(
+        {
+          event_id: event.id,
+          name: tt.name.trim(),
+          price_cents: tt.price_cents,
+          quantity: tt.quantity || null,
+          sold: 0,
+        },
+        ticketColumns
+      )
+    );
 
     const { error: ticketTypesError } = await supabase
       .from("event_ticket_types")

@@ -128,7 +128,8 @@ export default function ProductsReviewClient({ initialProducts, initialCounts }:
       return product.coa_review_url;
     }
     if (product.coa_object_path && process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/coas/${product.coa_object_path}`;
+      const trimmedPath = product.coa_object_path.trim().replace(/^\/+/, "");
+      return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/coas/${trimmedPath}`;
     }
     return product.coa_url || null;
   };

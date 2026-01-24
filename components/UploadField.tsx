@@ -100,9 +100,10 @@ export default function UploadField({
           ? crypto.randomUUID()
           : String(timestamp);
       const isCoaBucket = bucket === "coas";
+      const cleanedPrefix = folderPrefix.replace(/^\/+|\/+$/g, "");
       const filePath = isCoaBucket
-        ? `${userForUpload}/${uniquePrefix}_${safeFileName}`
-        : `${folderPrefix}/${userForUpload}/${timestamp}-${safeFileName}`;
+        ? `${cleanedPrefix}/${userForUpload}/${uniquePrefix}_${safeFileName}`
+        : `${cleanedPrefix}/${userForUpload}/${timestamp}-${safeFileName}`;
 
       logUpload({ event: "attempt", bucket, key: filePath });
 

@@ -268,6 +268,37 @@ export async function POST(req: NextRequest) {
       delta8_disclaimer_ack,
     } = await req.json();
 
+    const normalizeCoaObjectPath = (value: unknown) => {
+      if (typeof value !== "string") {
+        return null;
+      }
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return null;
+      }
+      if (/^https?:\/\//i.test(trimmed)) {
+        return null;
+      }
+      if (trimmed.startsWith("coas/")) {
+        const [, ownerId] = trimmed.split("/");
+        if (ownerId !== user.id) {
+          return null;
+        }
+        return trimmed;
+      }
+      if (trimmed.startsWith(`${user.id}/`)) {
+        return `coas/${trimmed}`;
+      }
+      return null;
+    };
+
+    const normalizedCoaObjectPath = normalizeCoaObjectPath(coa_object_path);
+    if (coa_object_path && !normalizedCoaObjectPath) {
+      console.warn(
+        `[vendor-products] requestId=${requestId} Invalid coa_object_path for user ${user.id}; ignoring payload.`
+      );
+    }
+
     if (!name || !name.trim()) {
       return NextResponse.json(
         { error: "Product name is required" },
@@ -319,7 +350,7 @@ export async function POST(req: NextRequest) {
     const complianceErrors = validateProductCompliance({
       product_type: product_type || "non_intoxicating",
       coa_url,
-      coa_object_path,
+      coa_object_path: normalizedCoaObjectPath,
       delta8_disclaimer_ack,
       category_requires_coa: categoryRequiresCoa && requireCoaForDrafts,
     });
@@ -331,8 +362,54 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const fetchColumnSet = async (tableName: string) => {
+      try {
+        const { data, error } = await supabase
+          .schema("information_schema")
+          .from("columns")
+          .select("column_name")
+          .eq("table_schema", "public")
+          .eq("table_name", tableName);
+
+        if (error || !data) {
+          return null;
+        }
+
+        return new Set(data.map((row) => row.column_name));
+      } catch (error) {
+        console.warn(
+          `[vendor-products] requestId=${requestId} Failed to read schema for ${tableName}:`,
+          error
+        );
+        return null;
+      }
+    };
+
+    const filterPayload = (
+      payload: Record<string, unknown>,
+      columnSet: Set<string> | null
+    ) => {
+      if (!columnSet) {
+        return payload;
+      }
+      return Object.fromEntries(
+        Object.entries(payload).filter(([key]) => columnSet.has(key))
+      );
+    };
+
+    const getMissingColumns = (error?: { message?: string | null; details?: string | null }) => {
+      const sources = [error?.message, error?.details].filter(Boolean) as string[];
+      const matches = new Set<string>();
+      sources.forEach((source) => {
+        for (const match of source.matchAll(/column \"([^\"]+)\" does not exist/gi)) {
+          matches.add(match[1]);
+        }
+      });
+      return Array.from(matches);
+    };
+
     // Create product with draft status (requires admin approval)
-    const baseInsertPayload: Record<string, any> = {
+    const baseInsertPayload: Record<string, unknown> = {
       vendor_id: vendor.id,
       owner_user_id: user.id, // Direct reference for RLS
       name: name.trim(),
@@ -344,41 +421,24 @@ export async function POST(req: NextRequest) {
       product_type: product_type || "non_intoxicating",
       // COA is optional at create time; never block product creation
       coa_url: coa_url?.trim() || null,
-      coa_object_path:
-        typeof coa_object_path === "string" ? coa_object_path.trim() || null : null,
+      coa_object_path: normalizedCoaObjectPath,
       delta8_disclaimer_ack: delta8_disclaimer_ack === true,
     };
 
-    if (
-      typeof baseInsertPayload.coa_object_path === "string" &&
-      baseInsertPayload.coa_object_path.length > 0 &&
-      !baseInsertPayload.coa_object_path.includes("/")
-    ) {
-      console.warn(
-        `[vendor-products] requestId=${requestId} coa_object_path does not look like a storage key:`,
-        baseInsertPayload.coa_object_path
-      );
-    }
-
-    const getMissingColumn = (message?: string | null) => {
-      if (!message) {
-        return null;
-      }
-      const match = message.match(/column \"([^\"]+)\" does not exist/i);
-      return match?.[1] || null;
-    };
-
-    let payload = { ...baseInsertPayload };
+    const productColumns = await fetchColumnSet("products");
+    let payload = filterPayload(baseInsertPayload, productColumns);
     let { data: product, error: productError } = await supabase
       .from("products")
       .insert(payload)
       .select("id, name, price_cents, status")
       .single();
 
-    // Back-compat for deployments missing newer columns (e.g. coa_object_path)
-    const missingColumn = getMissingColumn(productError?.message);
-    if (productError && missingColumn) {
-      delete payload[missingColumn];
+    // Back-compat for deployments missing newer columns (retry once)
+    const missingColumns = getMissingColumns(productError || undefined);
+    if (productError && missingColumns.length > 0) {
+      missingColumns.forEach((column) => {
+        delete payload[column];
+      });
       const retry = await supabase
         .from("products")
         .insert(payload)
