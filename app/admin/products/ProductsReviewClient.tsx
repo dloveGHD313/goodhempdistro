@@ -80,7 +80,7 @@ export default function ProductsReviewClient({ initialProducts, initialCounts, i
 
       const data = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || !data.ok) {
         alert(data.error || "Failed to approve product");
         setLoading(null);
         return;
@@ -118,7 +118,7 @@ export default function ProductsReviewClient({ initialProducts, initialCounts, i
 
       const data = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || !data.ok) {
         alert(data.error || "Failed to reject product");
         setLoading(null);
         return;

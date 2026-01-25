@@ -11,31 +11,46 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const requestId = crypto.randomUUID();
+  const logStage = (stage: string, details?: Record<string, unknown>) => {
+    console.log(`[admin/products/reject][${requestId}] ${stage}`, details || {});
+  };
   try {
+    logStage("start");
     const supabase = await createSupabaseServerClient();
     const { user, profile } = await getCurrentUserProfile(supabase);
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      logStage("auth_missing");
+      return NextResponse.json(
+        { ok: false, error: "Unauthorized" },
+        { status: 401, headers: { "Cache-Control": "no-store" } }
+      );
     }
 
     if (!isAdmin(profile)) {
-      return NextResponse.json({ error: "Forbidden: Not an admin" }, { status: 403 });
+      logStage("auth_forbidden", { userId: user.id });
+      return NextResponse.json(
+        { ok: false, error: "Forbidden" },
+        { status: 403, headers: { "Cache-Control": "no-store" } }
+      );
     }
 
     const { id } = await params;
     const { reason } = await req.json();
+    logStage("payload", { keys: ["reason"], hasReason: Boolean(reason) });
 
     if (!reason || !reason.trim()) {
       return NextResponse.json(
-        { error: "Rejection reason is required" },
-        { status: 400 }
+        { ok: false, error: "Rejection reason is required" },
+        { status: 400, headers: { "Cache-Control": "no-store" } }
       );
     }
 
     const admin = createSupabaseAdminClient();
 
     // Get product
+    logStage("fetch_product", { productId: id });
     const { data: product, error: productError } = await admin
       .from("products")
       .select("id, name, status")
@@ -43,13 +58,24 @@ export async function POST(
       .maybeSingle();
 
     if (productError || !product) {
-      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+      if (productError) {
+        console.error(`[admin/products/reject][${requestId}] product_fetch_error`, {
+          code: productError.code,
+          message: productError.message,
+          details: productError.details,
+          hint: productError.hint,
+        });
+      }
+      return NextResponse.json(
+        { ok: false, error: "Product not found" },
+        { status: 404, headers: { "Cache-Control": "no-store" } }
+      );
     }
 
-    if (product.status !== 'pending_review') {
+    if (product.status !== "pending_review") {
       return NextResponse.json(
-        { error: `Product is not pending review (current status: ${product.status})` },
-        { status: 400 }
+        { ok: false, error: `Product is not pending review (current status: ${product.status})` },
+        { status: 400, headers: { "Cache-Control": "no-store" } }
       );
     }
 
@@ -62,6 +88,7 @@ export async function POST(
       rejection_reason: reason.trim(),
     };
 
+    logStage("update_attempt", { keys: Object.keys(baseUpdate) });
     let updatedProduct: any = null;
     let updateError: any = null;
     const initialUpdate = await admin
@@ -73,11 +100,10 @@ export async function POST(
     updatedProduct = initialUpdate.data;
     updateError = initialUpdate.error;
 
-    if (
-      updateError &&
-      /column .* does not exist/i.test(updateError.message || "")
-    ) {
-      console.warn("[admin/products/reject] Column missing, retrying with status only.");
+    if (updateError && /column .* does not exist/i.test(updateError.message || "")) {
+      console.warn(`[admin/products/reject][${requestId}] column_missing_retry`, {
+        message: updateError.message,
+      });
       const retry = await admin
         .from("products")
         .update({ status: "rejected", active: false })
@@ -86,31 +112,46 @@ export async function POST(
         .single();
       updatedProduct = retry.data;
       updateError = retry.error;
+      logStage("retry_result", { keys: ["status", "active"], ok: !updateError });
     }
 
     if (updateError) {
-      console.error("[admin/products/reject] Error updating product:", updateError);
+      console.error(`[admin/products/reject][${requestId}] update_error`, {
+        code: updateError.code,
+        message: updateError.message,
+        details: updateError.details,
+        hint: updateError.hint,
+      });
       return NextResponse.json(
-        { error: "Failed to reject product" },
-        { status: 500 }
+        {
+          ok: false,
+          error: "Failed to reject product",
+          message: updateError.message,
+          details: updateError.details,
+          hint: updateError.hint,
+        },
+        { status: 500, headers: { "Cache-Control": "no-store" } }
       );
     }
 
-    console.log(`[admin/products/reject] Product ${id} rejected by admin ${user.id}: ${reason.substring(0, 50)}...`);
+    logStage("rejected", { productId: id, adminId: user.id, reasonLength: reason.trim().length });
 
     // Revalidate paths
     revalidatePath("/admin/products");
     revalidatePath("/vendors/products");
 
-    return NextResponse.json({
-      success: true,
-      product: updatedProduct,
-    });
-  } catch (error) {
-    console.error("[admin/products/reject] Error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
+      {
+        ok: true,
+        data: updatedProduct,
+      },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  } catch (error) {
+    console.error(`[admin/products/reject][${requestId}] unexpected_error`, error);
+    return NextResponse.json(
+      { ok: false, error: "Internal server error" },
+      { status: 500, headers: { "Cache-Control": "no-store" } }
     );
   }
 }

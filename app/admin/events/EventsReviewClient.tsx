@@ -72,7 +72,7 @@ export default function EventsReviewClient({ initialEvents, initialCounts, initi
 
       const data = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || !data.ok) {
         alert(data.error || "Failed to approve event");
         setLoading(null);
         return;
@@ -109,7 +109,7 @@ export default function EventsReviewClient({ initialEvents, initialCounts, initi
 
       const data = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || !data.ok) {
         alert(data.error || "Failed to reject event");
         setLoading(null);
         return;

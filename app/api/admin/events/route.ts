@@ -6,14 +6,27 @@ import { getCurrentUserProfile, isAdmin } from "@/lib/authz";
 const VALID_STATUSES = ["pending_review", "approved", "rejected", "draft"] as const;
 
 export async function GET(req: NextRequest) {
+  const requestId = crypto.randomUUID();
+  const logStage = (stage: string, details?: Record<string, unknown>) => {
+    console.log(`[admin/events][${requestId}] ${stage}`, details || {});
+  };
   try {
+    logStage("start");
     const supabase = await createSupabaseServerClient();
     const { user, profile } = await getCurrentUserProfile(supabase);
     if (!user) {
-      return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+      logStage("auth_missing");
+      return NextResponse.json(
+        { ok: false, error: "Unauthorized" },
+        { status: 401, headers: { "Cache-Control": "no-store" } }
+      );
     }
     if (!isAdmin(profile)) {
-      return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
+      logStage("auth_forbidden", { userId: user.id });
+      return NextResponse.json(
+        { ok: false, error: "Forbidden" },
+        { status: 403, headers: { "Cache-Control": "no-store" } }
+      );
     }
 
     const { searchParams } = new URL(req.url);
@@ -25,6 +38,7 @@ export async function GET(req: NextRequest) {
 
     const admin = createSupabaseAdminClient();
 
+    logStage("fetch_list", { status, limit });
     const { data, error } = await admin
       .from("events")
       .select("id, title, description, location, start_time, end_time, status, submitted_at, vendor_id, owner_user_id, created_at")
@@ -33,7 +47,7 @@ export async function GET(req: NextRequest) {
       .limit(limit);
 
     if (error) {
-      console.error("[api/admin/events] list error", {
+      console.error(`[admin/events][${requestId}] list_error`, {
         code: error.code,
         message: error.message,
         details: error.details,
@@ -41,7 +55,7 @@ export async function GET(req: NextRequest) {
       });
       return NextResponse.json(
         { ok: false, error: "Failed to fetch events", message: error.message, details: error.details, hint: error.hint },
-        { status: 500 }
+        { status: 500, headers: { "Cache-Control": "no-store" } }
       );
     }
 
@@ -53,6 +67,7 @@ export async function GET(req: NextRequest) {
       return count || 0;
     };
 
+    logStage("fetch_counts");
     const [approved, rejected, draft, pending, total] = await Promise.all([
       fetchCount("approved"),
       fetchCount("rejected"),
@@ -87,22 +102,26 @@ export async function GET(req: NextRequest) {
       vendor_email: profileMap.get(e.owner_user_id)?.email || null,
     }));
 
-    return NextResponse.json({
-      ok: true,
-      data: normalized,
-      counts: {
-        total,
-        pending,
-        approved,
-        draft,
-        rejected,
+    logStage("success", { items: normalized.length });
+    return NextResponse.json(
+      {
+        ok: true,
+        data: normalized,
+        counts: {
+          total,
+          pending,
+          approved,
+          draft,
+          rejected,
+        },
       },
-    });
+      { headers: { "Cache-Control": "no-store" } }
+    );
   } catch (error) {
-    console.error("[api/admin/events] unexpected error", error);
+    console.error(`[admin/events][${requestId}] unexpected_error`, error);
     return NextResponse.json(
       { ok: false, error: "Internal server error" },
-      { status: 500 }
+      { status: 500, headers: { "Cache-Control": "no-store" } }
     );
   }
 }
