@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       });
       return NextResponse.json(
         process.env.NODE_ENV === "production"
-          ? { error: "Unauthorized", requestId }
+          ? { error: "Unauthorized" }
           : { requestId, error: "Unauthorized" },
         { status: 401 }
       );
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
     if (vendorError) {
       return NextResponse.json(
         process.env.NODE_ENV === "production"
-          ? { error: "Failed to verify vendor account", requestId }
+          ? { error: "Failed to verify vendor account" }
           : {
               requestId,
               error: "Failed to verify vendor account",
@@ -139,7 +139,6 @@ export async function POST(req: NextRequest) {
               process.env.NODE_ENV === "production"
                 ? {
                     error: "Vendor account provisioning failed. Please contact support.",
-                    requestId,
                   }
                 : {
                     requestId,
@@ -167,7 +166,6 @@ export async function POST(req: NextRequest) {
             process.env.NODE_ENV === "production"
               ? {
                   error: "Vendor account provisioning error. Please contact support.",
-                  requestId,
                 }
               : {
                   requestId,
@@ -216,7 +214,7 @@ export async function POST(req: NextRequest) {
       );
       return NextResponse.json(
         process.env.NODE_ENV === "production"
-          ? { error: "Vendor account access denied", requestId }
+          ? { error: "Vendor account access denied" }
           : { requestId, error: "Vendor account access denied" },
         { status: 403 }
       );
@@ -268,7 +266,9 @@ export async function POST(req: NextRequest) {
         error
       );
       return NextResponse.json(
-        { error: "Invalid JSON payload", requestId },
+        process.env.NODE_ENV === "production"
+          ? { error: "Invalid JSON payload" }
+          : { error: "Invalid JSON payload", requestId },
         { status: 400 }
       );
     }
@@ -283,46 +283,15 @@ export async function POST(req: NextRequest) {
       product_type,
       active,
       coa_url,
-      coa_object_path,
       delta8_disclaimer_ack,
     } = body;
-
-    const normalizeCoaObjectPath = (value: unknown) => {
-      if (typeof value !== "string") {
-        return null;
-      }
-      const trimmed = value.trim();
-      if (!trimmed) {
-        return null;
-      }
-      if (/^https?:\/\//i.test(trimmed)) {
-        return null;
-      }
-      if (trimmed.startsWith("coas/")) {
-        const [, ownerId] = trimmed.split("/");
-        if (ownerId !== user.id) {
-          return null;
-        }
-        return trimmed;
-      }
-      if (trimmed.startsWith(`${user.id}/`)) {
-        return `coas/${trimmed}`;
-      }
-      return null;
-    };
-
-    const normalizedCoaObjectPath = normalizeCoaObjectPath(coa_object_path);
-    if (coa_object_path && !normalizedCoaObjectPath) {
-      console.warn(
-        `[vendor-products] requestId=${requestId} stage=coa_path_invalid`,
-        { userId: user.id }
-      );
-    }
 
     const nameValue = typeof name === "string" ? name.trim() : "";
     if (!nameValue) {
       return NextResponse.json(
-        { error: "Product name is required", requestId },
+        process.env.NODE_ENV === "production"
+          ? { error: "Product name is required" }
+          : { error: "Product name is required", requestId },
         { status: 400 }
       );
     }
@@ -360,7 +329,9 @@ export async function POST(req: NextRequest) {
       : parsePriceCents(price_cents);
     if (priceCents === null || priceCents < 0) {
       return NextResponse.json(
-        { error: "Valid price is required", requestId },
+        process.env.NODE_ENV === "production"
+          ? { error: "Valid price is required" }
+          : { error: "Valid price is required", requestId },
         { status: 400 }
       );
     }
@@ -425,13 +396,17 @@ export async function POST(req: NextRequest) {
     const { id: resolvedCategoryId, error: categoryLookupFailed } = await resolveCategoryId();
     if (categoryLookupFailed) {
       return NextResponse.json(
-        { error: "Failed to resolve category", requestId },
+        process.env.NODE_ENV === "production"
+          ? { error: "Failed to resolve category" }
+          : { error: "Failed to resolve category", requestId },
         { status: 500 }
       );
     }
     if (typeof category === "string" && category.trim() && !resolvedCategoryId) {
       return NextResponse.json(
-        { error: "Invalid category", requestId },
+        process.env.NODE_ENV === "production"
+          ? { error: "Invalid category" }
+          : { error: "Invalid category", requestId },
         { status: 400 }
       );
     }
@@ -478,14 +453,15 @@ export async function POST(req: NextRequest) {
     const complianceErrors = validateProductCompliance({
       product_type: normalizedProductType,
       coa_url: coaUrlValue,
-      coa_object_path: normalizedCoaObjectPath,
       delta8_disclaimer_ack: delta8Ack,
       category_requires_coa: categoryRequiresCoa && requireCoaForDrafts,
     });
 
     if (complianceErrors.length > 0) {
       return NextResponse.json(
-        { error: complianceErrors[0].message, complianceErrors, requestId },
+        process.env.NODE_ENV === "production"
+          ? { error: complianceErrors[0].message }
+          : { error: complianceErrors[0].message, complianceErrors, requestId },
         { status: 400 }
       );
     }
@@ -495,9 +471,11 @@ export async function POST(req: NextRequest) {
       vendor_id: vendor.id,
       owner_user_id: user.id, // Direct reference for RLS
       name: nameValue,
+      description: typeof description === "string" ? description.trim() || null : null,
       price_cents: priceCents,
       category_id: resolvedCategoryId,
       status: "draft", // Always start as draft
+      active: false,
       product_type: normalizedProductType,
     };
 
@@ -543,7 +521,7 @@ export async function POST(req: NextRequest) {
                 hint: productError.hint,
               },
             }
-          : { error: "Failed to create product", requestId },
+          : { error: "Failed to create product" },
         { status: 500 }
       );
     }
@@ -554,7 +532,7 @@ export async function POST(req: NextRequest) {
       );
       return NextResponse.json(
         process.env.NODE_ENV === "production"
-          ? { error: "Failed to create product", requestId }
+          ? { error: "Failed to create product" }
           : { requestId, error: "Failed to create product" },
         { status: 500 }
       );
@@ -565,38 +543,53 @@ export async function POST(req: NextRequest) {
       status: product.status,
     });
 
-    const optionalUpdates: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
-    };
-
-    if (description !== undefined) {
-      optionalUpdates.description = typeof description === "string" ? description.trim() || null : null;
-    }
-    if (isUuid(subcategory_id)) optionalUpdates.subcategory_id = subcategory_id;
-    if (typeof active === "boolean") optionalUpdates.active = active;
-    if (coa_url !== undefined) optionalUpdates.coa_url = coaUrlValue;
-    if (normalizedCoaObjectPath) optionalUpdates.coa_object_path = normalizedCoaObjectPath;
-    if (delta8_disclaimer_ack !== undefined) {
-      optionalUpdates.delta8_disclaimer_ack = delta8Ack;
-    }
+    const optionalUpdates: Record<string, unknown> = {};
 
     if (typeof category === "string" && category.trim()) {
       optionalUpdates.category = category.trim();
+    }
+    if (coa_url !== undefined) {
+      optionalUpdates.coa_url = coaUrlValue;
+    }
+    if (delta8_disclaimer_ack !== undefined) {
+      optionalUpdates.delta8_disclaimer_ack = delta8Ack;
     }
 
     let optionalUpdateError:
       | { code?: string | null; message?: string | null; details?: string | null; hint?: string | null }
       | null = null;
 
-    if (Object.keys(optionalUpdates).length > 1) {
-      const { error: updateError } = await supabase
-        .from("products")
-        .update(optionalUpdates)
-        .eq("id", product.id);
+    if (Object.keys(optionalUpdates).length > 0) {
+      const admin = getSupabaseAdminClient();
+      const { data: columns, error: columnsError } = await admin
+        .schema("information_schema")
+        .from("columns")
+        .select("column_name")
+        .eq("table_schema", "public")
+        .eq("table_name", "products");
 
-      if (updateError) {
-        logSupabaseError("product_optional_update", updateError);
-        optionalUpdateError = updateError;
+      if (columnsError) {
+        logSupabaseError("product_optional_columns", columnsError);
+      } else {
+        const columnSet = new Set((columns || []).map((row) => row.column_name));
+        const filteredUpdates = Object.fromEntries(
+          Object.entries(optionalUpdates).filter(([key, value]) => value !== undefined && columnSet.has(key))
+        );
+
+        if (Object.keys(filteredUpdates).length > 0) {
+          logStage("product_optional_update", {
+            payloadKeys: Object.keys(filteredUpdates),
+          });
+          const { error: updateError } = await supabase
+            .from("products")
+            .update(filteredUpdates)
+            .eq("id", product.id);
+
+          if (updateError) {
+            logSupabaseError("product_optional_update", updateError);
+            optionalUpdateError = updateError;
+          }
+        }
       }
     }
 
@@ -619,7 +612,9 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error(`[vendor-products] requestId=${requestId} Product creation error:`, error);
     return NextResponse.json(
-      { error: "Internal server error", requestId },
+      process.env.NODE_ENV === "production"
+        ? { error: "Internal server error" }
+        : { error: "Internal server error", requestId },
       { status: 500 }
     );
   }
