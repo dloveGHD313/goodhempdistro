@@ -36,8 +36,11 @@ type Props = {
 const DEFAULT_STATUSES = ["new", "in_progress", "resolved", "closed"] as const;
 
 const normalizeStatus = (status?: string | null) => {
-  const normalized = (status || "").toLowerCase().trim();
-  return normalized || "unknown";
+  if (status === null || status === undefined) {
+    return "new";
+  }
+  const normalized = status.toLowerCase().trim();
+  return normalized || "new";
 };
 
 const getStatusLabel = (status: string) => {
@@ -119,7 +122,7 @@ export default function AdminInquiriesClient({ initialInquiries }: Props) {
   }, [statusCounts, statusOptions]);
 
   const hasStatusField = useMemo(
-    () => inquiries.some((inq) => inq.status !== undefined),
+    () => inquiries.some((inq) => Object.prototype.hasOwnProperty.call(inq, "status")),
     [inquiries]
   );
 

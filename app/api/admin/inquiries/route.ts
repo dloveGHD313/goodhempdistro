@@ -26,36 +26,75 @@ export async function GET(req: NextRequest) {
     }
 
     const admin = createSupabaseAdminClient();
-    const { data: inquiries, error } = await admin
-      .from("service_inquiries")
-      .select(
-        `
+    const fullSelect = `
+      id,
+      service_id,
+      vendor_id,
+      owner_user_id,
+      requester_name,
+      requester_email,
+      requester_phone,
+      message,
+      status,
+      vendor_note,
+      created_at,
+      updated_at,
+      services!service_inquiries_service_id_fkey(
         id,
-        service_id,
-        vendor_id,
-        owner_user_id,
-        requester_name,
-        requester_email,
-        requester_phone,
-        message,
-        status,
-        vendor_note,
-        created_at,
-        updated_at,
-        services!service_inquiries_service_id_fkey(
-          id,
-          name,
-          title,
-          slug
-        ),
-        vendors!service_inquiries_vendor_id_fkey(
-          id,
-          business_name,
-          owner_user_id
-        )
-      `
+        name,
+        title,
+        slug
+      ),
+      vendors!service_inquiries_vendor_id_fkey(
+        id,
+        business_name,
+        owner_user_id
       )
-      .order("created_at", { ascending: false });
+    `;
+    const fallbackSelect = `
+      id,
+      service_id,
+      vendor_id,
+      owner_user_id,
+      requester_name,
+      requester_email,
+      requester_phone,
+      message,
+      created_at,
+      updated_at,
+      services!service_inquiries_service_id_fkey(
+        id,
+        name,
+        title,
+        slug
+      ),
+      vendors!service_inquiries_vendor_id_fkey(
+        id,
+        business_name,
+        owner_user_id
+      )
+    `;
+
+    const fetchInquiries = async (select: string) =>
+      admin.from("service_inquiries").select(select).order("created_at", { ascending: false });
+
+    let inquiries: any[] | null = null;
+    let error: any = null;
+    const firstAttempt = await fetchInquiries(fullSelect);
+    inquiries = firstAttempt.data;
+    error = firstAttempt.error;
+
+    if (error) {
+      const message = String(error.message || "");
+      const isMissingColumn =
+        message.includes("column") && message.includes("does not exist");
+      if (isMissingColumn) {
+        logStage("schema_fallback", { reason: message });
+        const fallbackAttempt = await fetchInquiries(fallbackSelect);
+        inquiries = fallbackAttempt.data;
+        error = fallbackAttempt.error;
+      }
+    }
 
     if (error) {
       console.error(`[admin/inquiries][${requestId}] list_error`, {
@@ -70,13 +109,23 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const normalized = (inquiries || []).map((inq: any) => ({
-      ...inq,
-      services: Array.isArray(inq.services) ? inq.services[0] : inq.services || null,
-      vendors: Array.isArray(inq.vendors) ? inq.vendors[0] : inq.vendors || null,
-    }));
+    const normalized = (inquiries || []).map((inq: any) => {
+      const hasStatusKey = Object.prototype.hasOwnProperty.call(inq, "status");
+      return {
+        ...inq,
+        status: hasStatusKey ? inq.status : "new",
+        services: Array.isArray(inq.services) ? inq.services[0] : inq.services || null,
+        vendors: Array.isArray(inq.vendors) ? inq.vendors[0] : inq.vendors || null,
+      };
+    });
 
     logStage("success", { items: normalized.length });
+    logStage("diagnostic", {
+      count: normalized.length,
+      statusKeyInFirst: normalized[0]
+        ? Object.prototype.hasOwnProperty.call(normalized[0], "status")
+        : false,
+    });
     return NextResponse.json(
       { ok: true, data: normalized },
       { headers: { "Cache-Control": "no-store" } }
