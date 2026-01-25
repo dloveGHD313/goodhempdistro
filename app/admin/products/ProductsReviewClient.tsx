@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -70,6 +70,17 @@ export default function ProductsReviewClient({ initialProducts, initialCounts, i
       data.counts || { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 }
     );
   };
+
+  useEffect(() => {
+    const totalCount =
+      (initialCounts.pending || 0) +
+      (initialCounts.approved || 0) +
+      (initialCounts.draft || 0) +
+      (initialCounts.rejected || 0);
+    if (initialProducts.length === 0 && totalCount > 0) {
+      fetchList(initialStatus);
+    }
+  }, [initialCounts, initialProducts.length, initialStatus]);
 
   const handleApprove = async (productId: string) => {
     setLoading(productId);

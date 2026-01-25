@@ -7,16 +7,45 @@ import ProductsReviewClient from "./ProductsReviewClient";
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-async function getPendingProducts() {
+const VALID_STATUSES = ["pending_review", "approved", "rejected", "draft"] as const;
+
+async function getProductsSummary() {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const response = await fetch(`${baseUrl}/api/admin/products?summary=1`, {
+      cache: "no-store",
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) {
+      console.error("[admin/products] Error fetching product summary:", payload);
+      return {
+        counts: { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 },
+        suggestedDefaultStatus: "pending_review",
+      };
+    }
+    return {
+      counts: payload.counts || { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 },
+      suggestedDefaultStatus: payload.suggestedDefaultStatus || "pending_review",
+    };
+  } catch (err) {
+    console.error("[admin/products] Error in getProductsSummary:", err);
+    return {
+      counts: { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 },
+      suggestedDefaultStatus: "pending_review",
+    };
+  }
+}
+
+async function getPendingProducts(status: string) {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     const response = await fetch(
-      `${baseUrl}/api/admin/products?status=pending_review&limit=50`,
+      `${baseUrl}/api/admin/products?status=${status}&limit=50`,
       { cache: "no-store" }
     );
     const payload = await response.json();
     if (!response.ok || !payload.ok) {
-      console.error("[admin/products] Error fetching pending products:", payload);
+      console.error("[admin/products] Error fetching products:", payload);
       return {
         products: [],
         counts: { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 },
@@ -28,7 +57,7 @@ async function getPendingProducts() {
       counts: payload.counts || { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 },
     };
   } catch (err) {
-    console.error("[admin/products] Error in getPendingProducts:", err);
+    console.error("[admin/products] Error in getProductsByStatus:", err);
     return {
       products: [],
       counts: { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 },
@@ -36,7 +65,11 @@ async function getPendingProducts() {
   }
 }
 
-export default async function AdminProductsPage() {
+export default async function AdminProductsPage({
+  searchParams,
+}: {
+  searchParams?: { status?: string };
+}) {
   noStore();
 
   const adminCheck = await requireAdmin();
@@ -48,7 +81,13 @@ export default async function AdminProductsPage() {
     redirect("/");
   }
 
-  const productsData = await getPendingProducts();
+  const summary = await getProductsSummary();
+  const requestedStatus = searchParams?.status;
+  const initialStatus = VALID_STATUSES.includes(requestedStatus as (typeof VALID_STATUSES)[number])
+    ? (requestedStatus as (typeof VALID_STATUSES)[number])
+    : summary.suggestedDefaultStatus;
+
+  const productsData = await getPendingProducts(initialStatus);
 
   console.log(
     `[admin/products] Admin ${adminCheck.user.id} viewing products. Pending: ${productsData.counts?.pending || 0}`
@@ -61,8 +100,8 @@ export default async function AdminProductsPage() {
           <h1 className="text-4xl font-bold mb-8 text-accent">Product Review Queue</h1>
           <ProductsReviewClient 
             initialProducts={productsData.products || []} 
-            initialCounts={productsData.counts || { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 }} 
-            initialStatus="pending_review"
+            initialCounts={productsData.counts || summary.counts || { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 }} 
+            initialStatus={initialStatus}
           />
         </section>
       </main>

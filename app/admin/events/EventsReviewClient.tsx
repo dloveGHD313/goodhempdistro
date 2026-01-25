@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type EventItem = {
@@ -62,6 +62,17 @@ export default function EventsReviewClient({ initialEvents, initialCounts, initi
       data.counts || { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 }
     );
   };
+
+  useEffect(() => {
+    const totalCount =
+      (initialCounts.pending || 0) +
+      (initialCounts.approved || 0) +
+      (initialCounts.draft || 0) +
+      (initialCounts.rejected || 0);
+    if (initialEvents.length === 0 && totalCount > 0) {
+      fetchList(initialStatus);
+    }
+  }, [initialCounts, initialEvents.length, initialStatus]);
 
   const handleApprove = async (eventId: string) => {
     setLoading(eventId);

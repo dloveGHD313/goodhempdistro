@@ -7,16 +7,45 @@ import EventsReviewClient from "./EventsReviewClient";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-async function getPendingEvents() {
+const VALID_STATUSES = ["pending_review", "approved", "rejected", "draft"] as const;
+
+async function getEventsSummary() {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const response = await fetch(`${baseUrl}/api/admin/events?summary=1`, {
+      cache: "no-store",
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) {
+      console.error("[admin/events] Error fetching event summary:", payload);
+      return {
+        counts: { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 },
+        suggestedDefaultStatus: "pending_review",
+      };
+    }
+    return {
+      counts: payload.counts || { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 },
+      suggestedDefaultStatus: payload.suggestedDefaultStatus || "pending_review",
+    };
+  } catch (err) {
+    console.error("[admin/events] Error in getEventsSummary:", err);
+    return {
+      counts: { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 },
+      suggestedDefaultStatus: "pending_review",
+    };
+  }
+}
+
+async function getPendingEvents(status: string) {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     const response = await fetch(
-      `${baseUrl}/api/admin/events?status=pending_review&limit=50`,
+      `${baseUrl}/api/admin/events?status=${status}&limit=50`,
       { cache: "no-store" }
     );
     const payload = await response.json();
     if (!response.ok || !payload.ok) {
-      console.error("[admin/events] Error fetching pending events:", payload);
+      console.error("[admin/events] Error fetching events:", payload);
       return {
         events: [],
         counts: { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 },
@@ -28,7 +57,7 @@ async function getPendingEvents() {
       counts: payload.counts || { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 },
     };
   } catch (err) {
-    console.error("[admin/events] Error in getPendingEvents:", err);
+    console.error("[admin/events] Error in getEventsByStatus:", err);
     return {
       events: [],
       counts: { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 },
@@ -36,7 +65,11 @@ async function getPendingEvents() {
   }
 }
 
-export default async function AdminEventsPage() {
+export default async function AdminEventsPage({
+  searchParams,
+}: {
+  searchParams?: { status?: string };
+}) {
   noStore();
 
   const adminCheck = await requireAdmin();
@@ -48,7 +81,13 @@ export default async function AdminEventsPage() {
     redirect("/");
   }
 
-  const eventsData = await getPendingEvents();
+  const summary = await getEventsSummary();
+  const requestedStatus = searchParams?.status;
+  const initialStatus = VALID_STATUSES.includes(requestedStatus as (typeof VALID_STATUSES)[number])
+    ? (requestedStatus as (typeof VALID_STATUSES)[number])
+    : summary.suggestedDefaultStatus;
+
+  const eventsData = await getPendingEvents(initialStatus);
 
   return (
     <div className="min-h-screen text-white flex flex-col">
@@ -58,9 +97,9 @@ export default async function AdminEventsPage() {
           <EventsReviewClient
             initialEvents={eventsData.events || []}
             initialCounts={
-              eventsData.counts || { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 }
+              eventsData.counts || summary.counts || { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 }
             }
-            initialStatus="pending_review"
+            initialStatus={initialStatus}
           />
         </section>
       </main>

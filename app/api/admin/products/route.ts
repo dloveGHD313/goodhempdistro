@@ -3,6 +3,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 
 const VALID_STATUSES = ["pending_review", "approved", "rejected", "draft"] as const;
+const DEFAULT_STATUS_ORDER = ["pending_review", "draft", "approved", "rejected"] as const;
 
 export async function GET(req: NextRequest) {
   const requestId = crypto.randomUUID();
@@ -28,6 +29,7 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
+    const summaryOnly = searchParams.get("summary") === "1";
     const statusParam = searchParams.get("status") || "pending_review";
     const status = VALID_STATUSES.includes(statusParam as (typeof VALID_STATUSES)[number])
       ? statusParam
@@ -36,7 +38,48 @@ export async function GET(req: NextRequest) {
 
     const admin = createSupabaseAdminClient();
 
+    const fetchCount = async (statusValue: string) => {
+      const { count } = await admin
+        .from("products")
+        .select("*", { count: "exact", head: true })
+        .eq("status", statusValue);
+      return count || 0;
+    };
+
     logStage("fetch_list", { status, limit });
+    logStage("fetch_counts");
+    const [approved, rejected, draft, pending, total] = await Promise.all([
+      fetchCount("approved"),
+      fetchCount("rejected"),
+      fetchCount("draft"),
+      fetchCount("pending_review"),
+      admin.from("products").select("*", { count: "exact", head: true }).then(({ count }) => count || 0),
+    ]);
+
+    const counts = {
+      total,
+      pending,
+      approved,
+      draft,
+      rejected,
+    };
+
+    const suggestedDefaultStatus =
+      (DEFAULT_STATUS_ORDER.find((candidate) => counts[candidate === "pending_review" ? "pending" : candidate] > 0) ||
+        "pending_review") as (typeof VALID_STATUSES)[number];
+
+    if (summaryOnly) {
+      logStage("summary_only", { suggestedDefaultStatus });
+      return NextResponse.json(
+        {
+          ok: true,
+          counts,
+          suggestedDefaultStatus,
+        },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
     const { data, error } = await admin
       .from("products")
       .select("id, name, description, price_cents, status, submitted_at, vendor_id, owner_user_id, created_at")
@@ -56,23 +99,6 @@ export async function GET(req: NextRequest) {
         { status: 500, headers: { "Cache-Control": "no-store" } }
       );
     }
-
-    const fetchCount = async (statusValue: string) => {
-      const { count } = await admin
-        .from("products")
-        .select("*", { count: "exact", head: true })
-        .eq("status", statusValue);
-      return count || 0;
-    };
-
-    logStage("fetch_counts");
-    const [approved, rejected, draft, pending, total] = await Promise.all([
-      fetchCount("approved"),
-      fetchCount("rejected"),
-      fetchCount("draft"),
-      fetchCount("pending_review"),
-      admin.from("products").select("*", { count: "exact", head: true }).then(({ count }) => count || 0),
-    ]);
 
     const vendorIds = Array.from(new Set((data || []).map((p) => p.vendor_id).filter(Boolean)));
     const ownerIds = Array.from(new Set((data || []).map((p) => p.owner_user_id).filter(Boolean)));
@@ -105,13 +131,7 @@ export async function GET(req: NextRequest) {
       {
         ok: true,
         data: normalized,
-        counts: {
-          total,
-          pending,
-          approved,
-          draft,
-          rejected,
-        },
+        counts,
       },
       { headers: { "Cache-Control": "no-store" } }
     );
