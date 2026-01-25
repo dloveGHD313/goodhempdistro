@@ -28,31 +28,70 @@ const buildCookieHeader = (config: VerifyConfig) =>
   `sb-access-token=${config.accessToken}; sb-refresh-token=${config.refreshToken}`;
 
 const assertStatus = async (response: Response, label: string) => {
-  if (response.status !== 201) {
-    const body = await response.text();
-    throw new Error(`${label} expected 201, got ${response.status}: ${body}`);
+  const text = await response.text();
+  let parsed: any = null;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    parsed = { raw: text };
   }
+  if (response.status !== 201) {
+    throw new Error(`${label} expected 201, got ${response.status}: ${text}`);
+  }
+  // eslint-disable-next-line no-console
+  console.log(`[verify] ${label} => ${response.status}`, parsed);
 };
 
 const run = async () => {
   const config = loadConfig();
   const cookieHeader = buildCookieHeader(config);
 
-  const productResponse = await fetch(`${config.baseUrl}/api/vendors/products/create`, {
+  const productMinimal = await fetch(`${config.baseUrl}/api/vendors/products/create`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Cookie: cookieHeader,
     },
     body: JSON.stringify({
-      name: "Verify Product",
-      description: "Automated verification product",
+      name: "Verify Product Minimal",
       price: "10.00",
       product_type: "non_intoxicating",
     }),
   });
 
-  await assertStatus(productResponse, "Product create");
+  await assertStatus(productMinimal, "Product create (minimal)");
+
+  const productNoCategory = await fetch(`${config.baseUrl}/api/vendors/products/create`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: cookieHeader,
+    },
+    body: JSON.stringify({
+      name: "Verify Product No Category",
+      description: "No category or COA",
+      price: 15.5,
+      product_type: "delta8",
+    }),
+  });
+
+  await assertStatus(productNoCategory, "Product create (no category)");
+
+  const productWithCategory = await fetch(`${config.baseUrl}/api/vendors/products/create`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Cookie: cookieHeader,
+    },
+    body: JSON.stringify({
+      name: "Verify Product With Category",
+      price: "20.00",
+      product_type: "intoxicating",
+      category: process.env.VERIFY_CATEGORY || "flower",
+    }),
+  });
+
+  await assertStatus(productWithCategory, "Product create (category)");
 
   const eventResponse = await fetch(`${config.baseUrl}/api/vendors/events/create`, {
     method: "POST",

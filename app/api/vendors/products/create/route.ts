@@ -8,29 +8,44 @@ import { validateProductCompliance } from "@/lib/compliance";
  * Server-only route - requires vendor authentication
  */
 export async function POST(req: NextRequest) {
+  let requestId =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   try {
     const supabase = await createSupabaseServerClient();
-    const requestId =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    const logStage = (stage: string, meta?: Record<string, unknown>) => {
+      console.log(`[vendor-products] requestId=${requestId} stage=${stage}`, meta || {});
+    };
+
+    const logSupabaseError = (
+      stage: string,
+      error: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null } | null
+    ) => {
+      console.error(`[vendor-products] requestId=${requestId} stage=${stage} error`, {
+        code: error?.code,
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+      });
+    };
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-    console.log(
-      `[vendor-products] requestId=${requestId} SSR user check: ${
-        user ? `found ${user.id} (${user.email})` : "not found"
-      }`
-    );
+    logStage("auth_check", {
+      userId: user?.id || null,
+      userEmail: user?.email || null,
+    });
 
     if (userError || !user) {
-      console.error(`[vendor-products] requestId=${requestId} Auth error:`, {
+      logSupabaseError("auth_check", {
         message: userError?.message,
         details: (userError as { details?: string })?.details,
       });
       return NextResponse.json(
         process.env.NODE_ENV === "production"
-          ? { error: "Unauthorized" }
+          ? { error: "Unauthorized", requestId }
           : { requestId, error: "Unauthorized" },
         { status: 401 }
       );
@@ -44,12 +59,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (vendorError) {
-      console.error(`[vendor-products] requestId=${requestId} Vendor query error (user client):`, {
-        message: vendorError.message,
-        details: vendorError.details,
-        hint: vendorError.hint,
-        code: vendorError.code,
-      });
+      logSupabaseError("vendor_lookup_user", vendorError);
       const admin = getSupabaseAdminClient();
       const { data: adminVendor, error: adminVendorError } = await admin
         .from("vendors")
@@ -57,26 +67,18 @@ export async function POST(req: NextRequest) {
         .eq("owner_user_id", user.id)
         .maybeSingle();
       if (adminVendorError) {
-        console.error(`[vendor-products] requestId=${requestId} Vendor query error (admin client):`, {
-          message: adminVendorError.message,
-          details: adminVendorError.details,
-          hint: adminVendorError.hint,
-          code: adminVendorError.code,
-        });
+        logSupabaseError("vendor_lookup_admin", adminVendorError);
       } else {
         vendor = adminVendor;
         vendorError = null;
       }
     }
 
-    console.log(
-      `[vendor-products] requestId=${requestId} Vendor lookup result`,
-      {
-        userId: user.id,
-        vendorFound: !!vendor,
-        vendorId: vendor?.id || null,
-      }
-    );
+    logStage("vendor_lookup", {
+      userId: user.id,
+      vendorFound: !!vendor,
+      vendorId: vendor?.id || null,
+    });
     
     if (vendorError) {
       return NextResponse.json(
@@ -104,11 +106,9 @@ export async function POST(req: NextRequest) {
         .eq("user_id", user.id)
         .maybeSingle();
 
-      console.log(
-        `[vendor-products] requestId=${requestId} No vendor found. Application status: ${
-          application ? application.status : "none"
-        }`
-      );
+      logStage("vendor_missing", {
+        applicationStatus: application?.status || "none",
+      });
 
       // If approved application exists but no vendor row, auto-create it
       if (application && application.status === 'approved') {
@@ -134,15 +134,7 @@ export async function POST(req: NextRequest) {
             .single();
 
           if (autoVendorError || !autoVendor) {
-            console.error(
-              `[vendor-products] requestId=${requestId} AUTO-PROVISION FAILED:`,
-              {
-                message: autoVendorError?.message,
-                details: autoVendorError?.details,
-                hint: autoVendorError?.hint,
-                code: autoVendorError?.code,
-              }
-            );
+            logSupabaseError("vendor_auto_provision", autoVendorError || null);
             return NextResponse.json(
               process.env.NODE_ENV === "production"
                 ? {
@@ -168,7 +160,7 @@ export async function POST(req: NextRequest) {
           vendor = autoVendor;
         } catch (autoProvisionError) {
           console.error(
-            `[vendor-products] requestId=${requestId} AUTO-PROVISION EXCEPTION:`,
+            `[vendor-products] requestId=${requestId} stage=vendor_auto_provision_exception`,
             autoProvisionError
           );
           return NextResponse.json(
@@ -216,11 +208,15 @@ export async function POST(req: NextRequest) {
     // DEFENSIVE: Verify vendor belongs to this user
     if (vendor.owner_user_id !== user.id) {
       console.error(
-        `[vendor-products] requestId=${requestId} SECURITY: Vendor owner mismatch! user_id=${user.id}, vendor.owner_user_id=${vendor.owner_user_id}`
+        `[vendor-products] requestId=${requestId} stage=vendor_owner_mismatch`,
+        {
+          userId: user.id,
+          vendorOwnerId: vendor.owner_user_id,
+        }
       );
       return NextResponse.json(
         process.env.NODE_ENV === "production"
-          ? { error: "Vendor account access denied" }
+          ? { error: "Vendor account access denied", requestId }
           : { requestId, error: "Vendor account access denied" },
         { status: 403 }
       );
@@ -263,7 +259,19 @@ export async function POST(req: NextRequest) {
       console.warn(`⚠️ [product/create] Vendor ${vendor.id} has no active subscription`);
     }
 
-    const body = await req.json();
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch (error) {
+      console.error(
+        `[vendor-products] requestId=${requestId} stage=parse_body`,
+        error
+      );
+      return NextResponse.json(
+        { error: "Invalid JSON payload", requestId },
+        { status: 400 }
+      );
+    }
     const {
       name,
       description,
@@ -306,11 +314,13 @@ export async function POST(req: NextRequest) {
     const normalizedCoaObjectPath = normalizeCoaObjectPath(coa_object_path);
     if (coa_object_path && !normalizedCoaObjectPath) {
       console.warn(
-        `[vendor-products] requestId=${requestId} Invalid coa_object_path for user ${user.id}; ignoring payload.`
+        `[vendor-products] requestId=${requestId} stage=coa_path_invalid`,
+        { userId: user.id }
       );
     }
 
-    if (!name || !name.trim()) {
+    const nameValue = typeof name === "string" ? name.trim() : "";
+    if (!nameValue) {
       return NextResponse.json(
         { error: "Product name is required", requestId },
         { status: 400 }
@@ -343,8 +353,11 @@ export async function POST(req: NextRequest) {
       return null;
     };
 
-    const priceCents =
-      parsePriceCents(price_cents) ?? parsePriceFromDollars(price);
+    const priceCents = price !== undefined
+      ? parsePriceFromDollars(price)
+      : typeof price_cents === "string" && price_cents.includes(".")
+      ? parsePriceFromDollars(price_cents)
+      : parsePriceCents(price_cents);
     if (priceCents === null || priceCents < 0) {
       return NextResponse.json(
         { error: "Valid price is required", requestId },
@@ -369,19 +382,67 @@ export async function POST(req: NextRequest) {
       return "non_intoxicating";
     };
 
-    const normalizedProductType = normalizeProductType(product_type);
+    const normalizedProductType = normalizeProductType(
+      typeof product_type === "string" ? product_type : null
+    );
 
     const isUuid = (value: unknown) =>
       typeof value === "string" &&
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 
+    const resolveCategoryId = async (): Promise<{ id: string | null; error: boolean }> => {
+      if (isUuid(category_id)) {
+        return { id: category_id as string, error: false };
+      }
+      if (typeof category !== "string" || !category.trim()) {
+        return { id: null, error: false };
+      }
+      const categoryValue = category.trim();
+      const { data: slugMatch, error: slugError } = await supabase
+        .from("categories")
+        .select("id")
+        .ilike("slug", categoryValue)
+        .maybeSingle();
+      if (slugError) {
+        logSupabaseError("category_lookup_slug", slugError);
+        return { id: null, error: true };
+      }
+      if (slugMatch?.id) {
+        return { id: slugMatch.id, error: false };
+      }
+      const { data: nameMatch, error: nameError } = await supabase
+        .from("categories")
+        .select("id")
+        .ilike("name", categoryValue)
+        .maybeSingle();
+      if (nameError) {
+        logSupabaseError("category_lookup_name", nameError);
+        return { id: null, error: true };
+      }
+      return { id: nameMatch?.id || null, error: false };
+    };
+
+    const { id: resolvedCategoryId, error: categoryLookupFailed } = await resolveCategoryId();
+    if (categoryLookupFailed) {
+      return NextResponse.json(
+        { error: "Failed to resolve category", requestId },
+        { status: 500 }
+      );
+    }
+    if (typeof category === "string" && category.trim() && !resolvedCategoryId) {
+      return NextResponse.json(
+        { error: "Invalid category", requestId },
+        { status: 400 }
+      );
+    }
+
     // Check if category requires COA
     let categoryRequiresCoa = false;
-    if (isUuid(category_id)) {
+    if (resolvedCategoryId) {
       const { data: category } = await supabase
         .from("categories")
         .select("id, name, requires_coa, parent_id")
-        .eq("id", category_id)
+        .eq("id", resolvedCategoryId)
         .maybeSingle();
 
       if (category) {
@@ -409,11 +470,16 @@ export async function POST(req: NextRequest) {
 
     // Validate compliance (COA only required if category requires it)
     const requireCoaForDrafts = false;
+    const coaUrlValue =
+      typeof coa_url === "string" ? coa_url.trim() || null : null;
+
+    const delta8Ack = delta8_disclaimer_ack === true;
+
     const complianceErrors = validateProductCompliance({
       product_type: normalizedProductType,
-      coa_url: typeof coa_url === "string" ? coa_url.trim() : coa_url,
+      coa_url: coaUrlValue,
       coa_object_path: normalizedCoaObjectPath,
-      delta8_disclaimer_ack,
+      delta8_disclaimer_ack: delta8Ack,
       category_requires_coa: categoryRequiresCoa && requireCoaForDrafts,
     });
 
@@ -424,59 +490,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const getCategoryColumnSupport = async () => {
-      try {
-        const admin = getSupabaseAdminClient();
-        const { data, error } = await admin
-          .schema("information_schema")
-          .from("columns")
-          .select("column_name")
-          .eq("table_schema", "public")
-          .eq("table_name", "products")
-          .eq("column_name", "category");
-
-        if (error) {
-          return false;
-        }
-
-        return (data || []).length > 0;
-      } catch (error) {
-        console.warn(
-          `[vendor-products] requestId=${requestId} Failed to read products.category column:`,
-          error
-        );
-        return false;
-      }
-    };
-
-    const supportsCategoryText = typeof category === "string"
-      ? await getCategoryColumnSupport()
-      : false;
-
     // Create product with draft status (requires admin approval)
     const baseInsertPayload: Record<string, unknown> = {
       vendor_id: vendor.id,
       owner_user_id: user.id, // Direct reference for RLS
-      name: name.trim(),
-      description: description?.trim() || null,
+      name: nameValue,
       price_cents: priceCents,
-      category_id: isUuid(category_id) ? category_id : null,
-      subcategory_id: isUuid(subcategory_id) ? subcategory_id : null,
-      ...(supportsCategoryText && typeof category === "string"
-        ? { category: category.trim() }
-        : {}),
+      category_id: resolvedCategoryId,
       status: "draft", // Always start as draft
-      active: typeof active === "boolean" ? active : true,
       product_type: normalizedProductType,
-      // COA is optional at create time; never block product creation
-      coa_url: coa_url?.trim() || null,
-      coa_object_path: normalizedCoaObjectPath,
-      delta8_disclaimer_ack: delta8_disclaimer_ack === true,
     };
 
     const payloadKeys = Object.keys(baseInsertPayload);
-    console.log("[vendor-products] request payload keys", {
-      requestId,
+    logStage("product_insert_minimal", {
       userId: user.id,
       vendorId: vendor.id,
       payloadKeys,
@@ -503,12 +529,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (productError) {
-      console.error(`[vendor-products] requestId=${requestId} Error creating product:`, {
-        message: productError.message,
-        details: productError.details,
-        hint: productError.hint,
-        code: productError.code,
-      });
+      logSupabaseError("product_insert_minimal", productError);
       const includeDetails = process.env.NODE_ENV !== "production";
       return NextResponse.json(
         includeDetails
@@ -539,19 +560,66 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log(
-      `[vendor-products] requestId=${requestId} Product created: id=${product.id}, status=${product.status}`
-    );
+    logStage("product_inserted", {
+      productId: product.id,
+      status: product.status,
+    });
 
-    return NextResponse.json({
+    const optionalUpdates: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (description !== undefined) {
+      optionalUpdates.description = typeof description === "string" ? description.trim() || null : null;
+    }
+    if (isUuid(subcategory_id)) optionalUpdates.subcategory_id = subcategory_id;
+    if (typeof active === "boolean") optionalUpdates.active = active;
+    if (coa_url !== undefined) optionalUpdates.coa_url = coaUrlValue;
+    if (normalizedCoaObjectPath) optionalUpdates.coa_object_path = normalizedCoaObjectPath;
+    if (delta8_disclaimer_ack !== undefined) {
+      optionalUpdates.delta8_disclaimer_ack = delta8Ack;
+    }
+
+    if (typeof category === "string" && category.trim()) {
+      optionalUpdates.category = category.trim();
+    }
+
+    let optionalUpdateError:
+      | { code?: string | null; message?: string | null; details?: string | null; hint?: string | null }
+      | null = null;
+
+    if (Object.keys(optionalUpdates).length > 1) {
+      const { error: updateError } = await supabase
+        .from("products")
+        .update(optionalUpdates)
+        .eq("id", product.id);
+
+      if (updateError) {
+        logSupabaseError("product_optional_update", updateError);
+        optionalUpdateError = updateError;
+      }
+    }
+
+    const responsePayload: Record<string, unknown> = {
       success: true,
       product: product,
       message: "Product created as draft. Submit for review to make it live.",
-    }, { status: 201 });
+    };
+    if (process.env.NODE_ENV !== "production" && optionalUpdateError) {
+      responsePayload.warning = {
+        stage: "product_optional_update",
+        supabase_code: optionalUpdateError.code,
+        message: optionalUpdateError.message,
+        details: optionalUpdateError.details,
+        hint: optionalUpdateError.hint,
+      };
+    }
+
+    return NextResponse.json(responsePayload, { status: 201 });
   } catch (error) {
-    console.error("Product creation error:", error);
+    console.error(`[vendor-products] requestId=${requestId} Product creation error:`, error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal server error", requestId },
       { status: 500 }
     );
   }
