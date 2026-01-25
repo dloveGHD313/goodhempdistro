@@ -33,7 +33,7 @@ export async function GET(
       .from("events")
       .select("id, title, description, location, start_time, end_time, capacity, status, submitted_at, reviewed_at, rejection_reason")
       .eq("id", id)
-      .eq("owner_user_id", user.id)
+      .eq("vendor_id", vendor.id)
       .single();
 
     if (eventError || !event) {
@@ -103,7 +103,7 @@ export async function PUT(
       .from("events")
       .update(updates)
       .eq("id", id)
-      .eq("owner_user_id", user.id)
+      .eq("vendor_id", vendor.id)
       .select("id")
       .maybeSingle();
 

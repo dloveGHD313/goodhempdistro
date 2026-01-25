@@ -16,6 +16,8 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
   const [error, setError] = useState<string | null>(null);
   const [ticketQuantities, setTicketQuantities] = useState<Record<string, number>>({});
   const [checkingOut, setCheckingOut] = useState(false);
+  const [rsvpLoading, setRsvpLoading] = useState(false);
+  const [rsvpMessage, setRsvpMessage] = useState<string | null>(null);
 
   useEffect(() => {
     loadEvent();
@@ -92,6 +94,30 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
     }
   };
 
+  const handleRsvp = async () => {
+    setRsvpLoading(true);
+    setError(null);
+    setRsvpMessage(null);
+    try {
+      const response = await fetch("/api/events/rsvp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ event_id: params.id }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.error || "Unable to RSVP for this event.");
+        setRsvpLoading(false);
+        return;
+      }
+      setRsvpMessage(data.message || "RSVP confirmed.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to RSVP for this event.");
+    } finally {
+      setRsvpLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen text-white flex flex-col">
@@ -127,6 +153,9 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
     const qty = ticketQuantities[tt.id] || 0;
     return sum + tt.price_cents * qty;
   }, 0);
+  const isFreeEvent =
+    event.event_ticket_types.length === 0 ||
+    event.event_ticket_types.every((tt) => tt.price_cents === 0);
 
   return (
     <div className="min-h-screen text-white flex flex-col">
@@ -163,8 +192,24 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
             <div className="card-glass p-6">
               <h2 className="text-2xl font-bold mb-4">Ticket Options</h2>
 
-              {event.event_ticket_types.length === 0 ? (
-                <p className="text-muted">No tickets available.</p>
+              {isFreeEvent ? (
+                <div className="space-y-4">
+                  <p className="text-muted">
+                    This event is free to attend. Reserve your spot to receive updates.
+                  </p>
+                  {rsvpMessage && (
+                    <div className="bg-green-900/30 border border-green-600 rounded-lg p-4 text-green-300">
+                      {rsvpMessage}
+                    </div>
+                  )}
+                  <button
+                    onClick={handleRsvp}
+                    disabled={soldOut || rsvpLoading}
+                    className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {soldOut ? "Sold Out" : rsvpLoading ? "Saving RSVP..." : "RSVP for Free"}
+                  </button>
+                </div>
               ) : (
                 <div className="space-y-4 mb-6">
                   {event.event_ticket_types.map((tt) => {
@@ -230,13 +275,15 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
                 </div>
               )}
 
-              <button
-                onClick={handleCheckout}
-                disabled={totalSelected === 0 || soldOut || checkingOut}
-                className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {checkingOut ? "Processing..." : soldOut ? "Sold Out" : totalSelected === 0 ? "Select Tickets" : "Buy Tickets"}
-              </button>
+              {!isFreeEvent && (
+                <button
+                  onClick={handleCheckout}
+                  disabled={totalSelected === 0 || soldOut || checkingOut}
+                  className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {checkingOut ? "Processing..." : soldOut ? "Sold Out" : totalSelected === 0 ? "Select Tickets" : "Buy Tickets"}
+                </button>
+              )}
             </div>
           </div>
           <div className="mt-12">
