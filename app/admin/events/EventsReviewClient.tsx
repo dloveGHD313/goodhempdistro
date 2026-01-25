@@ -11,7 +11,7 @@ type EventItem = {
   start_time: string;
   end_time: string;
   status: string;
-  submitted_at: string;
+  submitted_at?: string | null;
   vendor_id: string | null;
   owner_user_id: string | null;
   vendor_name?: string | null;
@@ -36,6 +36,13 @@ const STATUS_TABS = [
   { id: "rejected", label: "Rejected" },
   { id: "draft", label: "Draft" },
 ];
+
+const formatDate = (value?: string | null) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString();
+};
 
 export default function EventsReviewClient({ initialEvents, initialCounts, initialStatus }: Props) {
   const router = useRouter();
@@ -229,7 +236,7 @@ export default function EventsReviewClient({ initialEvents, initialCounts, initi
                       </div>
                     )}
                     <div>
-                      <strong>Submitted:</strong> {new Date(event.submitted_at).toLocaleString()}
+                      <strong>Submitted:</strong> {formatDate(event.submitted_at)}
                     </div>
                   </div>
                   {showRejectForm === event.id && (

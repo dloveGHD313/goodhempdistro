@@ -59,9 +59,10 @@ export async function POST(
     }
 
     if (product.status !== "pending_review") {
+      logStage("invalid_status", { productId: id, status: product.status });
       return NextResponse.json(
         { ok: false, error: `Product is not pending review (current status: ${product.status})` },
-        { status: 400, headers: { "Cache-Control": "no-store" } }
+        { status: 409, headers: { "Cache-Control": "no-store" } }
       );
     }
 

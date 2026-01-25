@@ -43,3 +43,23 @@ AUDIT_MANUAL_LOGIN=1 AUDIT_MANUAL_LOGIN_ROLE=consumer npm run audit:prod
 ```
 
 Repeat for `vendor` and `admin` roles if required.
+
+## Phase 4.1 Stabilization Fixes (P0)
+
+### Fix: Product routing, checkout, and moderation workflow
+- **Issues addressed**:
+  - Legacy `/product/:id` routes 404
+  - Checkout should show a clear disabled state if Stripe env is missing
+  - Admin moderation should not approve drafts; drafts must move to `pending_review` first
+- **Key changes**:
+  - Added permanent redirect from `/product/:id` → `/products/:id`
+  - Buy button disabled with a clear message when Stripe is unavailable
+  - Added admin status transition endpoint (draft → pending_review)
+  - Admin approve/reject now return 409 when status is not `pending_review`
+  - Status badges and dates use safe formatting (no epoch)
+- **Manual verification**:
+  1. Visit `/product/<uuid>` → confirm redirect to `/products/<uuid>`.
+  2. From `/products`, open a product and confirm Buy button is enabled only when Stripe envs are present.
+  3. As vendor, submit product → status becomes `pending_review`.
+  4. As admin, verify Draft tab shows “Mark Pending Review” and no Approve button.
+  5. Approve from Pending tab → product appears in public list.

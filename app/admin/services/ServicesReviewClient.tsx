@@ -12,7 +12,7 @@ type Service = {
   pricing_type?: string;
   price_cents?: number;
   status: string;
-  submitted_at: string;
+  submitted_at?: string | null;
   category_id?: string;
   vendor_id?: string;
   owner_user_id: string;
@@ -37,6 +37,13 @@ const STATUS_TABS = [
   { id: "rejected", label: "Rejected" },
   { id: "draft", label: "Draft" },
 ];
+
+const formatDate = (value?: string | null) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString();
+};
 
 export default function ServicesReviewClient({
   initialServices,
@@ -291,7 +298,7 @@ export default function ServicesReviewClient({
                       </div>
                     )}
                     <div>
-                      <strong>Submitted:</strong> {new Date(service.submitted_at).toLocaleString()}
+                      <strong>Submitted:</strong> {formatDate(service.submitted_at)}
                     </div>
                   </div>
                   {showRejectForm === service.id && (

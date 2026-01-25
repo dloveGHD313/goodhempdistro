@@ -10,7 +10,7 @@ type Product = {
   description?: string;
   price_cents: number;
   status: string;
-  submitted_at: string;
+  submitted_at?: string | null;
   coa_url?: string;
   coa_object_path?: string | null;
   coa_review_url?: string | null;
@@ -45,6 +45,28 @@ const STATUS_TABS = [
   { id: "draft", label: "Draft" },
 ];
 
+const formatDate = (value?: string | null) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleString();
+};
+
+const statusMeta = (status: string) => {
+  switch (status) {
+    case "pending_review":
+      return { label: "Pending Review", className: "bg-yellow-600 text-yellow-100" };
+    case "approved":
+      return { label: "Approved", className: "bg-green-600 text-green-100" };
+    case "rejected":
+      return { label: "Rejected", className: "bg-red-600 text-red-100" };
+    case "draft":
+      return { label: "Draft", className: "bg-gray-600 text-gray-200" };
+    default:
+      return { label: status || "Unknown", className: "bg-orange-600 text-orange-100" };
+  }
+};
+
 export default function ProductsReviewClient({ initialProducts, initialCounts, initialStatus }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -55,6 +77,27 @@ export default function ProductsReviewClient({ initialProducts, initialCounts, i
   const [showRejectForm, setShowRejectForm] = useState<string | null>(null);
   const [activeStatus, setActiveStatus] = useState(initialStatus);
   const [listError, setListError] = useState<string | null>(null);
+
+  const adjustCounts = (fromStatus: string, toStatus: string) => {
+    const map: Record<string, keyof Props["initialCounts"]> = {
+      pending_review: "pending",
+      approved: "approved",
+      rejected: "rejected",
+      draft: "draft",
+    };
+    const fromKey = map[fromStatus];
+    const toKey = map[toStatus];
+    setCounts((prev) => {
+      const next = { ...prev };
+      if (fromKey) {
+        next[fromKey] = Math.max(0, (next[fromKey] || 0) - 1);
+      }
+      if (toKey) {
+        next[toKey] = (next[toKey] || 0) + 1;
+      }
+      return next;
+    });
+  };
 
   const fetchList = async (status: string) => {
     setListError(null);
@@ -84,6 +127,8 @@ export default function ProductsReviewClient({ initialProducts, initialCounts, i
   }, [initialCounts, initialProducts.length, initialStatus]);
 
   const handleApprove = async (productId: string) => {
+    const current = products.find((product) => product.id === productId);
+    if (!current) return;
     setLoading(productId);
     try {
       const response = await fetch(`/api/admin/products/${productId}/approve`, {
@@ -100,11 +145,7 @@ export default function ProductsReviewClient({ initialProducts, initialCounts, i
 
       // Remove from list and update counts
       setProducts(products.filter(p => p.id !== productId));
-      setCounts({
-        ...counts,
-        pending: counts.pending - 1,
-        approved: counts.approved + 1,
-      });
+      adjustCounts(current.status, "approved");
       
       router.refresh();
     } catch (err) {
@@ -114,6 +155,8 @@ export default function ProductsReviewClient({ initialProducts, initialCounts, i
   };
 
   const handleReject = async (productId: string) => {
+    const current = products.find((product) => product.id === productId);
+    if (!current) return;
     const reason = rejectionReason[productId]?.trim();
     if (!reason) {
       alert("Rejection reason is required");
@@ -138,14 +181,35 @@ export default function ProductsReviewClient({ initialProducts, initialCounts, i
 
       // Remove from list and update counts
       setProducts(products.filter(p => p.id !== productId));
-      setCounts({
-        ...counts,
-        pending: counts.pending - 1,
-        rejected: counts.rejected + 1,
-      });
+      adjustCounts(current.status, "rejected");
       setShowRejectForm(null);
       setRejectionReason({ ...rejectionReason, [productId]: "" });
       
+      router.refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "An unexpected error occurred");
+      setLoading(null);
+    }
+  };
+
+  const handleMarkPending = async (productId: string) => {
+    const current = products.find((product) => product.id === productId);
+    if (!current) return;
+    setLoading(productId);
+    try {
+      const response = await fetch(`/api/admin/products/${productId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "pending_review" }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        alert(data.error || "Failed to update status");
+        setLoading(null);
+        return;
+      }
+      setProducts(products.filter((p) => p.id !== productId));
+      adjustCounts(current.status, "pending_review");
       router.refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : "An unexpected error occurred");
@@ -236,8 +300,8 @@ export default function ProductsReviewClient({ initialProducts, initialCounts, i
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="text-xl font-semibold">{product.name}</h3>
-                    <span className="px-2 py-1 bg-yellow-600 text-yellow-100 rounded text-xs font-semibold">
-                      Pending Review
+                    <span className={`px-2 py-1 rounded text-xs font-semibold ${statusMeta(product.status).className}`}>
+                      {statusMeta(product.status).label}
                     </span>
                   </div>
                   {product.description && (
@@ -252,7 +316,7 @@ export default function ProductsReviewClient({ initialProducts, initialCounts, i
                       <strong>Price:</strong> ${((product.price_cents || 0) / 100).toFixed(2)}
                     </div>
                     <div>
-                      <strong>Submitted:</strong> {new Date(product.submitted_at).toLocaleString()}
+                      <strong>Submitted:</strong> {formatDate(product.submitted_at)}
                     </div>
                     {resolveCoaUrl(product) && (
                       <div>
@@ -288,20 +352,33 @@ export default function ProductsReviewClient({ initialProducts, initialCounts, i
                 <div className="flex flex-col gap-2 ml-4">
                   {showRejectForm !== product.id ? (
                     <>
-                      <button
-                        onClick={() => handleApprove(product.id)}
-                        disabled={loading === product.id}
-                        className="btn-primary disabled:opacity-50 whitespace-nowrap"
-                      >
-                        {loading === product.id ? "Processing..." : "✓ Approve"}
-                      </button>
-                      <button
-                        onClick={() => setShowRejectForm(product.id)}
-                        disabled={loading === product.id}
-                        className="btn-secondary disabled:opacity-50 whitespace-nowrap"
-                      >
-                        Reject
-                      </button>
+                      {product.status === "draft" && (
+                        <button
+                          onClick={() => handleMarkPending(product.id)}
+                          disabled={loading === product.id}
+                          className="btn-primary disabled:opacity-50 whitespace-nowrap"
+                        >
+                          {loading === product.id ? "Processing..." : "Mark Pending Review"}
+                        </button>
+                      )}
+                      {product.status === "pending_review" && (
+                        <button
+                          onClick={() => handleApprove(product.id)}
+                          disabled={loading === product.id}
+                          className="btn-primary disabled:opacity-50 whitespace-nowrap"
+                        >
+                          {loading === product.id ? "Processing..." : "✓ Approve"}
+                        </button>
+                      )}
+                      {(product.status === "draft" || product.status === "pending_review") && (
+                        <button
+                          onClick={() => setShowRejectForm(product.id)}
+                          disabled={loading === product.id}
+                          className="btn-secondary disabled:opacity-50 whitespace-nowrap"
+                        >
+                          Reject
+                        </button>
+                      )}
                     </>
                   ) : (
                     <>

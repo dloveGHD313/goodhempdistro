@@ -3,17 +3,17 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { revalidatePath } from "next/cache";
 
-/**
- * Reject product (admin only)
- */
-export async function POST(
+const VALID_TARGET_STATUSES = ["pending_review"] as const;
+
+export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const requestId = crypto.randomUUID();
   const logStage = (stage: string, details?: Record<string, unknown>) => {
-    console.log(`[admin/products/reject][${requestId}] ${stage}`, details || {});
+    console.log(`[admin/products/status][${requestId}] ${stage}`, details || {});
   };
+
   try {
     logStage("start");
     const adminCheck = await requireAdmin();
@@ -33,29 +33,27 @@ export async function POST(
     }
 
     const { id } = await params;
-    const { reason } = await req.json();
-    logStage("payload", { keys: ["reason"], hasReason: Boolean(reason) });
+    const body = await req.json().catch(() => ({}));
+    const status = typeof body?.status === "string" ? body.status : "";
 
-    if (!reason || !reason.trim()) {
+    if (!VALID_TARGET_STATUSES.includes(status as (typeof VALID_TARGET_STATUSES)[number])) {
       return NextResponse.json(
-        { ok: false, error: "Rejection reason is required" },
+        { ok: false, error: "Invalid status transition" },
         { status: 400, headers: { "Cache-Control": "no-store" } }
       );
     }
 
     const admin = createSupabaseAdminClient();
-
-    // Get product
     logStage("fetch_product", { productId: id });
     const { data: product, error: productError } = await admin
       .from("products")
-      .select("id, name, status")
+      .select("id, status")
       .eq("id", id)
       .maybeSingle();
 
     if (productError || !product) {
       if (productError) {
-        console.error(`[admin/products/reject][${requestId}] product_fetch_error`, {
+        console.error(`[admin/products/status][${requestId}] product_fetch_error`, {
           code: productError.code,
           message: productError.message,
           details: productError.details,
@@ -68,88 +66,66 @@ export async function POST(
       );
     }
 
-    if (product.status !== "pending_review") {
+    if (product.status !== "draft") {
       logStage("invalid_status", { productId: id, status: product.status });
       return NextResponse.json(
-        { ok: false, error: `Product is not pending review (current status: ${product.status})` },
+        { ok: false, error: `Product is not draft (current status: ${product.status})` },
         { status: 409, headers: { "Cache-Control": "no-store" } }
       );
     }
 
-    // Update product to rejected
     const baseUpdate = {
-      status: "rejected",
-      active: false,
-      reviewed_at: new Date().toISOString(),
-      reviewed_by: adminCheck.user.id,
-      rejection_reason: reason.trim(),
+      status: "pending_review",
+      submitted_at: new Date().toISOString(),
     };
 
     logStage("update_attempt", { keys: Object.keys(baseUpdate) });
-    let updatedProduct: any = null;
-    let updateError: any = null;
-    const initialUpdate = await admin
+    let { data: updatedProduct, error: updateError } = await admin
       .from("products")
       .update(baseUpdate)
       .eq("id", id)
-      .select("id, name, status, rejection_reason")
+      .select("id, status")
       .single();
-    updatedProduct = initialUpdate.data;
-    updateError = initialUpdate.error;
 
     if (updateError && /column .* does not exist/i.test(updateError.message || "")) {
-      console.warn(`[admin/products/reject][${requestId}] column_missing_retry`, {
+      console.warn(`[admin/products/status][${requestId}] column_missing_retry`, {
         message: updateError.message,
       });
       const retry = await admin
         .from("products")
-        .update({ status: "rejected", active: false })
+        .update({ status: "pending_review" })
         .eq("id", id)
-        .select("id, name, status")
+        .select("id, status")
         .single();
       updatedProduct = retry.data;
       updateError = retry.error;
-      logStage("retry_result", { keys: ["status", "active"], ok: !updateError });
+      logStage("retry_result", { keys: ["status"], ok: !updateError });
     }
 
     if (updateError) {
-      console.error(`[admin/products/reject][${requestId}] update_error`, {
+      console.error(`[admin/products/status][${requestId}] update_error`, {
         code: updateError.code,
         message: updateError.message,
         details: updateError.details,
         hint: updateError.hint,
       });
       return NextResponse.json(
-        {
-          ok: false,
-          error: "Failed to reject product",
-          message: updateError.message,
-          details: updateError.details,
-          hint: updateError.hint,
-        },
+        { ok: false, error: "Failed to update product status" },
         { status: 500, headers: { "Cache-Control": "no-store" } }
       );
     }
 
-    logStage("rejected", {
-      productId: id,
-      adminId: adminCheck.user.id,
-      reasonLength: reason.trim().length,
-    });
+    logStage("status_updated", { productId: id, status: updatedProduct?.status });
 
-    // Revalidate paths
     revalidatePath("/admin/products");
     revalidatePath("/vendors/products");
 
     return NextResponse.json(
-      {
-        ok: true,
-        data: updatedProduct,
-      },
+      { ok: true, data: updatedProduct },
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (error) {
-    console.error(`[admin/products/reject][${requestId}] unexpected_error`, error);
+    console.error(`[admin/products/status][${requestId}] unexpected_error`, error);
     return NextResponse.json(
       { ok: false, error: "Internal server error" },
       { status: 500, headers: { "Cache-Control": "no-store" } }

@@ -120,6 +120,7 @@ export default async function ProductDetailPage(props: Props) {
     product.description && product.description.trim().length > 0
       ? product.description.trim()
       : "Product details are coming soon.";
+  const stripeEnabled = Boolean(process.env.STRIPE_SECRET_KEY);
 
   return (
     <div className="min-h-screen text-white flex flex-col">
@@ -159,7 +160,15 @@ export default async function ProductDetailPage(props: Props) {
                 </p>
               </div>
 
-              <BuyButton productId={product.id} />
+              <BuyButton
+                productId={product.id}
+                disabled={!stripeEnabled}
+                disabledMessage={
+                  stripeEnabled
+                    ? null
+                    : "Checkout is temporarily unavailable. Please check back soon."
+                }
+              />
 
               <div className="card-glass p-6 space-y-3">
                 <h3 className="text-lg font-semibold">About This Product</h3>
