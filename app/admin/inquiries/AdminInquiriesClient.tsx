@@ -121,10 +121,11 @@ export default function AdminInquiriesClient({ initialInquiries }: Props) {
     return fallback || "new";
   }, [statusCounts, statusOptions]);
 
-  const hasStatusField = useMemo(
-    () => inquiries.some((inq) => Object.prototype.hasOwnProperty.call(inq, "status")),
-    [inquiries]
-  );
+  const hasRows = inquiries.length > 0;
+  const statusKeyMissing = useMemo(() => {
+    if (!hasRows) return false;
+    return inquiries.every((inq) => !Object.prototype.hasOwnProperty.call(inq, "status"));
+  }, [hasRows, inquiries]);
 
   const showVendorNote = useMemo(
     () => inquiries.some((inq) => inq.vendor_note !== undefined),
@@ -144,6 +145,14 @@ export default function AdminInquiriesClient({ initialInquiries }: Props) {
         setLoadError(payload?.error || "Failed to load inquiries");
         setLoading(false);
         return;
+      }
+      if (process.env.NODE_ENV !== "production") {
+        const rows = Array.isArray(payload.data) ? payload.data : [];
+        const sampleKeys = rows[0] ? Object.keys(rows[0]) : [];
+        console.debug("[admin/inquiries] data snapshot", {
+          rowCount: rows.length,
+          sampleKeys,
+        });
       }
       setInquiries(payload.data || []);
     } catch (error) {
@@ -299,7 +308,7 @@ export default function AdminInquiriesClient({ initialInquiries }: Props) {
 
   return (
     <div className="space-y-6">
-      {!hasStatusField && (
+      {statusKeyMissing && (
         <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-4 text-yellow-300 text-sm">
           Status field is missing from inquiry records. Verify the `service_inquiries.status` column exists.
         </div>
