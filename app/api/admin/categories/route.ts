@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import type { Category, CategoryGroup } from "@/lib/categories.types";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 
 /**
  * Admin-only category management API
@@ -9,36 +9,19 @@ import type { Category, CategoryGroup } from "@/lib/categories.types";
  * POST: Create a new category
  */
 
-async function checkAdminAccess() {
-  const supabase = await createSupabaseServerClient();
-  
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  
-  if (userError || !user) {
-    return { authorized: false, error: "Unauthorized", status: 401 };
-  }
-
-  // Check if user has admin role
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (profileError || !profile || profile.role !== "admin") {
-    return { authorized: false, error: "Forbidden - Admin access required", status: 403 };
-  }
-
-  return { authorized: true, user };
-}
-
 export async function GET(req: NextRequest) {
   try {
-    const check = await checkAdminAccess();
-    if (!check.authorized) {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.user) {
       return NextResponse.json(
-        { error: check.error },
-        { status: check.status || 403 }
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+    if (!adminCheck.isAdmin) {
+      return NextResponse.json(
+        { error: "Forbidden - Admin access required" },
+        { status: 403 }
       );
     }
 
@@ -69,11 +52,17 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const check = await checkAdminAccess();
-    if (!check.authorized) {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.user) {
       return NextResponse.json(
-        { error: check.error },
-        { status: check.status || 403 }
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+    if (!adminCheck.isAdmin) {
+      return NextResponse.json(
+        { error: "Forbidden - Admin access required" },
+        { status: 403 }
       );
     }
 

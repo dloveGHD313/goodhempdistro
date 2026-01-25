@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
-import { createSupabaseServerClient } from "@/lib/supabase";
-import { getCurrentUserProfile, isAdmin } from "@/lib/authz";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 import Footer from "@/components/Footer";
 import ProductsReviewClient from "./ProductsReviewClient";
 
@@ -40,20 +39,20 @@ async function getPendingProducts() {
 export default async function AdminProductsPage() {
   noStore();
 
-  const supabase = await createSupabaseServerClient();
-  const { user, profile } = await getCurrentUserProfile(supabase);
-
-  if (!user) {
+  const adminCheck = await requireAdmin();
+  if (!adminCheck.user) {
     redirect("/login?redirect=/admin/products");
   }
 
-  if (!isAdmin(profile)) {
-    redirect("/dashboard");
+  if (!adminCheck.isAdmin) {
+    redirect("/");
   }
 
   const productsData = await getPendingProducts();
 
-  console.log(`[admin/products] Admin ${user.id} viewing products. Pending: ${productsData.counts?.pending || 0}`);
+  console.log(
+    `[admin/products] Admin ${adminCheck.user.id} viewing products. Pending: ${productsData.counts?.pending || 0}`
+  );
 
   return (
     <div className="min-h-screen text-white flex flex-col">

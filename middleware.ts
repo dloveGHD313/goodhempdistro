@@ -65,6 +65,7 @@ export async function middleware(request: NextRequest) {
   
   // Admin routes - require admin role (checked at page level, but redirect here if not authenticated)
   const isAdminRoute = pathname.startsWith("/admin");
+  const isAdminApiRoute = pathname.startsWith("/api/admin");
 
   // Auth pages - redirect to dashboard if already authenticated (but NOT reset-password)
   const authRoutes = ["/login", "/signup", "/auth/reset"];
@@ -85,6 +86,17 @@ export async function middleware(request: NextRequest) {
   // Reset-password needs to work for both authenticated (recovery) and unauthenticated users
   if (isPublicAuthRoute) {
     return response;
+  }
+
+  // Guard admin pages and API routes for authenticated sessions.
+  if ((isAdminRoute || isAdminApiRoute) && !user) {
+    if (isAdminApiRoute) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/login";
+    redirectUrl.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(redirectUrl);
   }
 
   // Redirect protected routes to login if not authenticated

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClientOrThrow } from "@/lib/supabaseAdmin";
-import { getCurrentUserProfile, isAdmin } from "@/lib/authz";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { revalidatePath } from "next/cache";
 
 export const dynamic = "force-dynamic";
@@ -15,14 +14,12 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { user, profile } = await getCurrentUserProfile(supabase);
-
-    if (!user) {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!isAdmin(profile)) {
+    if (!adminCheck.isAdmin) {
       return NextResponse.json({ error: "Forbidden: Not an admin" }, { status: 403 });
     }
 
@@ -73,7 +70,7 @@ export async function POST(
         status: 'rejected',
         active: false, // Ensure inactive
         reviewed_at: new Date().toISOString(),
-        reviewed_by: user.id,
+        reviewed_by: adminCheck.user.id,
         rejection_reason: reason.trim(),
       })
       .eq("id", id)
@@ -105,7 +102,7 @@ export async function POST(
       .eq("status", "rejected");
 
     console.log(
-      `[admin/services/reject] Service ${id} (${service.name || service.title}) rejected by admin ${user.id}. ` +
+      `[admin/services/reject] Service ${id} (${service.name || service.title}) rejected by admin ${adminCheck.user.id}. ` +
       `Reason: ${reason.substring(0, 100)}. ` +
       `New status: rejected, active: false. ` +
       `Updated counts: pending=${pendingCount ?? 0}, rejected=${rejectedCount ?? 0}. ` +

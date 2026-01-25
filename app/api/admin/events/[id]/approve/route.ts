@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { getCurrentUserProfile, isAdmin } from "@/lib/authz";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -17,19 +16,16 @@ export async function POST(
   };
   try {
     logStage("start");
-    const supabase = await createSupabaseServerClient();
-    const { user, profile } = await getCurrentUserProfile(supabase);
-
-    if (!user) {
-      logStage("auth_missing");
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.user) {
+      logStage("auth_missing", { reason: adminCheck.reason });
       return NextResponse.json(
         { ok: false, error: "Unauthorized" },
         { status: 401, headers: { "Cache-Control": "no-store" } }
       );
     }
-
-    if (!isAdmin(profile)) {
-      logStage("auth_forbidden", { userId: user.id });
+    if (!adminCheck.isAdmin) {
+      logStage("auth_forbidden", { userId: adminCheck.user.id, reason: adminCheck.reason });
       return NextResponse.json(
         { ok: false, error: "Forbidden" },
         { status: 403, headers: { "Cache-Control": "no-store" } }
@@ -71,7 +67,7 @@ export async function POST(
     const baseUpdate = {
       status: "approved",
       reviewed_at: new Date().toISOString(),
-      reviewed_by: user.id,
+      reviewed_by: adminCheck.user.id,
       rejection_reason: null,
       updated_at: new Date().toISOString(),
     };

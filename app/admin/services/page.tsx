@@ -14,8 +14,7 @@
 
 import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
-import { createSupabaseServerClient } from "@/lib/supabase";
-import { getCurrentUserProfile, isAdmin } from "@/lib/authz";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 import Footer from "@/components/Footer";
 import ServicesReviewClient from "./ServicesReviewClient";
 
@@ -153,21 +152,19 @@ async function fetchQueue(): Promise<QueueResponse> {
 export default async function AdminServicesPage() {
   noStore();
 
-  const supabase = await createSupabaseServerClient();
-  const { user, profile } = await getCurrentUserProfile(supabase);
-
-  if (!user) {
+  const adminCheck = await requireAdmin();
+  if (!adminCheck.user) {
     redirect("/login?redirect=/admin/services");
   }
 
-  if (!isAdmin(profile)) {
-    redirect("/dashboard");
+  if (!adminCheck.isAdmin) {
+    redirect("/");
   }
 
   const queueData = await fetchQueue();
 
   console.log(
-    `[admin/services] Admin ${user.id} (role=${profile?.role ?? "unknown"}) viewing services. ` +
+    `[admin/services] Admin ${adminCheck.user.id} viewing services. ` +
     `Queue ok: ${queueData.ok}, ` +
     `Pending: ${queueData.data?.counts?.pending_review || 0}, ` +
     `Diagnostics: ${JSON.stringify(queueData.diagnostics)}`

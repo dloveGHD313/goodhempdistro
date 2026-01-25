@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
-import { createSupabaseServerClient } from "@/lib/supabase";
-import { getCurrentUserProfile, isAdmin } from "@/lib/authz";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 import Footer from "@/components/Footer";
 import EventsReviewClient from "./EventsReviewClient";
 
@@ -40,15 +39,13 @@ async function getPendingEvents() {
 export default async function AdminEventsPage() {
   noStore();
 
-  const supabase = await createSupabaseServerClient();
-  const { user, profile } = await getCurrentUserProfile(supabase);
-
-  if (!user) {
+  const adminCheck = await requireAdmin();
+  if (!adminCheck.user) {
     redirect("/login?redirect=/admin/events");
   }
 
-  if (!isAdmin(profile)) {
-    redirect("/dashboard");
+  if (!adminCheck.isAdmin) {
+    redirect("/");
   }
 
   const eventsData = await getPendingEvents();

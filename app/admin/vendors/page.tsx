@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
-import { getCurrentUserProfile, isAdmin } from "@/lib/authz";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 import Footer from "@/components/Footer";
 import VendorsClient from "./VendorsClient";
 
@@ -176,28 +176,23 @@ export default async function AdminVendorsPage() {
   // Disable caching
   noStore();
   
+  const adminCheck = await requireAdmin();
   const supabase = await createSupabaseServerClient();
-  const { user, profile } = await getCurrentUserProfile(supabase);
 
   // Log admin access attempt
-  console.log(`[admin/vendors] Admin access attempt: userId=${user?.id || 'null'} email=${user?.email || 'null'} isAdmin=${isAdmin(profile)}`);
+  console.log(
+    `[admin/vendors] Admin access attempt: userId=${adminCheck.user?.id || 'null'} email=${adminCheck.user?.email || 'null'} isAdmin=${adminCheck.isAdmin}`
+  );
 
-  if (!user) {
+  if (!adminCheck.user) {
     console.warn("[admin/vendors] Unauthenticated access attempt - redirecting to login");
     redirect("/login?redirect=/admin/vendors");
   }
 
-  // Verify admin role by reading profile directly
-  const { data: profileData, error: profileError } = await supabase
-    .from('profiles')
-    .select('id, email, role')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  const isUserAdmin = profileData?.role === 'admin';
-
-  if (!isUserAdmin) {
-    console.warn(`[admin/vendors] Non-admin access attempt - userId=${user.id} profileRole=${profileData?.role || 'null'} profileExists=${!!profileData}`);
+  if (!adminCheck.isAdmin) {
+    console.warn(
+      `[admin/vendors] Non-admin access attempt - userId=${adminCheck.user.id} profileRole=${adminCheck.profile?.role || 'null'} profileExists=${!!adminCheck.profile}`
+    );
     return (
       <div className="min-h-screen text-white flex flex-col">
         <main className="flex-1">
@@ -206,8 +201,7 @@ export default async function AdminVendorsPage() {
               <h1 className="text-2xl font-bold mb-4 text-red-400">Not Authorized</h1>
               <p className="text-muted mb-4">You must be an admin to access this page.</p>
               <p className="text-sm text-muted">
-                Your role: {profileData?.role || 'not found'}
-                {profileError && ` (Error: ${profileError.message})`}
+                Your role: {adminCheck.profile?.role || 'not found'}
               </p>
             </div>
           </section>
@@ -223,7 +217,9 @@ export default async function AdminVendorsPage() {
   const totalCount = allApplications.length;
   const pendingCount = pendingApplications.length;
   
-  console.log(`[admin/vendors] Admin ${user.email} viewing applications: total=${totalCount} pending=${pendingCount}`);
+  console.log(
+    `[admin/vendors] Admin ${adminCheck.user?.email || "unknown"} viewing applications: total=${totalCount} pending=${pendingCount}`
+  );
 
   // Get Supabase URL for diagnostics
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'NOT_SET';
@@ -245,10 +241,10 @@ export default async function AdminVendorsPage() {
             <div className="mt-4 space-y-2 text-xs font-mono">
               <div><strong>Supabase URL:</strong> {supabaseUrl}</div>
               <div><strong>Project Ref:</strong> {supabaseProjectRef}</div>
-              <div><strong>User ID:</strong> {user.id}</div>
-              <div><strong>User Email:</strong> {user.email || 'no-email'}</div>
-              <div><strong>Profile Role:</strong> {profileData?.role || 'NOT FOUND'}</div>
-              <div><strong>Profile Email:</strong> {profileData?.email || 'NOT FOUND'}</div>
+              <div><strong>User ID:</strong> {adminCheck.user?.id || "unknown"}</div>
+              <div><strong>User Email:</strong> {adminCheck.user?.email || "no-email"}</div>
+              <div><strong>Profile Role:</strong> {adminCheck.profile?.role || "NOT FOUND"}</div>
+              <div><strong>Admin Reason:</strong> {adminCheck.reason}</div>
               <div><strong>Total Applications:</strong> {totalCount}</div>
               <div><strong>Pending Applications:</strong> {pendingCount}</div>
               {rpcError && (

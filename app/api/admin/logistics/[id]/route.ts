@@ -1,39 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
-
-async function checkAdminAccess() {
-  const supabase = await createSupabaseServerClient();
-  
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  
-  if (userError || !user) {
-    return { authorized: false, error: "Unauthorized", status: 401 };
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (profileError || !profile || profile.role !== "admin") {
-    return { authorized: false, error: "Forbidden - Admin access required", status: 403 };
-  }
-
-  return { authorized: true, user };
-}
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const check = await checkAdminAccess();
-    if (!check.authorized) {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.user) {
       return NextResponse.json(
-        { error: check.error },
-        { status: check.status || 403 }
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+    if (!adminCheck.isAdmin) {
+      return NextResponse.json(
+        { error: "Forbidden - Admin access required" },
+        { status: 403 }
       );
     }
 

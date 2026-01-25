@@ -1,21 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
-import { getCurrentUserProfile, isAdmin } from "@/lib/authz";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 
 /**
  * Fix missing vendor rows for approved applications (admin only)
  */
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { user, profile } = await getCurrentUserProfile(supabase);
-
-    if (!user) {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    if (!isAdmin(profile)) {
+    if (!adminCheck.isAdmin) {
       return NextResponse.json({ error: "Forbidden: Not an admin" }, { status: 403 });
     }
 
@@ -81,7 +77,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    console.log(`[admin/vendors/integrity/fix] Admin ${user.id} fixed vendor integrity. Created: ${created}, Errors: ${errors.length}`);
+    console.log(
+      `[admin/vendors/integrity/fix] Admin ${adminCheck.user.id} fixed vendor integrity. Created: ${created}, Errors: ${errors.length}`
+    );
 
     if (errors.length > 0) {
       return NextResponse.json({

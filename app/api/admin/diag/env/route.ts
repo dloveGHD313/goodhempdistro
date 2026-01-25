@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase";
-import { getCurrentUserProfile, isAdmin } from "@/lib/authz";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -14,15 +13,11 @@ export const runtime = "nodejs";
  */
 export async function GET(req: NextRequest) {
   try {
-    // Verify admin authentication
-    const supabase = await createSupabaseServerClient();
-    const { user, profile } = await getCurrentUserProfile(supabase);
-
-    if (!user) {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    if (!isAdmin(profile)) {
+    if (!adminCheck.isAdmin) {
       return NextResponse.json({ error: "Forbidden: Not an admin" }, { status: 403 });
     }
 
@@ -68,7 +63,7 @@ export async function GET(req: NextRequest) {
     }
 
     console.log(
-      `[admin/diag/env] Admin ${user.id} checked env vars. ` +
+      `[admin/diag/env] Admin ${adminCheck.user.id} checked env vars. ` +
       `chosenKeyName=${chosenKeyName}, ` +
       `has_URL=${envChecks.has_SUPABASE_URL || envChecks.has_NEXT_PUBLIC_SUPABASE_URL}`
     );

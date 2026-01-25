@@ -1,26 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
-
-async function checkAdminAccess() {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return { isAdmin: false, error: "Unauthorized" };
-  }
-
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (profileError || !profile || profile.role !== "admin") {
-    return { isAdmin: false, error: "Forbidden: Not an admin" };
-  }
-  return { isAdmin: true };
-}
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 
 /**
  * Update event status (admin only)
@@ -29,9 +9,12 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { isAdmin, error } = await checkAdminAccess();
-  if (!isAdmin) {
-    return NextResponse.json({ error }, { status: error === "Unauthorized" ? 401 : 403 });
+  const adminCheck = await requireAdmin();
+  if (!adminCheck.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!adminCheck.isAdmin) {
+    return NextResponse.json({ error: "Forbidden: Not an admin" }, { status: 403 });
   }
 
   const { id } = await params;

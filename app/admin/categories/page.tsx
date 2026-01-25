@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 import Footer from "@/components/Footer";
 import CategoriesClient from "./CategoriesClient";
 import type { Category } from "@/lib/categories.types";
@@ -35,22 +35,13 @@ async function getCategories(): Promise<Category[]> {
 }
 
 export default async function AdminCategoriesPage() {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
+  const adminCheck = await requireAdmin();
+  if (!adminCheck.user) {
     redirect("/login?redirect=/admin/categories");
   }
 
-  // Check if user is admin
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (profileError || !profile || profile.role !== "admin") {
-    redirect("/dashboard");
+  if (!adminCheck.isAdmin) {
+    redirect("/");
   }
 
   const categories = await getCategories();

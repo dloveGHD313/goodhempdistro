@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase";
 import {
   getAdminDiagnostics,
   getSupabaseAdminClientOrThrow,
   type AdminDiagnostics,
 } from "@/lib/supabaseAdmin";
-import { getCurrentUserProfile, isAdmin } from "@/lib/authz";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { revalidatePath } from "next/cache";
 
 export const dynamic = "force-dynamic";
@@ -89,11 +88,8 @@ export async function POST(
 ) {
   try {
     const diagnostics = getAdminDiagnostics();
-
-    const supabase = await createSupabaseServerClient();
-    const { user, profile } = await getCurrentUserProfile(supabase);
-
-    if (!user) {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.user) {
       return createErrorResponse({
         diagnostics,
         queryContext: "auth_check",
@@ -102,7 +98,7 @@ export async function POST(
       });
     }
 
-    if (!isAdmin(profile)) {
+    if (!adminCheck.isAdmin) {
       return createErrorResponse({
         diagnostics,
         queryContext: "auth_check",
@@ -167,7 +163,7 @@ export async function POST(
         status: 'approved',
         active: true, // Auto-activate on approval
         reviewed_at: new Date().toISOString(),
-        reviewed_by: user.id,
+        reviewed_by: adminCheck.user.id,
         rejection_reason: null, // Clear any previous rejection reason
       })
       .eq("id", id)
@@ -197,7 +193,7 @@ export async function POST(
 
     const urlPreview = diagnostics.supabaseUrlUsed?.substring(0, 50) || "NOT_SET";
     console.log(
-      `[admin/services/approve] Approved ${id} (${service.name || service.title}) by admin ${user.id}. ` +
+      `[admin/services/approve] Approved ${id} (${service.name || service.title}) by admin ${adminCheck.user.id}. ` +
         `pending=${pendingCount ?? 0} approved=${approvedCount ?? 0} ` +
         `url=${urlPreview}... keyType=${diagnostics.keyType} keySource=${diagnostics.keySourceName || "none"} ` +
         `keyLength=${diagnostics.keyLength ?? "unknown"} ` +

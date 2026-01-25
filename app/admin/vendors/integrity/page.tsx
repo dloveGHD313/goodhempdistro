@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
-import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
-import { getCurrentUserProfile, isAdmin } from "@/lib/authz";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 import Footer from "@/components/Footer";
 import IntegrityClient from "./IntegrityClient";
 
@@ -79,20 +78,20 @@ async function getIntegrityData() {
 export default async function VendorIntegrityPage() {
   noStore();
 
-  const supabase = await createSupabaseServerClient();
-  const { user, profile } = await getCurrentUserProfile(supabase);
-
-  if (!user) {
+  const adminCheck = await requireAdmin();
+  if (!adminCheck.user) {
     redirect("/login?redirect=/admin/vendors/integrity");
   }
 
-  if (!isAdmin(profile)) {
-    redirect("/dashboard");
+  if (!adminCheck.isAdmin) {
+    redirect("/");
   }
 
   const integrityData = await getIntegrityData();
 
-  console.log(`[admin/vendors/integrity] Admin ${user.id} viewing integrity. Missing vendors: ${integrityData.counts?.missing || 0}`);
+  console.log(
+    `[admin/vendors/integrity] Admin ${adminCheck.user.id} viewing integrity. Missing vendors: ${integrityData.counts?.missing || 0}`
+  );
 
   return (
     <div className="min-h-screen text-white flex flex-col">

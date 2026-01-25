@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
-import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
-import { getCurrentUserProfile, isAdmin } from "@/lib/authz";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 import Footer from "@/components/Footer";
 import AdminInquiriesClient from "./AdminInquiriesClient";
 
@@ -94,20 +93,20 @@ async function getAllInquiries() {
 export default async function AdminInquiriesPage() {
   noStore();
 
-  const supabase = await createSupabaseServerClient();
-  const { user, profile } = await getCurrentUserProfile(supabase);
-
-  if (!user) {
+  const adminCheck = await requireAdmin();
+  if (!adminCheck.user) {
     redirect("/login?redirect=/admin/inquiries");
   }
 
-  if (!isAdmin(profile)) {
-    redirect("/dashboard");
+  if (!adminCheck.isAdmin) {
+    redirect("/");
   }
 
   const inquiriesData = await getAllInquiries();
 
-  console.log(`[admin/inquiries] Admin ${user.id} viewing ${inquiriesData.inquiries?.length || 0} inquiries`);
+  console.log(
+    `[admin/inquiries] Admin ${adminCheck.user.id} viewing ${inquiriesData.inquiries?.length || 0} inquiries`
+  );
 
   return (
     <div className="min-h-screen text-white flex flex-col">

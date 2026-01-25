@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClientOrThrow, getAdminDiagnostics, type AdminDiagnostics } from "@/lib/supabaseAdmin";
-import { getCurrentUserProfile, isAdmin } from "@/lib/authz";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -90,11 +89,8 @@ function createErrorResponse(
  */
 export async function GET(req: NextRequest) {
   try {
-    // Verify admin authentication using session-based client
-    const supabase = await createSupabaseServerClient();
-    const { user, profile } = await getCurrentUserProfile(supabase);
-
-    if (!user) {
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.user) {
       const diagnostics = getAdminDiagnostics();
       return NextResponse.json<QueueResponse>(
         {
@@ -114,7 +110,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    if (!isAdmin(profile)) {
+    if (!adminCheck.isAdmin) {
       const diagnostics = getAdminDiagnostics();
       return NextResponse.json<QueueResponse>(
         {
@@ -226,7 +222,7 @@ export async function GET(req: NextRequest) {
     // Log comprehensive diagnostics
     const urlPreview = diagnostics.supabaseUrlUsed?.substring(0, 50) || "NOT_SET";
     console.log(
-      `[admin/services/queue] Admin ${user.id} (${user.email}) fetched queue. ` +
+      `[admin/services/queue] Admin ${adminCheck.user.id} (${adminCheck.user.email}) fetched queue. ` +
       `Pending: ${normalizedServices.length}, ` +
       `Total: ${totalCount || 0}, ` +
       `URL: ${urlPreview}... (source: ${diagnostics.urlSourceName}), ` +
