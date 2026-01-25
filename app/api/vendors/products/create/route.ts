@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     if (vendorError) {
       return NextResponse.json(
         process.env.NODE_ENV === "production"
-          ? { error: "Failed to verify vendor account" }
+          ? { error: "Failed to verify vendor account", requestId }
           : {
               requestId,
               error: "Failed to verify vendor account",
@@ -145,7 +145,10 @@ export async function POST(req: NextRequest) {
             );
             return NextResponse.json(
               process.env.NODE_ENV === "production"
-                ? { error: "Vendor account provisioning failed. Please contact support." }
+                ? {
+                    error: "Vendor account provisioning failed. Please contact support.",
+                    requestId,
+                  }
                 : {
                     requestId,
                     error: "Vendor account provisioning failed. Please contact support.",
@@ -170,7 +173,10 @@ export async function POST(req: NextRequest) {
           );
           return NextResponse.json(
             process.env.NODE_ENV === "production"
-              ? { error: "Vendor account provisioning error. Please contact support." }
+              ? {
+                  error: "Vendor account provisioning error. Please contact support.",
+                  requestId,
+                }
               : {
                   requestId,
                   error: "Vendor account provisioning error. Please contact support.",
@@ -257,16 +263,21 @@ export async function POST(req: NextRequest) {
       console.warn(`⚠️ [product/create] Vendor ${vendor.id} has no active subscription`);
     }
 
+    const body = await req.json();
     const {
       name,
       description,
       price_cents,
+      price,
       category_id,
+      subcategory_id,
+      category,
       product_type,
+      active,
       coa_url,
       coa_object_path,
       delta8_disclaimer_ack,
-    } = await req.json();
+    } = body;
 
     const normalizeCoaObjectPath = (value: unknown) => {
       if (typeof value !== "string") {
@@ -301,21 +312,72 @@ export async function POST(req: NextRequest) {
 
     if (!name || !name.trim()) {
       return NextResponse.json(
-        { error: "Product name is required" },
+        { error: "Product name is required", requestId },
         { status: 400 }
       );
     }
 
-    if (!price_cents || price_cents < 0) {
+    const parsePriceCents = (value: unknown) => {
+      if (typeof value === "number" && Number.isFinite(value)) {
+        return Math.round(value);
+      }
+      if (typeof value === "string" && value.trim().length > 0) {
+        const parsed = Number.parseFloat(value);
+        if (Number.isFinite(parsed)) {
+          return Math.round(parsed);
+        }
+      }
+      return null;
+    };
+
+    const parsePriceFromDollars = (value: unknown) => {
+      if (typeof value === "number" && Number.isFinite(value)) {
+        return Math.round(value * 100);
+      }
+      if (typeof value === "string" && value.trim().length > 0) {
+        const parsed = Number.parseFloat(value);
+        if (Number.isFinite(parsed)) {
+          return Math.round(parsed * 100);
+        }
+      }
+      return null;
+    };
+
+    const priceCents =
+      parsePriceCents(price_cents) ?? parsePriceFromDollars(price);
+    if (priceCents === null || priceCents < 0) {
       return NextResponse.json(
-        { error: "Valid price is required" },
+        { error: "Valid price is required", requestId },
         { status: 400 }
       );
     }
+
+    const normalizeProductType = (value?: string | null) => {
+      if (!value) {
+        return "non_intoxicating";
+      }
+      const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
+      if (normalized === "non_intoxicating" || normalized === "nonintoxicating") {
+        return "non_intoxicating";
+      }
+      if (normalized === "intoxicating") {
+        return "intoxicating";
+      }
+      if (normalized === "delta8" || normalized === "delta_8") {
+        return "delta8";
+      }
+      return "non_intoxicating";
+    };
+
+    const normalizedProductType = normalizeProductType(product_type);
+
+    const isUuid = (value: unknown) =>
+      typeof value === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 
     // Check if category requires COA
     let categoryRequiresCoa = false;
-    if (category_id) {
+    if (isUuid(category_id)) {
       const { data: category } = await supabase
         .from("categories")
         .select("id, name, requires_coa, parent_id")
@@ -348,8 +410,8 @@ export async function POST(req: NextRequest) {
     // Validate compliance (COA only required if category requires it)
     const requireCoaForDrafts = false;
     const complianceErrors = validateProductCompliance({
-      product_type: product_type || "non_intoxicating",
-      coa_url,
+      product_type: normalizedProductType,
+      coa_url: typeof coa_url === "string" ? coa_url.trim() : coa_url,
       coa_object_path: normalizedCoaObjectPath,
       delta8_disclaimer_ack,
       category_requires_coa: categoryRequiresCoa && requireCoaForDrafts,
@@ -357,56 +419,39 @@ export async function POST(req: NextRequest) {
 
     if (complianceErrors.length > 0) {
       return NextResponse.json(
-        { error: complianceErrors[0].message, complianceErrors },
+        { error: complianceErrors[0].message, complianceErrors, requestId },
         { status: 400 }
       );
     }
 
-    const fetchColumnSet = async (tableName: string) => {
+    const getCategoryColumnSupport = async () => {
       try {
-        const { data, error } = await supabase
+        const admin = getSupabaseAdminClient();
+        const { data, error } = await admin
           .schema("information_schema")
           .from("columns")
           .select("column_name")
           .eq("table_schema", "public")
-          .eq("table_name", tableName);
+          .eq("table_name", "products")
+          .eq("column_name", "category");
 
-        if (error || !data) {
-          return null;
+        if (error) {
+          return false;
         }
 
-        return new Set(data.map((row) => row.column_name));
+        return (data || []).length > 0;
       } catch (error) {
         console.warn(
-          `[vendor-products] requestId=${requestId} Failed to read schema for ${tableName}:`,
+          `[vendor-products] requestId=${requestId} Failed to read products.category column:`,
           error
         );
-        return null;
+        return false;
       }
     };
 
-    const filterPayload = (
-      payload: Record<string, unknown>,
-      columnSet: Set<string> | null
-    ) => {
-      if (!columnSet) {
-        return payload;
-      }
-      return Object.fromEntries(
-        Object.entries(payload).filter(([key]) => columnSet.has(key))
-      );
-    };
-
-    const getMissingColumns = (error?: { message?: string | null; details?: string | null }) => {
-      const sources = [error?.message, error?.details].filter(Boolean) as string[];
-      const matches = new Set<string>();
-      sources.forEach((source) => {
-        for (const match of source.matchAll(/column \"([^\"]+)\" does not exist/gi)) {
-          matches.add(match[1]);
-        }
-      });
-      return Array.from(matches);
-    };
+    const supportsCategoryText = typeof category === "string"
+      ? await getCategoryColumnSupport()
+      : false;
 
     // Create product with draft status (requires admin approval)
     const baseInsertPayload: Record<string, unknown> = {
@@ -414,38 +459,47 @@ export async function POST(req: NextRequest) {
       owner_user_id: user.id, // Direct reference for RLS
       name: name.trim(),
       description: description?.trim() || null,
-      price_cents: parseInt(price_cents),
-      category_id: category_id || null,
+      price_cents: priceCents,
+      category_id: isUuid(category_id) ? category_id : null,
+      subcategory_id: isUuid(subcategory_id) ? subcategory_id : null,
+      ...(supportsCategoryText && typeof category === "string"
+        ? { category: category.trim() }
+        : {}),
       status: "draft", // Always start as draft
-      active: false, // Not active until approved
-      product_type: product_type || "non_intoxicating",
+      active: typeof active === "boolean" ? active : true,
+      product_type: normalizedProductType,
       // COA is optional at create time; never block product creation
       coa_url: coa_url?.trim() || null,
       coa_object_path: normalizedCoaObjectPath,
       delta8_disclaimer_ack: delta8_disclaimer_ack === true,
     };
 
-    const productColumns = await fetchColumnSet("products");
-    let payload = filterPayload(baseInsertPayload, productColumns);
+    const payloadKeys = Object.keys(baseInsertPayload);
+    console.log("[vendor-products] request payload keys", {
+      requestId,
+      userId: user.id,
+      vendorId: vendor.id,
+      payloadKeys,
+    });
+
     let { data: product, error: productError } = await supabase
       .from("products")
-      .insert(payload)
+      .insert(baseInsertPayload)
       .select("id, name, price_cents, status")
       .single();
 
-    // Back-compat for deployments missing newer columns (retry once)
-    const missingColumns = getMissingColumns(productError || undefined);
-    if (productError && missingColumns.length > 0) {
-      missingColumns.forEach((column) => {
-        delete payload[column];
-      });
-      const retry = await supabase
+    if (productError && (productError.code === "42501" || /row level security/i.test(productError.message || ""))) {
+      console.warn(
+        `[vendor-products] requestId=${requestId} RLS blocked insert; retrying with admin client.`
+      );
+      const admin = getSupabaseAdminClient();
+      const adminInsert = await admin
         .from("products")
-        .insert(payload)
+        .insert(baseInsertPayload)
         .select("id, name, price_cents, status")
         .single();
-      product = retry.data;
-      productError = retry.error;
+      product = adminInsert.data;
+      productError = adminInsert.error;
     }
 
     if (productError) {
@@ -468,7 +522,7 @@ export async function POST(req: NextRequest) {
                 hint: productError.hint,
               },
             }
-          : { error: "Failed to create product" },
+          : { error: "Failed to create product", requestId },
         { status: 500 }
       );
     }
@@ -479,7 +533,7 @@ export async function POST(req: NextRequest) {
       );
       return NextResponse.json(
         process.env.NODE_ENV === "production"
-          ? { error: "Failed to create product" }
+          ? { error: "Failed to create product", requestId }
           : { requestId, error: "Failed to create product" },
         { status: 500 }
       );

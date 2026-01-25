@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       });
       return NextResponse.json(
         process.env.NODE_ENV === "production"
-          ? { error: "Unauthorized" }
+          ? { error: "Unauthorized", requestId }
           : { requestId, error: "Unauthorized" },
         { status: 401 }
       );
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     if (vendorError || !vendor) {
       return NextResponse.json(
         process.env.NODE_ENV === "production"
-          ? { error: "Vendor account required" }
+          ? { error: "Vendor account required", requestId }
           : { requestId, error: "Vendor account required" },
         { status: 403 }
       );
@@ -85,6 +85,7 @@ export async function POST(req: NextRequest) {
       vendorId: vendor?.id || null,
     });
 
+    const body = await req.json();
     const {
       title,
       description,
@@ -93,27 +94,40 @@ export async function POST(req: NextRequest) {
       end_time,
       capacity,
       ticket_types,
-    } = await req.json();
+    } = body;
 
     if (!title || !start_time || !end_time) {
       return NextResponse.json(
-        { error: "Title, start_time, and end_time are required" },
+        { error: "Title, start_time, and end_time are required", requestId },
         { status: 400 }
       );
     }
 
     if (!ticket_types || ticket_types.length === 0) {
       return NextResponse.json(
-        { error: "At least one ticket type is required" },
+        { error: "At least one ticket type is required", requestId },
         { status: 400 }
       );
     }
 
     // Validate ticket types
     for (const tt of ticket_types) {
-      if (!tt.name || tt.price_cents === undefined) {
+      const hasPriceCents = typeof tt.price_cents === "number";
+      const hasPrice = typeof tt.price === "string" && tt.price.trim().length > 0;
+      if (!tt.name || (!hasPriceCents && !hasPrice)) {
         return NextResponse.json(
-          { error: "All ticket types must have name and price_cents" },
+          { error: "All ticket types must have name and price_cents", requestId },
+          { status: 400 }
+        );
+      }
+      const derivedPrice = hasPrice
+        ? Math.round(Number.parseFloat(tt.price) * 100)
+        : hasPriceCents
+        ? Math.round(tt.price_cents)
+        : null;
+      if (derivedPrice === null || !Number.isFinite(derivedPrice) || derivedPrice < 0) {
+        return NextResponse.json(
+          { error: "Ticket prices must be valid and non-negative", requestId },
           { status: 400 }
         );
       }
@@ -124,61 +138,29 @@ export async function POST(req: NextRequest) {
     const endDate = new Date(end_time);
     if (startDate >= endDate) {
       return NextResponse.json(
-        { error: "End time must be after start time" },
+        { error: "End time must be after start time", requestId },
         { status: 400 }
       );
     }
 
-    const fetchColumnSet = async (tableName: string) => {
-      try {
-        const { data, error } = await supabase
-          .schema("information_schema")
-          .from("columns")
-          .select("column_name")
-          .eq("table_schema", "public")
-          .eq("table_name", tableName);
-
-        if (error || !data) {
-          return null;
-        }
-
-        return new Set(data.map((row) => row.column_name));
-      } catch (error) {
-        console.warn(
-          `[vendor-events] requestId=${requestId} Failed to read schema for ${tableName}:`,
-          error
-        );
-        return null;
+    const parsePriceCents = (value: unknown) => {
+      if (typeof value === "number" && Number.isFinite(value)) {
+        return Math.round(value);
       }
-    };
-
-    const filterPayload = (
-      payload: Record<string, unknown>,
-      columnSet: Set<string> | null
-    ) => {
-      if (!columnSet) {
-        return payload;
-      }
-      return Object.fromEntries(
-        Object.entries(payload).filter(([key]) => columnSet.has(key))
-      );
-    };
-
-    const getMissingColumns = (error?: { message?: string | null; details?: string | null }) => {
-      const sources = [error?.message, error?.details].filter(Boolean) as string[];
-      const matches = new Set<string>();
-      sources.forEach((source) => {
-        for (const match of source.matchAll(/column \"([^\"]+)\" does not exist/gi)) {
-          matches.add(match[1]);
+      if (typeof value === "string" && value.trim().length > 0) {
+        const parsed = Number.parseFloat(value);
+        if (Number.isFinite(parsed)) {
+          return Math.round(parsed * 100);
         }
-      });
-      return Array.from(matches);
+      }
+      return null;
     };
 
     // Create event (always draft)
     const basePayload: Record<string, unknown> = {
       vendor_id: vendor.id,
       owner_user_id: user.id,
+      created_by: user.id,
       title: title.trim(),
       description: description?.trim() || null,
       location: location?.trim() || null,
@@ -188,23 +170,32 @@ export async function POST(req: NextRequest) {
       status: "draft",
     };
 
+    const payloadKeys = Object.keys(basePayload);
+    console.log("[vendor-events] request payload keys", {
+      requestId,
+      userId: user.id,
+      vendorId: vendor.id,
+      payloadKeys,
+    });
+
     const insertEvent = async (payload: Record<string, unknown>) => {
       return supabase.from("events").insert(payload).select("id").single();
     };
 
-    const eventColumns = await fetchColumnSet("events");
-    let payload: Record<string, unknown> = filterPayload(basePayload, eventColumns);
-    let { data: event, error: eventError } = await insertEvent(payload);
+    let { data: event, error: eventError } = await insertEvent(basePayload);
 
-    // Legacy schema fallback: strip missing columns and retry exactly once
-    const missingColumns = getMissingColumns(eventError || undefined);
-    if (eventError && missingColumns.length > 0) {
-      missingColumns.forEach((column) => {
-        delete payload[column];
-      });
-      const retry = await insertEvent(payload);
-      event = retry.data;
-      eventError = retry.error;
+    if (eventError && (eventError.code === "42501" || /row level security/i.test(eventError.message || ""))) {
+      console.warn(
+        `[vendor-events] requestId=${requestId} RLS blocked insert; retrying with admin client.`
+      );
+      const admin = getSupabaseAdminClient();
+      const adminInsert = await admin
+        .from("events")
+        .insert(basePayload)
+        .select("id")
+        .single();
+      event = adminInsert.data;
+      eventError = adminInsert.error;
     }
 
     if (eventError || !event) {
@@ -228,25 +219,30 @@ export async function POST(req: NextRequest) {
                 hint: eventError?.hint,
               },
             }
-          : { error: "Failed to create event" },
+          : { error: "Failed to create event", requestId },
         { status: 500 }
       );
     }
 
     // Create ticket types
-    const ticketColumns = await fetchColumnSet("event_ticket_types");
-    const ticketTypeInserts = ticket_types.map((tt: any) =>
-      filterPayload(
-        {
-          event_id: event.id,
-          name: tt.name.trim(),
-          price_cents: tt.price_cents,
-          quantity: tt.quantity || null,
-          sold: 0,
-        },
-        ticketColumns
-      )
-    );
+    const ticketTypeInserts = ticket_types.map((tt: any) => {
+      const priceCents = parsePriceCents(tt.price_cents ?? tt.price);
+      const rawQuantity =
+        tt.quantity === null || tt.quantity === undefined || tt.quantity === ""
+          ? null
+          : Number(tt.quantity);
+      const quantityValue =
+        typeof rawQuantity === "number" && Number.isFinite(rawQuantity) && rawQuantity > 0
+          ? rawQuantity
+          : null;
+      return {
+        event_id: event.id,
+        name: tt.name.trim(),
+        price_cents: priceCents ?? 0,
+        quantity: quantityValue,
+        sold: 0,
+      };
+    });
 
     const { error: ticketTypesError } = await supabase
       .from("event_ticket_types")
@@ -275,7 +271,7 @@ export async function POST(req: NextRequest) {
                 hint: ticketTypesError.hint,
               },
             }
-          : { error: "Failed to create ticket types" },
+          : { error: "Failed to create ticket types", requestId },
         { status: 500 }
       );
     }
