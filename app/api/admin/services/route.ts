@@ -1,0 +1,121 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
+
+const VALID_STATUSES = ["pending_review", "approved", "rejected", "draft"] as const;
+const DEFAULT_STATUS_ORDER = ["pending_review", "draft", "approved", "rejected"] as const;
+
+export async function GET(req: NextRequest) {
+  const requestId = crypto.randomUUID();
+  const logStage = (stage: string, details?: Record<string, unknown>) => {
+    console.log(`[admin/services][${requestId}] ${stage}`, details || {});
+  };
+  try {
+    logStage("start");
+    const adminCheck = await requireAdmin();
+    if (!adminCheck.user) {
+      logStage("auth_missing", { reason: adminCheck.reason });
+      return NextResponse.json(
+        { ok: false, error: "Unauthorized" },
+        { status: 401, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+    if (!adminCheck.isAdmin) {
+      logStage("auth_forbidden", { userId: adminCheck.user.id, reason: adminCheck.reason });
+      return NextResponse.json(
+        { ok: false, error: "Forbidden" },
+        { status: 403, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    const { searchParams } = new URL(req.url);
+    const summaryOnly = searchParams.get("mode") === "summary";
+    const statusParam = searchParams.get("status") || "pending_review";
+    const status = VALID_STATUSES.includes(statusParam as (typeof VALID_STATUSES)[number])
+      ? statusParam
+      : "pending_review";
+    const limit = Math.min(Number(searchParams.get("limit") || 50), 200);
+
+    const admin = createSupabaseAdminClient();
+
+    const fetchCount = async (statusValue: string) => {
+      const { count } = await admin
+        .from("services")
+        .select("*", { count: "exact", head: true })
+        .eq("status", statusValue);
+      return count || 0;
+    };
+
+    logStage("fetch_counts");
+    const [approved, rejected, draft, pending, total] = await Promise.all([
+      fetchCount("approved"),
+      fetchCount("rejected"),
+      fetchCount("draft"),
+      fetchCount("pending_review"),
+      admin.from("services").select("*", { count: "exact", head: true }).then(({ count }) => count || 0),
+    ]);
+
+    const counts = {
+      total,
+      pending,
+      approved,
+      draft,
+      rejected,
+    };
+
+    const suggestedDefaultStatus =
+      (DEFAULT_STATUS_ORDER.find((candidate) => counts[candidate === "pending_review" ? "pending" : candidate] > 0) ||
+        "pending_review") as (typeof VALID_STATUSES)[number];
+
+    if (summaryOnly) {
+      logStage("summary_only", { suggestedDefaultStatus });
+      return NextResponse.json(
+        {
+          ok: true,
+          counts,
+          suggestedDefaultStatus,
+        },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    logStage("fetch_list", { status, limit });
+    const { data, error } = await admin
+      .from("services")
+      .select(
+        "id, name, title, description, pricing_type, price_cents, status, submitted_at, category_id, vendor_id, owner_user_id, created_at"
+      )
+      .eq("status", status)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error(`[admin/services][${requestId}] list_error`, {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+      });
+      return NextResponse.json(
+        { ok: false, error: "Failed to fetch services", message: error.message, details: error.details, hint: error.hint },
+        { status: 500, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    logStage("success", { items: (data || []).length });
+    return NextResponse.json(
+      {
+        ok: true,
+        data: data || [],
+        counts,
+      },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  } catch (error) {
+    console.error(`[admin/services][${requestId}] unexpected_error`, error);
+    return NextResponse.json(
+      { ok: false, error: "Internal server error" },
+      { status: 500, headers: { "Cache-Control": "no-store" } }
+    );
+  }
+}

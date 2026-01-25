@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 
 type Service = {
@@ -28,15 +28,57 @@ type Props = {
     draft: number;
     rejected: number;
   };
+  initialStatus: string;
 };
 
-export default function ServicesReviewClient({ initialServices, initialCounts }: Props) {
+const STATUS_TABS = [
+  { id: "pending_review", label: "Pending" },
+  { id: "approved", label: "Approved" },
+  { id: "rejected", label: "Rejected" },
+  { id: "draft", label: "Draft" },
+];
+
+export default function ServicesReviewClient({
+  initialServices,
+  initialCounts,
+  initialStatus,
+}: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const [services, setServices] = useState<Service[]>(initialServices);
   const [counts, setCounts] = useState(initialCounts);
   const [loading, setLoading] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState<Record<string, string>>({});
   const [showRejectForm, setShowRejectForm] = useState<string | null>(null);
+  const [activeStatus, setActiveStatus] = useState(initialStatus);
+  const [listError, setListError] = useState<string | null>(null);
+
+  const fetchList = async (status: string) => {
+    setListError(null);
+    const response = await fetch(`/api/admin/services?status=${status}&limit=50`, {
+      cache: "no-store",
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) {
+      setListError(data?.error || "Failed to load services");
+      return;
+    }
+    setServices(data.data || []);
+    setCounts(
+      data.counts || { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 }
+    );
+  };
+
+  useEffect(() => {
+    const totalCount =
+      (initialCounts.pending || 0) +
+      (initialCounts.approved || 0) +
+      (initialCounts.draft || 0) +
+      (initialCounts.rejected || 0);
+    if (initialServices.length === 0 && totalCount > 0) {
+      fetchList(initialStatus);
+    }
+  }, [initialCounts, initialServices.length, initialStatus]);
 
   const handleApprove = async (serviceId: string) => {
     setLoading(serviceId);
@@ -53,7 +95,7 @@ export default function ServicesReviewClient({ initialServices, initialCounts }:
         // ignore JSON parse errors
       }
 
-      if (!res.ok) {
+      if (!res.ok || payload?.ok === false) {
         const message =
           payload?.error?.message ||
           payload?.message ||
@@ -81,13 +123,14 @@ export default function ServicesReviewClient({ initialServices, initialCounts }:
         return;
       }
 
-      // Remove from list and update counts
-      setServices(services.filter(s => s.id !== serviceId));
-      setCounts({
-        ...counts,
-        pending: counts.pending - 1,
-        approved: counts.approved + 1,
-      });
+      setServices(services.filter((s) => s.id !== serviceId));
+      setCounts((current) => ({
+        ...current,
+        pending: current.pending - (activeStatus === "pending_review" ? 1 : 0),
+        draft: current.draft - (activeStatus === "draft" ? 1 : 0),
+        rejected: current.rejected - (activeStatus === "rejected" ? 1 : 0),
+        approved: current.approved + 1,
+      }));
       
       router.refresh();
     } catch (err) {
@@ -113,19 +156,20 @@ export default function ServicesReviewClient({ initialServices, initialCounts }:
 
       const data = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || data?.ok === false) {
         alert(data.error || "Failed to reject service");
         setLoading(null);
         return;
       }
 
-      // Remove from list and update counts
-      setServices(services.filter(s => s.id !== serviceId));
-      setCounts({
-        ...counts,
-        pending: counts.pending - 1,
-        rejected: counts.rejected + 1,
-      });
+      setServices(services.filter((s) => s.id !== serviceId));
+      setCounts((current) => ({
+        ...current,
+        pending: current.pending - (activeStatus === "pending_review" ? 1 : 0),
+        draft: current.draft - (activeStatus === "draft" ? 1 : 0),
+        approved: current.approved - (activeStatus === "approved" ? 1 : 0),
+        rejected: current.rejected + 1,
+      }));
       setShowRejectForm(null);
       setRejectionReason({ ...rejectionReason, [serviceId]: "" });
       
@@ -182,10 +226,35 @@ export default function ServicesReviewClient({ initialServices, initialCounts }:
         </div>
       </div>
 
-      {/* Pending Services List */}
+      <div className="flex flex-wrap gap-3">
+        {STATUS_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => {
+              setActiveStatus(tab.id);
+              fetchList(tab.id);
+              router.replace(`${pathname}?status=${tab.id}`);
+            }}
+            className={`btn-secondary text-sm ${
+              activeStatus === tab.id ? "bg-accent text-white" : ""
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {listError && (
+        <div className="bg-red-900/30 border border-red-600 rounded-lg p-4 text-red-400">
+          {listError}
+        </div>
+      )}
+
+      {/* Services List */}
       {services.length === 0 ? (
         <div className="card-glass p-8 text-center">
-          <p className="text-muted">No services pending review.</p>
+          <p className="text-muted">No services in this status.</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -196,7 +265,7 @@ export default function ServicesReviewClient({ initialServices, initialCounts }:
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="text-xl font-semibold">{service.name || service.title}</h3>
                     <span className="px-2 py-1 bg-yellow-600 text-yellow-100 rounded text-xs font-semibold">
-                      Pending Review
+                      {service.status?.replace("_", " ") || "Pending Review"}
                     </span>
                   </div>
                   {service.description && (

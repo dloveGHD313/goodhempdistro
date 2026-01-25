@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 type EventItem = {
   id: string;
@@ -39,6 +39,7 @@ const STATUS_TABS = [
 
 export default function EventsReviewClient({ initialEvents, initialCounts, initialStatus }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const [events, setEvents] = useState<EventItem[]>(initialEvents);
   const [counts, setCounts] = useState(initialCounts);
   const [loading, setLoading] = useState<string | null>(null);
@@ -175,6 +176,7 @@ export default function EventsReviewClient({ initialEvents, initialCounts, initi
             onClick={() => {
               setActiveStatus(tab.id);
               fetchList(tab.id);
+              router.replace(`${pathname}?status=${tab.id}`);
             }}
             className={`btn-secondary text-sm ${
               activeStatus === tab.id ? "bg-accent text-white" : ""

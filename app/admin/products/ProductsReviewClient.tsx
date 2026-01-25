@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 
 type Product = {
@@ -47,6 +47,7 @@ const STATUS_TABS = [
 
 export default function ProductsReviewClient({ initialProducts, initialCounts, initialStatus }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [counts, setCounts] = useState(initialCounts);
   const [loading, setLoading] = useState<string | null>(null);
@@ -205,6 +206,7 @@ export default function ProductsReviewClient({ initialProducts, initialCounts, i
             onClick={() => {
               setActiveStatus(tab.id);
               fetchList(tab.id);
+              router.replace(`${pathname}?status=${tab.id}`);
             }}
             className={`btn-secondary text-sm ${
               activeStatus === tab.id ? "bg-accent text-white" : ""
