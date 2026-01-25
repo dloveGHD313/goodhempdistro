@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 type Service = {
@@ -45,6 +45,7 @@ export default function ServicesReviewClient({
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [services, setServices] = useState<Service[]>(initialServices);
   const [counts, setCounts] = useState(initialCounts);
   const [loading, setLoading] = useState<string | null>(null);
@@ -79,6 +80,14 @@ export default function ServicesReviewClient({
       fetchList(initialStatus);
     }
   }, [initialCounts, initialServices.length, initialStatus]);
+
+  useEffect(() => {
+    const paramStatus = searchParams.get("status");
+    const validStatuses = STATUS_TABS.map((tab) => tab.id);
+    if (paramStatus && !validStatuses.includes(paramStatus)) {
+      router.replace(`${pathname}?status=${initialStatus}`);
+    }
+  }, [initialStatus, pathname, router, searchParams]);
 
   const handleApprove = async (serviceId: string) => {
     setLoading(serviceId);
