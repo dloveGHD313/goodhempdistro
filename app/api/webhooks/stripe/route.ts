@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let event: Stripe.Event;
+  let event: Stripe.Event | null = null;
 
   try {
     // Initialize clients (will throw if env vars missing)
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  console.log("✅ Webhook verified:", event.type);
+  console.log("✅ Webhook verified:", { type: event.type, id: event.id });
 
   try {
     // Handle the event
@@ -100,7 +100,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error("❌ Error handling webhook:", error);
+    console.error("❌ Error handling webhook:", {
+      eventType: event?.type,
+      eventId: event?.id,
+      error,
+    });
     return NextResponse.json(
       { error: "Webhook handler failed" },
       { status: 500 }
@@ -170,6 +174,17 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
 
   // Handle one-time payment (regular product order)
   if (orderId) {
+    const { data: existingOrder } = await supabase
+      .from("orders")
+      .select("id, status")
+      .eq("id", orderId)
+      .maybeSingle();
+
+    if (existingOrder?.status === "paid") {
+      console.log(`ℹ️ [handleCheckoutSessionCompleted] Order already paid | order_id=${orderId}`);
+      return;
+    }
+
     const { error } = await supabase
       .from("orders")
       .update({
@@ -198,11 +213,15 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
   // Find order by payment_intent_id
   const { data: order } = await supabase
     .from("orders")
-    .select("id")
+    .select("id, status")
     .eq("payment_intent_id", paymentIntent.id)
     .single();
 
   if (order) {
+    if (order.status === "paid") {
+      console.log(`ℹ️ [handlePaymentIntentSucceeded] Order already paid | order_id=${order.id}`);
+      return;
+    }
     const { error } = await supabase
       .from("orders")
       .update({
@@ -232,11 +251,15 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
   // Find order by payment_intent_id
   const { data: order } = await supabase
     .from("orders")
-    .select("id")
+    .select("id, status")
     .eq("payment_intent_id", paymentIntent.id)
     .single();
 
   if (order) {
+    if (order.status === "payment_failed") {
+      console.log(`ℹ️ [handlePaymentIntentFailed] Order already failed | order_id=${order.id}`);
+      return;
+    }
     const { error } = await supabase
       .from("orders")
       .update({

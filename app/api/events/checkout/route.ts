@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
       payment_method_types: ["card"],
       line_items: lineItems,
       success_url: `${siteUrl}/events/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/events/${event_id}`,
+      cancel_url: `${siteUrl}/orders/cancel`,
       metadata: {
         event_id: event_id,
         order_id: eventOrder.id,

@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
       payment_method_types: ["card"],
       client_reference_id: user.id,
       success_url: `${siteUrl}/orders/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/pricing`,
+      cancel_url: `${siteUrl}/orders/cancel`,
       metadata: {
         plan_type: planType,
         plan_name: planName,

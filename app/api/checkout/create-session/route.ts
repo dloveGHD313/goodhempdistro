@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
         },
       ],
       success_url: `${siteUrl}/orders/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/products`,
+      cancel_url: `${siteUrl}/orders/cancel`,
       client_reference_id: user.id,
       metadata: {
         order_id: order.id,
