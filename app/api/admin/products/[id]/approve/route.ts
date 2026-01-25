@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
-import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserProfile, isAdmin } from "@/lib/authz";
 import { revalidatePath } from "next/cache";
 
@@ -24,7 +24,7 @@ export async function POST(
     }
 
     const { id } = await params;
-    const admin = getSupabaseAdminClient();
+    const admin = createSupabaseAdminClient();
 
     // Get product
     const { data: product, error: productError } = await admin
@@ -45,18 +45,35 @@ export async function POST(
     }
 
     // Update product to approved
-    const { data: updatedProduct, error: updateError } = await admin
+    const baseUpdate = {
+      status: "approved",
+      active: true,
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: user.id,
+      rejection_reason: null,
+    };
+
+    let { data: updatedProduct, error: updateError } = await admin
       .from("products")
-      .update({
-        status: 'approved',
-        active: true, // Auto-activate on approval
-        reviewed_at: new Date().toISOString(),
-        reviewed_by: user.id,
-        rejection_reason: null, // Clear any previous rejection reason
-      })
+      .update(baseUpdate)
       .eq("id", id)
       .select("id, name, status")
       .single();
+
+    if (
+      updateError &&
+      /column .* does not exist/i.test(updateError.message || "")
+    ) {
+      console.warn("[admin/products/approve] Column missing, retrying with status only.");
+      const retry = await admin
+        .from("products")
+        .update({ status: "approved", active: true })
+        .eq("id", id)
+        .select("id, name, status")
+        .single();
+      updatedProduct = retry.data;
+      updateError = retry.error;
+    }
 
     if (updateError) {
       console.error("[admin/products/approve] Error updating product:", updateError);

@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase";
-import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { getCurrentUserProfile, isAdmin } from "@/lib/authz";
 import Footer from "@/components/Footer";
 import ProductsReviewClient from "./ProductsReviewClient";
@@ -11,96 +10,23 @@ export const revalidate = 0;
 
 async function getPendingProducts() {
   try {
-    const admin = getSupabaseAdminClient();
-
-    const { data: products, error } = await admin
-      .from("products")
-      .select(
-        "id, name, description, price_cents, status, submitted_at, coa_url, coa_object_path, vendor_id, owner_user_id"
-      )
-      .eq("status", "pending_review")
-      .order("submitted_at", { ascending: true });
-
-    if (error) {
-      console.error("[admin/products] Error fetching pending products:", error);
-      return { 
-        products: [], 
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const response = await fetch(
+      `${baseUrl}/api/admin/products?status=pending_review&limit=50`,
+      { cache: "no-store" }
+    );
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) {
+      console.error("[admin/products] Error fetching pending products:", payload);
+      return {
+        products: [],
         counts: { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 },
-        error: error.message 
+        error: payload?.error || "Failed to load products",
       };
     }
-
-    const vendorIds = Array.from(
-      new Set((products || []).map((p: any) => p.vendor_id).filter(Boolean))
-    );
-    const ownerIds = Array.from(
-      new Set((products || []).map((p: any) => p.owner_user_id).filter(Boolean))
-    );
-
-    const { data: vendors } = vendorIds.length
-      ? await admin
-          .from("vendors")
-          .select("id, business_name, owner_user_id")
-          .in("id", vendorIds)
-      : { data: [] };
-
-    const { data: profiles } = ownerIds.length
-      ? await admin
-          .from("profiles")
-          .select("id, email, display_name")
-          .in("id", ownerIds)
-      : { data: [] };
-
-    const vendorMap = new Map((vendors || []).map((v: any) => [v.id, v]));
-    const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
-
-    const normalizedProducts = (products || []).map((p: any) => ({
-      ...p,
-      vendors: vendorMap.get(p.vendor_id) || null,
-      profiles: profileMap.get(p.owner_user_id) || null,
-    }));
-
-    const productsWithCoaUrls = await Promise.all(
-      normalizedProducts.map(async (product: any) => {
-        if (!product.coa_object_path) {
-          return { ...product, coa_review_url: null };
-        }
-        const { data } = await admin.storage
-          .from("coas")
-          .createSignedUrl(product.coa_object_path, 60 * 10);
-        return { ...product, coa_review_url: data?.signedUrl || null };
-      })
-    );
-
-    // Get all products counts for overview
-    const { count: totalCount } = await admin
-      .from("products")
-      .select("*", { count: "exact", head: true });
-
-    const { count: approvedCount } = await admin
-      .from("products")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "approved");
-
-    const { count: draftCount } = await admin
-      .from("products")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "draft");
-
-    const { count: rejectedCount } = await admin
-      .from("products")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "rejected");
-
     return {
-      products: productsWithCoaUrls,
-      counts: {
-        total: totalCount || 0,
-        pending: normalizedProducts.length,
-        approved: approvedCount || 0,
-        draft: draftCount || 0,
-        rejected: rejectedCount || 0,
-      },
+      products: payload.data || [],
+      counts: payload.counts || { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 },
     };
   } catch (err) {
     console.error("[admin/products] Error in getPendingProducts:", err);
@@ -137,6 +63,7 @@ export default async function AdminProductsPage() {
           <ProductsReviewClient 
             initialProducts={productsData.products || []} 
             initialCounts={productsData.counts || { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 }} 
+            initialStatus="pending_review"
           />
         </section>
       </main>

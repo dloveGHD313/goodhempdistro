@@ -27,15 +27,41 @@ type Props = {
     draft: number;
     rejected: number;
   };
+  initialStatus: string;
 };
 
-export default function EventsReviewClient({ initialEvents, initialCounts }: Props) {
+const STATUS_TABS = [
+  { id: "pending_review", label: "Pending" },
+  { id: "approved", label: "Approved" },
+  { id: "rejected", label: "Rejected" },
+  { id: "draft", label: "Draft" },
+];
+
+export default function EventsReviewClient({ initialEvents, initialCounts, initialStatus }: Props) {
   const router = useRouter();
   const [events, setEvents] = useState<EventItem[]>(initialEvents);
   const [counts, setCounts] = useState(initialCounts);
   const [loading, setLoading] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState<Record<string, string>>({});
   const [showRejectForm, setShowRejectForm] = useState<string | null>(null);
+  const [activeStatus, setActiveStatus] = useState(initialStatus);
+  const [listError, setListError] = useState<string | null>(null);
+
+  const fetchList = async (status: string) => {
+    setListError(null);
+    const response = await fetch(`/api/admin/events?status=${status}&limit=50`, {
+      cache: "no-store",
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) {
+      setListError(data?.error || "Failed to load events");
+      return;
+    }
+    setEvents(data.data || []);
+    setCounts(
+      data.counts || { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 }
+    );
+  };
 
   const handleApprove = async (eventId: string) => {
     setLoading(eventId);
@@ -130,9 +156,33 @@ export default function EventsReviewClient({ initialEvents, initialCounts }: Pro
         </div>
       </div>
 
+      <div className="flex flex-wrap gap-3">
+        {STATUS_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => {
+              setActiveStatus(tab.id);
+              fetchList(tab.id);
+            }}
+            className={`btn-secondary text-sm ${
+              activeStatus === tab.id ? "bg-accent text-white" : ""
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {listError && (
+        <div className="bg-red-900/30 border border-red-600 rounded-lg p-4 text-red-400">
+          {listError}
+        </div>
+      )}
+
       {events.length === 0 ? (
         <div className="card-glass p-8 text-center">
-          <p className="text-muted">No events pending review.</p>
+          <p className="text-muted">No events in this status.</p>
         </div>
       ) : (
         <div className="space-y-4">

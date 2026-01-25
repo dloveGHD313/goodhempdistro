@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase";
-import { getSupabaseAdminClientOrThrow } from "@/lib/supabaseAdmin";
 import { getCurrentUserProfile, isAdmin } from "@/lib/authz";
 import Footer from "@/components/Footer";
 import EventsReviewClient from "./EventsReviewClient";
@@ -11,83 +10,23 @@ export const revalidate = 0;
 
 async function getPendingEvents() {
   try {
-    const admin = getSupabaseAdminClientOrThrow();
-
-    const { data: events, error } = await admin
-      .from("events")
-      .select(
-        "id, title, description, location, start_time, end_time, status, submitted_at, vendor_id, owner_user_id"
-      )
-      .eq("status", "pending_review")
-      .order("submitted_at", { ascending: true });
-
-    if (error) {
-      console.error("[admin/events] Error fetching pending events:", error);
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const response = await fetch(
+      `${baseUrl}/api/admin/events?status=pending_review&limit=50`,
+      { cache: "no-store" }
+    );
+    const payload = await response.json();
+    if (!response.ok || !payload.ok) {
+      console.error("[admin/events] Error fetching pending events:", payload);
       return {
         events: [],
         counts: { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 },
-        error: error.message,
+        error: payload?.error || "Failed to load events",
       };
     }
-
-    const vendorIds = Array.from(
-      new Set((events || []).map((e: any) => e.vendor_id).filter(Boolean))
-    );
-    const ownerIds = Array.from(
-      new Set((events || []).map((e: any) => e.owner_user_id).filter(Boolean))
-    );
-
-    const { data: vendors } = vendorIds.length
-      ? await admin
-          .from("vendors")
-          .select("id, business_name, owner_user_id")
-          .in("id", vendorIds)
-      : { data: [] };
-
-    const { data: profiles } = ownerIds.length
-      ? await admin
-          .from("profiles")
-          .select("id, email")
-          .in("id", ownerIds)
-      : { data: [] };
-
-    const vendorMap = new Map((vendors || []).map((v: any) => [v.id, v]));
-    const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
-
-    const normalizedEvents = (events || []).map((e: any) => ({
-      ...e,
-      vendor_name: vendorMap.get(e.vendor_id)?.business_name || null,
-      vendor_email: profileMap.get(e.owner_user_id)?.email || null,
-    }));
-
-    const { count: totalCount } = await admin
-      .from("events")
-      .select("*", { count: "exact", head: true });
-
-    const { count: approvedCount } = await admin
-      .from("events")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "approved");
-
-    const { count: draftCount } = await admin
-      .from("events")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "draft");
-
-    const { count: rejectedCount } = await admin
-      .from("events")
-      .select("*", { count: "exact", head: true })
-      .eq("status", "rejected");
-
     return {
-      events: normalizedEvents,
-      counts: {
-        total: totalCount || 0,
-        pending: normalizedEvents.length,
-        approved: approvedCount || 0,
-        draft: draftCount || 0,
-        rejected: rejectedCount || 0,
-      },
+      events: payload.data || [],
+      counts: payload.counts || { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 },
     };
   } catch (err) {
     console.error("[admin/events] Error in getPendingEvents:", err);
@@ -124,6 +63,7 @@ export default async function AdminEventsPage() {
             initialCounts={
               eventsData.counts || { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 }
             }
+            initialStatus="pending_review"
           />
         </section>
       </main>

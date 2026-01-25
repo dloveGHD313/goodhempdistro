@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
-import { getSupabaseAdminClientOrThrow } from "@/lib/supabaseAdmin";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUserProfile, isAdmin } from "@/lib/authz";
 import { revalidatePath } from "next/cache";
 
@@ -24,7 +24,7 @@ export async function POST(
     }
 
     const { id } = await params;
-    const admin = getSupabaseAdminClientOrThrow();
+    const admin = createSupabaseAdminClient();
 
     const { data: event, error: eventError } = await admin
       .from("events")
@@ -43,18 +43,35 @@ export async function POST(
       );
     }
 
-    const { data: updatedEvent, error: updateError } = await admin
+    const baseUpdate = {
+      status: "approved",
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: user.id,
+      rejection_reason: null,
+      updated_at: new Date().toISOString(),
+    };
+
+    let { data: updatedEvent, error: updateError } = await admin
       .from("events")
-      .update({
-        status: "approved",
-        reviewed_at: new Date().toISOString(),
-        reviewed_by: user.id,
-        rejection_reason: null,
-        updated_at: new Date().toISOString(),
-      })
+      .update(baseUpdate)
       .eq("id", id)
       .select("id, title, status")
       .single();
+
+    if (
+      updateError &&
+      /column .* does not exist/i.test(updateError.message || "")
+    ) {
+      console.warn("[admin/events/approve] Column missing, retrying with status only.");
+      const retry = await admin
+        .from("events")
+        .update({ status: "approved" })
+        .eq("id", id)
+        .select("id, title, status")
+        .single();
+      updatedEvent = retry.data;
+      updateError = retry.error;
+    }
 
     if (updateError) {
       console.error("[admin/events/approve] Error updating event:", updateError);
