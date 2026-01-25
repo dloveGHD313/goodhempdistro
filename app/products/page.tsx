@@ -17,6 +17,9 @@ type Product = {
   category_id: string | null;
   price_cents: number;
   featured: boolean;
+  description?: string | null;
+  vendor_id?: string | null;
+  vendor_name?: string | null;
 };
 
 async function getProducts(vendorId?: string | null): Promise<{
@@ -43,7 +46,7 @@ async function getProducts(vendorId?: string | null): Promise<{
 
     const query = supabase
       .from("products")
-      .select("id, name, category_id, price_cents, featured")
+      .select("id, name, category_id, price_cents, featured, description, vendor_id")
       .eq("status", "approved") // Only approved products
       .eq("active", true) // Only active products
       .order("created_at", { ascending: false });
@@ -57,7 +60,35 @@ async function getProducts(vendorId?: string | null): Promise<{
       return { products: [], vendorName };
     }
 
-    return { products: data || [], vendorName };
+    const rawProducts = data || [];
+    const vendorIds = Array.from(
+      new Set(rawProducts.map((product) => product.vendor_id).filter(Boolean))
+    ) as string[];
+
+    let vendorMap: Record<string, string> = {};
+    if (vendorIds.length > 0) {
+      const { data: vendors, error: vendorError } = await supabase
+        .from("vendors")
+        .select("id, business_name")
+        .in("id", vendorIds);
+      if (vendorError) {
+        console.error("[products] Error fetching vendor names:", vendorError);
+      } else {
+        vendorMap = (vendors || []).reduce<Record<string, string>>((acc, vendor) => {
+          if (vendor?.id) {
+            acc[vendor.id] = vendor.business_name || "Verified Vendor";
+          }
+          return acc;
+        }, {});
+      }
+    }
+
+    const products = rawProducts.map((product) => ({
+      ...product,
+      vendor_name: vendorName || (product.vendor_id ? vendorMap[product.vendor_id] : null) || null,
+    }));
+
+    return { products, vendorName };
   } catch (err) {
     console.error("[products] Fatal error fetching products:", err);
     return { products: [], vendorName: null };

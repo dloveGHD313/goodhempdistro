@@ -14,6 +14,8 @@ type Product = {
   category_id: string | null;
   price_cents: number;
   featured: boolean;
+  description?: string | null;
+  vendor_name?: string | null;
 };
 
 type Props = {
@@ -101,6 +103,10 @@ export default function ProductsList({ initialProducts, initialCategoryId }: Pro
             const categoryName =
               categories.find((cat) => cat.id === product.category_id)?.name || "Uncategorized";
             const rating = ratings[product.id];
+            const summary =
+              product.description && product.description.trim().length > 0
+                ? product.description.trim()
+                : "Product details coming soon.";
             return (
             <div key={product.id} className="card-glass p-6 hover-lift h-full">
               <div className="flex items-center justify-between mb-3">
@@ -117,6 +123,12 @@ export default function ProductsList({ initialProducts, initialCategoryId }: Pro
                 <p className="text-muted mb-2 text-sm">
                   {categoryName}
                 </p>
+                <p className="text-muted text-sm mb-3">
+                  {summary.length > 120 ? `${summary.slice(0, 120)}...` : summary}
+                </p>
+                {product.vendor_name && (
+                  <p className="text-xs text-muted">Vendor: {product.vendor_name}</p>
+                )}
               </Link>
               <div className="flex justify-between items-center">
                 <span className="text-2xl font-bold text-accent">

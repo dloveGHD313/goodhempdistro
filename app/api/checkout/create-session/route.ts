@@ -15,37 +15,59 @@ export async function POST(req: NextRequest) {
     if (userError || !user) {
       return NextResponse.json(
         { error: "Unauthorized" },
-        { status: 401 }
+        { status: 401, headers: { "Cache-Control": "no-store" } }
       );
     }
 
-    const { product_id, quantity = 1 } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const productId = typeof body?.product_id === "string" ? body.product_id : null;
+    const rawQuantity = body?.quantity;
+    const parsedQuantity = typeof rawQuantity === "number"
+      ? Math.floor(rawQuantity)
+      : typeof rawQuantity === "string"
+        ? Math.floor(Number.parseFloat(rawQuantity))
+        : 1;
+    const quantity = Number.isFinite(parsedQuantity) ? parsedQuantity : 1;
 
-    if (!product_id) {
+    if (!productId) {
       return NextResponse.json(
         { error: "product_id is required" },
-        { status: 400 }
+        { status: 400, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 50) {
+      return NextResponse.json(
+        { error: "Quantity must be between 1 and 50" },
+        { status: 400, headers: { "Cache-Control": "no-store" } }
       );
     }
 
     // Fetch product
     const { data: product, error: productError } = await supabase
       .from("products")
-      .select("id, name, price_cents, vendor_id, active")
-      .eq("id", product_id)
+      .select("id, name, price_cents, vendor_id, active, status")
+      .eq("id", productId)
       .single();
 
     if (productError || !product) {
       return NextResponse.json(
         { error: "Product not found" },
-        { status: 404 }
+        { status: 404, headers: { "Cache-Control": "no-store" } }
       );
     }
 
-    if (!product.active) {
+    if (!product.active || product.status !== "approved") {
       return NextResponse.json(
         { error: "Product is not available" },
-        { status: 400 }
+        { status: 400, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    if (!product.price_cents || product.price_cents <= 0) {
+      return NextResponse.json(
+        { error: "Product price is not available" },
+        { status: 400, headers: { "Cache-Control": "no-store" } }
       );
     }
 
@@ -68,7 +90,7 @@ export async function POST(req: NextRequest) {
       console.error("Error creating order:", orderError);
       return NextResponse.json(
         { error: "Failed to create order" },
-        { status: 500 }
+        { status: 500, headers: { "Cache-Control": "no-store" } }
       );
     }
 
@@ -122,13 +144,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       sessionId: session.id,
       url: session.url,
-    });
+    }, { headers: { "Cache-Control": "no-store" } });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error("[checkout/create-session]", errorMessage);
     return NextResponse.json(
       { error: "Failed to create checkout session" },
-      { status: 500 }
+      { status: 500, headers: { "Cache-Control": "no-store" } }
     );
   }
 }
