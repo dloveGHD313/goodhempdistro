@@ -14,6 +14,15 @@ type StatusCounts = {
   rejected: number;
 };
 
+type EventCounts = {
+  draft: number;
+  pending_review: number;
+  approved: number;
+  rejected: number;
+  published: number;
+  cancelled: number;
+};
+
 async function getVendorData(userId: string) {
   try {
     const supabase = await createSupabaseServerClient();
@@ -47,6 +56,11 @@ async function getVendorData(userId: string) {
       .select("status")
       .eq("owner_user_id", userId);
 
+    const { data: eventStatuses } = await supabase
+      .from("events")
+      .select("status")
+      .eq("vendor_id", vendor.id);
+
     const tally = (rows: Array<{ status: string }> | null): StatusCounts => {
       const counts: StatusCounts = {
         draft: 0,
@@ -63,10 +77,31 @@ async function getVendorData(userId: string) {
       return counts;
     };
 
+    const tallyEvents = (rows: Array<{ status: string }> | null): EventCounts => {
+      const counts: EventCounts = {
+        draft: 0,
+        pending_review: 0,
+        approved: 0,
+        rejected: 0,
+        published: 0,
+        cancelled: 0,
+      };
+      (rows || []).forEach((row) => {
+        if (row.status === "draft") counts.draft += 1;
+        if (row.status === "pending_review") counts.pending_review += 1;
+        if (row.status === "approved") counts.approved += 1;
+        if (row.status === "rejected") counts.rejected += 1;
+        if (row.status === "published") counts.published += 1;
+        if (row.status === "cancelled") counts.cancelled += 1;
+      });
+      return counts;
+    };
+
     return {
       vendor,
       productCounts: tally(productStatuses),
       serviceCounts: tally(serviceStatuses),
+      eventCounts: tallyEvents(eventStatuses),
     };
   } catch (error) {
     console.error("[vendors/dashboard] Error fetching vendor data:", error);
@@ -93,7 +128,7 @@ export default async function VendorDashboardPage() {
     redirect("/vendor-registration");
   }
 
-  const { vendor, productCounts, serviceCounts } = vendorData;
+  const { vendor, productCounts, serviceCounts, eventCounts } = vendorData;
 
   const onboardingComplete =
     vendor.vendor_onboarding_completed &&
@@ -179,7 +214,7 @@ export default async function VendorDashboardPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="surface-card p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold">Products</h2>
@@ -215,6 +250,27 @@ export default async function VendorDashboardPage() {
               <div className="mt-4">
                 <Link href="/vendors/services/new" className="btn-primary">
                   Create new service
+                </Link>
+              </div>
+            </div>
+            <div className="surface-card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold">Events</h2>
+                <Link href="/vendors/dashboard/events" className="text-accent text-sm">
+                  Manage
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm text-muted">
+                <div>Drafts: <span className="text-white">{eventCounts.draft}</span></div>
+                <div>Pending: <span className="text-white">{eventCounts.pending_review}</span></div>
+                <div>Approved: <span className="text-white">{eventCounts.approved}</span></div>
+                <div>Published: <span className="text-white">{eventCounts.published}</span></div>
+                <div>Rejected: <span className="text-white">{eventCounts.rejected}</span></div>
+                <div>Cancelled: <span className="text-white">{eventCounts.cancelled}</span></div>
+              </div>
+              <div className="mt-4">
+                <Link href="/vendors/events/new" className="btn-primary">
+                  Create new event
                 </Link>
               </div>
             </div>
