@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 type Inquiry = {
   id: string;
@@ -74,6 +75,9 @@ const getStatusClass = (status: string) => {
 };
 
 export default function AdminInquiriesClient({ initialInquiries }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [inquiries, setInquiries] = useState<Inquiry[]>(initialInquiries);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -82,15 +86,37 @@ export default function AdminInquiriesClient({ initialInquiries }: Props) {
   const [noteDraft, setNoteDraft] = useState<Record<string, string>>({});
   const [rowMessage, setRowMessage] = useState<Record<string, string>>({});
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [activeStatus, setActiveStatus] = useState("all");
 
   const statusOptions = useMemo(() => {
     const fromData = new Set(
       inquiries.map((inq) => normalizeStatus(inq.status)).filter(Boolean)
     );
     const combined = Array.from(new Set([...DEFAULT_STATUSES, ...fromData]));
-    return combined;
+    return ["all", ...combined];
   }, [inquiries]);
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: inquiries.length };
+    for (const inq of inquiries) {
+      const status = normalizeStatus(inq.status);
+      counts[status] = (counts[status] || 0) + 1;
+    }
+    return counts;
+  }, [inquiries]);
+
+  const suggestedDefaultStatus = useMemo(() => {
+    const priority = ["new", "in_progress", "resolved", "closed"];
+    for (const status of priority) {
+      if ((statusCounts[status] || 0) > 0) {
+        return status;
+      }
+    }
+    const fallback = statusOptions.find(
+      (status) => status !== "all" && (statusCounts[status] || 0) > 0
+    );
+    return fallback || "new";
+  }, [statusCounts, statusOptions]);
 
   const hasStatusField = useMemo(
     () => inquiries.some((inq) => inq.status !== undefined),
@@ -128,6 +154,24 @@ export default function AdminInquiriesClient({ initialInquiries }: Props) {
     fetchInquiries();
   }, []);
 
+  useEffect(() => {
+    if (loading) return;
+    const paramStatus = searchParams.get("status");
+    const validStatuses = statusOptions;
+    if (paramStatus && validStatuses.includes(paramStatus)) {
+      setActiveStatus(paramStatus);
+      return;
+    }
+    const fallback = suggestedDefaultStatus;
+    setActiveStatus(fallback);
+    router.replace(`${pathname}?status=${fallback}`);
+  }, [loading, pathname, router, searchParams, statusOptions, suggestedDefaultStatus]);
+
+  const handleTabClick = (status: string) => {
+    setActiveStatus(status);
+    router.replace(`${pathname}?status=${status}`);
+  };
+
   const filteredInquiries = inquiries.filter((inquiry) => {
     const matchesSearch =
       !searchTerm ||
@@ -138,7 +182,7 @@ export default function AdminInquiriesClient({ initialInquiries }: Props) {
       inquiry.vendors?.business_name?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const normalized = normalizeStatus(inquiry.status);
-    const matchesStatus = statusFilter === "all" || normalized === statusFilter;
+    const matchesStatus = activeStatus === "all" || normalized === activeStatus;
 
     return matchesSearch && matchesStatus;
   });
@@ -265,18 +309,21 @@ export default function AdminInquiriesClient({ initialInquiries }: Props) {
           onChange={(e) => setSearchTerm(e.target.value)}
           className="flex-1 px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
         />
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
-        >
-          <option value="all">All Status</option>
-          {statusOptions.map((status) => (
-            <option key={status} value={status}>
-              {getStatusLabel(status)}
-            </option>
-          ))}
-        </select>
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        {statusOptions.map((status) => (
+          <button
+            key={status}
+            type="button"
+            onClick={() => handleTabClick(status)}
+            className={`btn-secondary text-sm ${
+              activeStatus === status ? "bg-accent text-white" : ""
+            }`}
+          >
+            {getStatusLabel(status)} ({statusCounts[status] || 0})
+          </button>
+        ))}
       </div>
 
       <div className="text-sm text-muted">
@@ -285,7 +332,9 @@ export default function AdminInquiriesClient({ initialInquiries }: Props) {
 
       {filteredInquiries.length === 0 ? (
         <div className="card-glass p-8 text-center">
-          <p className="text-muted">No inquiries found.</p>
+          <p className="text-muted">
+            {activeStatus === "all" ? "No inquiries found." : "No inquiries in this status."}
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -351,11 +400,13 @@ export default function AdminInquiriesClient({ initialInquiries }: Props) {
                         disabled={savingStatus[rowId]}
                         className="px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded text-sm text-white"
                       >
-                        {statusOptions.map((status) => (
-                          <option key={status} value={status}>
-                            {getStatusLabel(status)}
-                          </option>
-                        ))}
+                        {statusOptions
+                          .filter((status) => status !== "all")
+                          .map((status) => (
+                            <option key={status} value={status}>
+                              {getStatusLabel(status)}
+                            </option>
+                          ))}
                       </select>
                       {savingStatus[rowId] && <span className="text-xs text-muted">Saving...</span>}
                     </div>
