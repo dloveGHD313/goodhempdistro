@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
@@ -13,10 +14,14 @@ type VendorPlan = {
   interval: "month" | "year";
   priceId: string;
   displayName: string;
-  priceDisplay: string;
-  commission: number;
-  productLimit: number | null;
-  features: string[];
+  headlinePriceText: string;
+  subPriceNote?: string;
+  commissionText: string;
+  productLimitText: string;
+  includedBullets: string[];
+  limitationBullets: string[];
+  imageUrl?: string | null;
+  imageAlt?: string | null;
 };
 
 type ConsumerPlan = {
@@ -85,6 +90,7 @@ export default function PricingPage() {
 
   const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
   const hasVendorPlans = vendorPlansReady && vendorPlans.length > 0;
+  const placeholderImage = "/images/plan-placeholder.png";
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "production" && vendorPlansMissing.length > 0) {
@@ -136,8 +142,6 @@ export default function PricingPage() {
           planKey: plan.key,
           tier: plan.tier,
           cadence: plan.cadence,
-          productLimit: plan.productLimit,
-          commission: plan.commission,
         }),
       });
       const data = await response.json();
@@ -236,28 +240,51 @@ export default function PricingPage() {
           {activeTab === "vendor" && (
             <div className="grid gap-6 md:grid-cols-3">
               {vendorPlans.map((plan) => (
-                <div key={plan.key} className="card-glass p-6 text-center">
+                <div key={plan.key} className="card-glass p-6 text-left">
+                  <div className="mb-4 overflow-hidden rounded-xl">
+                    <Image
+                      src={plan.imageUrl || placeholderImage}
+                      alt={plan.imageAlt || `${plan.displayName} plan`}
+                      width={640}
+                      height={360}
+                      className="h-40 w-full object-cover"
+                    />
+                  </div>
                   <h3 className="text-2xl font-bold mb-2">{plan.displayName}</h3>
-                  <p className="text-4xl font-bold text-accent mb-4">
-                    {plan.priceDisplay}
+                  <p className="text-4xl font-bold text-accent mb-2">
+                    {plan.headlinePriceText}
                   </p>
-                  <p className="text-sm text-muted mb-4">
-                    {plan.commission}% commission
-                  </p>
-                  <ul className="space-y-2 text-left mb-6 min-h-[150px]">
-                    <li className="flex items-start gap-2 text-sm">
-                      <span className="text-accent">✓</span>
-                      <span>
-                        {plan.productLimit ? `${plan.productLimit} products` : "Unlimited products"}
-                      </span>
-                    </li>
-                    {(plan.features || []).map((perk, idx) => (
-                      <li key={idx} className="flex items-start gap-2 text-sm">
-                        <span className="text-accent">✓</span>
-                        <span>{perk}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  {plan.subPriceNote && (
+                    <p className="text-sm text-muted mb-4">{plan.subPriceNote}</p>
+                  )}
+                  <div className="text-sm text-muted mb-4 space-y-1">
+                    <p>{plan.commissionText}</p>
+                    <p>{plan.productLimitText}</p>
+                  </div>
+                  <div className="mb-4">
+                    <p className="text-sm font-semibold text-white mb-2">What&apos;s included</p>
+                    <ul className="space-y-2 text-left">
+                      {(plan.includedBullets || []).map((perk, idx) => (
+                        <li key={idx} className="flex items-start gap-2 text-sm">
+                          <span className="text-accent">✓</span>
+                          <span>{perk}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  {plan.limitationBullets?.length > 0 && (
+                    <div className="mb-6">
+                      <p className="text-sm font-semibold text-white mb-2">Limitations</p>
+                      <ul className="space-y-2 text-left">
+                        {plan.limitationBullets.map((limitation, idx) => (
+                          <li key={idx} className="flex items-start gap-2 text-sm">
+                            <span className="text-orange-300">•</span>
+                            <span>{limitation}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   <button
                     onClick={() => startVendorCheckout(plan)}
                     className="btn-primary w-full"

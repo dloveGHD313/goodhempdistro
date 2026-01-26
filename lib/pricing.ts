@@ -5,10 +5,14 @@ export type VendorPlanConfig = {
   interval: "month" | "year";
   priceId: string;
   displayName: string;
-  priceDisplay: string;
-  commission: number;
-  productLimit: number | null;
-  features: string[];
+  headlinePriceText: string;
+  subPriceNote?: string;
+  commissionText: string;
+  productLimitText: string;
+  includedBullets: string[];
+  limitationBullets: string[];
+  imageUrl?: string | null;
+  imageAlt?: string | null;
 };
 
 type VendorPlanEnv = {
@@ -17,10 +21,13 @@ type VendorPlanEnv = {
   cadence: VendorPlanConfig["cadence"];
   interval: VendorPlanConfig["interval"];
   envKey: string;
-  priceDisplay: string;
-  commission: number;
-  productLimit: number | null;
-  features: string[];
+  displayName: string;
+  headlinePriceText: string;
+  subPriceNote?: string;
+  commissionText: string;
+  productLimitText: string;
+  includedBullets: string[];
+  limitationBullets: string[];
 };
 
 const VENDOR_PLAN_ENVS: VendorPlanEnv[] = [
@@ -30,10 +37,21 @@ const VENDOR_PLAN_ENVS: VendorPlanEnv[] = [
     cadence: "monthly",
     interval: "month",
     envKey: "STRIPE_VENDOR_STARTER_MONTHLY_PRICE_ID",
-    priceDisplay: "$70/mo",
-    commission: 7,
-    productLimit: 10,
-    features: ["Basic listing", "Monthly billing", "Limited products"],
+    displayName: "Vendor Starter",
+    headlinePriceText: "$70/month",
+    commissionText: "Commission: 7%",
+    productLimitText: "Product Limit: Up to 10 products",
+    includedBullets: [
+      "Upload and sell up to 10 approved products",
+      "Order fulfillment access",
+      "Featured on public vendor feed",
+      "Geographic listing for local discovery",
+    ],
+    limitationBullets: [
+      "7% commission per sale",
+      "No direct messaging with customers",
+      "No external website links",
+    ],
   },
   {
     key: "starter_annual",
@@ -41,10 +59,22 @@ const VENDOR_PLAN_ENVS: VendorPlanEnv[] = [
     cadence: "annual",
     interval: "year",
     envKey: "STRIPE_VENDOR_STARTER_ANNUAL_PRICE_ID",
-    priceDisplay: "$714/yr",
-    commission: 7,
-    productLimit: 10,
-    features: ["Basic listing", "Annual billing", "Limited products"],
+    displayName: "Vendor Starter",
+    headlinePriceText: "$714/year",
+    subPriceNote: "$840 | 15% off",
+    commissionText: "Commission: 7%",
+    productLimitText: "Product Limit: Up to 10 products",
+    includedBullets: [
+      "Upload and sell up to 10 approved products",
+      "Order fulfillment access",
+      "Featured on public vendor feed",
+      "Geographic listing for local discovery",
+    ],
+    limitationBullets: [
+      "7% commission per sale",
+      "No direct messaging with customers",
+      "No external website links",
+    ],
   },
   {
     key: "pro_monthly",
@@ -52,10 +82,18 @@ const VENDOR_PLAN_ENVS: VendorPlanEnv[] = [
     cadence: "monthly",
     interval: "month",
     envKey: "STRIPE_VENDOR_PRO_MONTHLY_PRICE_ID",
-    priceDisplay: "$150/mo",
-    commission: 5,
-    productLimit: 200,
-    features: ["Priority placement", "Higher limits", "Monthly billing"],
+    displayName: "Vendor Pro",
+    headlinePriceText: "$150/month",
+    commissionText: "Commission: 5%",
+    productLimitText: "Product Limit: Up to 200 products",
+    includedBullets: [
+      "Upload and sell up to 200 approved products",
+      "Reduced 5% commission",
+      "Vendor logo & branded storefront",
+      "Featured product announcements",
+      "Ability to run discounts and promotions",
+    ],
+    limitationBullets: ["5% commission per sale", "No direct messaging with customers"],
   },
   {
     key: "pro_annual",
@@ -63,10 +101,19 @@ const VENDOR_PLAN_ENVS: VendorPlanEnv[] = [
     cadence: "annual",
     interval: "year",
     envKey: "STRIPE_VENDOR_PRO_ANNUAL_PRICE_ID",
-    priceDisplay: "$1530/yr",
-    commission: 5,
-    productLimit: 200,
-    features: ["Priority placement", "Higher limits", "Annual billing"],
+    displayName: "Vendor Pro",
+    headlinePriceText: "$1,530/year",
+    subPriceNote: "$1,860 | 15% off",
+    commissionText: "Commission: 5%",
+    productLimitText: "Product Limit: Up to 200 products",
+    includedBullets: [
+      "Upload and sell up to 200 approved products",
+      "Reduced 5% commission",
+      "Vendor logo & branded storefront",
+      "Mass email alerts for new products",
+      "Ability to run discounts and promotions",
+    ],
+    limitationBullets: ["5% commission per sale", "No direct messaging with customers"],
   },
   {
     key: "enterprise_monthly",
@@ -74,10 +121,19 @@ const VENDOR_PLAN_ENVS: VendorPlanEnv[] = [
     cadence: "monthly",
     interval: "month",
     envKey: "STRIPE_VENDOR_ENTERPRISE_MONTHLY_PRICE_ID",
-    priceDisplay: "$275/mo",
-    commission: 0,
-    productLimit: null,
-    features: ["Unlimited products", "Featured placement", "Monthly billing"],
+    displayName: "Vendor Enterprise (VIP)",
+    headlinePriceText: "$275/month",
+    commissionText: "Commission: 0%",
+    productLimitText: "Product Limit: Unlimited products",
+    includedBullets: [
+      "Upload unlimited approved products",
+      "0% commission on all sales",
+      "Direct messaging with customers",
+      "External website link on vendor profile",
+      "VIP placement and priority marketplace visibility",
+      "Exclusive discounts & promo rewards",
+    ],
+    limitationBullets: [],
   },
   {
     key: "enterprise_annual",
@@ -85,10 +141,21 @@ const VENDOR_PLAN_ENVS: VendorPlanEnv[] = [
     cadence: "annual",
     interval: "year",
     envKey: "STRIPE_VENDOR_ENTERPRISE_ANNUAL_PRICE_ID",
-    priceDisplay: "$2805/yr",
-    commission: 0,
-    productLimit: null,
-    features: ["Unlimited products", "Featured placement", "Annual billing"],
+    displayName: "Vendor Enterprise (VIP)",
+    headlinePriceText: "$2,805/year",
+    subPriceNote: "$3,300 | 15% off",
+    commissionText: "Commission: 0%",
+    productLimitText: "Product Limit: Unlimited products",
+    includedBullets: [
+      "Upload unlimited approved products",
+      "0% commission on all sales",
+      "Direct messaging with customers",
+      "External website link on vendor profile",
+      "VIP placement and priority marketplace visibility",
+      "Exclusive discounts & promo rewards",
+      "Legacy Benefit: Annual subscribers may quality for legacy pricing",
+    ],
+    limitationBullets: [],
   },
 ];
 
@@ -108,11 +175,13 @@ export function getVendorPlanConfigs() {
       cadence: plan.cadence,
       interval: plan.interval,
       priceId,
-      displayName: `${plan.tier} (${plan.cadence})`,
-      priceDisplay: plan.priceDisplay,
-      commission: plan.commission,
-      productLimit: plan.productLimit,
-      features: plan.features,
+      displayName: plan.displayName,
+      headlinePriceText: plan.headlinePriceText,
+      subPriceNote: plan.subPriceNote,
+      commissionText: plan.commissionText,
+      productLimitText: plan.productLimitText,
+      includedBullets: plan.includedBullets,
+      limitationBullets: plan.limitationBullets,
     });
   }
 
