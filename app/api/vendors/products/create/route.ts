@@ -252,9 +252,13 @@ export async function POST(req: NextRequest) {
         }
       }
     } else {
-      // No active subscription - check if there's a default limit
-      // For now, allow product creation but could enforce subscription requirement
       console.warn(`⚠️ [product/create] Vendor ${vendor.id} has no active subscription`);
+      return NextResponse.json(
+        process.env.NODE_ENV === "production"
+          ? { error: "Active vendor plan required to upload products and COAs." }
+          : { requestId, error: "Active vendor plan required to upload products and COAs." },
+        { status: 403 }
+      );
     }
 
     let body: Record<string, unknown>;
@@ -462,17 +466,18 @@ export async function POST(req: NextRequest) {
         return null;
       }
       if (trimmed.startsWith("coas/")) {
-        const [, folderId] = trimmed.split("/");
+        const withoutPrefix = trimmed.replace(/^coas\//, "");
+        const [folderId] = withoutPrefix.split("/");
         if (productId && folderId !== productId && folderId !== user.id) {
           return null;
         }
-        return trimmed;
+        return withoutPrefix;
       }
       if (productId && trimmed.startsWith(`${productId}/`)) {
-        return `coas/${trimmed}`;
+        return trimmed;
       }
       if (trimmed.startsWith(`${user.id}/`)) {
-        return `coas/${trimmed}`;
+        return trimmed;
       }
       return null;
     };

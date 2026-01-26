@@ -1,5 +1,5 @@
 -- ============================================================================
--- COA storage: public read + product-scoped upload path (coas/<productId>/...)
+-- COA storage: public read + product-scoped upload path (<productId>/...)
 -- ============================================================================
 
 -- Ensure bucket exists and is public
@@ -22,10 +22,10 @@ CREATE POLICY "COAs: public read" ON storage.objects
     bucket_id = 'coas'
   );
 
--- Authenticated upload to product-specific folder
+-- Authenticated upload to product-specific folder (UUID prefix)
 CREATE POLICY "COAs: upload product folder" ON storage.objects
   FOR INSERT TO authenticated
   WITH CHECK (
     bucket_id = 'coas'
-    AND name LIKE 'coas/%'
+    AND name ~ '^[0-9a-f-]+/.+'
   );

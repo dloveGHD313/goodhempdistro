@@ -61,20 +61,36 @@ export async function PUT(
         return null;
       }
       if (trimmed.startsWith("coas/")) {
-        const [, folderId] = trimmed.split("/");
+        const withoutPrefix = trimmed.replace(/^coas\//, "");
+        const [folderId] = withoutPrefix.split("/");
         if (folderId !== id && folderId !== user.id) {
           return null;
         }
-        return trimmed;
+        return withoutPrefix;
       }
       if (trimmed.startsWith(`${id}/`)) {
-        return `coas/${trimmed}`;
+        return trimmed;
       }
       if (trimmed.startsWith(`${user.id}/`)) {
-        return `coas/${trimmed}`;
+        return trimmed;
       }
       return null;
     };
+
+    const { data: subscription } = await supabase
+      .from("subscriptions")
+      .select("id, status, plan_type")
+      .eq("user_id", user.id)
+      .eq("plan_type", "vendor")
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (!subscription) {
+      return NextResponse.json(
+        { error: "Active vendor plan required to upload products and COAs." },
+        { status: 403 }
+      );
+    }
 
     // Get current product to merge compliance fields for validation
     const { data: currentProduct } = await supabase

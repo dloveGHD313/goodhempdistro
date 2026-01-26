@@ -18,6 +18,8 @@ export default function NewProductPage() {
     const s4 = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).slice(1);
     return `${s4()}${s4()}-${s4()}-${s4()}-${s4()}-${s4()}${s4()}${s4()}`;
   });
+  const [subscriptionActive, setSubscriptionActive] = useState(false);
+  const [subscriptionChecked, setSubscriptionChecked] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
@@ -42,6 +44,35 @@ export default function NewProductPage() {
       setHierarchicalCategories(organizeCategoriesHierarchically(cats));
     }
     loadCategories();
+  }, []);
+
+  useEffect(() => {
+    async function loadSubscriptionStatus() {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setSubscriptionActive(false);
+          setSubscriptionChecked(true);
+          return;
+        }
+        const { data } = await supabase
+          .from("subscriptions")
+          .select("id, status, plan_type")
+          .eq("user_id", user.id)
+          .eq("plan_type", "vendor")
+          .eq("status", "active")
+          .maybeSingle();
+        setSubscriptionActive(Boolean(data));
+      } catch (err) {
+        console.error("[vendors/products/new] subscription check failed", err);
+        setSubscriptionActive(false);
+      } finally {
+        setSubscriptionChecked(true);
+      }
+    }
+
+    loadSubscriptionStatus();
   }, []);
 
   // Check if selected category requires COA
@@ -93,6 +124,12 @@ export default function NewProductPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    if (subscriptionChecked && !subscriptionActive) {
+      setError("Active vendor plan required to upload products and COAs.");
+      setLoading(false);
+      return;
+    }
 
     const priceCents = Math.round(parseFloat(price) * 100);
 
@@ -260,7 +297,15 @@ export default function NewProductPage() {
                 </div>
               </div>
 
-              <div className="border-t border-[var(--border)] pt-6 space-y-6">
+                <div className="border-t border-[var(--border)] pt-6 space-y-6">
+                {subscriptionChecked && !subscriptionActive && (
+                  <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-4 text-yellow-300 text-sm">
+                    Active vendor plan required to upload products and COAs.{" "}
+                    <Link href="/pricing" className="underline text-accent">
+                      View plans
+                    </Link>
+                  </div>
+                )}
                 <div>
                   <label htmlFor="product_type" className="block text-sm font-medium mb-2">
                     Product Type <span className="text-red-400">*</span>
@@ -275,6 +320,7 @@ export default function NewProductPage() {
                       }
                     }}
                     required
+                    disabled={subscriptionChecked && !subscriptionActive}
                     className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
                   >
                     <option value="non_intoxicating">Non-Intoxicating</option>
@@ -304,6 +350,7 @@ export default function NewProductPage() {
                           setCoaUrl("");
                         }
                       }}
+                      disabled={subscriptionChecked && !subscriptionActive}
                       className="w-4 h-4 accent-accent"
                     />
                     <span className="text-sm text-muted">Paste URL instead</span>
@@ -315,21 +362,28 @@ export default function NewProductPage() {
                         id="coa_url"
                         value={coaUrl}
                         onChange={(e) => setCoaUrl(e.target.value)}
+                        disabled={subscriptionChecked && !subscriptionActive}
                         className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
                         placeholder="https://example.com/coa.pdf"
                       />
                       <p className="text-sm text-muted mt-1">Full panel COA required before approval</p>
                     </div>
                   ) : (
+                    subscriptionChecked && !subscriptionActive ? (
+                      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-lg p-4 text-sm text-muted">
+                        Uploads are disabled until an active vendor plan is applied.
+                      </div>
+                    ) : (
                     <UploadField
                       bucket="coas"
-                      folderPrefix={`coas/${draftProductId}`}
+                      folderPrefix={draftProductId}
                       label="COA Document (Full Panel Required)"
                       required
                       existingUrl={null}
                       onUploaded={(path) => setCoaObjectPath(path)}
                       helperText="Upload a PDF or image of your full panel COA (max 50MB)"
                     />
+                    )
                   )}
                 </div>
 
@@ -342,6 +396,7 @@ export default function NewProductPage() {
                         checked={delta8DisclaimerAck}
                         onChange={(e) => setDelta8DisclaimerAck(e.target.checked)}
                         required={productType === "delta8"}
+                      disabled={subscriptionChecked && !subscriptionActive}
                         className="mt-1 w-4 h-4 accent-accent"
                       />
                       <span className="text-sm">
@@ -357,6 +412,7 @@ export default function NewProductPage() {
                       type="checkbox"
                       checked={active}
                       onChange={(e) => setActive(e.target.checked)}
+                    disabled={subscriptionChecked && !subscriptionActive}
                       className="w-4 h-4 text-accent"
                     />
                     <span>Active (visible to customers)</span>
@@ -367,7 +423,7 @@ export default function NewProductPage() {
               <div className="flex gap-4">
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || (subscriptionChecked && !subscriptionActive)}
                   className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? "Creating..." : "Create Product"}

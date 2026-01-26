@@ -66,8 +66,8 @@ async function getProduct(id: string): Promise<ProductFetchResult> {
     : "";
   const storageCoaPath = normalizedCoaPath
     ? normalizedCoaPath.startsWith("coas/")
-      ? normalizedCoaPath
-      : `coas/${normalizedCoaPath}`
+      ? normalizedCoaPath.replace(/^coas\//, "")
+      : normalizedCoaPath
     : "";
   const coaPublicUrl = storageCoaPath
     ? supabase.storage.from("coas").getPublicUrl(storageCoaPath).data.publicUrl
@@ -150,7 +150,6 @@ export default async function ProductDetailPage(props: Props) {
     Boolean(product?.coa_object_path && product.coa_object_path.trim().length > 0) ||
     Boolean(product?.coa_public_url && product.coa_public_url.trim().length > 0);
   const isApprovedActive = product?.status === "approved" && product?.active === true;
-  const isSellable = Boolean(isApprovedActive && hasPriceCents && hasCoa);
 
   if (!product || supabaseErrorMessage) {
     console.error("[products/detail] product unavailable", {
@@ -213,13 +212,15 @@ export default async function ProductDetailPage(props: Props) {
         : !isApprovedActive
           ? "Product unavailable."
           : null;
-  const availabilityMessage = !isApprovedActive
-    ? "This product is not currently available."
-    : !hasCoa
-      ? "COA required before purchase."
-      : !hasPriceCents
-        ? "Price unavailable."
-        : null;
+  const availabilityMessage = !hasCoa
+    ? "COA required before purchase."
+    : !hasPriceCents
+      ? "Price unavailable."
+      : !stripeEnabled
+        ? "Checkout is not configured."
+        : !isApprovedActive
+          ? "This product is not currently available."
+          : null;
 
   return (
     <div className="min-h-screen text-white flex flex-col">
