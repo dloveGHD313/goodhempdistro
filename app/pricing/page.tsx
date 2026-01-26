@@ -1,11 +1,17 @@
 "use client";
 
-import Image from "next/image";
+import Image, { type StaticImageData } from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { getReferralCode } from "@/lib/referral";
 import Footer from "@/components/Footer";
+import starterMonthlyImage from "@/vendor-starter-monthly.png";
+import starterAnnualImage from "@/vendor-starter-annual.png";
+import proMonthlyImage from "@/vendor-pro-monthly.png";
+import proAnnualImage from "@/vendor-pro-annual.png";
+import enterpriseMonthlyImage from "@/vendor-enterprise-monthly.png";
+import enterpriseAnnualImage from "@/vendor-enterprise-annual.png";
 
 type VendorPlan = {
   key: string;
@@ -90,7 +96,14 @@ export default function PricingPage() {
 
   const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
   const hasVendorPlans = vendorPlansReady && vendorPlans.length > 0;
-  const placeholderImage = "/images/plan-placeholder.png";
+  const planImages: Record<string, StaticImageData> = {
+    starter_monthly: starterMonthlyImage,
+    starter_annual: starterAnnualImage,
+    pro_monthly: proMonthlyImage,
+    pro_annual: proAnnualImage,
+    enterprise_monthly: enterpriseMonthlyImage,
+    enterprise_annual: enterpriseAnnualImage,
+  };
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "production" && vendorPlansMissing.length > 0) {
@@ -243,7 +256,7 @@ export default function PricingPage() {
                 <div key={plan.key} className="card-glass p-6 text-left">
                   <div className="mb-4 overflow-hidden rounded-xl">
                     <Image
-                      src={plan.imageUrl || placeholderImage}
+                      src={planImages[plan.key]}
                       alt={plan.imageAlt || `${plan.displayName} plan`}
                       width={640}
                       height={360}
