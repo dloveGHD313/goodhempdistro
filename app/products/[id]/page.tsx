@@ -45,7 +45,13 @@ async function getProduct(id: string): Promise<Product | null> {
       .eq("id", id)
       .single();
 
-    if (error || !data) {
+    if (error) {
+      throw new Error(
+        `[products/detail] Failed to fetch product ${id}: ${error.message}`
+      );
+    }
+
+    if (!data) {
       return null;
     }
 
@@ -60,7 +66,7 @@ async function getProduct(id: string): Promise<Product | null> {
     };
   } catch (err) {
     console.error("Error fetching product:", err);
-    return null;
+    throw err;
   }
 }
 
@@ -116,10 +122,15 @@ export default async function ProductDetailPage(props: Props) {
 
   const categoryName = await getCategoryName(product.category_id);
   const vendorName = await getVendorName(product.vendor_id);
+  const productName = product.name?.trim() || "Product";
   const description =
     product.description && product.description.trim().length > 0
       ? product.description.trim()
       : "Product details are coming soon.";
+  const priceLabel =
+    typeof product.price_cents === "number" && Number.isFinite(product.price_cents)
+      ? `$${(product.price_cents / 100).toFixed(2)}`
+      : "Price unavailable";
   const stripeEnabled = Boolean(process.env.STRIPE_SECRET_KEY);
 
   if (!product.is_available) {
@@ -162,7 +173,7 @@ export default async function ProductDetailPage(props: Props) {
             <div className="space-y-6">
               <div>
                 <div className="flex items-start justify-between gap-4">
-                  <h1 className="text-4xl font-bold mb-2">{product.name}</h1>
+                  <h1 className="text-4xl font-bold mb-2">{productName}</h1>
                   <FavoriteButton entityType="product" entityId={product.id} size="md" />
                 </div>
                 <p className="text-muted text-lg">
@@ -176,9 +187,7 @@ export default async function ProductDetailPage(props: Props) {
 
               <div className="card-glass p-6">
                 <p className="text-muted text-sm mb-2">Price</p>
-                <p className="text-4xl font-bold text-accent">
-                  ${(product.price_cents / 100).toFixed(2)}
-                </p>
+                <p className="text-4xl font-bold text-accent">{priceLabel}</p>
               </div>
 
               <BuyButton
@@ -196,7 +205,7 @@ export default async function ProductDetailPage(props: Props) {
                 <p className="text-muted text-sm leading-relaxed">{description}</p>
               </div>
 
-              {product.featured && (
+              {product.featured === true && (
                 <div className="bg-green-900/30 border border-green-600 rounded-lg p-4">
                   <p className="text-green-400">⭐ Featured Product</p>
                 </div>
