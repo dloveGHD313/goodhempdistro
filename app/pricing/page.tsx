@@ -63,14 +63,18 @@ export default function PricingPage() {
     const affiliateCode = getReferralCode();
     
     try {
-      const response = await fetch("/api/subscriptions/checkout", {
+      const endpoint =
+        planType === "vendor"
+          ? "/api/stripe/vendor/create-checkout-session"
+          : "/api/subscriptions/checkout";
+      const payload =
+        planType === "vendor"
+          ? { planName }
+          : { planType, planName, affiliateCode: affiliateCode || undefined };
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          planType,
-          planName,
-          affiliateCode: affiliateCode || undefined,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();

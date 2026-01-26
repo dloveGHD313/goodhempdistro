@@ -117,6 +117,8 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   const planType = session.metadata?.plan_type; // 'vendor' or 'consumer'
   const planName = session.metadata?.plan_name;
   const planId = session.metadata?.plan_id;
+  const priceId = session.metadata?.price_id;
+  const vendorId = session.metadata?.vendor_id;
   const userId = session.client_reference_id || session.metadata?.user_id;
   const affiliateCode = session.metadata?.affiliate_code;
 
@@ -127,6 +129,13 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   // Handle subscription checkout
   if (session.mode === "subscription" && userId && planId) {
     const subscriptionId = session.subscription as string;
+    const stripeClient = getStripeClient();
+    const subscription = await stripeClient.subscriptions.retrieve(subscriptionId);
+    const currentPeriodEnd = subscription.current_period_end
+      ? new Date(subscription.current_period_end * 1000).toISOString()
+      : null;
+    const subscriptionStatus = subscription.status;
+    const subscriptionPriceId = subscription.items.data[0]?.price.id;
     
     // Create subscription record from checkout
     const { error: subError } = await supabase
@@ -137,7 +146,9 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
         plan_id: planId,
         stripe_subscription_id: subscriptionId,
         stripe_customer_id: session.customer as string,
-        status: "active",
+        status: subscriptionStatus,
+        price_id: priceId || subscriptionPriceId || null,
+        current_period_end: currentPeriodEnd,
         updated_at: new Date().toISOString(),
       }, {
         onConflict: "stripe_subscription_id",
@@ -154,6 +165,37 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
           .from("profiles")
           .update({ active_subscription_id: subscriptionId })
           .eq("id", userId);
+      }
+    }
+
+    if (planType === "vendor") {
+      const admin = getSupabaseAdminClient();
+      let resolvedVendorId = vendorId || null;
+      if (!resolvedVendorId && userId) {
+        const { data: vendor } = await admin
+          .from("vendors")
+          .select("id")
+          .eq("owner_user_id", userId)
+          .maybeSingle();
+        resolvedVendorId = vendor?.id || null;
+      }
+      if (resolvedVendorId) {
+        await admin
+          .from("vendors")
+          .update({
+            stripe_customer_id: session.customer as string,
+            stripe_subscription_id: subscriptionId,
+            stripe_price_id: priceId || subscriptionPriceId || null,
+            subscription_status: subscriptionStatus,
+            current_period_end: currentPeriodEnd,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", resolvedVendorId);
+        console.log("✅ [vendor-subscription] updated via checkout", {
+          vendorId: resolvedVendorId,
+          status: subscriptionStatus,
+          subscriptionId,
+        });
       }
     }
 
@@ -327,6 +369,7 @@ async function handleSubscriptionChange(
   const userId = subscription.metadata?.user_id;
   const planId = subscription.metadata?.plan_id;
   const planType = subscription.metadata?.plan_type as "vendor" | "consumer" | undefined;
+  const vendorId = subscription.metadata?.vendor_id;
   
   console.log(`🔄 [handleSubscriptionChange] event_type=${eventType} | subscription=${subscription.id} | user_id=${userId || "N/A"} | status=${subscription.status}`);
 
@@ -342,12 +385,18 @@ async function handleSubscriptionChange(
     case "active":
       status = "active";
       break;
+    case "trialing":
+      status = "trialing";
+      break;
     case "canceled":
     case "incomplete_expired":
       status = "canceled";
       break;
     case "past_due":
       status = "past_due";
+      break;
+    case "unpaid":
+      status = "unpaid";
       break;
     default:
       status = subscription.status;
@@ -378,6 +427,37 @@ async function handleSubscriptionChange(
   if (error) {
     console.error(`❌ [handleSubscriptionChange] Failed to upsert subscription: ${error.message}`);
     throw error;
+  }
+
+  if (planType === "vendor") {
+    const admin = getSupabaseAdminClient();
+    let resolvedVendorId = vendorId || null;
+    if (!resolvedVendorId && userId) {
+      const { data: vendor } = await admin
+        .from("vendors")
+        .select("id")
+        .eq("owner_user_id", userId)
+        .maybeSingle();
+      resolvedVendorId = vendor?.id || null;
+    }
+    if (resolvedVendorId) {
+      await admin
+        .from("vendors")
+        .update({
+          stripe_subscription_id: subscription.id,
+          stripe_customer_id: subscription.customer as string,
+          stripe_price_id: subscription.items.data[0]?.price.id || null,
+          subscription_status: status,
+          current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", resolvedVendorId);
+      console.log("✅ [vendor-subscription] updated via webhook", {
+        vendorId: resolvedVendorId,
+        status,
+        subscriptionId: subscription.id,
+      });
+    }
   }
 
   // Update profile active_subscription_id when active

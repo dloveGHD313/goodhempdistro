@@ -61,7 +61,7 @@ export default function NewProductPage() {
           .select("id, status, plan_type")
           .eq("user_id", user.id)
           .eq("plan_type", "vendor")
-          .eq("status", "active")
+          .in("status", ["active", "trialing"])
           .maybeSingle();
         setSubscriptionActive(Boolean(data));
       } catch (err) {

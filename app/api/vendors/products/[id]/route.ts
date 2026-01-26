@@ -82,7 +82,7 @@ export async function PUT(
       .select("id, status, plan_type")
       .eq("user_id", user.id)
       .eq("plan_type", "vendor")
-      .eq("status", "active")
+      .in("status", ["active", "trialing"])
       .maybeSingle();
 
     if (!subscription) {

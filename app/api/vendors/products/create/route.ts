@@ -226,7 +226,7 @@ export async function POST(req: NextRequest) {
       .select("id, plan_id, plan_type, status")
       .eq("user_id", user.id)
       .eq("plan_type", "vendor")
-      .eq("status", "active")
+      .in("status", ["active", "trialing"])
       .single();
 
     if (subscription && subscription.plan_id) {
