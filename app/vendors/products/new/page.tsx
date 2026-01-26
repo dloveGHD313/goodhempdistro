@@ -11,6 +11,13 @@ import UploadField from "@/components/UploadField";
 
 export default function NewProductPage() {
   const router = useRouter();
+  const [draftProductId] = useState(() => {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+      return crypto.randomUUID();
+    }
+    const s4 = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).slice(1);
+    return `${s4()}${s4()}-${s4()}-${s4()}-${s4()}-${s4()}${s4()}${s4()}`;
+  });
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
@@ -114,6 +121,7 @@ export default function NewProductPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          product_id: draftProductId,
           name,
           description,
           price_cents: priceCents,
@@ -315,14 +323,12 @@ export default function NewProductPage() {
                   ) : (
                     <UploadField
                       bucket="coas"
-                      folderPrefix="coas"
+                      folderPrefix={`coas/${draftProductId}`}
                       label="COA Document (Full Panel Required)"
-                      required={false}
+                      required
                       existingUrl={null}
                       onUploaded={(path) => setCoaObjectPath(path)}
-                      helperText={categoryRequiresCoa 
-                        ? "Upload a PDF or image of your full panel COA (max 50MB)" 
-                        : "Upload a PDF or image of your COA (optional, max 50MB)"}
+                      helperText="Upload a PDF or image of your full panel COA (max 50MB)"
                     />
                   )}
                 </div>

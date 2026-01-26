@@ -101,8 +101,11 @@ export default function UploadField({
           : String(timestamp);
       const isCoaBucket = bucket === "coas";
       const cleanedPrefix = folderPrefix.replace(/^\/+|\/+$/g, "");
+      if (isCoaBucket && !cleanedPrefix) {
+        throw new Error("COA uploads require a product-specific folder prefix");
+      }
       const filePath = isCoaBucket
-        ? `${cleanedPrefix}/${userForUpload}/${uniquePrefix}_${safeFileName}`
+        ? `${cleanedPrefix}/${timestamp}-${safeFileName}`
         : `${cleanedPrefix}/${userForUpload}/${timestamp}-${safeFileName}`;
 
       logUpload({ event: "attempt", bucket, key: filePath });

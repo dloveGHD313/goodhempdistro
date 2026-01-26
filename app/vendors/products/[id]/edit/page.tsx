@@ -38,11 +38,17 @@ export default function EditProductPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const normalizedCoaPath = coaObjectPath
+    ? coaObjectPath.trim().replace(/^\/+/, "")
+    : "";
+  const storageCoaPath = normalizedCoaPath
+    ? normalizedCoaPath.startsWith("coas/")
+      ? normalizedCoaPath
+      : `coas/${normalizedCoaPath}`
+    : null;
   const coaObjectUrl =
-    coaObjectPath && process.env.NEXT_PUBLIC_SUPABASE_URL
-      ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/coas/${coaObjectPath
-          .trim()
-          .replace(/^\/+/, "")}`
+    storageCoaPath && process.env.NEXT_PUBLIC_SUPABASE_URL
+      ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/coas/${storageCoaPath}`
       : null;
 
   useEffect(() => {
@@ -315,12 +321,12 @@ export default function EditProductPage() {
                   ) : (
                     <UploadField
                       bucket="coas"
-                      folderPrefix="coas"
+                      folderPrefix={`coas/${productId}`}
                       label="COA Document (Full Panel Required)"
-                      required={false}
+                      required
                       existingUrl={coaObjectUrl}
                       onUploaded={(path) => setCoaObjectPath(path)}
-                      helperText="Upload a PDF or image of your full panel COA (max 10MB)"
+                      helperText="Upload a PDF or image of your full panel COA (max 50MB)"
                     />
                   )}
                 </div>

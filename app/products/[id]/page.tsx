@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import BuyButton from "./BuyButton";
 import { getDelta8WarningText, requiresWarning } from "@/lib/compliance";
@@ -18,7 +17,6 @@ type Product = {
   vendor_id?: string | null;
   status?: string | null;
   active?: boolean | null;
-  is_available: boolean;
   product_type?: "non_intoxicating" | "intoxicating" | "delta8";
   coa_url?: string | null;
   coa_object_path?: string | null;
@@ -34,7 +32,12 @@ type Props = {
 // Force dynamic rendering since this page requires authentication
 export const dynamic = 'force-dynamic';
 
-async function getProduct(id: string): Promise<Product | null> {
+type ProductFetchResult = {
+  product: Product | null;
+  supabaseErrorMessage: string | null;
+};
+
+async function getProduct(id: string): Promise<ProductFetchResult> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("products")
@@ -45,55 +48,83 @@ async function getProduct(id: string): Promise<Product | null> {
     .single();
 
   if (error) {
-    throw new Error(
-      `[products/detail] Failed to fetch product ${id}: ${error.message}`
-    );
+    return {
+      product: null,
+      supabaseErrorMessage: error.message,
+    };
   }
 
   if (!data) {
-    return null;
+    return {
+      product: null,
+      supabaseErrorMessage: "not_found",
+    };
   }
 
-  const coaPublicUrl = data.coa_object_path
-    ? supabase.storage.from("coas").getPublicUrl(data.coa_object_path).data.publicUrl
+  const normalizedCoaPath = data.coa_object_path
+    ? data.coa_object_path.trim().replace(/^\/+/, "")
+    : "";
+  const storageCoaPath = normalizedCoaPath
+    ? normalizedCoaPath.startsWith("coas/")
+      ? normalizedCoaPath
+      : `coas/${normalizedCoaPath}`
+    : "";
+  const coaPublicUrl = storageCoaPath
+    ? supabase.storage.from("coas").getPublicUrl(storageCoaPath).data.publicUrl
     : data.coa_url || null;
 
   return {
-    ...data,
-    coa_public_url: coaPublicUrl,
-    is_available: data.status === "approved" && data.active === true,
+    product: {
+      ...data,
+      coa_public_url: coaPublicUrl,
+    },
+    supabaseErrorMessage: null,
   };
 }
 
 async function getCategoryName(categoryId: string | null) {
   if (!categoryId) return null;
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
-    .from("categories")
-    .select("name")
-    .eq("id", categoryId)
-    .maybeSingle();
-  return data?.name || null;
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase
+      .from("categories")
+      .select("name")
+      .eq("id", categoryId)
+      .maybeSingle();
+    return data?.name || null;
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.error("[products/detail] category lookup failed", error);
+    }
+    return null;
+  }
 }
 
 async function getVendorName(vendorId?: string | null) {
   if (!vendorId) return null;
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
-    .from("vendors")
-    .select("business_name")
-    .eq("id", vendorId)
-    .maybeSingle();
-  return data?.business_name || null;
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase
+      .from("vendors")
+      .select("business_name")
+      .eq("id", vendorId)
+      .maybeSingle();
+    return data?.business_name || null;
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.error("[products/detail] vendor lookup failed", error);
+    }
+    return null;
+  }
 }
 
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const params = await props.params;
-  const product = await getProduct(params.id);
+  const { product } = await getProduct(params.id);
 
   if (!product) {
     return {
-      title: "Product Not Found | Good Hemp Distro",
+      title: "Product Unavailable | Good Hemp Distro",
     };
   }
 
@@ -101,55 +132,61 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   
   return {
     title: `${product.name} | Good Hemp Distro`,
-    description: product.is_available
-      ? `Shop ${product.name}${categoryName ? ` in the ${categoryName} category` : ""}`
-      : "This product is not available right now.",
+    description: `Shop ${product.name}${categoryName ? ` in the ${categoryName} category` : ""}`,
   };
 }
 
 export default async function ProductDetailPage(props: Props) {
   const params = await props.params;
   const stripeDetected = Boolean(process.env.STRIPE_SECRET_KEY);
-  let product: Product | null = null;
-  let supabaseError = false;
-
-  try {
-    product = await getProduct(params.id);
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    supabaseError = errorMessage.startsWith("[products/detail]");
-    if (process.env.NODE_ENV !== "production") {
-      console.error("[products/detail] fetch failed", error);
-    }
-    console.info("[products/detail] diagnostics", {
-      productId: params.id,
-      fetched: false,
-      supabaseError,
-      status: null,
-      active: null,
-      hasPriceCents: false,
-      stripeDetected,
-    });
-    throw error;
-  }
+  const { product, supabaseErrorMessage } = await getProduct(params.id);
 
   const hasPriceCents =
     typeof product?.price_cents === "number" &&
     Number.isFinite(product.price_cents) &&
     product.price_cents > 0;
+  const hasCoa =
+    Boolean(product?.coa_url && product.coa_url.trim().length > 0) ||
+    Boolean(product?.coa_object_path && product.coa_object_path.trim().length > 0) ||
+    Boolean(product?.coa_public_url && product.coa_public_url.trim().length > 0);
+  const isApprovedActive = product?.status === "approved" && product?.active === true;
+  const isSellable = Boolean(isApprovedActive && hasPriceCents && hasCoa);
 
-  console.info("[products/detail] diagnostics", {
-    productId: params.id,
-    fetched: Boolean(product),
-    supabaseError,
-    status: product?.status ?? null,
-    active: product?.active ?? null,
-    hasPriceCents,
-    stripeDetected,
-  });
-
-  if (!product) {
-    notFound();
+  if (!product || supabaseErrorMessage) {
+    console.error("[products/detail] product unavailable", {
+      productId: params.id,
+      supabaseErrorMessage,
+      status: product?.status ?? null,
+      active: product?.active ?? null,
+      hasPriceCents,
+      hasCOA: hasCoa,
+      stripeDetected,
+    });
+    return (
+      <div className="min-h-screen text-white flex flex-col">
+        <main className="flex-1">
+          <section className="section-shell">
+            <div className="max-w-3xl mx-auto card-glass p-8 space-y-6 text-center">
+              <div className="space-y-4">
+                <h1 className="text-3xl font-bold text-accent">Product temporarily unavailable</h1>
+                <p className="text-muted">
+                  We could not load this product right now. Please try again later or browse other products.
+                </p>
+              </div>
+              <BuyButton
+                productId={params.id}
+                disabled
+                disabledMessage="Product temporarily unavailable."
+              />
+              <Link href="/products" className="btn-primary">
+                Back to Products
+              </Link>
+            </div>
+          </section>
+        </main>
+        <Footer />
+      </div>
+    );
   }
 
   const categoryName = await getCategoryName(product.category_id);
@@ -166,42 +203,23 @@ export default async function ProductDetailPage(props: Props) {
       ? `$${(product.price_cents / 100).toFixed(2)}`
       : "Price unavailable";
   const stripeEnabled = stripeDetected;
-  const buyButtonDisabled = !stripeEnabled || !hasPriceCents;
-  const buyButtonMessage = !hasPriceCents && !stripeEnabled
-    ? "Checkout is not configured and price is unavailable."
+  const buyButtonDisabled = !stripeEnabled || !hasPriceCents || !hasCoa || !isApprovedActive;
+  const buyButtonMessage = !hasCoa
+    ? "COA required before purchase."
     : !hasPriceCents
       ? "Price unavailable."
       : !stripeEnabled
         ? "Checkout is not configured."
+        : !isApprovedActive
+          ? "Product unavailable."
+          : null;
+  const availabilityMessage = !isApprovedActive
+    ? "This product is not currently available."
+    : !hasCoa
+      ? "COA required before purchase."
+      : !hasPriceCents
+        ? "Price unavailable."
         : null;
-
-  if (!product.is_available) {
-    return (
-      <div className="min-h-screen text-white flex flex-col">
-        <main className="flex-1">
-          <section className="section-shell">
-            <div className="max-w-3xl mx-auto card-glass p-8 space-y-6 text-center">
-              <div className="space-y-4">
-                <h1 className="text-3xl font-bold text-accent">This product is not available</h1>
-                <p className="text-muted">
-                  This listing is not currently available. Please browse other products.
-                </p>
-              </div>
-              <BuyButton
-                productId={product.id}
-                disabled
-                disabledMessage="Product unavailable."
-              />
-              <Link href="/products" className="btn-primary">
-                Back to Products
-              </Link>
-            </div>
-          </section>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen text-white flex flex-col">
@@ -239,6 +257,11 @@ export default async function ProductDetailPage(props: Props) {
                 <p className="text-4xl font-bold text-accent">{priceLabel}</p>
               </div>
 
+              {availabilityMessage && (
+                <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-4 text-yellow-300 text-sm">
+                  {availabilityMessage}
+                </div>
+              )}
               <BuyButton
                 productId={product.id}
                 disabled={buyButtonDisabled}

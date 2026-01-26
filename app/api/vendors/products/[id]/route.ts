@@ -61,11 +61,14 @@ export async function PUT(
         return null;
       }
       if (trimmed.startsWith("coas/")) {
-        const [, ownerId] = trimmed.split("/");
-        if (ownerId !== user.id) {
+        const [, folderId] = trimmed.split("/");
+        if (folderId !== id && folderId !== user.id) {
           return null;
         }
         return trimmed;
+      }
+      if (trimmed.startsWith(`${id}/`)) {
+        return `coas/${trimmed}`;
       }
       if (trimmed.startsWith(`${user.id}/`)) {
         return `coas/${trimmed}`;
@@ -98,7 +101,10 @@ export async function PUT(
     };
 
     // Validate compliance
-    const complianceErrors = validateProductCompliance(compliancePayload);
+    const complianceErrors = validateProductCompliance({
+      ...compliancePayload,
+      category_requires_coa: true,
+    });
 
     if (complianceErrors.length > 0) {
       return NextResponse.json(

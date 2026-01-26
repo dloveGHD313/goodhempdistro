@@ -273,6 +273,7 @@ export async function POST(req: NextRequest) {
       );
     }
     const {
+      product_id,
       name,
       description,
       price_cents,
@@ -283,6 +284,7 @@ export async function POST(req: NextRequest) {
       product_type,
       active,
       coa_url,
+      coa_object_path,
       delta8_disclaimer_ack,
     } = body;
 
@@ -360,6 +362,8 @@ export async function POST(req: NextRequest) {
     const isUuid = (value: unknown) =>
       typeof value === "string" &&
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
+    const requestedProductId = isUuid(product_id) ? (product_id as string) : null;
 
     const resolveCategoryId = async (): Promise<{ id: string | null; error: boolean }> => {
       if (isUuid(category_id)) {
@@ -444,17 +448,44 @@ export async function POST(req: NextRequest) {
     );
 
     // Validate compliance (COA only required if category requires it)
-    const requireCoaForDrafts = false;
     const coaUrlValue =
       typeof coa_url === "string" ? coa_url.trim() || null : null;
+    const normalizeCoaObjectPath = (value: unknown, productId: string | null) => {
+      if (typeof value !== "string") {
+        return null;
+      }
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return null;
+      }
+      if (/^https?:\/\//i.test(trimmed)) {
+        return null;
+      }
+      if (trimmed.startsWith("coas/")) {
+        const [, folderId] = trimmed.split("/");
+        if (productId && folderId !== productId && folderId !== user.id) {
+          return null;
+        }
+        return trimmed;
+      }
+      if (productId && trimmed.startsWith(`${productId}/`)) {
+        return `coas/${trimmed}`;
+      }
+      if (trimmed.startsWith(`${user.id}/`)) {
+        return `coas/${trimmed}`;
+      }
+      return null;
+    };
+    const normalizedCoaObjectPath = normalizeCoaObjectPath(coa_object_path, requestedProductId);
 
     const delta8Ack = delta8_disclaimer_ack === true;
 
     const complianceErrors = validateProductCompliance({
       product_type: normalizedProductType,
       coa_url: coaUrlValue,
+      coa_object_path: normalizedCoaObjectPath,
       delta8_disclaimer_ack: delta8Ack,
-      category_requires_coa: categoryRequiresCoa && requireCoaForDrafts,
+      category_requires_coa: true,
     });
 
     if (complianceErrors.length > 0) {
@@ -468,6 +499,7 @@ export async function POST(req: NextRequest) {
 
     // Create product with draft status (requires admin approval)
     const baseInsertPayload: Record<string, unknown> = {
+      ...(requestedProductId ? { id: requestedProductId } : {}),
       vendor_id: vendor.id,
       owner_user_id: user.id, // Direct reference for RLS
       name: nameValue,
@@ -550,6 +582,9 @@ export async function POST(req: NextRequest) {
     }
     if (coa_url !== undefined) {
       optionalUpdates.coa_url = coaUrlValue;
+    }
+    if (coa_object_path !== undefined) {
+      optionalUpdates.coa_object_path = normalizedCoaObjectPath;
     }
     if (delta8_disclaimer_ack !== undefined) {
       optionalUpdates.delta8_disclaimer_ack = delta8Ack;
