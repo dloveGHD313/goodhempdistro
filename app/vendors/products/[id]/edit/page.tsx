@@ -107,14 +107,13 @@ export default function EditProductPage() {
           setSubscriptionChecked(true);
           return;
         }
-        const { data } = await supabase
-          .from("subscriptions")
-          .select("id, status, plan_type")
-          .eq("user_id", user.id)
-          .eq("plan_type", "vendor")
-          .in("status", ["active", "trialing"])
+        const { data: vendor } = await supabase
+          .from("vendors")
+          .select("id, subscription_status")
+          .eq("owner_user_id", user.id)
           .maybeSingle();
-        setSubscriptionActive(Boolean(data));
+        const status = vendor?.subscription_status || null;
+        setSubscriptionActive(status === "active" || status === "trialing");
       } catch (err) {
         console.error("[vendors/products/edit] subscription check failed", err);
         setSubscriptionActive(false);

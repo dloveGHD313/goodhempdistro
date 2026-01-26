@@ -5,7 +5,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { brand } from "@/lib/brand";
 import BrandLogo from "@/components/BrandLogo";
 
-const navLinks = [
+const baseNavLinks = [
   { label: "🏠 Feed", href: "/newsfeed" },
   { label: "👥 Groups", href: "/groups" },
   { label: "💬 Forums", href: "/forums" },
@@ -16,20 +16,35 @@ const navLinks = [
   { label: "📝 Blog", href: "/blog" },
   { label: "🏢 Wholesale", href: "/wholesale" },
   { label: "🎪 Events", href: "/events" },
-  { label: "🤝 Vendor Registration", href: "/vendor-registration" },
-  { label: "💰 Affiliate", href: "/affiliate" },
 ];
 
 export default function Nav() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [vendorStatus, setVendorStatus] = useState<{
+    isVendor: boolean;
+    isSubscribed: boolean;
+  }>({ isVendor: false, isSubscribed: false });
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
-    supabase.auth.getUser().then(async ({ data, error }) => {
+    supabase.auth.getUser().then(async ({ data }) => {
       setIsLoggedIn(!!data.user);
       if (data.user) {
+        let response: Response | null = null;
+        try {
+          response = await fetch("/api/vendor/status", { cache: "no-store" });
+        } catch (err) {
+          console.error("[Nav] vendor status fetch failed", err);
+        }
+        if (response && response.ok) {
+          const payload = await response.json();
+          setVendorStatus({
+            isVendor: Boolean(payload?.isVendor),
+            isSubscribed: Boolean(payload?.isSubscribed),
+          });
+        }
         // Check if user is admin
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
@@ -43,6 +58,8 @@ export default function Nav() {
         }
         
         setIsAdmin(profile?.role === "admin");
+      } else {
+        setVendorStatus({ isVendor: false, isSubscribed: false });
       }
     });
   }, []);
@@ -60,6 +77,14 @@ export default function Nav() {
   }, []);
 
   const accountHref = isLoggedIn ? "/account" : "/login";
+
+  const vendorLink = vendorStatus.isVendor
+    ? vendorStatus.isSubscribed
+      ? { label: "🏪 Vendor Dashboard", href: "/vendors/dashboard" }
+      : { label: "💳 Vendor Plans", href: "/pricing?tab=vendor&reason=subscription_required" }
+    : { label: "🤝 Vendor Registration", href: "/vendor-registration" };
+
+  const navLinks = [...baseNavLinks, vendorLink, { label: "💰 Affiliate", href: "/affiliate" }];
 
   return (
     <nav aria-label="Main Navigation" className="flex items-center justify-between w-full">

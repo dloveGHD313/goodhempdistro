@@ -52,20 +52,26 @@ export async function POST(req: NextRequest) {
     }
 
     // Get vendor for this user with error handling
+    type VendorRecord = {
+      id: string;
+      owner_user_id: string;
+      subscription_status?: string | null;
+    };
+
     let { data: vendor, error: vendorError } = await supabase
       .from("vendors")
-      .select("id, owner_user_id")
+      .select("id, owner_user_id, subscription_status")
       .eq("owner_user_id", user.id)
-      .maybeSingle();
+      .maybeSingle<VendorRecord>();
 
     if (vendorError) {
       logSupabaseError("vendor_lookup_user", vendorError);
       const admin = getSupabaseAdminClient();
       const { data: adminVendor, error: adminVendorError } = await admin
         .from("vendors")
-        .select("id, owner_user_id")
+          .select("id, owner_user_id, subscription_status")
         .eq("owner_user_id", user.id)
-        .maybeSingle();
+        .maybeSingle<VendorRecord>();
       if (adminVendorError) {
         logSupabaseError("vendor_lookup_admin", adminVendorError);
       } else {
@@ -130,7 +136,7 @@ export async function POST(req: NextRequest) {
             }, {
               onConflict: "owner_user_id",
             })
-            .select("id, owner_user_id")
+            .select("id, owner_user_id, subscription_status")
             .single();
 
           if (autoVendorError || !autoVendor) {
@@ -156,7 +162,7 @@ export async function POST(req: NextRequest) {
           // Retry product creation with newly created vendor
           // Fall through to product creation logic below with autoVendor
           // Set vendor to autoVendor and continue
-          vendor = autoVendor;
+          vendor = autoVendor as VendorRecord;
         } catch (autoProvisionError) {
           console.error(
             `[vendor-products] requestId=${requestId} stage=vendor_auto_provision_exception`,
@@ -203,6 +209,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (!vendor) {
+      return NextResponse.json(
+        process.env.NODE_ENV === "production"
+          ? { error: "Vendor account required" }
+          : { requestId, error: "Vendor account required" },
+        { status: 404 }
+      );
+    }
+
     // DEFENSIVE: Verify vendor belongs to this user
     if (vendor.owner_user_id !== user.id) {
       console.error(
@@ -216,6 +231,18 @@ export async function POST(req: NextRequest) {
         process.env.NODE_ENV === "production"
           ? { error: "Vendor account access denied" }
           : { requestId, error: "Vendor account access denied" },
+        { status: 403 }
+      );
+    }
+
+    const subscriptionStatus = vendor?.subscription_status || null;
+    const subscriptionActive = subscriptionStatus === "active" || subscriptionStatus === "trialing";
+    if (!subscriptionActive) {
+      console.warn(`⚠️ [product/create] Vendor ${vendor.id} subscription_status=${subscriptionStatus || "none"}`);
+      return NextResponse.json(
+        process.env.NODE_ENV === "production"
+          ? { error: "Active vendor plan required to upload products and COAs." }
+          : { requestId, error: "Active vendor plan required to upload products and COAs." },
         { status: 403 }
       );
     }
@@ -251,14 +278,6 @@ export async function POST(req: NextRequest) {
           );
         }
       }
-    } else {
-      console.warn(`⚠️ [product/create] Vendor ${vendor.id} has no active subscription`);
-      return NextResponse.json(
-        process.env.NODE_ENV === "production"
-          ? { error: "Active vendor plan required to upload products and COAs." }
-          : { requestId, error: "Active vendor plan required to upload products and COAs." },
-        { status: 403 }
-      );
     }
 
     let body: Record<string, unknown>;

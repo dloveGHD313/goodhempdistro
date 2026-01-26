@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { getReferralCode } from "@/lib/referral";
 import Footer from "@/components/Footer";
@@ -29,6 +29,7 @@ type ConsumerPlan = {
 
 export default function PricingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [consumerPlans, setConsumerPlans] = useState<ConsumerPlan[]>([]);
   const [vendorPlans, setVendorPlans] = useState<VendorPlan[]>([]);
   const [vendorPlansReady, setVendorPlansReady] = useState(false);
@@ -53,6 +54,13 @@ export default function PricingPage() {
 
     loadPlans();
   }, []);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "vendor" || tab === "consumer") {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     async function loadVendorPlans() {

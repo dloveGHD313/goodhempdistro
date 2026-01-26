@@ -77,15 +77,16 @@ export async function PUT(
       return null;
     };
 
-    const { data: subscription } = await supabase
-      .from("subscriptions")
-      .select("id, status, plan_type")
-      .eq("user_id", user.id)
-      .eq("plan_type", "vendor")
-      .in("status", ["active", "trialing"])
+    const { data: vendor } = await supabase
+      .from("vendors")
+      .select("id, owner_user_id, subscription_status")
+      .eq("owner_user_id", user.id)
       .maybeSingle();
 
-    if (!subscription) {
+    const subscriptionStatus = vendor?.subscription_status || null;
+    const subscriptionActive = subscriptionStatus === "active" || subscriptionStatus === "trialing";
+
+    if (!subscriptionActive) {
       return NextResponse.json(
         { error: "Active vendor plan required to upload products and COAs." },
         { status: 403 }
