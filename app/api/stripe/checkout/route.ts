@@ -2,24 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { stripe, getSiteUrl } from "@/lib/stripe";
+import { validateEnvVars } from "@/lib/env-validator";
 
-const resolveVendorPriceId = (planName: string | null) => {
-  if (!planName) return null;
-  const normalized = planName.trim().toLowerCase();
-  if (normalized.includes("starter") || normalized.includes("basic")) {
-    return process.env.STRIPE_VENDOR_STARTER_MONTHLY_PRICE_ID || null;
-  }
-  if (normalized.includes("pro")) {
-    return process.env.STRIPE_VENDOR_PRO_MONTHLY_PRICE_ID || null;
-  }
-  if (normalized.includes("enterprise") || normalized.includes("elite")) {
-    return process.env.STRIPE_VENDOR_ENTERPRISE_MONTHLY_PRICE_ID || null;
-  }
-  return null;
+type CheckoutPayload = {
+  priceId?: string;
+  planKey?: string;
+  tier?: string;
+  cadence?: string;
+  productLimit?: number | null;
+  commission?: number | null;
 };
 
 export async function POST(req: NextRequest) {
   try {
+    if (!validateEnvVars(["STRIPE_SECRET_KEY", "NEXT_PUBLIC_SITE_URL"], "stripe/checkout")) {
+      return NextResponse.json(
+        { error: "Stripe configuration is missing" },
+        { status: 500 }
+      );
+    }
     const supabase = await createSupabaseServerClient();
     const {
       data: { user },
@@ -30,15 +31,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json().catch(() => ({}));
-    const planName = typeof body?.planName === "string" ? body.planName : null;
-    const priceId = resolveVendorPriceId(planName);
-
+    const body = (await req.json().catch(() => ({}))) as CheckoutPayload;
+    const priceId = typeof body.priceId === "string" ? body.priceId : null;
     if (!priceId) {
-      return NextResponse.json(
-        { error: "Vendor plan is not configured" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "priceId is required" }, { status: 400 });
     }
 
     const admin = getSupabaseAdminClient();
@@ -49,10 +45,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (!vendor) {
-      return NextResponse.json(
-        { error: "Vendor account required" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Vendor account required" }, { status: 404 });
     }
 
     let stripeCustomerId = vendor.stripe_customer_id || null;
@@ -77,27 +70,35 @@ export async function POST(req: NextRequest) {
       mode: "subscription",
       customer: stripeCustomerId,
       payment_method_types: ["card"],
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      success_url: `${siteUrl}/vendors/dashboard?subscription=success`,
-      cancel_url: `${siteUrl}/pricing?subscription=cancelled`,
+      line_items: [{ price: priceId, quantity: 1 }],
+      allow_promotion_codes: true,
+      success_url: `${siteUrl}/pricing?success=1`,
+      cancel_url: `${siteUrl}/pricing?canceled=1`,
       client_reference_id: user.id,
       metadata: {
-        plan_type: "vendor",
-        plan_name: planName || "",
+        plan_key: body.planKey || "",
+        tier: body.tier || "",
+        cadence: body.cadence || "",
+        product_limit:
+          body.productLimit === null || body.productLimit === undefined
+            ? ""
+            : String(body.productLimit),
+        commission:
+          body.commission === null || body.commission === undefined
+            ? ""
+            : String(body.commission),
         price_id: priceId,
+        plan_type: "vendor",
         vendor_id: vendor.id,
         user_id: user.id,
       },
       subscription_data: {
         metadata: {
-          plan_type: "vendor",
-          plan_name: planName || "",
+          plan_key: body.planKey || "",
+          tier: body.tier || "",
+          cadence: body.cadence || "",
           price_id: priceId,
+          plan_type: "vendor",
           vendor_id: vendor.id,
           user_id: user.id,
         },
@@ -107,9 +108,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ url: session.url });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error("[stripe/vendor/checkout]", message);
+    console.error("[stripe/checkout]", message);
     return NextResponse.json(
-      { error: "Failed to create vendor checkout session" },
+      { error: "Failed to create checkout session" },
       { status: 500 }
     );
   }

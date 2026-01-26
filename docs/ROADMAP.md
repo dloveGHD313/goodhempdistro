@@ -2,6 +2,10 @@
 
 This file is generated from existing checklist docs and does not add new scope.
 
+## Phase 3 Marketplace Flow
+- Phase 3.3: Stripe vendor subscriptions — UNVERIFIED (needs human)
+- Phase 3.4: Pricing UI + checkout + webhook sync — IN PROGRESS (needs human verification)
+
 ## Phase 4 Launch Readiness Checklist
 - Public Nav + Routing completeness
 - Shop Flow (Browse → Detail → Checkout Entry)

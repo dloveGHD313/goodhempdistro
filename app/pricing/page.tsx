@@ -7,13 +7,16 @@ import { getReferralCode } from "@/lib/referral";
 import Footer from "@/components/Footer";
 
 type VendorPlan = {
-  id: string;
-  name: string;
-  price_cents: number;
-  commission_rate: number;
-  product_limit: number | null;
-  event_limit: number | null;
-  perks_json: string[];
+  key: string;
+  tier: string;
+  cadence: "monthly" | "annual";
+  interval: "month" | "year";
+  priceId: string;
+  displayName: string;
+  priceDisplay: string;
+  commission: number;
+  productLimit: number | null;
+  features: string[];
 };
 
 type ConsumerPlan = {
@@ -26,21 +29,16 @@ type ConsumerPlan = {
 
 export default function PricingPage() {
   const router = useRouter();
-  const [vendorPlans, setVendorPlans] = useState<VendorPlan[]>([]);
   const [consumerPlans, setConsumerPlans] = useState<ConsumerPlan[]>([]);
+  const [vendorPlans, setVendorPlans] = useState<VendorPlan[]>([]);
+  const [vendorPlansReady, setVendorPlansReady] = useState(false);
+  const [vendorPlansMissing, setVendorPlansMissing] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"vendor" | "consumer">("consumer");
 
   useEffect(() => {
     async function loadPlans() {
       const supabase = createSupabaseBrowserClient();
-
-      // Load vendor plans
-      const { data: vp } = await supabase
-        .from("vendor_plans")
-        .select("id, name, price_cents, commission_rate, product_limit, event_limit, perks_json")
-        .eq("is_active", true)
-        .order("price_cents", { ascending: true });
 
       // Load consumer plans
       const { data: cp } = await supabase
@@ -49,7 +47,6 @@ export default function PricingPage() {
         .eq("is_active", true)
         .order("price_cents", { ascending: true });
 
-      setVendorPlans((vp || []) as VendorPlan[]);
       setConsumerPlans((cp || []) as ConsumerPlan[]);
       setLoading(false);
     }
@@ -57,7 +54,35 @@ export default function PricingPage() {
     loadPlans();
   }, []);
 
+  useEffect(() => {
+    async function loadVendorPlans() {
+      try {
+        const response = await fetch("/api/pricing/vendor-plans", {
+          cache: "no-store",
+        });
+        const payload = await response.json();
+        if (response.ok) {
+          setVendorPlans(payload.plans || []);
+          setVendorPlansMissing(payload.missingEnv || []);
+        }
+      } catch (error) {
+        console.error("[pricing] failed to load vendor plans", error);
+      } finally {
+        setVendorPlansReady(true);
+      }
+    }
+
+    loadVendorPlans();
+  }, []);
+
   const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const hasVendorPlans = vendorPlansReady && vendorPlans.length > 0;
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production" && vendorPlansMissing.length > 0) {
+      console.warn("[pricing] missing vendor plan env vars", vendorPlansMissing);
+    }
+  }, [vendorPlansMissing]);
 
   const handleSubscribe = async (planType: "vendor" | "consumer", planName: string) => {
     const affiliateCode = getReferralCode();
@@ -65,11 +90,11 @@ export default function PricingPage() {
     try {
       const endpoint =
         planType === "vendor"
-          ? "/api/stripe/vendor/create-checkout-session"
+          ? "/api/stripe/checkout"
           : "/api/subscriptions/checkout";
       const payload =
         planType === "vendor"
-          ? { planName }
+          ? { priceId: planName }
           : { planType, planName, affiliateCode: affiliateCode || undefined };
       const response = await fetch(endpoint, {
         method: "POST",
@@ -89,6 +114,34 @@ export default function PricingPage() {
       }
     } catch (error) {
       console.error("Error starting checkout:", error);
+      alert("Failed to start checkout. Please try again.");
+    }
+  };
+
+  const startVendorCheckout = async (plan: VendorPlan) => {
+    try {
+      const response = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          priceId: plan.priceId,
+          planKey: plan.key,
+          tier: plan.tier,
+          cadence: plan.cadence,
+          productLimit: plan.productLimit,
+          commission: plan.commission,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data.error || "Failed to create checkout session");
+        return;
+      }
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (error) {
+      console.error("Error starting vendor checkout:", error);
       alert("Failed to start checkout. Please try again.");
     }
   };
@@ -175,28 +228,22 @@ export default function PricingPage() {
           {activeTab === "vendor" && (
             <div className="grid gap-6 md:grid-cols-3">
               {vendorPlans.map((plan) => (
-                <div key={plan.id} className="card-glass p-6 text-center">
-                  <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
+                <div key={plan.key} className="card-glass p-6 text-center">
+                  <h3 className="text-2xl font-bold mb-2">{plan.displayName}</h3>
                   <p className="text-4xl font-bold text-accent mb-4">
-                    {formatPrice(plan.price_cents)}<span className="text-lg text-muted">/mo</span>
+                    {plan.priceDisplay}
                   </p>
                   <p className="text-sm text-muted mb-4">
-                    {plan.commission_rate}% commission
+                    {plan.commission}% commission
                   </p>
                   <ul className="space-y-2 text-left mb-6 min-h-[150px]">
                     <li className="flex items-start gap-2 text-sm">
                       <span className="text-accent">✓</span>
                       <span>
-                        {plan.product_limit ? `${plan.product_limit} products` : "Unlimited products"}
+                        {plan.productLimit ? `${plan.productLimit} products` : "Unlimited products"}
                       </span>
                     </li>
-                    <li className="flex items-start gap-2 text-sm">
-                      <span className="text-accent">✓</span>
-                      <span>
-                        {plan.event_limit ? `${plan.event_limit} events` : "Unlimited events"}
-                      </span>
-                    </li>
-                    {(plan.perks_json || []).map((perk, idx) => (
+                    {(plan.features || []).map((perk, idx) => (
                       <li key={idx} className="flex items-start gap-2 text-sm">
                         <span className="text-accent">✓</span>
                         <span>{perk}</span>
@@ -204,14 +251,14 @@ export default function PricingPage() {
                     ))}
                   </ul>
                   <button
-                    onClick={() => handleSubscribe("vendor", plan.name)}
+                    onClick={() => startVendorCheckout(plan)}
                     className="btn-primary w-full"
                   >
-                    Subscribe
+                    Start checkout
                   </button>
                 </div>
               ))}
-              {vendorPlans.length === 0 && (
+              {!hasVendorPlans && (
                 <div className="col-span-3 card-glass p-6 text-center text-muted">
                   Vendor plans coming soon.
                 </div>

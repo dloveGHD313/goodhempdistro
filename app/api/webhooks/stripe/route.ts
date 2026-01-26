@@ -70,6 +70,18 @@ export async function POST(req: NextRequest) {
         await handleInvoicePaid(invoice);
         break;
       }
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        console.log(`💥 Processing invoice.payment_failed | subscription=${invoice.subscription || "N/A"} | invoice=${invoice.id}`);
+        if (invoice.subscription) {
+          const stripeClient = getStripeClient();
+          const subscription = await stripeClient.subscriptions.retrieve(
+            invoice.subscription as string
+          );
+          await handleSubscriptionChange(event.type, subscription);
+        }
+        break;
+      }
 
       case "payment_intent.succeeded": {
         const intent = event.data.object as Stripe.PaymentIntent;
