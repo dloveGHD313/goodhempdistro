@@ -63,3 +63,23 @@ Repeat for `vendor` and `admin` roles if required.
   3. As vendor, submit product → status becomes `pending_review`.
   4. As admin, verify Draft tab shows “Mark Pending Review” and no Approve button.
   5. Approve from Pending tab → product appears in public list.
+
+## Phase 4.2 Flow Truth Pass (P0)
+
+### Fix: Product listing + detail availability UX
+- **Issues addressed**:
+  - Non-approved products should never appear in `/products`
+  - Product detail should show a friendly “not available” page instead of 404
+  - Vendor submit should show “Submitted for review” feedback
+- **Key changes**:
+  - `/products` query remains scoped to `status=approved` and `active=true`
+  - Product detail renders a friendly unavailable state when not approved/active
+  - Vendor submit UI shows inline success/error feedback
+- **Manual verification**:
+  1. Confirm `/products` only shows approved + active products.
+  2. Visit a draft product URL → “This product is not available” (not 404).
+  3. Vendor submits product → inline “Submitted for review” message appears and status becomes `pending_review`.
+  4. Admin marks pending → product appears in Pending tab, approve makes it visible in `/products` within one refresh.
+
+## Remaining P1s
+- Authenticated audit flows still require credentials or manual login (see above).

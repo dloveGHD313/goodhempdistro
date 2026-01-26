@@ -35,9 +35,13 @@ export default function ProductsClient({ initialProducts, initialCounts }: Props
   const [counts] = useState(initialCounts);
   const [filter, setFilter] = useState<'all' | 'draft' | 'pending_review' | 'approved' | 'rejected'>('all');
   const [loading, setLoading] = useState<string | null>(null);
+  const [submitMessage, setSubmitMessage] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState<Record<string, string>>({});
 
   const handleSubmit = async (productId: string) => {
     setLoading(productId);
+    setSubmitMessage((prev) => ({ ...prev, [productId]: "" }));
+    setSubmitError((prev) => ({ ...prev, [productId]: "" }));
     try {
       const response = await fetch(`/api/vendors/products/${productId}/submit`, {
         method: "POST",
@@ -46,15 +50,20 @@ export default function ProductsClient({ initialProducts, initialCounts }: Props
       const data = await response.json();
 
       if (!response.ok) {
-        alert(data.error || "Failed to submit product");
+        const errorMessage = data.error || "Failed to submit product";
+        setSubmitError((prev) => ({ ...prev, [productId]: errorMessage }));
         setLoading(null);
         return;
       }
 
+      setSubmitMessage((prev) => ({ ...prev, [productId]: "Submitted for review." }));
       // Refresh the page to show updated status
       router.refresh();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "An unexpected error occurred");
+      setSubmitError((prev) => ({
+        ...prev,
+        [productId]: err instanceof Error ? err.message : "An unexpected error occurred",
+      }));
       setLoading(null);
     }
   };
@@ -186,6 +195,16 @@ export default function ProductsClient({ initialProducts, initialCounts }: Props
                       </span>
                     )}
                   </div>
+                  {submitMessage[product.id] && (
+                    <div className="mt-2 text-sm text-green-400">
+                      {submitMessage[product.id]}
+                    </div>
+                  )}
+                  {submitError[product.id] && (
+                    <div className="mt-2 text-sm text-red-400">
+                      {submitError[product.id]}
+                    </div>
+                  )}
                   {product.status === 'rejected' && product.rejection_reason && (
                     <div className="mt-2 p-3 bg-red-900/30 border border-red-600 rounded">
                       <p className="text-red-400 text-sm">

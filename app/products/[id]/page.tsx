@@ -18,6 +18,7 @@ type Product = {
   vendor_id?: string | null;
   status?: string | null;
   active?: boolean | null;
+  is_available: boolean;
   product_type?: "non_intoxicating" | "intoxicating" | "delta8";
   coa_url?: string | null;
   coa_object_path?: string | null;
@@ -48,10 +49,6 @@ async function getProduct(id: string): Promise<Product | null> {
       return null;
     }
 
-    if (data.status !== "approved" || data.active !== true) {
-      return null;
-    }
-
     const coaPublicUrl = data.coa_object_path
       ? supabase.storage.from("coas").getPublicUrl(data.coa_object_path).data.publicUrl
       : data.coa_url || null;
@@ -59,6 +56,7 @@ async function getProduct(id: string): Promise<Product | null> {
     return {
       ...data,
       coa_public_url: coaPublicUrl,
+      is_available: data.status === "approved" && data.active === true,
     };
   } catch (err) {
     console.error("Error fetching product:", err);
@@ -102,7 +100,9 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   
   return {
     title: `${product.name} | Good Hemp Distro`,
-    description: `Shop ${product.name}${categoryName ? ` in the ${categoryName} category` : ''}`,
+    description: product.is_available
+      ? `Shop ${product.name}${categoryName ? ` in the ${categoryName} category` : ""}`
+      : "This product is not available right now.",
   };
 }
 
@@ -121,6 +121,27 @@ export default async function ProductDetailPage(props: Props) {
       ? product.description.trim()
       : "Product details are coming soon.";
   const stripeEnabled = Boolean(process.env.STRIPE_SECRET_KEY);
+
+  if (!product.is_available) {
+    return (
+      <div className="min-h-screen text-white flex flex-col">
+        <main className="flex-1">
+          <section className="section-shell">
+            <div className="max-w-3xl mx-auto card-glass p-8 space-y-4 text-center">
+              <h1 className="text-3xl font-bold text-accent">This product is not available</h1>
+              <p className="text-muted">
+                This listing is not currently available. Please browse other products.
+              </p>
+              <Link href="/products" className="btn-primary">
+                Back to Products
+              </Link>
+            </div>
+          </section>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen text-white flex flex-col">
