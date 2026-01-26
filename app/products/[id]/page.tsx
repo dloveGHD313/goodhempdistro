@@ -12,7 +12,7 @@ type Product = {
   id: string;
   name: string;
   category_id: string | null;
-  price_cents: number;
+  price_cents: number | null;
   featured: boolean;
   description?: string | null;
   vendor_id?: string | null;
@@ -35,39 +35,34 @@ type Props = {
 export const dynamic = 'force-dynamic';
 
 async function getProduct(id: string): Promise<Product | null> {
-  try {
-    const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase
-      .from("products")
-      .select(
-        "id, name, description, category_id, price_cents, featured, vendor_id, status, active, product_type, coa_url, coa_object_path, coa_verified, created_at"
-      )
-      .eq("id", id)
-      .single();
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select(
+      "id, name, description, category_id, price_cents, featured, vendor_id, status, active, product_type, coa_url, coa_object_path, coa_verified, created_at"
+    )
+    .eq("id", id)
+    .single();
 
-    if (error) {
-      throw new Error(
-        `[products/detail] Failed to fetch product ${id}: ${error.message}`
-      );
-    }
-
-    if (!data) {
-      return null;
-    }
-
-    const coaPublicUrl = data.coa_object_path
-      ? supabase.storage.from("coas").getPublicUrl(data.coa_object_path).data.publicUrl
-      : data.coa_url || null;
-
-    return {
-      ...data,
-      coa_public_url: coaPublicUrl,
-      is_available: data.status === "approved" && data.active === true,
-    };
-  } catch (err) {
-    console.error("Error fetching product:", err);
-    throw err;
+  if (error) {
+    throw new Error(
+      `[products/detail] Failed to fetch product ${id}: ${error.message}`
+    );
   }
+
+  if (!data) {
+    return null;
+  }
+
+  const coaPublicUrl = data.coa_object_path
+    ? supabase.storage.from("coas").getPublicUrl(data.coa_object_path).data.publicUrl
+    : data.coa_url || null;
+
+  return {
+    ...data,
+    coa_public_url: coaPublicUrl,
+    is_available: data.status === "approved" && data.active === true,
+  };
 }
 
 async function getCategoryName(categoryId: string | null) {
@@ -114,7 +109,44 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 
 export default async function ProductDetailPage(props: Props) {
   const params = await props.params;
-  const product = await getProduct(params.id);
+  const stripeDetected = Boolean(process.env.STRIPE_SECRET_KEY);
+  let product: Product | null = null;
+  let supabaseError = false;
+
+  try {
+    product = await getProduct(params.id);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    supabaseError = errorMessage.startsWith("[products/detail]");
+    if (process.env.NODE_ENV !== "production") {
+      console.error("[products/detail] fetch failed", error);
+    }
+    console.info("[products/detail] diagnostics", {
+      productId: params.id,
+      fetched: false,
+      supabaseError,
+      status: null,
+      active: null,
+      hasPriceCents: false,
+      stripeDetected,
+    });
+    throw error;
+  }
+
+  const hasPriceCents =
+    typeof product?.price_cents === "number" &&
+    Number.isFinite(product.price_cents) &&
+    product.price_cents > 0;
+
+  console.info("[products/detail] diagnostics", {
+    productId: params.id,
+    fetched: Boolean(product),
+    supabaseError,
+    status: product?.status ?? null,
+    active: product?.active ?? null,
+    hasPriceCents,
+    stripeDetected,
+  });
 
   if (!product) {
     notFound();
@@ -128,21 +160,38 @@ export default async function ProductDetailPage(props: Props) {
       ? product.description.trim()
       : "Product details are coming soon.";
   const priceLabel =
-    typeof product.price_cents === "number" && Number.isFinite(product.price_cents)
+    typeof product.price_cents === "number" &&
+    Number.isFinite(product.price_cents) &&
+    product.price_cents > 0
       ? `$${(product.price_cents / 100).toFixed(2)}`
       : "Price unavailable";
-  const stripeEnabled = Boolean(process.env.STRIPE_SECRET_KEY);
+  const stripeEnabled = stripeDetected;
+  const buyButtonDisabled = !stripeEnabled || !hasPriceCents;
+  const buyButtonMessage = !hasPriceCents && !stripeEnabled
+    ? "Checkout is not configured and price is unavailable."
+    : !hasPriceCents
+      ? "Price unavailable."
+      : !stripeEnabled
+        ? "Checkout is not configured."
+        : null;
 
   if (!product.is_available) {
     return (
       <div className="min-h-screen text-white flex flex-col">
         <main className="flex-1">
           <section className="section-shell">
-            <div className="max-w-3xl mx-auto card-glass p-8 space-y-4 text-center">
-              <h1 className="text-3xl font-bold text-accent">This product is not available</h1>
-              <p className="text-muted">
-                This listing is not currently available. Please browse other products.
-              </p>
+            <div className="max-w-3xl mx-auto card-glass p-8 space-y-6 text-center">
+              <div className="space-y-4">
+                <h1 className="text-3xl font-bold text-accent">This product is not available</h1>
+                <p className="text-muted">
+                  This listing is not currently available. Please browse other products.
+                </p>
+              </div>
+              <BuyButton
+                productId={product.id}
+                disabled
+                disabledMessage="Product unavailable."
+              />
               <Link href="/products" className="btn-primary">
                 Back to Products
               </Link>
@@ -192,12 +241,8 @@ export default async function ProductDetailPage(props: Props) {
 
               <BuyButton
                 productId={product.id}
-                disabled={!stripeEnabled}
-                disabledMessage={
-                  stripeEnabled
-                    ? null
-                    : "Checkout is temporarily unavailable. Please check back soon."
-                }
+                disabled={buyButtonDisabled}
+                disabledMessage={buyButtonMessage}
               />
 
               <div className="card-glass p-6 space-y-3">
