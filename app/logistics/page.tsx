@@ -98,6 +98,60 @@ export default function LogisticsPage() {
               Connect your business with local delivery drivers for fast, reliable B2B deliveries.
             </p>
 
+            <div className="card-glass p-6 mb-8">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                <div>
+                  <h2 className="text-2xl font-bold mb-3">Driver Funnel</h2>
+                  <p className="text-muted">
+                    Apply, verify compliance, and start accepting local routes. Drivers stay compliant
+                    with required documentation and 21+ delivery rules.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <Link href="/driver-apply" className="btn-primary">
+                    Apply to drive
+                  </Link>
+                  <Link href="/driver/dashboard" className="btn-secondary">
+                    Driver dashboard
+                  </Link>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+                {[
+                  "Apply + upload docs",
+                  "Compliance review",
+                  "Activate availability",
+                  "Accept delivery routes",
+                ].map((step, index) => (
+                  <div key={step} className="shop-metric">
+                    <span className="text-xs uppercase tracking-[0.2em] text-muted">
+                      Step {index + 1}
+                    </span>
+                    <span className="text-sm font-semibold">{step}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="card-glass p-6 mb-8">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                <div>
+                  <h2 className="text-2xl font-bold mb-3">Logistics Command</h2>
+                  <p className="text-muted">
+                    Prepare routes, track dispatch readiness, and oversee compliance for delivery partners.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <Link href="/logistics/dashboard" className="btn-secondary">
+                    View logistics dashboard
+                  </Link>
+                  <Link href="/logistics/routes" className="btn-ghost">
+                    Preview delivery matching
+                  </Link>
+                </div>
+              </div>
+            </div>
+
             <div className="grid gap-6 md:grid-cols-2 mb-8">
               <div className="card-glass p-6">
                 <h2 className="text-2xl font-bold mb-4">For Drivers</h2>
