@@ -1,45 +1,92 @@
 "use client";
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { createSupabaseBrowserClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
+import { getReferralCode } from "@/lib/referral";
 
-type ConsumerPackage = {
-  id: string;
-  slug: string;
-  name: string;
-  monthly_price_cents: number;
-  perks: string[];
-  loyalty_points_multiplier: number;
+type ConsumerPlan = {
+  planKey: string;
+  displayName: string;
+  priceText: string;
+  description: string;
+  imageUrl: string;
+  imageAlt: string;
+  cadence: "monthly" | "annual";
+  billingInterval: "month" | "year";
 };
 
 export default function GetStartedPage() {
-  const [packages, setPackages] = useState<ConsumerPackage[]>([]);
+  const [plans, setPlans] = useState<ConsumerPlan[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [missingEnv, setMissingEnv] = useState<string[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    const loadPackages = async () => {
-      const supabase = createSupabaseBrowserClient();
-      const { data, error } = await supabase
-        .from("consumer_packages")
-        .select("id, slug, name, monthly_price_cents, perks, loyalty_points_multiplier")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true });
-
-      if (error) {
-        console.error("Error loading consumer packages:", error);
-        setPackages([]);
-      } else {
-        setPackages(data || []);
+    const loadPlans = async () => {
+      try {
+        const response = await fetch("/api/pricing/consumer-plans", {
+          cache: "no-store",
+        });
+        const payload = await response.json();
+        if (response.ok) {
+          setPlans(payload.plans || []);
+          setError(null);
+          setMissingEnv([]);
+        } else {
+          setPlans([]);
+          setError(payload?.error || "Consumer packages are unavailable right now.");
+          setMissingEnv(payload?.missingEnv || []);
+          try {
+            const statusResponse = await fetch("/api/consumer/status", {
+              cache: "no-store",
+            });
+            if (statusResponse.ok) {
+              const statusPayload = await statusResponse.json();
+              setIsAdmin(Boolean(statusPayload?.isAdmin));
+            }
+          } catch (statusError) {
+            console.warn("[get-started] consumer status check failed", statusError);
+          }
+        }
+      } catch (loadError) {
+        console.error("Error loading consumer plans:", loadError);
+        setPlans([]);
+        setError("Consumer packages are unavailable right now.");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
-    loadPackages();
+    loadPlans();
   }, []);
 
-  const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const handleSubscribe = async (planKey: string) => {
+    const affiliateCode = getReferralCode();
+    try {
+      const response = await fetch("/api/subscriptions/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planKey, affiliateCode: affiliateCode || undefined }),
+      });
+      const payload = await response.json();
+      if (response.status === 401) {
+        window.location.href = "/login?redirect=/pricing?tab=consumer";
+        return;
+      }
+      if (!response.ok) {
+        alert(payload?.error || "Failed to start checkout.");
+        return;
+      }
+      if (payload?.url) {
+        window.location.href = payload.url;
+      }
+    } catch (checkoutError) {
+      console.error("Error starting checkout:", checkoutError);
+      alert("Failed to start checkout. Please try again.");
+    }
+  };
 
   return (
     <div className="min-h-screen text-white flex flex-col">
@@ -60,36 +107,38 @@ export default function GetStartedPage() {
             Choose a Consumer Package
           </h2>
           <div className="grid gap-6 md:grid-cols-3">
-            {(loading ? [] : packages).map((pkg) => (
-              <div key={pkg.id} className="surface-card p-6 text-center">
-                <h3 className="text-xl font-bold mb-2">{pkg.name}</h3>
-                <p className="text-3xl font-bold text-accent mb-2">
-                  {formatPrice(pkg.monthly_price_cents)}
-                </p>
-                <p className="text-sm text-muted mb-4">
-                  Loyalty multiplier: {pkg.loyalty_points_multiplier}x
-                </p>
-                <ul className="space-y-2 text-left mb-6">
-                  {pkg.perks.map((perk) => (
-                    <li key={perk} className="flex items-start gap-2 text-sm text-muted">
-                      <span className="text-accent">✓</span>
-                      <span>{perk}</span>
-                    </li>
-                  ))}
-                </ul>
+            {(loading ? [] : plans).map((plan) => (
+              <div key={plan.planKey} className="surface-card p-6 text-center">
+                <div className="mb-4 overflow-hidden rounded-xl">
+                  <Image
+                    src={plan.imageUrl}
+                    alt={plan.imageAlt || `${plan.displayName} plan`}
+                    width={640}
+                    height={360}
+                    className="h-40 w-full object-cover"
+                  />
+                </div>
+                <h3 className="text-xl font-bold mb-2">{plan.displayName}</h3>
+                <p className="text-3xl font-bold text-accent mb-3">{plan.priceText}</p>
+                <p className="text-sm text-muted mb-6 text-left">{plan.description}</p>
                 <button
                   type="button"
-                  onClick={() => setSelectedPlan(pkg.slug)}
-                  className={selectedPlan === pkg.slug ? "btn-primary" : "btn-secondary"}
+                  onClick={() => handleSubscribe(plan.planKey)}
+                  className="btn-primary w-full"
                 >
-                  {selectedPlan === pkg.slug ? "Selected" : "Choose Plan"}
+                  Subscribe
                 </button>
               </div>
             ))}
           </div>
-          {!loading && packages.length === 0 && (
+          {!loading && plans.length === 0 && (
             <div className="surface-card p-6 text-center text-muted">
-              Consumer packages are unavailable right now. Please check back soon.
+              {error || "Consumer packages are unavailable right now. Please check back soon."}
+              {isAdmin && missingEnv.length > 0 && (
+                <p className="text-xs text-yellow-200 mt-2">
+                  Missing env: {missingEnv.join(", ")}
+                </p>
+              )}
             </div>
           )}
         </section>

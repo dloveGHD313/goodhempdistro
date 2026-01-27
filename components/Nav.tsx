@@ -100,9 +100,14 @@ export default function Nav() {
       ? { label: "⭐ My Subscription", href: "/account/subscription" }
       : { label: "⬆️ Upgrade", href: "/pricing?tab=consumer" };
 
+  const consumerRewardsLink =
+    consumerStatus.isSubscribed || consumerStatus.isAdmin
+      ? { label: "🎁 Rewards", href: "/account/subscription" }
+      : null;
+
   const navLinks = [
     ...baseNavLinks,
-    ...(isLoggedIn ? [consumerLink] : []),
+    ...(isLoggedIn ? [consumerLink, ...(consumerRewardsLink ? [consumerRewardsLink] : [])] : []),
     ...vendorLinks,
     { label: "💰 Affiliate", href: "/affiliate" },
   ];
@@ -166,6 +171,11 @@ export default function Nav() {
               <Link href="/account/favorites" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
                 Favorites
               </Link>
+              {(consumerStatus.isSubscribed || consumerStatus.isAdmin) && (
+                <Link href="/account/subscription" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                  Rewards
+                </Link>
+              )}
             {showBilling && (
               <Link href="/vendors/billing" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
                 Billing

@@ -3,10 +3,11 @@ import { unstable_noStore as noStore } from "next/cache";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
-import { getConsumerEntitlements, getConsumerPlanByPriceId } from "@/lib/consumer-plans";
+import { getConsumerEntitlements, getConsumerPlanByKey } from "@/lib/consumer-plans";
 import { isAdminEmail } from "@/lib/admin";
 import Footer from "@/components/Footer";
 import BillingPortalButton from "./BillingPortalButton";
+import ReferralCodeCard from "./ReferralCodeCard";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -35,12 +36,25 @@ export default async function AccountSubscriptionPage() {
     redirect("/pricing?tab=consumer");
   }
 
-  const planKey =
-    subscription?.consumer_plan_key ||
-    (subscription?.stripe_subscription_id
-      ? null
-      : subscription?.consumer_plan_key || null);
+  const planKey = subscription?.consumer_plan_key || null;
   const entitlements = planKey ? getConsumerEntitlements(planKey) : null;
+  const planConfig = planKey ? getConsumerPlanByKey(planKey) : null;
+
+  const { data: loyalty } = await admin
+    .from("consumer_loyalty")
+    .select("points_balance, lifetime_points_earned, updated_at")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const { data: referrals } = await admin
+    .from("consumer_referrals")
+    .select("referral_code, reward_points, reward_status")
+    .eq("referrer_user_id", user.id);
+
+  const referralCode = referrals?.find((row) => !!row.referral_code)?.referral_code || null;
+  const referralEarnings = (referrals || [])
+    .filter((row) => row.reward_status === "granted")
+    .reduce((sum, row) => sum + (row.reward_points || 0), 0);
 
   return (
     <div className="min-h-screen text-white flex flex-col">
@@ -69,6 +83,24 @@ export default async function AccountSubscriptionPage() {
 
           {subscription && (
             <div className="surface-card p-6">
+              {planConfig && (
+                <div className="mb-6 grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6">
+                  <div className="overflow-hidden rounded-2xl border border-white/10">
+                    <img
+                      src={planConfig.imageUrl}
+                      alt={`${planConfig.displayName} plan`}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-semibold mb-2">
+                      {planConfig.displayName}
+                    </h2>
+                    <p className="text-muted mb-4">{planConfig.priceText}</p>
+                    <p className="text-sm text-muted">{planConfig.description}</p>
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted">
                 <div>
                   <div className="text-xs uppercase tracking-wide">Status</div>
@@ -92,6 +124,27 @@ export default async function AccountSubscriptionPage() {
                       : "N/A"}
                   </div>
                 </div>
+              </div>
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="surface-card p-4">
+                  <div className="text-xs uppercase tracking-wide text-muted">Loyalty balance</div>
+                  <div className="text-2xl font-semibold text-white">
+                    {loyalty?.points_balance ?? 0} pts
+                  </div>
+                  <div className="text-xs text-muted mt-1">
+                    Lifetime earned: {loyalty?.lifetime_points_earned ?? 0} pts
+                  </div>
+                </div>
+                <div className="surface-card p-4">
+                  <div className="text-xs uppercase tracking-wide text-muted">Referral earnings</div>
+                  <div className="text-2xl font-semibold text-white">
+                    {referralEarnings} pts
+                  </div>
+                  <div className="text-xs text-muted mt-1">
+                    Rewards are granted after a referred user subscribes.
+                  </div>
+                </div>
+                <ReferralCodeCard initialCode={referralCode} />
               </div>
               {subscription.cancel_at_period_end && (
                 <p className="text-sm text-yellow-200 mt-4">

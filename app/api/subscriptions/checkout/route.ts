@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { planKey, affiliateCode } = await req.json();
+    const { planKey, affiliateCode, referralCode } = await req.json();
 
     if (!planKey || typeof planKey !== "string") {
       return NextResponse.json(
@@ -62,6 +62,30 @@ export async function POST(req: NextRequest) {
           },
           { onConflict: "user_id" }
         );
+    }
+
+    if (typeof referralCode === "string" && referralCode.trim().length > 0) {
+      const { data: referral } = await admin
+        .from("consumer_referrals")
+        .select("id, referrer_user_id, referred_user_id")
+        .eq("referral_code", referralCode.trim())
+        .maybeSingle();
+
+      if (referral?.id) {
+        if (referral.referrer_user_id === user.id) {
+          if (process.env.NODE_ENV !== "production") {
+            console.warn("[subscriptions/checkout] self-referral blocked", {
+              referralCode,
+              userId: user.id,
+            });
+          }
+        } else if (!referral.referred_user_id) {
+          await admin
+            .from("consumer_referrals")
+            .update({ referred_user_id: user.id, reward_status: "pending" })
+            .eq("id", referral.id);
+        }
+      }
     }
 
     const siteUrl = getSiteUrl();

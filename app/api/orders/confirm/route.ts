@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCheckoutSession } from "@/lib/stripe";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { getSubscriptionBonusPoints } from "@/lib/consumer-loyalty";
 
 export async function POST(req: NextRequest) {
   try {
@@ -72,23 +73,16 @@ export async function POST(req: NextRequest) {
             .single();
 
           if (pkg) {
-            // Add monthly loyalty points
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("loyalty_points")
-              .eq("id", userId)
-              .single();
-
-            const currentPoints = profile?.loyalty_points || 0;
-            await supabase
-              .from("profiles")
-              .upsert({
-                id: userId,
-                loyalty_points: currentPoints + pkg.monthly_loyalty_points,
-                updated_at: new Date().toISOString(),
-              }, { onConflict: "id" });
-
-            console.log(`✅ [orders/confirm] Assigned consumer package: ${packageName} to user ${userId}, added ${pkg.monthly_loyalty_points} loyalty points`);
+            const bonusPoints = getSubscriptionBonusPoints();
+            if (bonusPoints > 0) {
+              await supabase.rpc("consumer_loyalty_add_points", {
+                p_user_id: userId,
+                p_points: bonusPoints,
+                p_event_type: "subscription_bonus",
+                p_metadata: { packageName },
+              });
+            }
+            console.log(`✅ [orders/confirm] Assigned consumer package: ${packageName} to user ${userId}`);
           }
         }
 

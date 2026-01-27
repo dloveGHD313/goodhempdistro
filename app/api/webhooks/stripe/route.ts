@@ -4,7 +4,8 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { validateEnvVars } from "@/lib/env-validator";
 import { getVendorPlanByPriceId } from "@/lib/pricing";
-import { getConsumerPlanByPriceId } from "@/lib/consumer-plans";
+import { getConsumerPlanByKey, getConsumerPlanByPriceId } from "@/lib/consumer-plans";
+import { calculatePurchasePoints, getSubscriptionBonusPoints } from "@/lib/consumer-loyalty";
 
 // Lazy initialization - only create Stripe client when actually used
 // This allows the build to complete even if env vars are missing
@@ -185,6 +186,97 @@ async function resolveConsumerUserId(params: {
   return null;
 }
 
+async function awardConsumerSubscriptionBonus(userId: string, planKey: string | null) {
+  const bonusPoints = getSubscriptionBonusPoints();
+  if (bonusPoints <= 0) {
+    return;
+  }
+
+  const admin = getSupabaseAdminClient();
+  const { error } = await admin.rpc("consumer_loyalty_add_points", {
+    p_user_id: userId,
+    p_points: bonusPoints,
+    p_event_type: "subscription_bonus",
+    p_metadata: { planKey },
+  });
+
+  if (error && process.env.NODE_ENV !== "production") {
+    console.warn("[consumer-loyalty] failed to add subscription bonus", error);
+  }
+}
+
+async function grantReferralRewardForUser(userId: string) {
+  const admin = getSupabaseAdminClient();
+  const { data: referrals } = await admin
+    .from("consumer_referrals")
+    .select("id, referrer_user_id, reward_points, reward_status")
+    .eq("referred_user_id", userId)
+    .eq("reward_status", "pending");
+
+  if (!referrals || referrals.length === 0) {
+    return;
+  }
+
+  for (const referral of referrals) {
+    const { error } = await admin.rpc("consumer_referrals_grant_reward", {
+      p_referral_id: referral.id,
+      p_referrer_user_id: referral.referrer_user_id,
+      p_points: referral.reward_points,
+      p_metadata: { source: "subscription" },
+    });
+
+    if (error && process.env.NODE_ENV !== "production") {
+      console.warn("[consumer-referrals] grant reward failed", {
+        referralId: referral.id,
+        error,
+      });
+    }
+  }
+}
+
+async function awardPurchasePointsForOrder(orderId: string) {
+  const admin = getSupabaseAdminClient();
+  const { data: order } = await admin
+    .from("orders")
+    .select("id, user_id, total_cents")
+    .eq("id", orderId)
+    .maybeSingle();
+
+  if (!order?.user_id || !order.total_cents) {
+    return;
+  }
+
+  const { data: subscription } = await admin
+    .from("consumer_subscriptions")
+    .select("consumer_plan_key")
+    .eq("user_id", order.user_id)
+    .maybeSingle();
+
+  const planKey = subscription?.consumer_plan_key || null;
+  if (!planKey) {
+    return;
+  }
+
+  const plan = getConsumerPlanByKey(planKey);
+  const multiplier = plan?.loyaltyMultiplier ?? 1;
+  const points = calculatePurchasePoints(order.total_cents, multiplier);
+
+  if (points <= 0) {
+    return;
+  }
+
+  const { error } = await admin.rpc("consumer_loyalty_add_points", {
+    p_user_id: order.user_id,
+    p_points: points,
+    p_event_type: "purchase",
+    p_metadata: { orderId, totalCents: order.total_cents },
+  });
+
+  if (error && process.env.NODE_ENV !== "production") {
+    console.warn("[consumer-loyalty] purchase points failed", error);
+  }
+}
+
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
   const orderId = session.metadata?.order_id;
   const planType = session.metadata?.plan_type; // 'vendor' or 'consumer'
@@ -287,6 +379,11 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
         stripeCustomerId: session.customer as string,
       });
       if (resolvedUserId) {
+        const resolvedPlanKey =
+          consumerPlanKey ||
+          (subscriptionPriceId
+            ? getConsumerPlanByPriceId(subscriptionPriceId)?.planKey || null
+            : null);
         await admin
           .from("consumer_subscriptions")
           .upsert(
@@ -295,10 +392,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
               stripe_customer_id: session.customer as string,
               stripe_subscription_id: subscriptionId,
               consumer_plan_key:
-                consumerPlanKey ||
-                (subscriptionPriceId
-                  ? getConsumerPlanByPriceId(subscriptionPriceId)?.planKey || null
-                  : null),
+                resolvedPlanKey,
               subscription_status: subscriptionStatus,
               current_period_end: currentPeriodEnd,
               cancel_at_period_end: cancelAtPeriodEnd,
@@ -306,6 +400,10 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
             },
             { onConflict: "user_id" }
           );
+        await awardConsumerSubscriptionBonus(resolvedUserId, resolvedPlanKey);
+        if (subscriptionStatus === "active") {
+          await grantReferralRewardForUser(resolvedUserId);
+        }
         if (process.env.NODE_ENV !== "production") {
           console.log(
             `[consumer-subscription] userId=${resolvedUserId} status=${subscriptionStatus} source=checkout`
@@ -359,6 +457,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     }
 
     console.log(`✅ [handleCheckoutSessionCompleted] Order updated successfully | order_id=${orderId}`);
+    await awardPurchasePointsForOrder(orderId);
   }
 }
 
@@ -592,6 +691,11 @@ async function handleSubscriptionChange(
       stripeCustomerId: subscription.customer as string,
     });
     if (resolvedUserId) {
+      const resolvedPlanKey =
+        consumerPlanKey ||
+        (subscriptionPriceId
+          ? getConsumerPlanByPriceId(subscriptionPriceId)?.planKey || null
+          : null);
       await admin
         .from("consumer_subscriptions")
         .upsert(
@@ -599,11 +703,7 @@ async function handleSubscriptionChange(
             user_id: resolvedUserId,
             stripe_customer_id: subscription.customer as string,
             stripe_subscription_id: subscription.id,
-            consumer_plan_key:
-              consumerPlanKey ||
-              (subscriptionPriceId
-                ? getConsumerPlanByPriceId(subscriptionPriceId)?.planKey || null
-                : null),
+            consumer_plan_key: resolvedPlanKey,
             subscription_status: status,
             current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
             cancel_at_period_end: subscription.cancel_at_period_end,
@@ -611,6 +711,10 @@ async function handleSubscriptionChange(
           },
           { onConflict: "user_id" }
         );
+      await awardConsumerSubscriptionBonus(resolvedUserId, resolvedPlanKey);
+      if (status === "active") {
+        await grantReferralRewardForUser(resolvedUserId);
+      }
       if (process.env.NODE_ENV !== "production") {
         console.log(
           `[consumer-subscription] userId=${resolvedUserId} status=${status} source=webhook`

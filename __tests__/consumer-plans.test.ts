@@ -14,7 +14,10 @@ describe("consumer plans config", () => {
   it("returns plan by key", () => {
     const plan = getConsumerPlanByKey("consumer_plus_monthly");
     expect(plan?.tier).toBe("Plus");
-    expect(plan?.billingCycle).toBe("monthly");
+    expect(plan?.billingInterval).toBe("month");
+    expect(plan?.loyaltyMultiplier).toBe(1.5);
+    expect(plan?.imageUrl.startsWith("/images/consumer-plans/")).toBe(true);
+    expect(plan?.imageAlt.length).toBeGreaterThan(0);
   });
 
   it("maps priceId to plan", () => {

@@ -29,18 +29,25 @@ type VendorPlan = {
 type ConsumerPlan = {
   planKey: string;
   tier: string;
-  billingCycle: "monthly" | "annual";
-  interval: "month" | "year";
+  cadence: "monthly" | "annual";
+  billingInterval: "month" | "year";
   priceId: string;
   displayName: string;
-  headlinePriceText: string;
-  featureSummary: string[];
+  priceText: string;
+  loyaltyMultiplier: number;
+  referralRewardPoints: number;
+  imageUrl: string;
+  imageAlt: string;
+  description: string;
 };
 
 export default function PricingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [consumerPlans, setConsumerPlans] = useState<ConsumerPlan[]>([]);
+  const [consumerError, setConsumerError] = useState<string | null>(null);
+  const [consumerMissingEnv, setConsumerMissingEnv] = useState<string[]>([]);
+  const [consumerIsAdmin, setConsumerIsAdmin] = useState(false);
   const [vendorPlans, setVendorPlans] = useState<VendorPlan[]>([]);
   const [vendorPlansReady, setVendorPlansReady] = useState(false);
   const [vendorPlansMissing, setVendorPlansMissing] = useState<string[]>([]);
@@ -56,9 +63,28 @@ export default function PricingPage() {
         const payload = await response.json();
         if (response.ok) {
           setConsumerPlans(payload.plans || []);
+          setConsumerError(null);
+          setConsumerMissingEnv([]);
+        } else {
+          setConsumerPlans([]);
+          setConsumerError(payload?.error || "Consumer plans are unavailable.");
+          setConsumerMissingEnv(payload?.missingEnv || []);
+          try {
+            const statusResponse = await fetch("/api/consumer/status", {
+              cache: "no-store",
+            });
+            if (statusResponse.ok) {
+              const statusPayload = await statusResponse.json();
+              setConsumerIsAdmin(Boolean(statusPayload?.isAdmin));
+            }
+          } catch (statusError) {
+            console.warn("[pricing] consumer status check failed", statusError);
+          }
         }
       } catch (error) {
         console.error("[pricing] failed to load consumer plans", error);
+        setConsumerPlans([]);
+        setConsumerError("Consumer plans are unavailable.");
       } finally {
         setLoading(false);
       }
@@ -211,18 +237,22 @@ export default function PricingPage() {
             <div className="grid gap-6 md:grid-cols-3">
               {consumerPlans.map((plan) => (
                 <div key={plan.planKey} className="card-glass p-6 text-center">
+                  <div className="mb-4 overflow-hidden rounded-xl">
+                    <Image
+                      src={plan.imageUrl}
+                      alt={plan.imageAlt || `${plan.displayName} plan`}
+                      width={640}
+                      height={360}
+                      className="h-40 w-full object-cover"
+                    />
+                  </div>
                   <h3 className="text-2xl font-bold mb-2">{plan.displayName}</h3>
                   <p className="text-4xl font-bold text-accent mb-4">
-                    {plan.headlinePriceText}
+                    {plan.priceText}
                   </p>
-                  <ul className="space-y-2 text-left mb-6 min-h-[150px]">
-                    {(plan.featureSummary || []).map((perk, idx) => (
-                      <li key={idx} className="flex items-start gap-2 text-sm">
-                        <span className="text-accent">✓</span>
-                        <span>{perk}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <p className="text-sm text-muted mb-6 text-left min-h-[120px]">
+                    {plan.description}
+                  </p>
                   <button
                     onClick={() => handleSubscribe("consumer", plan.planKey)}
                     className="btn-primary w-full"
@@ -233,7 +263,12 @@ export default function PricingPage() {
               ))}
               {consumerPlans.length === 0 && (
                 <div className="col-span-3 card-glass p-6 text-center text-muted">
-                  Consumer plans coming soon.
+                  {consumerError || "Consumer plans are unavailable right now. Please check back soon."}
+                  {consumerIsAdmin && consumerMissingEnv.length > 0 && (
+                    <p className="text-xs text-yellow-200 mt-2">
+                      Missing env: {consumerMissingEnv.join(", ")}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
