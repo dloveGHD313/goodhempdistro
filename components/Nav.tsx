@@ -5,17 +5,25 @@ import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { brand } from "@/lib/brand";
 import BrandLogo from "@/components/BrandLogo";
 
-const baseNavLinks = [
+const primaryLinks = [
   { label: "🏠 Feed", href: "/newsfeed" },
+  { label: "🛍️ Shop", href: "/products" },
+  { label: "🧭 Discover", href: "/discover" },
+  { label: "🎪 Events", href: "/events" },
+];
+
+const communityLinks = [
   { label: "👥 Groups", href: "/groups" },
   { label: "💬 Forums", href: "/forums" },
-  { label: "🧭 Discover", href: "/discover" },
-  { label: "🛍️ Shop", href: "/products" },
-  { label: "🛠️ Services", href: "/services" },
-  { label: "🏪 Vendors", href: "/vendors" },
   { label: "📝 Blog", href: "/blog" },
+];
+
+const businessLinksBase = [
+  { label: "🏪 Vendors", href: "/vendors" },
+  { label: "🛠️ Services", href: "/services" },
   { label: "🏢 Wholesale", href: "/wholesale" },
-  { label: "🎪 Events", href: "/events" },
+  { label: "💰 Affiliate", href: "/affiliate" },
+  { label: "🤝 Vendor Registration", href: "/vendor-registration" },
 ];
 
 export default function Nav() {
@@ -80,7 +88,7 @@ export default function Nav() {
     window.location.href = "/";
   }, []);
 
-  const accountHref = isLoggedIn ? "/account" : "/login";
+  const accountHref = "/account";
   const showBilling = vendorStatus.isSubscribed || vendorStatus.isAdmin;
 
   const vendorLink = vendorStatus.isAdmin
@@ -105,11 +113,19 @@ export default function Nav() {
       ? { label: "🎁 Rewards", href: "/account/subscription" }
       : null;
 
-  const navLinks = [
-    ...baseNavLinks,
-    ...(isLoggedIn ? [consumerLink, ...(consumerRewardsLink ? [consumerRewardsLink] : [])] : []),
+  const businessLinks = [
+    ...businessLinksBase.filter((link) => link.href !== vendorLink.href),
     ...vendorLinks,
-    { label: "💰 Affiliate", href: "/affiliate" },
+  ];
+
+  const accountLinks = [
+    { label: "Account Overview", href: "/account" },
+    { label: "Favorites", href: "/account/favorites" },
+    ...(consumerStatus.isSubscribed || consumerStatus.isAdmin
+      ? [{ label: "Rewards", href: "/account/subscription" }]
+      : []),
+    ...(showBilling ? [{ label: "Billing", href: "/vendors/billing" }] : []),
+    ...(isLoggedIn ? [consumerLink] : []),
   ];
 
   return (
@@ -125,11 +141,38 @@ export default function Nav() {
 
       {/* Desktop nav - hidden on mobile */}
       <div className="hidden lg:flex items-center gap-6">
-        {navLinks.map((link) => (
+        {primaryLinks.map((link) => (
           <Link key={link.href} href={link.href} className="nav-link text-sm">
             {link.label}
           </Link>
         ))}
+
+        <div className="relative group">
+          <button type="button" className="nav-link text-sm flex items-center gap-1">
+            Community <span className="text-xs">▼</span>
+          </button>
+          <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[200px]">
+            {communityLinks.map((link) => (
+              <Link key={link.href} href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                {link.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <div className="relative group">
+          <button type="button" className="nav-link text-sm flex items-center gap-1">
+            Business <span className="text-xs">▼</span>
+          </button>
+          <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[220px]">
+            {businessLinks.map((link) => (
+              <Link key={link.href} href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                {link.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+
         {isAdmin && (
           <div className="relative group">
             <Link href="/admin/vendors" className="nav-link text-sm flex items-center gap-1">
@@ -158,29 +201,19 @@ export default function Nav() {
             </div>
           </div>
         )}
+
         {isLoggedIn ? (
           <div className="relative group">
             <Link href={accountHref} className="nav-link text-sm flex items-center gap-1">
               Account
               <span className="text-xs">▼</span>
             </Link>
-            <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[180px]">
-              <Link href="/account" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
-                Account Overview
-              </Link>
-              <Link href="/account/favorites" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
-                Favorites
-              </Link>
-              {(consumerStatus.isSubscribed || consumerStatus.isAdmin) && (
-                <Link href="/account/subscription" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
-                  Rewards
+            <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[200px]">
+              {accountLinks.map((link) => (
+                <Link key={link.href} href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                  {link.label}
                 </Link>
-              )}
-            {showBilling && (
-              <Link href="/vendors/billing" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
-                Billing
-              </Link>
-            )}
+              ))}
             </div>
           </div>
         ) : (
@@ -190,10 +223,10 @@ export default function Nav() {
         )}
       </div>
 
-      {/* Mobile/Tablet: Get Started + Menu Hamburger */}
+      {/* Mobile/Tablet: Join Free + Menu Hamburger */}
       <div className="flex items-center gap-2 lg:hidden">
         <Link href="/get-started" className="btn-primary text-sm py-2 px-4">
-          Get Started
+          Join Free
         </Link>
         <button
           type="button"
@@ -206,7 +239,7 @@ export default function Nav() {
         </button>
       </div>
 
-      {/* Desktop: Get Started button */}
+      {/* Desktop: Join / Logout */}
       <div className="hidden lg:flex items-center gap-4">
         {isLoggedIn && (
           <button
@@ -218,7 +251,7 @@ export default function Nav() {
           </button>
         )}
         <Link href="/get-started" className="btn-primary text-sm py-2 px-4">
-          Get Started
+          Join Free
         </Link>
       </div>
 
@@ -257,11 +290,39 @@ export default function Nav() {
                 className="btn-primary text-center py-3 mb-4 font-bold"
                 onClick={() => setDrawerOpen(false)}
               >
-                🚀 Get Started
+                🚀 Join Free
               </Link>
 
-              {/* Main nav links */}
-              {navLinks.map((link) => (
+              <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Primary</div>
+              {primaryLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="px-4 py-3 rounded-lg text-base drawer-link"
+                  onClick={() => setDrawerOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              ))}
+
+              <div className="border-t mt-2 pt-2 nav-drawer-header">
+                <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Community</div>
+              </div>
+              {communityLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="px-4 py-3 rounded-lg text-base drawer-link"
+                  onClick={() => setDrawerOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              ))}
+
+              <div className="border-t mt-2 pt-2 nav-drawer-header">
+                <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Business</div>
+              </div>
+              {businessLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
