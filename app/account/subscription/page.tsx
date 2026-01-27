@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { getConsumerEntitlements, getConsumerPlanByKey } from "@/lib/consumer-plans";
 import { isAdminEmail } from "@/lib/admin";
+import { isStarterConsumerPlanKey } from "@/lib/referral-eligibility";
 import Footer from "@/components/Footer";
 import BillingPortalButton from "./BillingPortalButton";
 import ReferralCodeCard from "./ReferralCodeCard";
@@ -39,6 +40,7 @@ export default async function AccountSubscriptionPage() {
   const planKey = subscription?.consumer_plan_key || null;
   const entitlements = planKey ? getConsumerEntitlements(planKey) : null;
   const planConfig = planKey ? getConsumerPlanByKey(planKey) : null;
+  const canShowReferralCard = isAdmin || isStarterConsumerPlanKey(planKey);
 
   const { data: loyalty } = await admin
     .from("consumer_loyalty")
@@ -151,7 +153,9 @@ export default async function AccountSubscriptionPage() {
                     Rewards are granted after a referred user subscribes.
                   </div>
                 </div>
-                <ReferralCodeCard initialCode={referralCode} />
+                {canShowReferralCard && (
+                  <ReferralCodeCard initialCode={referralCode} />
+                )}
               </div>
               {subscription.cancel_at_period_end && (
                 <p className="text-sm text-yellow-200 mt-4">

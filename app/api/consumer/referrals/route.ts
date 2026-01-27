@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { getConsumerAccessStatus } from "@/lib/consumer-access";
+import { getVendorAccessStatus } from "@/lib/vendor-access";
+import { isReferralLinkEligible } from "@/lib/referral-eligibility";
 
 export async function GET() {
   try {
@@ -13,8 +15,18 @@ export async function GET() {
     }
 
     const access = await getConsumerAccessStatus(user.id, user.email);
-    if (!access.isSubscribed && !access.isAdmin) {
-      return NextResponse.json({ error: "Subscription required" }, { status: 403 });
+    const vendorAccess = await getVendorAccessStatus(user.id, user.email);
+    const isAdmin = access.isAdmin || vendorAccess.isAdmin;
+    const eligible = isReferralLinkEligible({
+      isAdmin,
+      consumerPlanKey: access.planKey,
+      isVendorSubscribed: vendorAccess.isSubscribed,
+    });
+    if (!eligible) {
+      return NextResponse.json(
+        { error: "Referral links are only available to Starter consumers or vendors." },
+        { status: 403 }
+      );
     }
 
     const admin = getSupabaseAdminClient();

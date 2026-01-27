@@ -191,10 +191,14 @@ Key checks:
 
 ### Loyalty + Referral Rules (Hard-Locked)
 
+- Point value: **$0.01 per point** (100 points = $1.00)
+- Purchase earning: **2 points per $1** (floor dollars)
+- High-spend multiplier: **3x points** on single purchases **>= $100**
+- Spend milestone bonus: **100 points per $100 cumulative spend**
 - Subscription bonus points: **500**
-- Base points per dollar: **1**
 - Loyalty multipliers: Starter 1.0x, Plus 1.5x, VIP 2.0x
-- Referral rewards: Starter 250, Plus 500, VIP 1000
+- Referral signup reward: **1 point per referral signup**
+- Referral link eligibility: **Starter consumers + vendors only**
 
 ## Phase 4 Complete — Sign-off
 
@@ -202,6 +206,7 @@ Key checks:
 - [ ] Consumer plan images + bullets render on `/pricing` and `/get-started`
 - [ ] Admin diagnostics confirm no missing consumer Stripe price IDs
 - [ ] Loyalty + referral events verified in Supabase
+- [ ] Phase 4 status: **100% Complete**
 
 ## Rollback Plan
 

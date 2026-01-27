@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   BASE_POINTS_PER_DOLLAR,
+  BONUS_POINTS_PER_100_SPENT,
+  HIGH_SPEND_MULTIPLIER,
+  HIGH_SPEND_THRESHOLD_DOLLARS,
   LOYALTY_MULTIPLIERS,
+  POINT_VALUE_CENTS,
   REFERRAL_REWARD_POINTS,
+  REFERRAL_SIGNUP_BONUS_POINTS,
   SUBSCRIPTION_BONUS_POINTS,
   calculatePurchasePoints,
+  getSpendMilestonesToAward,
 } from "@/lib/consumer-loyalty";
 import { ensureReferralCode } from "@/lib/consumer-referrals";
 
@@ -26,12 +32,31 @@ describe("consumer loyalty rules", () => {
   });
 
   it("uses explicit base points per dollar", () => {
-    expect(BASE_POINTS_PER_DOLLAR).toBeGreaterThan(0);
+    expect(BASE_POINTS_PER_DOLLAR).toBe(2);
   });
 
-  it("calculates purchase points using multiplier", () => {
-    expect(calculatePurchasePoints(1999, 1.5)).toBeGreaterThan(0);
+  it("defines explicit point value and bonus constants", () => {
+    expect(POINT_VALUE_CENTS).toBe(1);
+    expect(HIGH_SPEND_THRESHOLD_DOLLARS).toBe(100);
+    expect(HIGH_SPEND_MULTIPLIER).toBe(3);
+    expect(BONUS_POINTS_PER_100_SPENT).toBe(100);
+    expect(REFERRAL_SIGNUP_BONUS_POINTS).toBe(1);
+  });
+
+  it("calculates purchase points with base rate", () => {
+    expect(calculatePurchasePoints(2599, 1)).toBe(50);
     expect(calculatePurchasePoints(0, 2)).toBe(0);
+  });
+
+  it("triples points for purchases over threshold", () => {
+    expect(calculatePurchasePoints(10000, 1)).toBe(600);
+  });
+
+  it("returns milestones to award based on total spend", () => {
+    expect(getSpendMilestonesToAward(9999, [])).toEqual([]);
+    expect(getSpendMilestonesToAward(10000, [])).toEqual([1]);
+    expect(getSpendMilestonesToAward(25000, [1])).toEqual([2]);
+    expect(getSpendMilestonesToAward(35000, [1, 2])).toEqual([3]);
   });
 });
 

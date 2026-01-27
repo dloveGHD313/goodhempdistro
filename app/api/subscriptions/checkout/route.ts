@@ -4,6 +4,7 @@ import { stripe, getSiteUrl } from "@/lib/stripe";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { getConsumerPlanByKey } from "@/lib/consumer-plans";
+import { REFERRAL_SIGNUP_BONUS_POINTS } from "@/lib/consumer-loyalty";
 
 /**
  * Create Stripe subscription checkout session
@@ -84,6 +85,12 @@ export async function POST(req: NextRequest) {
             .from("consumer_referrals")
             .update({ referred_user_id: user.id, reward_status: "pending" })
             .eq("id", referral.id);
+          await awardReferralSignupBonus({
+            admin,
+            referralId: referral.id,
+            referrerUserId: referral.referrer_user_id,
+            referredUserId: user.id,
+          });
         }
       }
     }
@@ -137,5 +144,42 @@ export async function POST(req: NextRequest) {
       { error: "Failed to create subscription checkout" },
       { status: 500 }
     );
+  }
+}
+
+async function awardReferralSignupBonus(params: {
+  admin: ReturnType<typeof getSupabaseAdminClient>;
+  referralId: string;
+  referrerUserId: string;
+  referredUserId: string;
+}) {
+  if (REFERRAL_SIGNUP_BONUS_POINTS <= 0) {
+    return;
+  }
+
+  const { data: existing } = await params.admin
+    .from("consumer_loyalty_events")
+    .select("id")
+    .eq("user_id", params.referrerUserId)
+    .eq("event_type", "referral_signup_bonus")
+    .filter("metadata->>referral_id", "eq", params.referralId)
+    .maybeSingle();
+
+  if (existing?.id) {
+    return;
+  }
+
+  const { error } = await params.admin.rpc("consumer_loyalty_add_points", {
+    p_user_id: params.referrerUserId,
+    p_points: REFERRAL_SIGNUP_BONUS_POINTS,
+    p_event_type: "referral_signup_bonus",
+    p_metadata: {
+      referral_id: params.referralId,
+      referred_user_id: params.referredUserId,
+    },
+  });
+
+  if (error && process.env.NODE_ENV !== "production") {
+    console.warn("[subscriptions/checkout] referral signup bonus failed", error);
   }
 }

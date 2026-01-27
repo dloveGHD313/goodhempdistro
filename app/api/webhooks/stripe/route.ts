@@ -5,7 +5,14 @@ import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { validateEnvVars } from "@/lib/env-validator";
 import { getVendorPlanByPriceId } from "@/lib/pricing";
 import { getConsumerPlanByKey, getConsumerPlanByPriceId } from "@/lib/consumer-plans";
-import { calculatePurchasePoints, getSubscriptionBonusPoints } from "@/lib/consumer-loyalty";
+import {
+  BONUS_POINTS_PER_100_SPENT,
+  HIGH_SPEND_MULTIPLIER,
+  HIGH_SPEND_THRESHOLD_DOLLARS,
+  calculatePurchasePoints,
+  getSpendMilestonesToAward,
+  getSubscriptionBonusPoints,
+} from "@/lib/consumer-loyalty";
 
 // Lazy initialization - only create Stripe client when actually used
 // This allows the build to complete even if env vars are missing
@@ -208,7 +215,6 @@ async function awardConsumerSubscriptionBonus(
   if (existing?.id) {
     return;
   }
-
   const { error } = await admin.rpc("consumer_loyalty_add_points", {
     p_user_id: userId,
     p_points: bonusPoints,
@@ -250,15 +256,84 @@ async function grantReferralRewardForUser(userId: string) {
   }
 }
 
+async function awardSpendMilestoneBonuses(params: {
+  userId: string;
+  orderId: string;
+  totalSpendCents: number;
+}) {
+  const admin = getSupabaseAdminClient();
+  const { data: existingEvents } = await admin
+    .from("consumer_loyalty_events")
+    .select("metadata")
+    .eq("user_id", params.userId)
+    .eq("event_type", "spend_milestone_bonus");
+
+  const awardedMilestones: number[] = [];
+  for (const row of existingEvents || []) {
+    const metadata = row?.metadata as { milestone_number?: number | string } | null;
+    const rawValue = metadata?.milestone_number;
+    const value =
+      typeof rawValue === "number"
+        ? rawValue
+        : typeof rawValue === "string"
+          ? Number.parseInt(rawValue, 10)
+          : NaN;
+    if (!Number.isNaN(value)) {
+      awardedMilestones.push(value);
+    }
+  }
+
+  const milestonesToAward = getSpendMilestonesToAward(
+    params.totalSpendCents,
+    awardedMilestones
+  );
+
+  if (milestonesToAward.length === 0) {
+    return;
+  }
+
+  for (const milestoneNumber of milestonesToAward) {
+    const { error } = await admin.rpc("consumer_loyalty_add_points", {
+      p_user_id: params.userId,
+      p_points: BONUS_POINTS_PER_100_SPENT,
+      p_event_type: "spend_milestone_bonus",
+      p_metadata: {
+        milestone_number: milestoneNumber,
+        total_spend_cents: params.totalSpendCents,
+        order_id: params.orderId,
+      },
+    });
+
+    if (error && process.env.NODE_ENV !== "production") {
+      console.warn("[consumer-loyalty] milestone bonus failed", {
+        milestoneNumber,
+        error,
+      });
+    }
+  }
+}
+
 async function awardPurchasePointsForOrder(orderId: string) {
   const admin = getSupabaseAdminClient();
   const { data: order } = await admin
     .from("orders")
-    .select("id, user_id, total_cents")
+    .select("id, user_id, total_cents, status")
     .eq("id", orderId)
     .maybeSingle();
 
-  if (!order?.user_id || !order.total_cents) {
+  if (!order?.user_id || !order.total_cents || order.status !== "paid") {
+    return;
+  }
+
+  const { data: existingPurchase } = await admin
+    .from("consumer_loyalty_events")
+    .select("id")
+    .eq("user_id", order.user_id)
+    .eq("event_type", "purchase_points")
+    .filter("metadata->>order_id", "eq", orderId)
+    .maybeSingle();
+
+  if (existingPurchase?.id) {
     return;
   }
 
@@ -275,6 +350,10 @@ async function awardPurchasePointsForOrder(orderId: string) {
 
   const plan = getConsumerPlanByKey(planKey);
   const multiplier = plan?.loyaltyMultiplier ?? 1;
+  const purchaseMultiplier =
+    order.total_cents >= HIGH_SPEND_THRESHOLD_DOLLARS * 100
+      ? HIGH_SPEND_MULTIPLIER
+      : 1;
   const points = calculatePurchasePoints(order.total_cents, multiplier);
 
   if (points <= 0) {
@@ -284,12 +363,36 @@ async function awardPurchasePointsForOrder(orderId: string) {
   const { error } = await admin.rpc("consumer_loyalty_add_points", {
     p_user_id: order.user_id,
     p_points: points,
-    p_event_type: "purchase",
-    p_metadata: { orderId, totalCents: order.total_cents },
+    p_event_type: "purchase_points",
+    p_metadata: {
+      order_id: orderId,
+      amount_cents: order.total_cents,
+      purchase_multiplier: purchaseMultiplier,
+      plan_multiplier: multiplier,
+    },
   });
 
   if (error && process.env.NODE_ENV !== "production") {
     console.warn("[consumer-loyalty] purchase points failed", error);
+  } else {
+    const { data: paidOrders } = await admin
+      .from("orders")
+      .select("total_cents")
+      .eq("user_id", order.user_id)
+      .eq("status", "paid");
+
+    const totalSpendCents = (paidOrders || []).reduce((sum, row) => {
+      const value = typeof row.total_cents === "number" ? row.total_cents : 0;
+      return sum + value;
+    }, 0);
+
+    if (totalSpendCents > 0) {
+      await awardSpendMilestoneBonuses({
+        userId: order.user_id,
+        orderId,
+        totalSpendCents,
+      });
+    }
   }
 }
 
@@ -417,6 +520,11 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
             { onConflict: "user_id" }
           );
         if (subscriptionStatus === "active") {
+          await awardConsumerSubscriptionBonus(
+            resolvedUserId,
+            resolvedPlanKey,
+            subscriptionId
+          );
           await grantReferralRewardForUser(resolvedUserId);
         }
         if (process.env.NODE_ENV !== "production") {
@@ -727,7 +835,11 @@ async function handleSubscriptionChange(
           { onConflict: "user_id" }
         );
       if (status === "active") {
-        await awardConsumerSubscriptionBonus(resolvedUserId, resolvedPlanKey, subscription.id);
+        await awardConsumerSubscriptionBonus(
+          resolvedUserId,
+          resolvedPlanKey,
+          subscription.id
+        );
         await grantReferralRewardForUser(resolvedUserId);
       }
       if (process.env.NODE_ENV !== "production") {

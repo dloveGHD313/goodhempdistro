@@ -3,6 +3,9 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 import { getConsumerAccessStatus } from "@/lib/consumer-access";
 import { getConsumerEntitlements } from "@/lib/consumer-plans";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { getVendorAccessStatus } from "@/lib/vendor-access";
+import { REFERRAL_SIGNUP_BONUS_POINTS } from "@/lib/consumer-loyalty";
+import { isReferralLinkEligible, isStarterConsumerPlanKey } from "@/lib/referral-eligibility";
 
 export async function POST(_req: NextRequest) {
   try {
@@ -14,15 +17,26 @@ export async function POST(_req: NextRequest) {
     }
 
     const access = await getConsumerAccessStatus(user.id, user.email);
-    if (!access.isSubscribed && !access.isAdmin) {
-      return NextResponse.json({ error: "Subscription required" }, { status: 403 });
+    const vendorAccess = await getVendorAccessStatus(user.id, user.email);
+    const isAdmin = access.isAdmin || vendorAccess.isAdmin;
+    const eligible = isReferralLinkEligible({
+      isAdmin,
+      consumerPlanKey: access.planKey,
+      isVendorSubscribed: vendorAccess.isSubscribed,
+    });
+
+    if (!eligible) {
+      return NextResponse.json(
+        { error: "Referral links are only available to Starter consumers or vendors." },
+        { status: 403 }
+      );
     }
 
     const entitlements = access.planKey ? getConsumerEntitlements(access.planKey) : null;
-    if (!entitlements && !access.isAdmin) {
-      return NextResponse.json({ error: "Plan not found" }, { status: 400 });
-    }
-    const rewardPoints = entitlements?.referralRewardPoints ?? 0;
+    const isStarter = isStarterConsumerPlanKey(access.planKey);
+    const rewardPoints = isStarter
+      ? entitlements?.referralRewardPoints ?? REFERRAL_SIGNUP_BONUS_POINTS
+      : REFERRAL_SIGNUP_BONUS_POINTS;
 
     const admin = getSupabaseAdminClient();
     const { data, error } = await admin.rpc("consumer_referrals_create", {
