@@ -466,6 +466,25 @@ footer {
   background: color-mix(in srgb, var(--brand-lime) 12%, transparent);
 }
 
+.live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--brand-lime);
+}
+
+.live-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--brand-lime);
+  box-shadow: 0 0 12px rgba(102, 209, 30, 0.7);
+  animation: pulseGlow 1.6s ease-in-out infinite;
+}
+
 @keyframes floatIn {
   from {
     opacity: 0;
@@ -474,6 +493,18 @@ footer {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes pulseGlow {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
   }
 }
 

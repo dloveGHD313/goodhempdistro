@@ -184,6 +184,10 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
             <p className="text-muted max-w-2xl">
               Real-time drops, VIP vendors, and local events — all in one social-first marketplace feed.
             </p>
+            <div className="live-indicator mt-4">
+              <span className="live-dot" />
+              Live updates enabled
+            </div>
           </div>
           <div className="flex flex-wrap gap-3">
             <Link href="/products" className="btn-primary">
