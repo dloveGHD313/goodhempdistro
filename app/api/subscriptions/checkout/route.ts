@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe, getSiteUrl } from "@/lib/stripe";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { getConsumerPlanByKey } from "@/lib/consumer-plans";
 
 /**
  * Create Stripe subscription checkout session
@@ -16,85 +18,87 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { planType, planName, affiliateCode } = await req.json();
+    const { planKey, affiliateCode } = await req.json();
 
-    if (!planType || !planName || !["vendor", "consumer"].includes(planType)) {
+    if (!planKey || typeof planKey !== "string") {
       return NextResponse.json(
-        { error: "planType (vendor|consumer) and planName are required" },
+        { error: "planKey is required" },
         { status: 400 }
       );
     }
 
-    let plan: any;
-    let tableName: string;
-
-    if (planType === "vendor") {
-      tableName = "vendor_plans";
-    } else {
-      tableName = "consumer_plans";
-    }
-
-    const { data: planData, error: planError } = await supabase
-      .from(tableName)
-      .select("*")
-      .eq("name", planName)
-      .eq("is_active", true)
-      .single();
-
-    if (planError || !planData) {
+    const plan = getConsumerPlanByKey(planKey);
+    if (!plan) {
       return NextResponse.json(
         { error: "Plan not found" },
         { status: 404 }
       );
     }
 
-    plan = planData;
+    const admin = getSupabaseAdminClient();
+    const { data: existingSubscription } = await admin
+      .from("consumer_subscriptions")
+      .select("stripe_customer_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    let stripeCustomerId = existingSubscription?.stripe_customer_id || null;
+    if (!stripeCustomerId) {
+      const customer = await stripe.customers.create({
+        email: user.email || undefined,
+        metadata: {
+          user_id: user.id,
+        },
+      });
+      stripeCustomerId = customer.id;
+      await admin
+        .from("consumer_subscriptions")
+        .upsert(
+          {
+            user_id: user.id,
+            stripe_customer_id: stripeCustomerId,
+            subscription_status: "incomplete",
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" }
+        );
+    }
 
     const siteUrl = getSiteUrl();
-    const priceId = plan.stripe_price_id; // Optional - if using Stripe Products
+    const priceId = plan.priceId;
 
     // Create Stripe checkout session for subscription
     const sessionConfig: Stripe.Checkout.SessionCreateParams = {
       mode: "subscription",
       payment_method_types: ["card"],
       client_reference_id: user.id,
-      success_url: `${siteUrl}/orders/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/orders/cancel`,
+      customer: stripeCustomerId || undefined,
+      success_url: `${siteUrl}/account/subscription?success=1`,
+      cancel_url: `${siteUrl}/pricing?tab=consumer&canceled=1`,
       metadata: {
-        plan_type: planType,
-        plan_name: planName,
-        plan_id: plan.id,
+        plan_type: "consumer",
+        consumer_plan_key: plan.planKey,
+        price_id: plan.priceId,
         user_id: user.id,
         affiliate_code: affiliateCode || "",
+      },
+      subscription_data: {
+        metadata: {
+          plan_type: "consumer",
+          consumer_plan_key: plan.planKey,
+          price_id: plan.priceId,
+          user_id: user.id,
+        },
       },
     };
 
     // If price_id exists, use it; otherwise use price_data
-    if (priceId) {
-      sessionConfig.line_items = [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ];
-    } else {
-      sessionConfig.line_items = [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: `${planType === "vendor" ? "Vendor" : "Consumer"} ${plan.name} Plan`,
-              description: `Monthly subscription - ${plan.name} tier`,
-            },
-            recurring: {
-              interval: "month",
-            },
-            unit_amount: plan.price_cents,
-          },
-          quantity: 1,
-        },
-      ];
-    }
+    sessionConfig.line_items = [
+      {
+        price: priceId,
+        quantity: 1,
+      },
+    ];
 
     const session = await stripe.checkout.sessions.create(sessionConfig);
 

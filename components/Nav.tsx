@@ -27,6 +27,10 @@ export default function Nav() {
     isSubscribed: boolean;
     isAdmin: boolean;
   }>({ isVendor: false, isSubscribed: false, isAdmin: false });
+  const [consumerStatus, setConsumerStatus] = useState<{
+    isSubscribed: boolean;
+    isAdmin: boolean;
+  }>({ isSubscribed: false, isAdmin: false });
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -34,8 +38,10 @@ export default function Nav() {
       setIsLoggedIn(!!data.user);
       if (data.user) {
         let response: Response | null = null;
+        let consumerResponse: Response | null = null;
         try {
           response = await fetch("/api/vendor/status", { cache: "no-store" });
+          consumerResponse = await fetch("/api/consumer/status", { cache: "no-store" });
         } catch (err) {
           console.error("[Nav] vendor status fetch failed", err);
         }
@@ -48,8 +54,16 @@ export default function Nav() {
           });
           setIsAdmin(Boolean(payload?.isAdmin));
         }
+        if (consumerResponse && consumerResponse.ok) {
+          const payload = await consumerResponse.json();
+          setConsumerStatus({
+            isSubscribed: Boolean(payload?.isSubscribed),
+            isAdmin: Boolean(payload?.isAdmin),
+          });
+        }
       } else {
         setVendorStatus({ isVendor: false, isSubscribed: false, isAdmin: false });
+        setConsumerStatus({ isSubscribed: false, isAdmin: false });
       }
     });
   }, []);
@@ -81,7 +95,17 @@ export default function Nav() {
     ? [vendorLink, { label: "💳 Vendor Plans", href: "/pricing?tab=vendor" }]
     : [vendorLink];
 
-  const navLinks = [...baseNavLinks, ...vendorLinks, { label: "💰 Affiliate", href: "/affiliate" }];
+  const consumerLink =
+    consumerStatus.isSubscribed || consumerStatus.isAdmin
+      ? { label: "⭐ My Subscription", href: "/account/subscription" }
+      : { label: "⬆️ Upgrade", href: "/pricing?tab=consumer" };
+
+  const navLinks = [
+    ...baseNavLinks,
+    ...(isLoggedIn ? [consumerLink] : []),
+    ...vendorLinks,
+    { label: "💰 Affiliate", href: "/affiliate" },
+  ];
 
   return (
     <nav aria-label="Main Navigation" className="flex items-center justify-between w-full">

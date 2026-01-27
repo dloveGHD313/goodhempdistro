@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { validateEnvVars } from "@/lib/env-validator";
 import { getVendorPlanByPriceId } from "@/lib/pricing";
+import { getConsumerPlanByPriceId } from "@/lib/consumer-plans";
 
 // Lazy initialization - only create Stripe client when actually used
 // This allows the build to complete even if env vars are missing
@@ -163,6 +164,27 @@ async function resolveVendorId(params: {
   return null;
 }
 
+async function resolveConsumerUserId(params: {
+  userId?: string | null;
+  stripeCustomerId?: string | null;
+}) {
+  if (params.userId) {
+    return params.userId;
+  }
+  if (params.stripeCustomerId) {
+    const admin = getSupabaseAdminClient();
+    const { data } = await admin
+      .from("consumer_subscriptions")
+      .select("user_id")
+      .eq("stripe_customer_id", params.stripeCustomerId)
+      .maybeSingle();
+    if (data?.user_id) {
+      return data.user_id;
+    }
+  }
+  return null;
+}
+
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
   const orderId = session.metadata?.order_id;
   const planType = session.metadata?.plan_type; // 'vendor' or 'consumer'
@@ -170,6 +192,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   const planId = session.metadata?.plan_id;
   const priceId = session.metadata?.price_id;
   const vendorId = session.metadata?.vendor_id;
+  const consumerPlanKey = session.metadata?.consumer_plan_key;
   const userId = session.client_reference_id || session.metadata?.user_id;
   const affiliateCode = session.metadata?.affiliate_code;
 
@@ -252,6 +275,40 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
         if (process.env.NODE_ENV !== "production") {
           console.log(
             `[vendor-subscription] vendorId=${resolvedVendorId} status=${subscriptionStatus} source=checkout`
+          );
+        }
+      }
+    }
+
+    if (planType === "consumer") {
+      const admin = getSupabaseAdminClient();
+      const resolvedUserId = await resolveConsumerUserId({
+        userId,
+        stripeCustomerId: session.customer as string,
+      });
+      if (resolvedUserId) {
+        await admin
+          .from("consumer_subscriptions")
+          .upsert(
+            {
+              user_id: resolvedUserId,
+              stripe_customer_id: session.customer as string,
+              stripe_subscription_id: subscriptionId,
+              consumer_plan_key:
+                consumerPlanKey ||
+                (subscriptionPriceId
+                  ? getConsumerPlanByPriceId(subscriptionPriceId)?.planKey || null
+                  : null),
+              subscription_status: subscriptionStatus,
+              current_period_end: currentPeriodEnd,
+              cancel_at_period_end: cancelAtPeriodEnd,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "user_id" }
+          );
+        if (process.env.NODE_ENV !== "production") {
+          console.log(
+            `[consumer-subscription] userId=${resolvedUserId} status=${subscriptionStatus} source=checkout`
           );
         }
       }
@@ -428,6 +485,7 @@ async function handleSubscriptionChange(
   const planId = subscription.metadata?.plan_id;
   const planType = subscription.metadata?.plan_type as "vendor" | "consumer" | undefined;
   const vendorId = subscription.metadata?.vendor_id || null;
+  const consumerPlanKey = subscription.metadata?.consumer_plan_key || null;
   
   console.log(`🔄 [handleSubscriptionChange] event_type=${eventType} | subscription=${subscription.id} | user_id=${userId || "N/A"} | status=${subscription.status}`);
 
@@ -521,6 +579,41 @@ async function handleSubscriptionChange(
       if (process.env.NODE_ENV !== "production") {
         console.log(
           `[vendor-subscription] vendorId=${resolvedVendorId} status=${status} source=webhook`
+        );
+      }
+    }
+  }
+
+  if (planType === "consumer") {
+    const admin = getSupabaseAdminClient();
+    const subscriptionPriceId = subscription.items.data[0]?.price.id || null;
+    const resolvedUserId = await resolveConsumerUserId({
+      userId,
+      stripeCustomerId: subscription.customer as string,
+    });
+    if (resolvedUserId) {
+      await admin
+        .from("consumer_subscriptions")
+        .upsert(
+          {
+            user_id: resolvedUserId,
+            stripe_customer_id: subscription.customer as string,
+            stripe_subscription_id: subscription.id,
+            consumer_plan_key:
+              consumerPlanKey ||
+              (subscriptionPriceId
+                ? getConsumerPlanByPriceId(subscriptionPriceId)?.planKey || null
+                : null),
+            subscription_status: status,
+            current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+            cancel_at_period_end: subscription.cancel_at_period_end,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" }
+        );
+      if (process.env.NODE_ENV !== "production") {
+        console.log(
+          `[consumer-subscription] userId=${resolvedUserId} status=${status} source=webhook`
         );
       }
     }

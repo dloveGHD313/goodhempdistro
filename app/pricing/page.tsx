@@ -3,7 +3,6 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { getReferralCode } from "@/lib/referral";
 import Footer from "@/components/Footer";
 
@@ -28,11 +27,14 @@ type VendorPlan = {
 };
 
 type ConsumerPlan = {
-  id: string;
-  name: string;
-  price_cents: number;
-  monthly_points: number;
-  perks_json: string[];
+  planKey: string;
+  tier: string;
+  billingCycle: "monthly" | "annual";
+  interval: "month" | "year";
+  priceId: string;
+  displayName: string;
+  headlinePriceText: string;
+  featureSummary: string[];
 };
 
 export default function PricingPage() {
@@ -47,17 +49,19 @@ export default function PricingPage() {
 
   useEffect(() => {
     async function loadPlans() {
-      const supabase = createSupabaseBrowserClient();
-
-      // Load consumer plans
-      const { data: cp } = await supabase
-        .from("consumer_plans")
-        .select("id, name, price_cents, monthly_points, perks_json")
-        .eq("is_active", true)
-        .order("price_cents", { ascending: true });
-
-      setConsumerPlans((cp || []) as ConsumerPlan[]);
-      setLoading(false);
+      try {
+        const response = await fetch("/api/pricing/consumer-plans", {
+          cache: "no-store",
+        });
+        const payload = await response.json();
+        if (response.ok) {
+          setConsumerPlans(payload.plans || []);
+        }
+      } catch (error) {
+        console.error("[pricing] failed to load consumer plans", error);
+      } finally {
+        setLoading(false);
+      }
     }
 
     loadPlans();
@@ -91,7 +95,6 @@ export default function PricingPage() {
     loadVendorPlans();
   }, []);
 
-  const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
   const hasVendorPlans = vendorPlansReady && vendorPlans.length > 0;
 
   useEffect(() => {
@@ -100,7 +103,7 @@ export default function PricingPage() {
     }
   }, [vendorPlansMissing]);
 
-  const handleSubscribe = async (planType: "vendor" | "consumer", planName: string) => {
+  const handleSubscribe = async (planType: "vendor" | "consumer", planKey: string) => {
     const affiliateCode = getReferralCode();
     
     try {
@@ -110,8 +113,8 @@ export default function PricingPage() {
           : "/api/subscriptions/checkout";
       const payload =
         planType === "vendor"
-          ? { priceId: planName }
-          : { planType, planName, affiliateCode: affiliateCode || undefined };
+          ? { priceId: planKey }
+          : { planKey, affiliateCode: affiliateCode || undefined };
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -207,16 +210,13 @@ export default function PricingPage() {
           {activeTab === "consumer" && (
             <div className="grid gap-6 md:grid-cols-3">
               {consumerPlans.map((plan) => (
-                <div key={plan.id} className="card-glass p-6 text-center">
-                  <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
+                <div key={plan.planKey} className="card-glass p-6 text-center">
+                  <h3 className="text-2xl font-bold mb-2">{plan.displayName}</h3>
                   <p className="text-4xl font-bold text-accent mb-4">
-                    {formatPrice(plan.price_cents)}<span className="text-lg text-muted">/mo</span>
-                  </p>
-                  <p className="text-sm text-muted mb-4">
-                    {plan.monthly_points} points/month
+                    {plan.headlinePriceText}
                   </p>
                   <ul className="space-y-2 text-left mb-6 min-h-[150px]">
-                    {(plan.perks_json || []).map((perk, idx) => (
+                    {(plan.featureSummary || []).map((perk, idx) => (
                       <li key={idx} className="flex items-start gap-2 text-sm">
                         <span className="text-accent">✓</span>
                         <span>{perk}</span>
@@ -224,7 +224,7 @@ export default function PricingPage() {
                     ))}
                   </ul>
                   <button
-                    onClick={() => handleSubscribe("consumer", plan.name)}
+                    onClick={() => handleSubscribe("consumer", plan.planKey)}
                     className="btn-primary w-full"
                   >
                     Subscribe
