@@ -34,6 +34,18 @@ Set in Vercel **Environment Variables** section. These are never exposed to the 
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ | test key | production key | Supabase → Settings → API | **CRITICAL**: Only used in `/api/` routes. Rotate quarterly. |
 | `STRIPE_SECRET_KEY` | ✅ | `sk_test_*` | `sk_live_*` | Stripe Dashboard → API Keys | Used for payment processing. Rotate monthly. |
 | `STRIPE_WEBHOOK_SECRET` | ✅ | `whsec_test_*` | `whsec_live_*` | Stripe Webhooks Dashboard | Webhook signing. Rotate after endpoint change. |
+| `ADMIN_EMAILS` | ✅ | `admin@example.com` | `hellogoodhempdistros@gmail.com` | Vercel project settings | Comma-separated admin allowlist. |
+
+### Consumer Plan Price IDs (Production)
+
+These are required for `/pricing?tab=consumer` and `/get-started` to show all six plans:
+
+- `STRIPE_CONSUMER_STARTER_MONTHLY_PRICE_ID`
+- `STRIPE_CONSUMER_STARTER_ANNUAL_PRICE_ID`
+- `STRIPE_CONSUMER_PLUS_MONTHLY_PRICE_ID`
+- `STRIPE_CONSUMER_PLUS_ANNUAL_PRICE_ID`
+- `STRIPE_CONSUMER_VIP_MONTHLY_PRICE_ID`
+- `STRIPE_CONSUMER_VIP_ANNUAL_PRICE_ID`
 
 ### Steps to Configure in Vercel
 
@@ -162,6 +174,9 @@ Key checks:
 - [ ] Check order appears in Supabase `orders` table with correct status
 - [ ] Verify webhook webhook delivers successfully in Stripe dashboard
 - [ ] Check `/orders/success` page loads after payment
+- [ ] Verify `/pricing?tab=consumer` shows 6 consumer plans with images
+- [ ] Verify `/get-started` shows 6 consumer plans with images
+- [ ] Verify `/account/subscription` shows plan image, loyalty points, and referral code
 - [ ] Monitor error logs for 24 hours
 - [ ] Test logout functionality
 - [ ] Verify emails/notifications sent (if applicable)
@@ -211,6 +226,11 @@ If issues occur in production:
 - Check: Webhook logs in Vercel → Logs
 - Check: Supabase RLS policies allow service role write
 - Check: Order ID is in Stripe session metadata
+
+### "Consumer plans missing in production"
+- Confirm all six `STRIPE_CONSUMER_*_PRICE_ID` variables are set for Production
+- Check Vercel logs for `[pricing/consumer-plans] Missing env vars`
+- Confirm `NEXT_PUBLIC_SITE_URL` and `STRIPE_SECRET_KEY` are set in Production
 
 ---
 

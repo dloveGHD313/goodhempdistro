@@ -10,7 +10,7 @@ export type ConsumerPlanConfig = {
   referralRewardPoints: number;
   imageUrl: string;
   imageAlt: string;
-  description: string;
+  bullets: string[];
 };
 
 type ConsumerPlanEnv = {
@@ -25,7 +25,7 @@ type ConsumerPlanEnv = {
   referralRewardPoints: number;
   imageUrl: string;
   imageAlt: string;
-  description: string;
+  bullets: string[];
 };
 
 const CONSUMER_PLAN_ENVS: ConsumerPlanEnv[] = [
@@ -36,13 +36,12 @@ const CONSUMER_PLAN_ENVS: ConsumerPlanEnv[] = [
     billingInterval: "month",
     envKey: "STRIPE_CONSUMER_STARTER_MONTHLY_PRICE_ID",
     displayName: "Consumer Starter",
-    priceText: "$5.99/month",
+    priceText: "$5.99/month (Monthly Plan)",
     loyaltyMultiplier: 1.0,
     referralRewardPoints: 250,
     imageUrl: "/images/consumer-plans/consumer-starter-monthly.png",
     imageAlt: "Consumer Starter monthly plan",
-    description:
-      "Starter access to Good Hemp Distro perks. Earn loyalty points on purchases, get subscriber-only offers, and enjoy member rewards across the marketplace. Perfect for everyday shoppers who want savings and simple perks.",
+    bullets: ["Earn loyalty points", "See verified vendors", "Save favorites"],
   },
   {
     planKey: "consumer_starter_annual",
@@ -51,13 +50,12 @@ const CONSUMER_PLAN_ENVS: ConsumerPlanEnv[] = [
     billingInterval: "year",
     envKey: "STRIPE_CONSUMER_STARTER_ANNUAL_PRICE_ID",
     displayName: "Consumer Starter",
-    priceText: "$64.69/year",
+    priceText: "$64.69/year (Annual Plan - 10% Off)",
     loyaltyMultiplier: 1.0,
     referralRewardPoints: 250,
     imageUrl: "/images/consumer-plans/consumer-starter-annual.png",
     imageAlt: "Consumer Starter annual plan",
-    description:
-      "Best value for starters—save 10% annually. Earn loyalty points, access subscriber-only offers, and enjoy member rewards all year long. Great for consistent shoppers who want steady perks and savings.",
+    bullets: ["Earn loyalty points", "See verified vendors", "Save favorites"],
   },
   {
     planKey: "consumer_plus_monthly",
@@ -66,13 +64,17 @@ const CONSUMER_PLAN_ENVS: ConsumerPlanEnv[] = [
     billingInterval: "month",
     envKey: "STRIPE_CONSUMER_PLUS_MONTHLY_PRICE_ID",
     displayName: "Consumer Plus",
-    priceText: "$7.99/month",
+    priceText: "$7.99/month (Monthly Plan)",
     loyaltyMultiplier: 1.5,
     referralRewardPoints: 500,
     imageUrl: "/images/consumer-plans/consumer-plus-monthly.png",
     imageAlt: "Consumer Plus monthly plan",
-    description:
-      "Upgrade your perks with boosted rewards. Earn higher loyalty points, unlock member-only offers, and get early access to drops. Includes priority shipping/delivery and an enhanced referral bonus you can use as credits or payouts.",
+    bullets: [
+      "Boosted loyalty points",
+      "Early access to drops",
+      "Member-only offers",
+      "Priority shipping",
+    ],
   },
   {
     planKey: "consumer_plus_annual",
@@ -81,13 +83,17 @@ const CONSUMER_PLAN_ENVS: ConsumerPlanEnv[] = [
     billingInterval: "year",
     envKey: "STRIPE_CONSUMER_PLUS_ANNUAL_PRICE_ID",
     displayName: "Consumer Plus",
-    priceText: "$86.29/year",
+    priceText: "$86.29/year (Annual Plan - 10% Off)",
     loyaltyMultiplier: 1.5,
     referralRewardPoints: 500,
     imageUrl: "/images/consumer-plans/consumer-plus-annual.png",
     imageAlt: "Consumer Plus annual plan",
-    description:
-      "Lock in Plus perks for a full year and save 10%. Higher loyalty rewards, member-only offers, early access to drops, priority shipping/delivery, and an upgraded referral bonus you can redeem as credits or payouts.",
+    bullets: [
+      "1.5x loyalty points",
+      "Early access to drops",
+      "Member-only offers",
+      "Priority ticketing",
+    ],
   },
   {
     planKey: "consumer_vip_monthly",
@@ -96,13 +102,17 @@ const CONSUMER_PLAN_ENVS: ConsumerPlanEnv[] = [
     billingInterval: "month",
     envKey: "STRIPE_CONSUMER_VIP_MONTHLY_PRICE_ID",
     displayName: "Consumer VIP",
-    priceText: "$12.99/month",
+    priceText: "$12.99/month (Monthly Plan)",
     loyaltyMultiplier: 2.0,
     referralRewardPoints: 1000,
     imageUrl: "/images/consumer-plans/consumer-vip-monthly.png",
     imageAlt: "Consumer VIP monthly plan",
-    description:
-      "The ultimate membership. Highest loyalty multiplier, exclusive VIP deals, free delivery on eligible Good Hemp Distro products, and priority ticketing for events. Includes premium referral bonuses plus top-tier perks every month.",
+    bullets: [
+      "2x loyalty points",
+      "Exclusive VIP deals",
+      "Free delivery & events",
+      "Priority ticketing",
+    ],
   },
   {
     planKey: "consumer_vip_annual",
@@ -111,13 +121,17 @@ const CONSUMER_PLAN_ENVS: ConsumerPlanEnv[] = [
     billingInterval: "year",
     envKey: "STRIPE_CONSUMER_VIP_ANNUAL_PRICE_ID",
     displayName: "Consumer VIP",
-    priceText: "$140.29/year",
+    priceText: "$140.29/year (Annual Plan - 10% Off)",
     loyaltyMultiplier: 2.0,
     referralRewardPoints: 1000,
     imageUrl: "/images/consumer-plans/consumer-vip-annual.png",
     imageAlt: "Consumer VIP annual plan",
-    description:
-      "Go VIP for a year and save 10%. Highest loyalty rewards, VIP-only deals, free delivery on eligible products, and priority event ticketing. Includes premium referral bonuses and the strongest perks we offer.",
+    bullets: [
+      "2x loyalty points",
+      "Exclusive VIP deals",
+      "Free delivery & events",
+      "Priority ticketing",
+    ],
   },
 ];
 
@@ -143,7 +157,7 @@ export function getConsumerPlanConfigs() {
       referralRewardPoints: plan.referralRewardPoints,
       imageUrl: plan.imageUrl,
       imageAlt: plan.imageAlt,
-      description: plan.description,
+      bullets: plan.bullets,
     });
   }
 

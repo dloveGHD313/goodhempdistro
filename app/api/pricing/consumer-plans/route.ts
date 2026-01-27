@@ -5,9 +5,7 @@ export async function GET() {
   const { plans, hasConsumerPlans, missingEnv } = getConsumerPlanConfigs();
 
   if (missingEnv.length > 0) {
-    if (process.env.NODE_ENV !== "production") {
-      console.warn("[pricing/consumer-plans] Missing env vars:", missingEnv);
-    }
+    console.warn("[pricing/consumer-plans] Missing env vars:", missingEnv);
     return NextResponse.json(
       {
         error: "Missing Stripe consumer price IDs.",

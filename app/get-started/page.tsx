@@ -9,11 +9,11 @@ type ConsumerPlan = {
   planKey: string;
   displayName: string;
   priceText: string;
-  description: string;
   imageUrl: string;
   imageAlt: string;
   cadence: "monthly" | "annual";
   billingInterval: "month" | "year";
+  bullets: string[];
 };
 
 export default function GetStartedPage() {
@@ -120,7 +120,14 @@ export default function GetStartedPage() {
                 </div>
                 <h3 className="text-xl font-bold mb-2">{plan.displayName}</h3>
                 <p className="text-3xl font-bold text-accent mb-3">{plan.priceText}</p>
-                <p className="text-sm text-muted mb-6 text-left">{plan.description}</p>
+                <ul className="text-sm text-muted mb-6 text-left space-y-2">
+                  {(plan.bullets || []).map((bullet, index) => (
+                    <li key={index} className="flex items-start gap-2">
+                      <span className="text-accent">•</span>
+                      <span>{bullet}</span>
+                    </li>
+                  ))}
+                </ul>
                 <button
                   type="button"
                   onClick={() => handleSubscribe(plan.planKey)}

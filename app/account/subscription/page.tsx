@@ -97,7 +97,14 @@ export default async function AccountSubscriptionPage() {
                       {planConfig.displayName}
                     </h2>
                     <p className="text-muted mb-4">{planConfig.priceText}</p>
-                    <p className="text-sm text-muted">{planConfig.description}</p>
+                    <ul className="text-sm text-muted space-y-2">
+                      {(planConfig.bullets || []).map((bullet, index) => (
+                        <li key={index} className="flex items-start gap-2">
+                          <span className="text-accent">•</span>
+                          <span>{bullet}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 </div>
               )}

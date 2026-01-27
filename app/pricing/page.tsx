@@ -38,7 +38,7 @@ type ConsumerPlan = {
   referralRewardPoints: number;
   imageUrl: string;
   imageAlt: string;
-  description: string;
+  bullets: string[];
 };
 
 export default function PricingPage() {
@@ -250,9 +250,14 @@ export default function PricingPage() {
                   <p className="text-4xl font-bold text-accent mb-4">
                     {plan.priceText}
                   </p>
-                  <p className="text-sm text-muted mb-6 text-left min-h-[120px]">
-                    {plan.description}
-                  </p>
+                  <ul className="text-sm text-muted mb-6 text-left min-h-[120px] space-y-2">
+                    {(plan.bullets || []).map((bullet, index) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <span className="text-accent">•</span>
+                        <span>{bullet}</span>
+                      </li>
+                    ))}
+                  </ul>
                   <button
                     onClick={() => handleSubscribe("consumer", plan.planKey)}
                     className="btn-primary w-full"
