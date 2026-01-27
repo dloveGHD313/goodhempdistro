@@ -243,6 +243,107 @@ footer {
   color: var(--muted);
 }
 
+.feed-shell {
+  padding-top: 3.5rem;
+}
+
+.feed-hero {
+  border: 1px solid color-mix(in srgb, var(--brand-lime) 35%, transparent);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+}
+
+.feed-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.filter-chip {
+  background: color-mix(in srgb, var(--surface) 65%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 0.85rem;
+  padding: 0.45rem 1rem;
+  transition: transform 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.filter-chip:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--brand-lime) 40%, transparent);
+  color: var(--brand-lime);
+}
+
+.filter-chip--active {
+  background: color-mix(in srgb, var(--brand-lime) 20%, transparent);
+  border-color: color-mix(in srgb, var(--brand-lime) 60%, transparent);
+  color: var(--brand-lime);
+}
+
+.feed-card {
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 18px 35px rgba(0, 0, 0, 0.35);
+}
+
+.feed-type-badge {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--brand-teal) 40%, transparent);
+  color: var(--brand-teal);
+  background: color-mix(in srgb, var(--brand-teal) 12%, transparent);
+}
+
+.vip-badge {
+  font-size: 0.7rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--brand-orange) 55%, transparent);
+  color: var(--brand-orange);
+  background: color-mix(in srgb, var(--brand-orange) 16%, transparent);
+}
+
+.info-pill {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--brand-lime) 30%, transparent);
+  color: var(--brand-lime);
+  background: color-mix(in srgb, var(--brand-lime) 12%, transparent);
+}
+
+.tag-pill {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--text) 25%, transparent);
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.vip-spotlight,
+.action-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.vip-spotlight:hover,
+.action-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--brand-lime) 45%, transparent);
+}
+
 .nav-link {
   color: color-mix(in srgb, var(--text) 70%, var(--brand-teal) 30%);
   transition: color 0.2s, opacity 0.2s;
