@@ -186,18 +186,34 @@ async function resolveConsumerUserId(params: {
   return null;
 }
 
-async function awardConsumerSubscriptionBonus(userId: string, planKey: string | null) {
+async function awardConsumerSubscriptionBonus(
+  userId: string,
+  planKey: string | null,
+  subscriptionId: string
+) {
   const bonusPoints = getSubscriptionBonusPoints();
   if (bonusPoints <= 0) {
     return;
   }
 
   const admin = getSupabaseAdminClient();
+  const { data: existing } = await admin
+    .from("consumer_loyalty_events")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("event_type", "subscription_bonus")
+    .filter("metadata->>subscription_id", "eq", subscriptionId)
+    .maybeSingle();
+
+  if (existing?.id) {
+    return;
+  }
+
   const { error } = await admin.rpc("consumer_loyalty_add_points", {
     p_user_id: userId,
     p_points: bonusPoints,
     p_event_type: "subscription_bonus",
-    p_metadata: { planKey },
+    p_metadata: { planKey, subscription_id: subscriptionId },
   });
 
   if (error && process.env.NODE_ENV !== "production") {
@@ -400,7 +416,6 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
             },
             { onConflict: "user_id" }
           );
-        await awardConsumerSubscriptionBonus(resolvedUserId, resolvedPlanKey);
         if (subscriptionStatus === "active") {
           await grantReferralRewardForUser(resolvedUserId);
         }
@@ -711,8 +726,8 @@ async function handleSubscriptionChange(
           },
           { onConflict: "user_id" }
         );
-      await awardConsumerSubscriptionBonus(resolvedUserId, resolvedPlanKey);
       if (status === "active") {
+        await awardConsumerSubscriptionBonus(resolvedUserId, resolvedPlanKey, subscription.id);
         await grantReferralRewardForUser(resolvedUserId);
       }
       if (process.env.NODE_ENV !== "production") {
