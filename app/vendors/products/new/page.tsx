@@ -19,6 +19,7 @@ export default function NewProductPage() {
     return `${s4()}${s4()}-${s4()}-${s4()}-${s4()}-${s4()}${s4()}${s4()}`;
   });
   const [subscriptionActive, setSubscriptionActive] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [subscriptionChecked, setSubscriptionChecked] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -49,23 +50,21 @@ export default function NewProductPage() {
   useEffect(() => {
     async function loadSubscriptionStatus() {
       try {
-        const supabase = createSupabaseBrowserClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
+        const response = await fetch("/api/vendor/status", { cache: "no-store" });
+        if (!response.ok) {
           setSubscriptionActive(false);
-          setSubscriptionChecked(true);
+          setIsAdmin(false);
           return;
         }
-        const { data: vendor } = await supabase
-          .from("vendors")
-          .select("id, subscription_status")
-          .eq("owner_user_id", user.id)
-          .maybeSingle();
-        const status = vendor?.subscription_status || null;
-        setSubscriptionActive(status === "active" || status === "trialing");
+        const payload = await response.json();
+        const subscribed = Boolean(payload?.isSubscribed);
+        const admin = Boolean(payload?.isAdmin);
+        setSubscriptionActive(subscribed || admin);
+        setIsAdmin(admin);
       } catch (err) {
         console.error("[vendors/products/new] subscription check failed", err);
         setSubscriptionActive(false);
+        setIsAdmin(false);
       } finally {
         setSubscriptionChecked(true);
       }
@@ -124,7 +123,7 @@ export default function NewProductPage() {
     setLoading(true);
     setError(null);
 
-    if (subscriptionChecked && !subscriptionActive) {
+    if (subscriptionChecked && !subscriptionActive && !isAdmin) {
       setError("Active vendor plan required to upload products and COAs.");
       setLoading(false);
       return;
@@ -297,7 +296,7 @@ export default function NewProductPage() {
               </div>
 
                 <div className="border-t border-[var(--border)] pt-6 space-y-6">
-                {subscriptionChecked && !subscriptionActive && (
+                {subscriptionChecked && !subscriptionActive && !isAdmin && (
                   <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-4 text-yellow-300 text-sm">
                     Active vendor plan required to upload products and COAs.{" "}
                     <Link href="/pricing" className="underline text-accent">
@@ -319,7 +318,7 @@ export default function NewProductPage() {
                       }
                     }}
                     required
-                    disabled={subscriptionChecked && !subscriptionActive}
+                    disabled={subscriptionChecked && !subscriptionActive && !isAdmin}
                     className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
                   >
                     <option value="non_intoxicating">Non-Intoxicating</option>
@@ -349,7 +348,7 @@ export default function NewProductPage() {
                           setCoaUrl("");
                         }
                       }}
-                      disabled={subscriptionChecked && !subscriptionActive}
+                      disabled={subscriptionChecked && !subscriptionActive && !isAdmin}
                       className="w-4 h-4 accent-accent"
                     />
                     <span className="text-sm text-muted">Paste URL instead</span>
@@ -361,14 +360,14 @@ export default function NewProductPage() {
                         id="coa_url"
                         value={coaUrl}
                         onChange={(e) => setCoaUrl(e.target.value)}
-                        disabled={subscriptionChecked && !subscriptionActive}
+                        disabled={subscriptionChecked && !subscriptionActive && !isAdmin}
                         className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
                         placeholder="https://example.com/coa.pdf"
                       />
                       <p className="text-sm text-muted mt-1">Full panel COA required before approval</p>
                     </div>
                   ) : (
-                    subscriptionChecked && !subscriptionActive ? (
+                    subscriptionChecked && !subscriptionActive && !isAdmin ? (
                       <div className="bg-[var(--surface)] border border-[var(--border)] rounded-lg p-4 text-sm text-muted">
                         Uploads are disabled until an active vendor plan is applied.
                       </div>
@@ -395,7 +394,7 @@ export default function NewProductPage() {
                         checked={delta8DisclaimerAck}
                         onChange={(e) => setDelta8DisclaimerAck(e.target.checked)}
                         required={productType === "delta8"}
-                      disabled={subscriptionChecked && !subscriptionActive}
+                      disabled={subscriptionChecked && !subscriptionActive && !isAdmin}
                         className="mt-1 w-4 h-4 accent-accent"
                       />
                       <span className="text-sm">
@@ -411,7 +410,7 @@ export default function NewProductPage() {
                       type="checkbox"
                       checked={active}
                       onChange={(e) => setActive(e.target.checked)}
-                    disabled={subscriptionChecked && !subscriptionActive}
+                    disabled={subscriptionChecked && !subscriptionActive && !isAdmin}
                       className="w-4 h-4 text-accent"
                     />
                     <span>Active (visible to customers)</span>
@@ -422,7 +421,7 @@ export default function NewProductPage() {
               <div className="flex gap-4">
                 <button
                   type="submit"
-                  disabled={loading || (subscriptionChecked && !subscriptionActive)}
+                  disabled={loading || (subscriptionChecked && !subscriptionActive && !isAdmin)}
                   className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? "Creating..." : "Create Product"}

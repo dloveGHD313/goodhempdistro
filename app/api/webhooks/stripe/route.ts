@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { validateEnvVars } from "@/lib/env-validator";
+import { getVendorPlanByPriceId } from "@/lib/pricing";
 
 // Lazy initialization - only create Stripe client when actually used
 // This allows the build to complete even if env vars are missing
@@ -70,6 +71,12 @@ export async function POST(req: NextRequest) {
         await handleInvoicePaid(invoice);
         break;
       }
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object as Stripe.Invoice;
+        console.log(`💰 Processing invoice.payment_succeeded | subscription=${invoice.subscription || "N/A"} | invoice=${invoice.id}`);
+        await handleInvoicePaid(invoice);
+        break;
+      }
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice;
         console.log(`💥 Processing invoice.payment_failed | subscription=${invoice.subscription || "N/A"} | invoice=${invoice.id}`);
@@ -124,6 +131,38 @@ export async function POST(req: NextRequest) {
   }
 }
 
+async function resolveVendorId(params: {
+  vendorId?: string | null;
+  userId?: string | null;
+  stripeCustomerId?: string | null;
+}) {
+  const admin = getSupabaseAdminClient();
+  if (params.vendorId) {
+    return params.vendorId;
+  }
+  if (params.stripeCustomerId) {
+    const { data: vendorByCustomer } = await admin
+      .from("vendors")
+      .select("id")
+      .eq("stripe_customer_id", params.stripeCustomerId)
+      .maybeSingle();
+    if (vendorByCustomer?.id) {
+      return vendorByCustomer.id;
+    }
+  }
+  if (params.userId) {
+    const { data: vendorByUser } = await admin
+      .from("vendors")
+      .select("id")
+      .eq("owner_user_id", params.userId)
+      .maybeSingle();
+    if (vendorByUser?.id) {
+      return vendorByUser.id;
+    }
+  }
+  return null;
+}
+
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
   const orderId = session.metadata?.order_id;
   const planType = session.metadata?.plan_type; // 'vendor' or 'consumer'
@@ -147,7 +186,11 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
       ? new Date(subscription.current_period_end * 1000).toISOString()
       : null;
     const subscriptionStatus = subscription.status;
-    const subscriptionPriceId = subscription.items.data[0]?.price.id;
+    const subscriptionPriceId = subscription.items.data[0]?.price.id || null;
+    const subscriptionPlanKey = subscriptionPriceId
+      ? getVendorPlanByPriceId(subscriptionPriceId)?.planKey || null
+      : null;
+    const cancelAtPeriodEnd = subscription.cancel_at_period_end || false;
     
     // Create subscription record from checkout
     const { error: subError } = await supabase
@@ -182,25 +225,23 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
 
     if (planType === "vendor") {
       const admin = getSupabaseAdminClient();
-      let resolvedVendorId = vendorId || null;
-      if (!resolvedVendorId && userId) {
-        const { data: vendor } = await admin
-          .from("vendors")
-          .select("id")
-          .eq("owner_user_id", userId)
-          .maybeSingle();
-        resolvedVendorId = vendor?.id || null;
-      }
+      const resolvedVendorId = await resolveVendorId({
+        vendorId,
+        userId,
+        stripeCustomerId: session.customer as string,
+      });
       if (resolvedVendorId) {
         await admin
           .from("vendors")
           .update({
             stripe_customer_id: session.customer as string,
             stripe_subscription_id: subscriptionId,
-            stripe_price_id: priceId || subscriptionPriceId || null,
             subscription_status: subscriptionStatus,
-            current_period_end: currentPeriodEnd,
-            updated_at: new Date().toISOString(),
+            subscription_price_id: priceId || subscriptionPriceId || null,
+            subscription_plan_key: subscriptionPlanKey,
+            subscription_current_period_end: currentPeriodEnd,
+            subscription_cancel_at_period_end: cancelAtPeriodEnd,
+            subscription_updated_at: new Date().toISOString(),
           })
           .eq("id", resolvedVendorId);
         console.log("✅ [vendor-subscription] updated via checkout", {
@@ -383,18 +424,17 @@ async function handleSubscriptionChange(
   eventType: string,
   subscription: Stripe.Subscription
 ) {
-  const userId = subscription.metadata?.user_id;
+  const userId = subscription.metadata?.user_id || null;
   const planId = subscription.metadata?.plan_id;
   const planType = subscription.metadata?.plan_type as "vendor" | "consumer" | undefined;
-  const vendorId = subscription.metadata?.vendor_id;
+  const vendorId = subscription.metadata?.vendor_id || null;
   
   console.log(`🔄 [handleSubscriptionChange] event_type=${eventType} | subscription=${subscription.id} | user_id=${userId || "N/A"} | status=${subscription.status}`);
 
   const supabase = await createSupabaseServerClient();
 
-  if (!userId) {
+  if (!userId && process.env.NODE_ENV !== "production") {
     console.warn(`⚠️ [handleSubscriptionChange] No user_id in subscription metadata | subscription=${subscription.id}`);
-    return;
   }
 
   let status: string;
@@ -420,53 +460,57 @@ async function handleSubscriptionChange(
   }
 
   // Upsert subscription record
-  const { error } = await supabase
-    .from("subscriptions")
-    .upsert(
-      {
-        user_id: userId,
-        plan_type: planType,
-        plan_id: planId || null,
-        stripe_subscription_id: subscription.id,
-        stripe_customer_id: subscription.customer as string,
-        status: status,
-        price_id: subscription.items.data[0]?.price.id,
-        current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-        current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-        cancel_at_period_end: subscription.cancel_at_period_end,
-        updated_at: new Date().toISOString(),
-      },
-      {
-        onConflict: "stripe_subscription_id",
-      }
-    );
+  if (userId) {
+    const { error } = await supabase
+      .from("subscriptions")
+      .upsert(
+        {
+          user_id: userId,
+          plan_type: planType,
+          plan_id: planId || null,
+          stripe_subscription_id: subscription.id,
+          stripe_customer_id: subscription.customer as string,
+          status: status,
+          price_id: subscription.items.data[0]?.price.id,
+          current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+          current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+          cancel_at_period_end: subscription.cancel_at_period_end,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "stripe_subscription_id",
+        }
+      );
 
-  if (error) {
-    console.error(`❌ [handleSubscriptionChange] Failed to upsert subscription: ${error.message}`);
-    throw error;
+    if (error) {
+      console.error(`❌ [handleSubscriptionChange] Failed to upsert subscription: ${error.message}`);
+      throw error;
+    }
   }
 
   if (planType === "vendor") {
     const admin = getSupabaseAdminClient();
-    let resolvedVendorId = vendorId || null;
-    if (!resolvedVendorId && userId) {
-      const { data: vendor } = await admin
-        .from("vendors")
-        .select("id")
-        .eq("owner_user_id", userId)
-        .maybeSingle();
-      resolvedVendorId = vendor?.id || null;
-    }
+    const subscriptionPriceId = subscription.items.data[0]?.price.id || null;
+    const subscriptionPlanKey = subscriptionPriceId
+      ? getVendorPlanByPriceId(subscriptionPriceId)?.planKey || null
+      : null;
+    const resolvedVendorId = await resolveVendorId({
+      vendorId,
+      userId,
+      stripeCustomerId: subscription.customer as string,
+    });
     if (resolvedVendorId) {
       await admin
         .from("vendors")
         .update({
           stripe_subscription_id: subscription.id,
           stripe_customer_id: subscription.customer as string,
-          stripe_price_id: subscription.items.data[0]?.price.id || null,
           subscription_status: status,
-          current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-          updated_at: new Date().toISOString(),
+          subscription_price_id: subscriptionPriceId,
+          subscription_plan_key: subscriptionPlanKey,
+          subscription_current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+          subscription_cancel_at_period_end: subscription.cancel_at_period_end,
+          subscription_updated_at: new Date().toISOString(),
         })
         .eq("id", resolvedVendorId);
       console.log("✅ [vendor-subscription] updated via webhook", {

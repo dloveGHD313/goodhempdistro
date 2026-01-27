@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { validateProductCompliance } from "@/lib/compliance";
 import { isAdminEmail } from "@/lib/admin";
+import { getProductLimitStatus, getVendorEntitlements, getVendorPlanByPriceId } from "@/lib/pricing";
 
 /**
  * Create a new product
@@ -60,11 +61,13 @@ export async function POST(req: NextRequest) {
       id: string;
       owner_user_id: string;
       subscription_status?: string | null;
+      subscription_plan_key?: string | null;
+      subscription_price_id?: string | null;
     };
 
     let { data: vendor, error: vendorError } = await supabase
       .from("vendors")
-      .select("id, owner_user_id, subscription_status")
+      .select("id, owner_user_id, subscription_status, subscription_plan_key, subscription_price_id")
       .eq("owner_user_id", user.id)
       .maybeSingle<VendorRecord>();
 
@@ -73,7 +76,7 @@ export async function POST(req: NextRequest) {
       const admin = getSupabaseAdminClient();
       const { data: adminVendor, error: adminVendorError } = await admin
         .from("vendors")
-          .select("id, owner_user_id, subscription_status")
+          .select("id, owner_user_id, subscription_status, subscription_plan_key, subscription_price_id")
         .eq("owner_user_id", user.id)
         .maybeSingle<VendorRecord>();
       if (adminVendorError) {
@@ -245,44 +248,69 @@ export async function POST(req: NextRequest) {
       console.warn(`⚠️ [product/create] Vendor ${vendor.id} subscription_status=${subscriptionStatus || "none"}`);
       return NextResponse.json(
         process.env.NODE_ENV === "production"
-          ? { error: "Active vendor plan required to upload products and COAs." }
-          : { requestId, error: "Active vendor plan required to upload products and COAs." },
+          ? { error: "Active vendor plan required to upload products and COAs.", code: "SUBSCRIPTION_REQUIRED" }
+          : { requestId, error: "Active vendor plan required to upload products and COAs.", code: "SUBSCRIPTION_REQUIRED" },
         { status: 403 }
       );
     }
 
-    // Check subscription and product limits
     if (!isAdmin) {
-      const { data: subscription } = await supabase
-        .from("subscriptions")
-        .select("id, plan_id, plan_type, status")
-        .eq("user_id", user.id)
-        .eq("plan_type", "vendor")
-        .in("status", ["active", "trialing"])
-        .single();
+      const planKey =
+        typeof vendor.subscription_plan_key === "string" && vendor.subscription_plan_key.trim()
+          ? vendor.subscription_plan_key.trim()
+          : null;
+      const priceId =
+        typeof vendor.subscription_price_id === "string" && vendor.subscription_price_id.trim()
+          ? vendor.subscription_price_id.trim()
+          : null;
+      const planFromPrice = priceId ? getVendorPlanByPriceId(priceId) : null;
+      const effectivePlanKey = planKey || planFromPrice?.planKey || null;
 
-      if (subscription && subscription.plan_id) {
-        // Get vendor plan details
-        const { data: vendorPlan } = await supabase
-          .from("vendor_plans")
-          .select("product_limit")
-          .eq("id", subscription.plan_id)
-          .single();
+      if (!effectivePlanKey) {
+        return NextResponse.json(
+          process.env.NODE_ENV === "production"
+            ? { error: "Active vendor plan required to upload products and COAs.", code: "SUBSCRIPTION_REQUIRED" }
+            : {
+                requestId,
+                error: "Active vendor plan required to upload products and COAs.",
+                code: "SUBSCRIPTION_REQUIRED",
+              },
+          { status: 403 }
+        );
+      }
 
-        if (vendorPlan && vendorPlan.product_limit !== null) {
-          // Count current products
-          const { count } = await supabase
-            .from("products")
-            .select("*", { count: "exact", head: true })
-            .eq("vendor_id", vendor.id);
+      const entitlements = getVendorEntitlements(effectivePlanKey);
+      if (!entitlements) {
+        return NextResponse.json(
+          process.env.NODE_ENV === "production"
+            ? { error: "Active vendor plan required to upload products and COAs.", code: "SUBSCRIPTION_REQUIRED" }
+            : {
+                requestId,
+                error: "Active vendor plan required to upload products and COAs.",
+                code: "SUBSCRIPTION_REQUIRED",
+              },
+          { status: 403 }
+        );
+      }
 
-          if ((count || 0) >= vendorPlan.product_limit) {
-            return NextResponse.json(
-              { error: `Product limit reached. Your plan allows ${vendorPlan.product_limit} products. Please upgrade your plan.` },
-              { status: 403 }
-            );
-          }
-        }
+      const { count } = await supabase
+        .from("products")
+        .select("*", { count: "exact", head: true })
+        .eq("vendor_id", vendor.id);
+
+      const currentCount = count || 0;
+      const limitStatus = getProductLimitStatus(currentCount, entitlements.productLimit);
+
+      if (limitStatus.reached) {
+        return NextResponse.json(
+          {
+            error: `Product limit reached. Your plan allows ${limitStatus.limit} products. Please upgrade your plan.`,
+            code: "PRODUCT_LIMIT_REACHED",
+            limit: limitStatus.limit,
+            used: currentCount,
+          },
+          { status: 403 }
+        );
       }
     }
 

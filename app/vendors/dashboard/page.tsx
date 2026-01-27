@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { getProductLimitStatus, getVendorEntitlements, getVendorPlanByPriceId } from "@/lib/pricing";
+import { isAdminEmail } from "@/lib/admin";
 import Footer from "@/components/Footer";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +31,7 @@ async function getVendorData(userId: string) {
     const { data: vendor } = await supabase
       .from("vendors")
       .select(
-        "id, owner_user_id, business_name, status, vendor_type, created_at, is_active, is_approved, vendor_onboarding_completed, terms_accepted_at, compliance_acknowledged_at"
+        "id, owner_user_id, business_name, status, vendor_type, created_at, is_active, is_approved, vendor_onboarding_completed, terms_accepted_at, compliance_acknowledged_at, subscription_status, subscription_plan_key, subscription_price_id, stripe_customer_id, stripe_subscription_id, subscription_current_period_end, subscription_cancel_at_period_end"
       )
       .eq("owner_user_id", userId)
       .maybeSingle();
@@ -97,11 +99,14 @@ async function getVendorData(userId: string) {
       return counts;
     };
 
+    const productTotal = (productStatuses || []).length;
+
     return {
       vendor,
       productCounts: tally(productStatuses),
       serviceCounts: tally(serviceStatuses),
       eventCounts: tallyEvents(eventStatuses),
+      productTotal,
     };
   } catch (error) {
     console.error("[vendors/dashboard] Error fetching vendor data:", error);
@@ -122,13 +127,61 @@ export default async function VendorDashboardPage() {
     redirect("/login?redirect=/vendors/dashboard");
   }
 
+  const isAdmin = isAdminEmail(user.email);
   const vendorData = await getVendorData(user.id);
+
+  if (!vendorData && !isAdmin) {
+    redirect("/vendor-registration");
+  }
+
+  if (!vendorData && isAdmin) {
+    return (
+      <div className="min-h-screen text-white flex flex-col">
+        <main className="flex-1">
+          <section className="section-shell">
+            <div className="mb-8">
+              <h1 className="text-4xl font-bold mb-2 text-accent">Admin Vendor Access</h1>
+              <p className="text-muted">You can access vendor tools without a subscription.</p>
+            </div>
+            <div className="surface-card p-6">
+              <p className="text-muted text-sm mb-4">
+                No vendor profile is linked to this admin account. Use vendor tools directly or visit pricing to start a vendor checkout.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Link href="/vendors/products" className="btn-primary">
+                  Manage products
+                </Link>
+                <Link href="/vendors/services" className="btn-secondary">
+                  Manage services
+                </Link>
+                <Link href="/vendors/events" className="btn-secondary">
+                  Manage events
+                </Link>
+                <Link href="/pricing?tab=vendor" className="btn-secondary">
+                  View pricing
+                </Link>
+              </div>
+            </div>
+          </section>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!vendorData) {
     redirect("/vendor-registration");
   }
 
-  const { vendor, productCounts, serviceCounts, eventCounts } = vendorData;
+  const { vendor, productCounts, serviceCounts, eventCounts, productTotal } = vendorData;
+
+  const planKey =
+    vendor.subscription_plan_key ||
+    (vendor.subscription_price_id
+      ? getVendorPlanByPriceId(vendor.subscription_price_id)?.planKey || null
+      : null);
+  const entitlements = planKey ? getVendorEntitlements(planKey) : null;
+  const productLimitStatus = getProductLimitStatus(productTotal, entitlements?.productLimit ?? null);
 
   const onboardingComplete =
     vendor.vendor_onboarding_completed &&
@@ -212,6 +265,58 @@ export default async function VendorDashboardPage() {
                 <div className="text-base text-white">{submittedDate}</div>
               </div>
             </div>
+          </div>
+
+          <div className="surface-card p-6 mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-semibold">Subscription</h2>
+              <Link href="/vendors/billing" className="text-accent text-sm">
+                Manage billing
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted">
+              <div>
+                <div className="text-xs uppercase tracking-wide">Status</div>
+                <div className="text-base text-white">
+                  {vendor.subscription_status || "inactive"}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-wide">Plan</div>
+                <div className="text-base text-white">{entitlements?.tier || "Unknown"}</div>
+              </div>
+              <div>
+                <div className="text-xs uppercase tracking-wide">Renewal</div>
+                <div className="text-base text-white">
+                  {vendor.subscription_current_period_end
+                    ? new Date(vendor.subscription_current_period_end).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })
+                    : "N/A"}
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-4 text-sm text-muted">
+              <div>
+                Product limit:{" "}
+                <span className="text-white">
+                  {entitlements?.productLimit === null ? "Unlimited" : entitlements?.productLimit ?? "Unknown"}
+                </span>
+              </div>
+              <div>
+                Products used: <span className="text-white">{productTotal}</span>
+              </div>
+            </div>
+            {productLimitStatus.reached && (
+              <div className="mt-4 rounded-lg border border-yellow-600 bg-yellow-900/30 p-4 text-yellow-200 text-sm">
+                Product limit reached. Upgrade your plan to add more products.
+                <Link href="/pricing?tab=vendor" className="underline text-accent ml-2">
+                  Upgrade plan
+                </Link>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

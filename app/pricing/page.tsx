@@ -9,19 +9,22 @@ import Footer from "@/components/Footer";
 
 type VendorPlan = {
   key: string;
+  planKey: string;
   tier: string;
-  cadence: "monthly" | "annual";
+  billingCycle: "monthly" | "annual";
   interval: "month" | "year";
   priceId: string;
   displayName: string;
   headlinePriceText: string;
   subPriceNote?: string;
   commissionText: string;
+  commissionPercent: number;
   productLimitText: string;
+  productLimit: number | null;
   includedBullets: string[];
   limitationBullets: string[];
-  imageUrl?: string | null;
-  imageAlt?: string | null;
+  imageUrl: string;
+  imageAlt: string;
 };
 
 type ConsumerPlan = {
@@ -90,14 +93,6 @@ export default function PricingPage() {
 
   const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
   const hasVendorPlans = vendorPlansReady && vendorPlans.length > 0;
-  const planImages: Record<string, string> = {
-    starter_monthly: "/images/vendor-plans/vendor-starter-monthly.png",
-    starter_annual: "/images/vendor-plans/vendor-starter-annual.png",
-    pro_monthly: "/images/vendor-plans/vendor-pro-monthly.png",
-    pro_annual: "/images/vendor-plans/vendor-pro-annual.png",
-    enterprise_monthly: "/images/vendor-plans/vendor-enterprise-monthly.png",
-    enterprise_annual: "/images/vendor-plans/vendor-enterprise-annual.png",
-  };
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "production" && vendorPlansMissing.length > 0) {
@@ -146,9 +141,9 @@ export default function PricingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           priceId: plan.priceId,
-          planKey: plan.key,
+          planKey: plan.planKey,
           tier: plan.tier,
-          cadence: plan.cadence,
+          cadence: plan.billingCycle,
         }),
       });
       const data = await response.json();
@@ -250,7 +245,7 @@ export default function PricingPage() {
                 <div key={plan.key} className="card-glass p-6 text-left">
                   <div className="mb-4 overflow-hidden rounded-xl">
                     <Image
-                      src={planImages[plan.key]}
+                      src={plan.imageUrl}
                       alt={plan.imageAlt || `${plan.displayName} plan`}
                       width={640}
                       height={360}

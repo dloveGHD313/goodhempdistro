@@ -67,6 +67,7 @@ export default function Nav() {
   }, []);
 
   const accountHref = isLoggedIn ? "/account" : "/login";
+  const showBilling = vendorStatus.isSubscribed || vendorStatus.isAdmin;
 
   const vendorLink = vendorStatus.isAdmin
     ? { label: "🏪 Vendor Dashboard", href: "/vendors/dashboard" }
@@ -141,6 +142,11 @@ export default function Nav() {
               <Link href="/account/favorites" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
                 Favorites
               </Link>
+            {showBilling && (
+              <Link href="/vendors/billing" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                Billing
+              </Link>
+            )}
             </div>
           </div>
         ) : (
@@ -306,6 +312,15 @@ export default function Nav() {
                     onClick={() => setDrawerOpen(false)}
                   >
                     ⭐ Favorites
+                  </Link>
+                )}
+                {isLoggedIn && showBilling && (
+                  <Link
+                    href="/vendors/billing"
+                    className="px-4 py-3 rounded-lg text-base block drawer-link"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    💳 Billing
                   </Link>
                 )}
                 {isLoggedIn && (
