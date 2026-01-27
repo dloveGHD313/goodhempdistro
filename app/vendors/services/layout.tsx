@@ -14,7 +14,10 @@ export default async function VendorsServicesLayout({
     redirect("/login?redirect=/vendors/services");
   }
 
-  const access = await getVendorAccessStatus(user.id);
+  const access = await getVendorAccessStatus(user.id, user.email);
+  if (access.isAdmin) {
+    return <>{children}</>;
+  }
   if (!access.isVendor) {
     redirect("/vendor-registration");
   }

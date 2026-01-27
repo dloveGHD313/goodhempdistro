@@ -25,7 +25,8 @@ export default function Nav() {
   const [vendorStatus, setVendorStatus] = useState<{
     isVendor: boolean;
     isSubscribed: boolean;
-  }>({ isVendor: false, isSubscribed: false });
+    isAdmin: boolean;
+  }>({ isVendor: false, isSubscribed: false, isAdmin: false });
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -43,23 +44,12 @@ export default function Nav() {
           setVendorStatus({
             isVendor: Boolean(payload?.isVendor),
             isSubscribed: Boolean(payload?.isSubscribed),
+            isAdmin: Boolean(payload?.isAdmin),
           });
+          setIsAdmin(Boolean(payload?.isAdmin));
         }
-        // Check if user is admin
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", data.user.id)
-          .single();
-        
-        if (profileError && profileError.code === 'PGRST116') {
-          // Profile not found - log warning but don't break UI
-          console.warn(`[Nav] Profile missing for user ${data.user.id} - profile should be auto-created by trigger`);
-        }
-        
-        setIsAdmin(profile?.role === "admin");
       } else {
-        setVendorStatus({ isVendor: false, isSubscribed: false });
+        setVendorStatus({ isVendor: false, isSubscribed: false, isAdmin: false });
       }
     });
   }, []);
@@ -78,13 +68,19 @@ export default function Nav() {
 
   const accountHref = isLoggedIn ? "/account" : "/login";
 
-  const vendorLink = vendorStatus.isVendor
-    ? vendorStatus.isSubscribed
-      ? { label: "🏪 Vendor Dashboard", href: "/vendors/dashboard" }
-      : { label: "💳 Vendor Plans", href: "/pricing?tab=vendor&reason=subscription_required" }
-    : { label: "🤝 Vendor Registration", href: "/vendor-registration" };
+  const vendorLink = vendorStatus.isAdmin
+    ? { label: "🏪 Vendor Dashboard", href: "/vendors/dashboard" }
+    : vendorStatus.isVendor
+      ? vendorStatus.isSubscribed
+        ? { label: "🏪 Vendor Dashboard", href: "/vendors/dashboard" }
+        : { label: "💳 Vendor Plans", href: "/pricing?tab=vendor&reason=subscription_required" }
+      : { label: "🤝 Vendor Registration", href: "/vendor-registration" };
 
-  const navLinks = [...baseNavLinks, vendorLink, { label: "💰 Affiliate", href: "/affiliate" }];
+  const vendorLinks = vendorStatus.isAdmin
+    ? [vendorLink, { label: "💳 Vendor Plans", href: "/pricing?tab=vendor" }]
+    : [vendorLink];
+
+  const navLinks = [...baseNavLinks, ...vendorLinks, { label: "💰 Affiliate", href: "/affiliate" }];
 
   return (
     <nav aria-label="Main Navigation" className="flex items-center justify-between w-full">

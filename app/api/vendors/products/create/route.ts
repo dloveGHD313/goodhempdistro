@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { validateProductCompliance } from "@/lib/compliance";
+import { isAdminEmail } from "@/lib/admin";
 
 /**
  * Create a new product
@@ -33,9 +34,12 @@ export async function POST(req: NextRequest) {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
+    const isAdmin = isAdminEmail(user?.email);
+
     logStage("auth_check", {
       userId: user?.id || null,
       userEmail: user?.email || null,
+      isAdmin,
     });
 
     if (userError || !user) {
@@ -237,7 +241,7 @@ export async function POST(req: NextRequest) {
 
     const subscriptionStatus = vendor?.subscription_status || null;
     const subscriptionActive = subscriptionStatus === "active" || subscriptionStatus === "trialing";
-    if (!subscriptionActive) {
+    if (!subscriptionActive && !isAdmin) {
       console.warn(`⚠️ [product/create] Vendor ${vendor.id} subscription_status=${subscriptionStatus || "none"}`);
       return NextResponse.json(
         process.env.NODE_ENV === "production"
@@ -248,34 +252,36 @@ export async function POST(req: NextRequest) {
     }
 
     // Check subscription and product limits
-    const { data: subscription } = await supabase
-      .from("subscriptions")
-      .select("id, plan_id, plan_type, status")
-      .eq("user_id", user.id)
-      .eq("plan_type", "vendor")
-      .in("status", ["active", "trialing"])
-      .single();
-
-    if (subscription && subscription.plan_id) {
-      // Get vendor plan details
-      const { data: vendorPlan } = await supabase
-        .from("vendor_plans")
-        .select("product_limit")
-        .eq("id", subscription.plan_id)
+    if (!isAdmin) {
+      const { data: subscription } = await supabase
+        .from("subscriptions")
+        .select("id, plan_id, plan_type, status")
+        .eq("user_id", user.id)
+        .eq("plan_type", "vendor")
+        .in("status", ["active", "trialing"])
         .single();
 
-      if (vendorPlan && vendorPlan.product_limit !== null) {
-        // Count current products
-        const { count } = await supabase
-          .from("products")
-          .select("*", { count: "exact", head: true })
-          .eq("vendor_id", vendor.id);
+      if (subscription && subscription.plan_id) {
+        // Get vendor plan details
+        const { data: vendorPlan } = await supabase
+          .from("vendor_plans")
+          .select("product_limit")
+          .eq("id", subscription.plan_id)
+          .single();
 
-        if ((count || 0) >= vendorPlan.product_limit) {
-          return NextResponse.json(
-            { error: `Product limit reached. Your plan allows ${vendorPlan.product_limit} products. Please upgrade your plan.` },
-            { status: 403 }
-          );
+        if (vendorPlan && vendorPlan.product_limit !== null) {
+          // Count current products
+          const { count } = await supabase
+            .from("products")
+            .select("*", { count: "exact", head: true })
+            .eq("vendor_id", vendor.id);
+
+          if ((count || 0) >= vendorPlan.product_limit) {
+            return NextResponse.json(
+              { error: `Product limit reached. Your plan allows ${vendorPlan.product_limit} products. Please upgrade your plan.` },
+              { status: 403 }
+            );
+          }
         }
       }
     }

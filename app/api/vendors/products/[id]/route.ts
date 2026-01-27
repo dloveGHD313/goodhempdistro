@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { validateProductCompliance } from "@/lib/compliance";
+import { isAdminEmail } from "@/lib/admin";
 
 /**
  * Update or delete a product
@@ -22,6 +23,7 @@ export async function PUT(
         { status: 401 }
       );
     }
+    const isAdmin = isAdminEmail(user.email);
 
     // Verify vendor ownership of product
     const { data: product } = await supabase
@@ -86,7 +88,7 @@ export async function PUT(
     const subscriptionStatus = vendor?.subscription_status || null;
     const subscriptionActive = subscriptionStatus === "active" || subscriptionStatus === "trialing";
 
-    if (!subscriptionActive) {
+    if (!subscriptionActive && !isAdmin) {
       return NextResponse.json(
         { error: "Active vendor plan required to upload products and COAs." },
         { status: 403 }

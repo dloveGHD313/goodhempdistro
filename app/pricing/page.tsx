@@ -1,17 +1,11 @@
 "use client";
 
-import Image, { type StaticImageData } from "next/image";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { getReferralCode } from "@/lib/referral";
 import Footer from "@/components/Footer";
-import starterMonthlyImage from "@/vendor-starter-monthly.png";
-import starterAnnualImage from "@/vendor-starter-annual.png";
-import proMonthlyImage from "@/vendor-pro-monthly.png";
-import proAnnualImage from "@/vendor-pro-annual.png";
-import enterpriseMonthlyImage from "@/vendor-enterprise-monthly.png";
-import enterpriseAnnualImage from "@/vendor-enterprise-annual.png";
 
 type VendorPlan = {
   key: string;
@@ -96,13 +90,13 @@ export default function PricingPage() {
 
   const formatPrice = (cents: number) => `$${(cents / 100).toFixed(2)}`;
   const hasVendorPlans = vendorPlansReady && vendorPlans.length > 0;
-  const planImages: Record<string, StaticImageData> = {
-    starter_monthly: starterMonthlyImage,
-    starter_annual: starterAnnualImage,
-    pro_monthly: proMonthlyImage,
-    pro_annual: proAnnualImage,
-    enterprise_monthly: enterpriseMonthlyImage,
-    enterprise_annual: enterpriseAnnualImage,
+  const planImages: Record<string, string> = {
+    starter_monthly: "/images/vendor-plans/vendor-starter-monthly.png",
+    starter_annual: "/images/vendor-plans/vendor-starter-annual.png",
+    pro_monthly: "/images/vendor-plans/vendor-pro-monthly.png",
+    pro_annual: "/images/vendor-plans/vendor-pro-annual.png",
+    enterprise_monthly: "/images/vendor-plans/vendor-enterprise-monthly.png",
+    enterprise_annual: "/images/vendor-plans/vendor-enterprise-annual.png",
   };
 
   useEffect(() => {

@@ -12,9 +12,10 @@ export async function GET() {
       isSubscribed: false,
       subscriptionStatus: null,
       vendorId: null,
+      isAdmin: false,
     });
   }
 
-  const status = await getVendorAccessStatus(user.id);
+  const status = await getVendorAccessStatus(user.id, user.email);
   return NextResponse.json(status);
 }

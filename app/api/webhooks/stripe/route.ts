@@ -208,6 +208,11 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
           status: subscriptionStatus,
           subscriptionId,
         });
+        if (process.env.NODE_ENV !== "production") {
+          console.log(
+            `[vendor-subscription] vendorId=${resolvedVendorId} status=${subscriptionStatus} source=checkout`
+          );
+        }
       }
     }
 
@@ -469,6 +474,11 @@ async function handleSubscriptionChange(
         status,
         subscriptionId: subscription.id,
       });
+      if (process.env.NODE_ENV !== "production") {
+        console.log(
+          `[vendor-subscription] vendorId=${resolvedVendorId} status=${status} source=webhook`
+        );
+      }
     }
   }
 

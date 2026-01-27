@@ -1,16 +1,31 @@
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { isAdminEmail } from "@/lib/admin";
 
 export type VendorAccessStatus = {
   isVendor: boolean;
   isSubscribed: boolean;
   subscriptionStatus: string | null;
   vendorId: string | null;
+  isAdmin: boolean;
 };
 
 const ACTIVE_STATUSES = new Set(["active", "trialing"]);
 
-export async function getVendorAccessStatus(userId: string): Promise<VendorAccessStatus> {
+export async function getVendorAccessStatus(
+  userId: string,
+  userEmail?: string | null
+): Promise<VendorAccessStatus> {
+  if (isAdminEmail(userEmail)) {
+    return {
+      isVendor: true,
+      isSubscribed: true,
+      subscriptionStatus: "admin",
+      vendorId: null,
+      isAdmin: true,
+    };
+  }
+
   const supabase = await createSupabaseServerClient();
   type VendorRow = { id: string; owner_user_id: string; subscription_status: string | null };
   let vendor: VendorRow | null = null;
@@ -39,6 +54,7 @@ export async function getVendorAccessStatus(userId: string): Promise<VendorAcces
       isSubscribed: false,
       subscriptionStatus: null,
       vendorId: null,
+      isAdmin: false,
     };
   }
 
@@ -52,5 +68,6 @@ export async function getVendorAccessStatus(userId: string): Promise<VendorAcces
     isSubscribed,
     subscriptionStatus,
     vendorId: vendor.id,
+    isAdmin: false,
   };
 }
