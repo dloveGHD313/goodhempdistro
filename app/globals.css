@@ -344,6 +344,107 @@ footer {
   border-color: color-mix(in srgb, var(--brand-lime) 45%, transparent);
 }
 
+.mascot-shell {
+  position: fixed;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1rem;
+}
+
+.mascot-panel {
+  width: min(24rem, 86vw);
+  padding: 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--brand-lime) 35%, transparent);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  animation: floatIn 0.35s ease;
+}
+
+.mascot-header {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+  align-items: center;
+}
+
+.mascot-avatar {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--brand-lime) 20%, transparent);
+  display: grid;
+  place-items: center;
+  font-size: 1.6rem;
+}
+
+.mascot-intents {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.mascot-intent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.mascot-intent:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--brand-lime) 45%, transparent);
+}
+
+.mascot-bubble {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 1rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--brand-lime) 55%, transparent),
+    color-mix(in srgb, var(--brand-teal) 45%, transparent)
+  );
+  border: 1px solid color-mix(in srgb, var(--brand-lime) 60%, transparent);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.mascot-bubble:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.05);
+}
+
+.mascot-bubble-icon {
+  font-size: 1.2rem;
+}
+
+.mascot-bubble-text {
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+}
+
+@keyframes floatIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .nav-link {
   color: color-mix(in srgb, var(--text) 70%, var(--brand-teal) 30%);
   transition: color 0.2s, opacity 0.2s;
