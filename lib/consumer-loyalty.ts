@@ -10,6 +10,10 @@ export const REFERRAL_REWARD_POINTS = {
   VIP: 1000,
 } as const;
 
+export const SUBSCRIPTION_BONUS_POINTS = 500;
+
+export const BASE_POINTS_PER_DOLLAR = 1;
+
 export function getLoyaltyMultiplier(tier: keyof typeof LOYALTY_MULTIPLIERS) {
   return LOYALTY_MULTIPLIERS[tier];
 }
@@ -19,12 +23,10 @@ export function getReferralRewardPoints(tier: keyof typeof REFERRAL_REWARD_POINT
 }
 
 export function getSubscriptionBonusPoints(): number {
-  // TODO: Define subscription bonus points per tier or plan.
-  return 0;
+  return SUBSCRIPTION_BONUS_POINTS;
 }
 
 export function calculatePurchasePoints(amountCents: number, multiplier: number) {
-  // TODO: Confirm base points per dollar. Current default: 1 point per $1.
-  const basePoints = Math.floor(amountCents / 100);
+  const basePoints = Math.floor((amountCents / 100) * BASE_POINTS_PER_DOLLAR);
   return Math.round(basePoints * multiplier);
 }

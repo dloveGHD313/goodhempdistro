@@ -181,6 +181,28 @@ Key checks:
 - [ ] Test logout functionality
 - [ ] Verify emails/notifications sent (if applicable)
 
+## Phase 4 — Consumer Loyalty & Referrals Verification
+
+- [ ] Confirm subscription bonus points are awarded exactly once per subscription
+- [ ] Confirm points-per-dollar is applied to purchases
+- [ ] Confirm referral rewards are granted only after first paid subscription
+- [ ] Confirm `/api/webhooks/stripe` logs show no duplicate loyalty events
+- [ ] Confirm `/api/admin/diag/env` lists missing consumer price IDs (admin-only)
+
+### Loyalty + Referral Rules (Hard-Locked)
+
+- Subscription bonus points: **500**
+- Base points per dollar: **1**
+- Loyalty multipliers: Starter 1.0x, Plus 1.5x, VIP 2.0x
+- Referral rewards: Starter 250, Plus 500, VIP 1000
+
+## Phase 4 Complete — Sign-off
+
+- [ ] Production deployment is on latest main commit
+- [ ] Consumer plan images + bullets render on `/pricing` and `/get-started`
+- [ ] Admin diagnostics confirm no missing consumer Stripe price IDs
+- [ ] Loyalty + referral events verified in Supabase
+
 ## Rollback Plan
 
 If issues occur in production:

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { getConsumerPlanEnvStatus } from "@/lib/consumer-plans";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -68,11 +69,14 @@ export async function GET(req: NextRequest) {
       `has_URL=${envChecks.has_SUPABASE_URL || envChecks.has_NEXT_PUBLIC_SUPABASE_URL}`
     );
 
+    const consumerPlanEnvStatus = getConsumerPlanEnvStatus();
+
     return NextResponse.json(
       {
         ...envChecks,
         chosenKeyName,
         chosenKeyValueLength,
+        consumerPlans: consumerPlanEnvStatus,
       },
       {
         headers: {

@@ -28,6 +28,17 @@ type ConsumerPlanEnv = {
   bullets: string[];
 };
 
+type ConsumerPlanEnvStatus = {
+  missingEnv: string[];
+  hiddenPlans: Array<{
+    planKey: ConsumerPlanConfig["planKey"];
+    envKey: string;
+    reason: "missing_env";
+  }>;
+  totalPlans: number;
+  availablePlans: number;
+};
+
 const CONSUMER_PLAN_ENVS: ConsumerPlanEnv[] = [
   {
     planKey: "consumer_starter_monthly",
@@ -165,6 +176,33 @@ export function getConsumerPlanConfigs() {
     plans,
     hasConsumerPlans: plans.length > 0,
     missingEnv,
+  };
+}
+
+export function getConsumerPlanEnvStatus(): ConsumerPlanEnvStatus {
+  const hiddenPlans: ConsumerPlanEnvStatus["hiddenPlans"] = [];
+  const missingEnv: string[] = [];
+  let availablePlans = 0;
+
+  for (const plan of CONSUMER_PLAN_ENVS) {
+    const priceId = process.env[plan.envKey];
+    if (!priceId) {
+      missingEnv.push(plan.envKey);
+      hiddenPlans.push({
+        planKey: plan.planKey,
+        envKey: plan.envKey,
+        reason: "missing_env",
+      });
+    } else {
+      availablePlans += 1;
+    }
+  }
+
+  return {
+    missingEnv,
+    hiddenPlans,
+    totalPlans: CONSUMER_PLAN_ENVS.length,
+    availablePlans,
   };
 }
 

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  BASE_POINTS_PER_DOLLAR,
   LOYALTY_MULTIPLIERS,
   REFERRAL_REWARD_POINTS,
+  SUBSCRIPTION_BONUS_POINTS,
   calculatePurchasePoints,
 } from "@/lib/consumer-loyalty";
 import { ensureReferralCode } from "@/lib/consumer-referrals";
@@ -17,6 +19,14 @@ describe("consumer loyalty rules", () => {
     expect(REFERRAL_REWARD_POINTS.Starter).toBe(250);
     expect(REFERRAL_REWARD_POINTS.Plus).toBe(500);
     expect(REFERRAL_REWARD_POINTS.VIP).toBe(1000);
+  });
+
+  it("uses explicit subscription bonus points", () => {
+    expect(SUBSCRIPTION_BONUS_POINTS).toBeGreaterThan(0);
+  });
+
+  it("uses explicit base points per dollar", () => {
+    expect(BASE_POINTS_PER_DOLLAR).toBeGreaterThan(0);
   });
 
   it("calculates purchase points using multiplier", () => {
