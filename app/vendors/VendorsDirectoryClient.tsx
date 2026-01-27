@@ -192,6 +192,10 @@ export default function VendorsDirectoryClient({ vendors }: Props) {
                     initialFavorited={favorites.has(vendor.id)}
                   />
                 </div>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <span className="compliance-chip">✅ Compliance Ready</span>
+                  <span className="delivery-chip">🚚 Delivery Ready</span>
+                </div>
                 <Link href={`/vendors/${vendor.id}`} className="group">
                   <div className="w-20 h-20 bg-[var(--surface)]/60 rounded-full mb-4 group-hover:bg-[var(--surface)]/80 transition flex items-center justify-center text-3xl">
                     🌿

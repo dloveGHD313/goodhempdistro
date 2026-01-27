@@ -103,6 +103,7 @@ export default function ProductsList({ initialProducts, initialCategoryId }: Pro
             const categoryName =
               categories.find((cat) => cat.id === product.category_id)?.name || "Uncategorized";
             const rating = ratings[product.id];
+            const deliveryEta = product.featured ? "30-45 min" : "50-70 min";
             const summary =
               product.description && product.description.trim().length > 0
                 ? product.description.trim()
@@ -130,6 +131,11 @@ export default function ProductsList({ initialProducts, initialCategoryId }: Pro
                   <p className="text-xs text-muted">Vendor: {product.vendor_name}</p>
                 )}
               </Link>
+              <div className="flex flex-wrap gap-2 mt-4 mb-4">
+                <span className="delivery-chip">🚚 {deliveryEta}</span>
+                <span className="compliance-chip">✅ Compliance Ready</span>
+                <span className="compliance-chip">🔒 21+ Verified</span>
+              </div>
               <div className="flex justify-between items-center">
                 <span className="text-2xl font-bold text-accent">
                   ${(product.price_cents / 100).toFixed(2)}

@@ -434,6 +434,38 @@ footer {
   letter-spacing: 0.02em;
 }
 
+.shop-hero {
+  border: 1px solid color-mix(in srgb, var(--brand-teal) 35%, transparent);
+}
+
+.shop-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.delivery-chip {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--brand-teal) 35%, transparent);
+  color: var(--brand-teal);
+  background: color-mix(in srgb, var(--brand-teal) 12%, transparent);
+}
+
+.compliance-chip {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--brand-lime) 35%, transparent);
+  color: var(--brand-lime);
+  background: color-mix(in srgb, var(--brand-lime) 12%, transparent);
+}
+
 @keyframes floatIn {
   from {
     opacity: 0;

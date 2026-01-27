@@ -121,14 +121,41 @@ export default async function ProductsPage({
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
         <section className="section-shell">
-          <h1 className="text-4xl font-bold mb-6 text-accent">
-            {vendorName ? `Products from ${vendorName}` : "Products"}
-          </h1>
-          <p className="text-muted mb-12">
-            {vendorName
-              ? "Explore approved products from this vendor."
-              : "Browse our curated selection of premium hemp products."}
-          </p>
+          <div className="shop-hero card-glass p-6 mb-10">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-muted mb-2">Local-first Shop</p>
+                <h1 className="text-4xl font-bold mb-3 text-accent">
+                  {vendorName ? `Products from ${vendorName}` : "DoorDash-style Hemp Discovery"}
+                </h1>
+                <p className="text-muted max-w-2xl">
+                  {vendorName
+                    ? "Explore approved products from this vendor."
+                    : "See what is deliverable near you, compare vendors, and order from verified listings."}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <button type="button" className="btn-secondary">
+                  📍 Set delivery location
+                </button>
+                <button type="button" className="btn-ghost">
+                  ⚡ Fastest delivery
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+              {[
+                { label: "Avg delivery", value: "35-50 min" },
+                { label: "Verified vendors", value: "120+" },
+                { label: "Compliance status", value: "Always on" },
+              ].map((metric) => (
+                <div key={metric.label} className="shop-metric">
+                  <span className="text-xs uppercase tracking-[0.2em] text-muted">{metric.label}</span>
+                  <span className="text-lg font-semibold">{metric.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
 
           <ProductsList initialProducts={products} />
         </section>
