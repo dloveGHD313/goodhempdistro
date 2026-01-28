@@ -28,7 +28,6 @@ const initialRole: MascotUserRole = {
 };
 
 const tooltipKey = "ghd_mascot_tooltip_shown";
-const welcomeKey = "ghd_mascot_welcome_seen";
 const contextLabels: Record<MascotContext, string> = {
   FEED: "Feed",
   SHOP: "Shop",
@@ -53,6 +52,7 @@ export default function MascotWidget() {
   const moveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastContextRef = useRef<MascotContext | null>(null);
   const lastPathReactionRef = useRef<string | null>(null);
+  const hasInteractionRef = useRef(false);
 
   const context: MascotContext = useMemo(() => detectContext(pathname, role), [pathname, role]);
   const mascot = mascotByContext[context];
@@ -169,24 +169,6 @@ export default function MascotWidget() {
 
   useEffect(() => {
     if (!enabled) return;
-    const seenWelcome = typeof window !== "undefined" && sessionStorage.getItem(welcomeKey);
-    if (!seenWelcome) {
-      setIsOpen(true);
-      sessionStorage.setItem(welcomeKey, "true");
-      const timer = setTimeout(() => setIsOpen(false), 9000);
-      return () => clearTimeout(timer);
-    }
-  }, [enabled]);
-
-  useEffect(() => {
-    if (!enabled) return;
-    if (typeof window === "undefined") return;
-    if (sessionStorage.getItem(tooltipKey)) return;
-    const timer = setTimeout(() => {
-      setShowTooltip(true);
-      sessionStorage.setItem(tooltipKey, "true");
-    }, 20000);
-    return () => clearTimeout(timer);
   }, [enabled]);
 
   useEffect(() => {
@@ -207,6 +189,7 @@ export default function MascotWidget() {
   useEffect(() => {
     if (!enabled) return;
     if (typeof window === "undefined") return;
+    if (!hasInteractionRef.current) return;
     if (lastContextRef.current === context) return;
     lastContextRef.current = context;
 
@@ -233,6 +216,28 @@ export default function MascotWidget() {
 
     pushEventMessage(greeting, "CHILL", "attention_pop");
   }, [context, enabled, pushEventMessage]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    if (typeof window === "undefined") return;
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{
+        message?: string;
+        mood?: MascotApiResponse["mood"];
+        move?: MascotMove;
+        showTooltip?: boolean;
+      }>).detail;
+      if (!detail?.message) return;
+      hasInteractionRef.current = true;
+      if (detail.showTooltip) {
+        setShowTooltip(true);
+        sessionStorage.setItem(tooltipKey, "true");
+      }
+      pushEventMessage(detail.message, detail.mood || "CHILL", detail.move);
+    };
+    window.addEventListener("ghd_mascot_event", handler as EventListener);
+    return () => window.removeEventListener("ghd_mascot_event", handler as EventListener);
+  }, [enabled, pushEventMessage]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -342,7 +347,10 @@ export default function MascotWidget() {
         mascot={mascot}
         context={context}
         isOpen={isOpen}
-        onToggle={() => setIsOpen((prev) => !prev)}
+        onToggle={() => {
+          hasInteractionRef.current = true;
+          setIsOpen((prev) => !prev);
+        }}
         onSend={handleSend}
         isTyping={isTyping}
         quickReplies={quickReplies}

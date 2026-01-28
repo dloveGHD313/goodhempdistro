@@ -1,176 +1,191 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
+import useAuthUser from "@/components/engagement/useAuthUser";
+import { getPostBadgeLabel, type PostAuthorRole, type PostAuthorTier } from "@/lib/postPriority";
+import PostComposer from "./PostComposer";
 
-type FeedType = "text" | "product" | "event" | "blog";
-
-type FeedItem = {
+type FeedMedia = {
   id: string;
-  type: FeedType;
-  title: string;
-  excerpt: string;
-  author: string;
-  postedAt: string;
-  vipBadge?: "VIP Vendor" | "VIP Consumer";
-  location?: string;
-  productPrice?: string;
-  vendorName?: string;
-  eventDate?: string;
-  readTime?: string;
-  tags?: string[];
-  ctaLabel?: string;
-  ctaHref?: string;
+  media_type: "image" | "video";
+  media_url: string;
 };
 
-const feedItems: FeedItem[] = [
-  {
-    id: "post-1",
-    type: "text",
-    title: "Morning drop: Community check-in",
-    excerpt:
-      "What are you prioritizing this week? Share your top product, favorite vendor, or local event.",
-    author: "Lina W.",
-    postedAt: "8m ago",
-    vipBadge: "VIP Consumer",
-    tags: ["Community", "Check-in"],
-    ctaLabel: "Join the convo",
-    ctaHref: "/groups",
-  },
-  {
-    id: "post-2",
-    type: "product",
-    title: "Midnight Bloom Gummies",
-    excerpt:
-      "Small-batch, lab-verified gummies with nighttime botanicals. Limited local delivery today.",
-    author: "Sunset Labs",
-    postedAt: "22m ago",
-    vipBadge: "VIP Vendor",
-    productPrice: "$28.00",
-    vendorName: "Sunset Labs",
-    tags: ["COA Verified", "Fast Delivery"],
-    ctaLabel: "View product",
-    ctaHref: "/products",
-  },
-  {
-    id: "post-3",
-    type: "event",
-    title: "LA Hemp Social — Rooftop Meetup",
-    excerpt:
-      "Live DJs, vendor tastings, and compliance Q&A. RSVP spots are filling quickly.",
-    author: "Good Hemp Events",
-    postedAt: "54m ago",
-    eventDate: "Feb 1 · 7:00 PM",
-    location: "Los Angeles, CA",
-    tags: ["Networking", "Live"],
-    ctaLabel: "See event",
-    ctaHref: "/events",
-  },
-  {
-    id: "post-4",
-    type: "blog",
-    title: "Compliance Quick Hits: 2026 Shipping Updates",
-    excerpt:
-      "A breakdown of packaging and labeling updates that affect multi-state hemp delivery.",
-    author: "Compliance Desk",
-    postedAt: "1h ago",
-    readTime: "4 min read",
-    tags: ["Compliance", "News"],
-    ctaLabel: "Read brief",
-    ctaHref: "/blog",
-  },
-  {
-    id: "post-5",
-    type: "product",
-    title: "Revive CBD Balm",
-    excerpt:
-      "High potency topical with terpene-rich botanicals. Ships locally within 2 hours.",
-    author: "Driftwood Apothecary",
-    postedAt: "2h ago",
-    vipBadge: "VIP Vendor",
-    productPrice: "$42.00",
-    vendorName: "Driftwood Apothecary",
-    tags: ["Local Drop", "Verified Vendor"],
-    ctaLabel: "Order now",
-    ctaHref: "/products",
-  },
-  {
-    id: "post-6",
-    type: "text",
-    title: "Vendor spotlight: The Green Line",
-    excerpt:
-      "Celebrating The Green Line for hitting 1k deliveries and 4.9⭐ community rating.",
-    author: "Marketplace Team",
-    postedAt: "3h ago",
-    tags: ["Spotlight", "Vendor"],
-    ctaLabel: "Meet vendor",
-    ctaHref: "/vendors",
-  },
-];
+type FeedPost = {
+  id: string;
+  author_id: string;
+  author_name: string;
+  author_role: PostAuthorRole;
+  author_tier: PostAuthorTier;
+  content: string;
+  is_admin_post: boolean;
+  created_at: string;
+  post_media: FeedMedia[];
+  priorityRank: number;
+};
 
 const filters = [
   { id: "all", label: "All" },
-  { id: "text", label: "Community" },
-  { id: "product", label: "Products" },
-  { id: "event", label: "Events" },
-  { id: "blog", label: "News" },
+  { id: "vendor", label: "Vendors" },
+  { id: "community", label: "Community" },
+  { id: "affiliate", label: "Affiliates" },
+  { id: "driver", label: "Drivers" },
 ] as const;
 
-function TypeBadge({ type }: { type: FeedType }) {
-  const label =
-    type === "text" ? "Community" : type === "product" ? "Product" : type === "event" ? "Event" : "News";
-  return <span className="feed-type-badge">{label}</span>;
-}
+const formatRelativeTime = (value: string) => {
+  const date = new Date(value);
+  const delta = Date.now() - date.getTime();
+  if (Number.isNaN(delta)) return "Just now";
+  const seconds = Math.floor(delta / 1000);
+  if (seconds < 60) return "Just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+};
 
-function FeedCard({ item }: { item: FeedItem }) {
+function FeedCard({ post }: { post: FeedPost }) {
+  const badge = getPostBadgeLabel(post.author_role, post.author_tier, post.is_admin_post);
   return (
     <article className="feed-card hover-lift">
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <TypeBadge type={item.type} />
-          {item.vipBadge && <span className="vip-badge">{item.vipBadge}</span>}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="feed-type-badge">{post.author_role.toUpperCase()}</span>
+          {badge && <span className="vip-badge">{badge}</span>}
         </div>
-        <span className="text-xs text-muted">{item.postedAt}</span>
+        <span className="text-xs text-muted">{formatRelativeTime(post.created_at)}</span>
       </div>
-      <h3 className="text-xl font-semibold mb-2">{item.title}</h3>
-      <p className="text-muted mb-4">{item.excerpt}</p>
+      <p className="text-sm text-muted mb-2">{post.author_name}</p>
+      <p className="text-white mb-4 whitespace-pre-line">{post.content}</p>
 
-      {(item.tags?.length || item.productPrice || item.eventDate || item.readTime) && (
-        <div className="flex flex-wrap gap-2 mb-4">
-          {item.productPrice && <span className="info-pill">{item.productPrice}</span>}
-          {item.eventDate && <span className="info-pill">{item.eventDate}</span>}
-          {item.readTime && <span className="info-pill">{item.readTime}</span>}
-          {item.tags?.map((tag) => (
-            <span key={tag} className="tag-pill">
-              {tag}
-            </span>
-          ))}
+      {post.post_media.length > 0 && (
+        <div className="grid gap-3 md:grid-cols-2 mb-4">
+          {post.post_media.map((media) =>
+            media.media_type === "image" ? (
+              <img
+                key={media.id}
+                src={media.media_url}
+                alt="Post media"
+                className="feed-media"
+                loading="lazy"
+              />
+            ) : (
+              <video key={media.id} src={media.media_url} controls className="feed-media" />
+            )
+          )}
         </div>
       )}
-
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-muted">
-          {item.vendorName ? `${item.vendorName} • ` : ""}
-          {item.author}
-          {item.location ? ` • ${item.location}` : ""}
-        </span>
-        {item.ctaHref && item.ctaLabel && (
-          <Link href={item.ctaHref} className="btn-ghost">
-            {item.ctaLabel}
-          </Link>
-        )}
-      </div>
     </article>
   );
 }
 
 export default function FeedExperience({ variant = "feed" }: { variant?: "feed" | "landing" }) {
+  const { userId, loading: authLoading } = useAuthUser();
   const [activeFilter, setActiveFilter] = useState<(typeof filters)[number]["id"]>("all");
+  const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [roleCta, setRoleCta] = useState<{ label: string; href: string } | null>(null);
+  const composerRef = useRef<HTMLDivElement | null>(null);
+  const emptyNotifiedRef = useRef(false);
 
-  const filteredItems = useMemo(() => {
-    if (activeFilter === "all") return feedItems;
-    return feedItems.filter((item) => item.type === activeFilter);
-  }, [activeFilter]);
+  const dispatchMascotEvent = useCallback(
+    (detail: {
+      message: string;
+      mood: "SUCCESS" | "ERROR" | "BLOCKED" | "CHILL";
+      move?: "success_nod" | "error_shake" | "attention_pop";
+    }) => {
+      if (typeof window === "undefined") return;
+      window.dispatchEvent(new CustomEvent("ghd_mascot_event", { detail }));
+    },
+    []
+  );
+
+  useEffect(() => {
+    const loadPosts = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch("/api/posts", { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error("Failed to load posts.");
+        }
+        const payload = await response.json();
+        const items = (payload.posts || []) as FeedPost[];
+        setPosts(items);
+        if (items.length === 0 && !emptyNotifiedRef.current) {
+          emptyNotifiedRef.current = true;
+          dispatchMascotEvent({
+            message: "The feed is empty. Want to be the first to post?",
+            mood: "CHILL",
+            move: "attention_pop",
+          });
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to load posts.";
+        setError(message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPosts();
+  }, [dispatchMascotEvent]);
+
+  useEffect(() => {
+    if (!userId) {
+      setRoleCta(null);
+      return;
+    }
+
+    const supabase = createSupabaseBrowserClient();
+    const resolveRole = async () => {
+      const [vendorRes, driverRes, affiliateRes] = await Promise.allSettled([
+        fetch("/api/vendor/status", { cache: "no-store" }),
+        fetch("/api/driver/me", { cache: "no-store" }),
+        supabase.from("affiliates").select("id").eq("user_id", userId).maybeSingle(),
+      ]);
+
+      const vendorPayload =
+        vendorRes.status === "fulfilled" && vendorRes.value.ok ? await vendorRes.value.json() : null;
+      const driverPayload =
+        driverRes.status === "fulfilled" && driverRes.value.ok ? await driverRes.value.json() : null;
+      const affiliatePayload =
+        affiliateRes.status === "fulfilled" ? affiliateRes.value.data : null;
+
+      if (vendorPayload?.isVendor || vendorPayload?.isAdmin) {
+        setRoleCta({ label: "Vendor Dashboard", href: "/vendors/dashboard" });
+        return;
+      }
+      if (driverPayload?.driver || driverPayload?.application) {
+        setRoleCta({ label: "Driver Portal", href: "/driver/dashboard" });
+        return;
+      }
+      if (affiliatePayload?.id) {
+        setRoleCta({ label: "Affiliate", href: "/affiliate" });
+        return;
+      }
+      setRoleCta({ label: "Account", href: "/account" });
+    };
+
+    resolveRole();
+  }, [userId]);
+
+  const filteredPosts = useMemo(() => {
+    const sorted = [...posts].sort((a, b) => {
+      if (a.priorityRank !== b.priorityRank) return a.priorityRank - b.priorityRank;
+      return String(b.created_at).localeCompare(String(a.created_at));
+    });
+    if (activeFilter === "all") return sorted;
+    if (activeFilter === "vendor") return sorted.filter((post) => post.author_role === "vendor");
+    if (activeFilter === "affiliate") return sorted.filter((post) => post.author_role === "affiliate");
+    if (activeFilter === "driver") return sorted.filter((post) => post.author_role === "driver");
+    return sorted.filter((post) => post.author_role === "consumer" || post.author_role === "admin");
+  }, [activeFilter, posts]);
 
   return (
     <section className="section-shell section-shell--tight feed-shell">
@@ -190,18 +205,55 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
             </div>
           </div>
           <div className="flex flex-wrap gap-3">
-            <Link href="/products" className="btn-primary">
-              Shop local now
-            </Link>
-            <Link href="/get-started" className="btn-secondary">
-              Join the community
-            </Link>
+            {authLoading ? null : userId ? (
+              <>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => composerRef.current?.scrollIntoView({ behavior: "smooth" })}
+                >
+                  Create post
+                </button>
+                <Link href="/newsfeed" className="btn-secondary">
+                  Go to feed
+                </Link>
+                {roleCta && (
+                  <Link href={roleCta.href} className="btn-ghost">
+                    {roleCta.label}
+                  </Link>
+                )}
+              </>
+            ) : (
+              <>
+                <Link href="/get-started" className="btn-primary">
+                  Join
+                </Link>
+                <Link href="/login" className="btn-secondary">
+                  Sign in
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-8">
         <div className="space-y-6">
+          {userId && (
+            <div ref={composerRef}>
+              <PostComposer
+                userId={userId}
+                onPostCreated={(post, firstPost) => {
+                  setPosts((prev) => [post, ...prev]);
+                  if (firstPost) {
+                    emptyNotifiedRef.current = true;
+                  }
+                }}
+                onMascotEvent={dispatchMascotEvent}
+              />
+            </div>
+          )}
+
           <div className="feed-filter-bar">
             {filters.map((filter) => (
               <button
@@ -215,11 +267,21 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
             ))}
           </div>
 
-          {filteredItems.map((item) => (
-            <FeedCard key={item.id} item={item} />
-          ))}
+          {loading && (
+            <div className="card-glass p-8 text-center">
+              <p className="text-muted">Loading posts...</p>
+            </div>
+          )}
 
-          {filteredItems.length === 0 && (
+          {error && (
+            <div className="card-glass p-8 text-center">
+              <p className="text-red-400">{error}</p>
+            </div>
+          )}
+
+          {!loading && !error && filteredPosts.map((post) => <FeedCard key={post.id} post={post} />)}
+
+          {!loading && !error && filteredPosts.length === 0 && (
             <div className="card-glass p-8 text-center">
               <p className="text-muted">No posts in this channel yet.</p>
             </div>
