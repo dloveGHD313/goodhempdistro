@@ -9,10 +9,12 @@ import { getVendorHelp } from "@/server/mascot/tools/getVendorHelp";
 import { getDriverDeliveries } from "@/server/mascot/tools/getDriverDeliveries";
 import { getLogisticsLoads } from "@/server/mascot/tools/getLogisticsLoads";
 import { getOrderDetails } from "@/server/mascot/tools/getOrderDetails";
+import { logMascotFlagMismatch } from "@/lib/mascotFlags";
 
 type MascotMessage = { role: "user" | "assistant"; content: string };
 
-const aiEnabled = process.env.MASCOT_AI_ENABLED === "true";
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 const uuidRegex =
   /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i;
@@ -41,8 +43,83 @@ const response = (payload: {
   suggestions: string[];
 }) => NextResponse.json(payload);
 
+const unavailableResponse = (message: string, suggestions: string[] = []) =>
+  response({
+    reply: message,
+    mood: "BLOCKED",
+    results: { type: "none", items: [] },
+    suggestions,
+  });
+
+const buildSystemPrompt = (params: {
+  contextMode: MascotContext;
+  route: string;
+  intent: string;
+  baseReply: string;
+  results: { type: string; items: Array<{ title: string; subtitle?: string | null }> };
+  suggestions: string[];
+}) => {
+  return [
+    "You are the Good Hemp Distros mascot assistant.",
+    "Stay concise, friendly, and action-oriented.",
+    "Never claim to complete purchases or account changes; only guide and link.",
+    "If you are unsure, ask a short clarifying question.",
+    `Context: ${params.contextMode}`,
+    `Route: ${params.route}`,
+    `Intent: ${params.intent}`,
+    `Base reply: ${params.baseReply}`,
+    `Results: ${JSON.stringify(params.results)}`,
+    `Quick replies: ${params.suggestions.join(" | ")}`,
+  ].join("\n");
+};
+
+const openaiChat = async (params: {
+  apiKey: string;
+  model: string;
+  systemPrompt: string;
+  messages: MascotMessage[];
+}) => {
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${params.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: params.model,
+      temperature: 0.4,
+      messages: [
+        { role: "system", content: params.systemPrompt },
+        ...params.messages.slice(-6),
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    return { ok: false as const, status: response.status };
+  }
+
+  const data = await response.json();
+  const reply = data?.choices?.[0]?.message?.content?.trim();
+  if (!reply) {
+    return { ok: false as const, status: response.status };
+  }
+
+  return { ok: true as const, status: response.status, reply };
+};
+
 export async function POST(req: NextRequest) {
+  const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID();
+  const flagStatus = logMascotFlagMismatch("api/mascot-chat");
+  const aiEnabled = flagStatus.serverEnabled;
+  const openaiKey = process.env.OPENAI_API_KEY?.trim();
+  const hasOpenAIKey = Boolean(openaiKey);
+  const fallbackSuggestions = quickRepliesByContext.GENERIC || [];
+
   if (!aiEnabled) {
+    console.info(
+      `[mascot-chat] requestId=${requestId} status=200 flags:client=${flagStatus.clientEnabled} server=${flagStatus.serverEnabled} key=${hasOpenAIKey}`
+    );
     return response({
       reply: "Mascot AI is offline right now.",
       mood: "BLOCKED",
@@ -51,13 +128,24 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  if (!hasOpenAIKey) {
+    console.info(
+      `[mascot-chat] requestId=${requestId} status=200 flags:client=${flagStatus.clientEnabled} server=${flagStatus.serverEnabled} key=${hasOpenAIKey}`
+    );
+    return unavailableResponse("AI is temporarily unavailable. Please try again soon.", fallbackSuggestions);
+  }
+
   try {
     const body = await req.json();
     const messages = (body?.messages || []) as MascotMessage[];
     const contextMode = (body?.contextMode || "GENERIC") as MascotContext;
+    const route = (body?.route || "/") as string;
 
     const lastUser = [...messages].reverse().find((message) => message.role === "user");
     if (!lastUser?.content) {
+      console.info(
+        `[mascot-chat] requestId=${requestId} status=200 flags:client=${flagStatus.clientEnabled} server=${flagStatus.serverEnabled} key=${hasOpenAIKey}`
+      );
       return response({
         reply: "Tell me what you're looking for and I'll pull real results.",
         mood: "CHILL",
@@ -68,6 +156,9 @@ export async function POST(req: NextRequest) {
 
     const safety = checkSafety(lastUser.content);
     if (safety) {
+      console.info(
+        `[mascot-chat] requestId=${requestId} status=200 flags:client=${flagStatus.clientEnabled} server=${flagStatus.serverEnabled} key=${hasOpenAIKey}`
+      );
       return response({
         reply: safety.reply,
         mood: safety.mood,
@@ -80,102 +171,140 @@ export async function POST(req: NextRequest) {
     const normalized = lastUser.content.toLowerCase();
     const suggestions = quickRepliesByContext[contextMode] || [];
 
+    let basePayload: {
+      reply: string;
+      mood: MascotMood;
+      results: { type: string; items: Array<{ title: string; subtitle?: string | null }> };
+      suggestions: string[];
+    };
+
     if (intent === "product_search") {
       const maxPrice = normalized.includes("under $50") ? 5000 : undefined;
       const query = normalizeProductQuery(lastUser.content);
       const items = await searchProducts(query, { maxPriceCents: maxPrice, limit: 6 });
-      return response({
+      basePayload = {
         reply: items.length
           ? "Here are verified products matching your search."
           : "No verified products matched that yet. Try another keyword or filter.",
         mood: items.length ? "SUCCESS" : "FOCUSED",
         results: { type: "products", items },
         suggestions,
-      });
-    }
-
-    if (intent === "event_search") {
+      };
+    } else if (intent === "event_search") {
       const items = await searchEvents(lastUser.content, { limit: 6 });
-      return response({
+      basePayload = {
         reply: items.length
           ? "Here are upcoming events that match."
           : "No upcoming events matched that. Try a different search.",
         mood: items.length ? "SUCCESS" : "FOCUSED",
         results: { type: "events", items },
         suggestions,
-      });
-    }
-
-    if (intent === "feed_search") {
+      };
+    } else if (intent === "feed_search") {
       const items = await searchFeedPosts();
-      return response({
+      basePayload = {
         reply: items.length
           ? "Here are verified feed posts."
           : "I don't see verified posts matching that yet. Try products or events.",
         mood: items.length ? "SUCCESS" : "FOCUSED",
         results: { type: "posts", items },
         suggestions,
-      });
-    }
-
-    if (intent === "vendor_help") {
+      };
+    } else if (intent === "vendor_help") {
       const results = getVendorHelp(lastUser.content);
-      return response({
+      basePayload = {
         reply: "Here's the fastest path for vendors.",
         mood: "EDUCATIONAL",
         results,
         suggestions,
-      });
-    }
-
-    if (intent === "driver_deliveries") {
+      };
+    } else if (intent === "driver_deliveries") {
       const items = await getDriverDeliveries();
-      return response({
+      basePayload = {
         reply: items.length
           ? "Here are your latest deliveries."
           : "No deliveries found yet for your driver profile.",
         mood: items.length ? "SUCCESS" : "FOCUSED",
         results: { type: "deliveries", items },
         suggestions,
-      });
-    }
-
-    if (intent === "logistics_loads") {
+      };
+    } else if (intent === "logistics_loads") {
       const items = await getLogisticsLoads();
-      return response({
+      basePayload = {
         reply: items.length
           ? "Here are your assigned loads."
           : "No verified loads are available yet for your logistics profile.",
         mood: items.length ? "SUCCESS" : "FOCUSED",
         results: { type: "loads", items },
         suggestions,
-      });
-    }
-
-    if (intent === "order_lookup") {
+      };
+    } else if (intent === "order_lookup") {
       const match = lastUser.content.match(uuidRegex);
       const orderId = match ? match[0] : "";
       const items = await getOrderDetails(orderId);
-      return response({
+      basePayload = {
         reply: items.length
           ? "Here's the order I found."
           : "I couldn't find that order. Double-check the ID or check your account.",
         mood: items.length ? "SUCCESS" : "FOCUSED",
         results: { type: "links", items },
         suggestions,
-      });
+      };
+    } else {
+      basePayload = {
+        reply: "Tell me what you want to do and I'll point you to the right place.",
+        mood: "CHILL",
+        results: { type: "none", items: [] },
+        suggestions,
+      };
     }
 
+    const model =
+      intent === "product_search" || intent === "event_search" || intent === "feed_search"
+        ? process.env.OPENAI_SEARCH_MODEL?.trim() || process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini"
+        : process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
+
+    const systemPrompt = buildSystemPrompt({
+      contextMode,
+      route,
+      intent,
+      baseReply: basePayload.reply,
+      results: basePayload.results,
+      suggestions: basePayload.suggestions,
+    });
+
+    const openaiResult = await openaiChat({
+      apiKey: openaiKey as string,
+      model,
+      systemPrompt,
+      messages,
+    });
+
+    if (!openaiResult.ok) {
+      console.warn(
+        `[mascot-chat] requestId=${requestId} status=200 openaiStatus=${openaiResult.status} flags:client=${flagStatus.clientEnabled} server=${flagStatus.serverEnabled} key=${hasOpenAIKey}`
+      );
+      return unavailableResponse(
+        "AI is temporarily unavailable. Please try again soon.",
+        basePayload.suggestions
+      );
+    }
+
+    console.info(
+      `[mascot-chat] requestId=${requestId} status=200 flags:client=${flagStatus.clientEnabled} server=${flagStatus.serverEnabled} key=${hasOpenAIKey}`
+    );
+
     return response({
-      reply: "Tell me what you want to do and I'll point you to the right place.",
-      mood: "CHILL",
-      results: { type: "none", items: [] },
-      suggestions,
+      ...basePayload,
+      reply: openaiResult.reply,
     });
   } catch (error) {
     console.error("[mascot-chat] error", error);
+    console.info(
+      `[mascot-chat] requestId=${requestId} status=500 flags:client=${flagStatus.clientEnabled} server=${flagStatus.serverEnabled} key=${hasOpenAIKey}`
+    );
     return response({
-      reply: "I hit a snag pulling that. Try again in a moment.",
+      reply: "AI is temporarily unavailable. Please try again soon.",
       mood: "ERROR",
       results: { type: "none", items: [] },
       suggestions: [],

@@ -30,7 +30,9 @@ const tooltipKey = "ghd_mascot_tooltip_shown";
 const welcomeKey = "ghd_mascot_welcome_seen";
 
 export default function MascotWidget() {
-  const enabled = process.env.NEXT_PUBLIC_MASCOT_ENABLED === "true";
+  const enabled =
+    process.env.NEXT_PUBLIC_MASCOT_ENABLED === "true" ||
+    process.env.NEXT_PUBLIC_MASCOT_AI_ENABLED === "true";
   const pathname = usePathname() || "/";
   const [role, setRole] = useState<MascotUserRole>(initialRole);
   const [isOpen, setIsOpen] = useState(false);
@@ -148,7 +150,10 @@ export default function MascotWidget() {
           userRole: role,
         }),
       });
-      const payload: MascotApiResponse = await response.json();
+      const payload: MascotApiResponse | null = await response.json().catch(() => null);
+      if (!response.ok || !payload?.reply) {
+        throw new Error("Mascot API unavailable");
+      }
       const nextIndex = assistantCount + 1;
       const micro = pickMicroLine({
         mascot,
@@ -182,8 +187,8 @@ export default function MascotWidget() {
         {
           id: `assistant-${Date.now()}`,
           role: "assistant",
-          content: "I hit a snag pulling that. Try again in a moment.",
-          mood: "ERROR",
+          content: "AI is temporarily unavailable right now. Please try again in a moment.",
+          mood: "BLOCKED",
           microLine: null,
         },
       ]);
