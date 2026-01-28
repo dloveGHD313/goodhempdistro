@@ -105,11 +105,6 @@ export const jaxSpec = {
     min: 3,
     max: 5,
   },
-  complianceNotes: [
-    "No medical advice or dosage guidance.",
-    "No illegal or bypass instructions.",
-    "Guide users to compliant, verified flows only.",
-  ],
   slangBlockedMoods: ["ERROR", "BLOCKED", "COMPLIANCE", "LEGAL", "URGENT"] as MascotMood[],
   moodMoves: {
     CHILL: "idle_bounce",

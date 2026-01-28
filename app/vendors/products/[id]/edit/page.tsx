@@ -21,7 +21,9 @@ type Product = {
 export default function EditProductPage() {
   const router = useRouter();
   const params = useParams();
-  const productId = params?.id as string;
+  const rawId = params?.id;
+  const productId =
+    typeof rawId === "string" ? rawId : Array.isArray(rawId) ? rawId[0] : "";
 
   const [product, setProduct] = useState<Product | null>(null);
   const [name, setName] = useState("");
@@ -97,6 +99,25 @@ export default function EditProductPage() {
       loadData();
     }
   }, [productId]);
+
+  if (!productId) {
+    return (
+      <div className="min-h-screen text-white flex flex-col">
+        <main className="flex-1 section-shell">
+          <div className="card-glass p-6">
+            <h1 className="text-2xl font-semibold mb-2 text-accent">Product not found</h1>
+            <p className="text-muted mb-4">
+              We couldn't load this product. Please return to your products list and try again.
+            </p>
+            <Link href="/vendors/products" className="btn-primary inline-flex">
+              Back to products
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   useEffect(() => {
     async function loadSubscriptionStatus() {

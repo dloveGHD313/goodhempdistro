@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const siteUrl = getSiteUrl();
+    const siteUrl = getSiteUrl(req);
 
     // Create checkout session for vendor package
     const session = await stripe.checkout.sessions.create({
@@ -46,8 +46,8 @@ export async function POST(req: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: `${siteUrl}/orders/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/orders/cancel`,
+      success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${siteUrl}/pricing?canceled=1`,
       client_reference_id: userId,
       metadata: {
         package_type: "vendor",

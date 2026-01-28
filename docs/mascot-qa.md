@@ -42,6 +42,7 @@
 7. **Safety**
    - Ask for medical advice or dosage
    - Confirm compliance-safe response with no results
+   - No illegal/bypass guidance is provided
 
 8. **AI availability**
    - With valid `OPENAI_API_KEY`, send a typed message and tap a chip
@@ -53,6 +54,7 @@
    - Logged IN: Join Free hidden, Account accessible, Logout easy to reach
    - Logged IN (free): Primary CTA points to Feed
    - Logged IN (vendor): Primary CTA points to Vendor Dashboard
+   - Account link routes to `/login` when logged out
 
 ## Expected Behaviors
 - No console errors

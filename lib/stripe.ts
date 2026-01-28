@@ -35,15 +35,25 @@ export const stripe = new Proxy({} as Stripe, {
  * Get the site URL for redirects
  * Uses NEXT_PUBLIC_SITE_URL in production, falls back to localhost in dev
  */
-export function getSiteUrl(): string {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-  
-  if (siteUrl) {
-    // Ensure no trailing slash
-    return siteUrl.replace(/\/$/, "");
+export function getSiteUrl(request?: { headers: Headers }): string {
+  const envUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (envUrl) {
+    return envUrl.replace(/\/$/, "");
   }
-  
-  // Development fallback
+
+  const origin = request?.headers.get("origin")?.trim();
+  if (origin) {
+    return origin.replace(/\/$/, "");
+  }
+
+  const host =
+    request?.headers.get("x-forwarded-host")?.trim() ||
+    request?.headers.get("host")?.trim();
+  if (host) {
+    const proto = request?.headers.get("x-forwarded-proto")?.trim() || "https";
+    return `${proto}://${host}`.replace(/\/$/, "");
+  }
+
   return process.env.NODE_ENV === "production"
     ? "https://goodhempdistro.vercel.app"
     : "http://localhost:3000";

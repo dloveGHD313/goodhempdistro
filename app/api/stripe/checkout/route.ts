@@ -15,7 +15,7 @@ type CheckoutPayload = {
 
 export async function POST(req: NextRequest) {
   try {
-    if (!validateEnvVars(["STRIPE_SECRET_KEY", "NEXT_PUBLIC_SITE_URL"], "stripe/checkout")) {
+    if (!validateEnvVars(["STRIPE_SECRET_KEY"], "stripe/checkout")) {
       return NextResponse.json(
         { error: "Stripe configuration is missing" },
         { status: 500 }
@@ -65,14 +65,14 @@ export async function POST(req: NextRequest) {
         .eq("id", vendor.id);
     }
 
-    const siteUrl = getSiteUrl();
+    const siteUrl = getSiteUrl(req);
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: stripeCustomerId,
       payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
       allow_promotion_codes: true,
-      success_url: `${siteUrl}/pricing?success=1`,
+      success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/pricing?canceled=1`,
       client_reference_id: user.id,
       metadata: {

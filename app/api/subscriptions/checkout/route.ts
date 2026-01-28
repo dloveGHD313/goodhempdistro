@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const siteUrl = getSiteUrl();
+    const siteUrl = getSiteUrl(req);
     const priceId = plan.priceId;
 
     // Create Stripe checkout session for subscription
@@ -104,8 +104,8 @@ export async function POST(req: NextRequest) {
       payment_method_types: ["card"],
       client_reference_id: user.id,
       customer: stripeCustomerId || undefined,
-      success_url: `${siteUrl}/account/subscription?success=1`,
-      cancel_url: `${siteUrl}/pricing?tab=consumer&canceled=1`,
+      success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${siteUrl}/pricing?canceled=1`,
       metadata: {
         plan_type: "consumer",
         consumer_plan_key: plan.planKey,
