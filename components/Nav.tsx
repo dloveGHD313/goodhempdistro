@@ -88,7 +88,7 @@ export default function Nav() {
     window.location.href = "/";
   }, []);
 
-  const accountHref = "/account";
+  const accountHref = isLoggedIn ? "/account" : "/login";
   const showBilling = vendorStatus.isSubscribed || vendorStatus.isAdmin;
   const isVendorUser = vendorStatus.isVendor || vendorStatus.isAdmin;
   const isVendorSubscribed = vendorStatus.isSubscribed || vendorStatus.isAdmin;
