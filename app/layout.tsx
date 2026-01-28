@@ -7,7 +7,8 @@ import { brand, colorVars } from "@/lib/brand";
 import Nav from "@/components/Nav";
 import AgeGateClient from "@/components/AgeGateClient";
 import RecoveryHashRedirect from "@/components/RecoveryHashRedirect";
-import MascotMount from "@/components/mascot/MascotMount";
+import { logMascotFlagMismatch } from "@/lib/mascotFlags";
+import MascotMountClient from "@/components/mascot/MascotMountClient";
 
 // Validate environment variables at startup (logs warnings, doesn't throw)
 if (typeof window === "undefined") {
@@ -60,9 +61,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const themeVars = colorVars as CSSProperties;
-  const mascotEnabled =
-    process.env.NEXT_PUBLIC_MASCOT_ENABLED === "true" &&
-    process.env.MASCOT_AI_ENABLED === "true";
+  const { clientEnabled, serverEnabled } = logMascotFlagMismatch("layout");
+  const mascotEnabled = clientEnabled && serverEnabled;
 
   return (
     <html lang="en" style={themeVars}>
@@ -74,7 +74,7 @@ export default function RootLayout({
           </div>
         </header>
         {children}
-        {mascotEnabled ? <MascotMount /> : null}
+        {mascotEnabled ? <MascotMountClient /> : null}
         <AgeGateClient />
         <RecoveryHashRedirect />
       </body>
