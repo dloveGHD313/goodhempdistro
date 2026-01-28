@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { brand } from "@/lib/brand";
 import BrandLogo from "@/components/BrandLogo";
@@ -27,6 +28,7 @@ const businessLinksBase = [
 ];
 
 export default function Nav() {
+  const router = useRouter();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -39,6 +41,11 @@ export default function Nav() {
     isSubscribed: boolean;
     isAdmin: boolean;
   }>({ isSubscribed: false, isAdmin: false });
+  const [driverStatus, setDriverStatus] = useState<{
+    hasAccess: boolean;
+    isApproved: boolean;
+  }>({ hasAccess: false, isApproved: false });
+  const [isAffiliate, setIsAffiliate] = useState(false);
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -52,14 +59,18 @@ export default function Nav() {
         setVendorStatus({ isVendor: false, isSubscribed: false, isAdmin: false });
         setConsumerStatus({ isSubscribed: false, isAdmin: false });
         setIsAdmin(false);
+        setDriverStatus({ hasAccess: false, isApproved: false });
+        setIsAffiliate(false);
         return;
       }
 
       let response: Response | null = null;
       let consumerResponse: Response | null = null;
+      let driverResponse: Response | null = null;
       try {
         response = await fetch("/api/vendor/status", { cache: "no-store" });
         consumerResponse = await fetch("/api/consumer/status", { cache: "no-store" });
+        driverResponse = await fetch("/api/driver/me", { cache: "no-store" });
       } catch (err) {
         console.error("[Nav] vendor status fetch failed", err);
       }
@@ -90,6 +101,29 @@ export default function Nav() {
       } else {
         setConsumerStatus({ isSubscribed: false, isAdmin: false });
       }
+
+      if (driverResponse && driverResponse.ok) {
+        const payload = await driverResponse.json();
+        setDriverStatus({
+          hasAccess: Boolean(payload?.driver || payload?.application),
+          isApproved: payload?.driver?.status === "approved",
+        });
+      } else {
+        setDriverStatus({ hasAccess: false, isApproved: false });
+      }
+
+      try {
+        const { data: affiliate } = await supabase
+          .from("affiliates")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (!active) return;
+        setIsAffiliate(Boolean(affiliate?.id));
+      } catch (err) {
+        console.warn("[Nav] affiliate lookup failed", err);
+        setIsAffiliate(false);
+      }
     };
 
     supabase.auth.getUser().then(({ data }) => refreshStatus(data.user ?? null));
@@ -106,7 +140,9 @@ export default function Nav() {
   }, []);
 
   const handleLogout = useCallback(async () => {
+    const supabase = createSupabaseBrowserClient();
     try {
+      await supabase.auth.signOut();
       await fetch("/api/auth/logout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -114,8 +150,16 @@ export default function Nav() {
     } catch {
       // Ignore errors – still redirect
     }
-    window.location.href = "/";
-  }, []);
+    setDrawerOpen(false);
+    setIsLoggedIn(false);
+    setVendorStatus({ isVendor: false, isSubscribed: false, isAdmin: false });
+    setConsumerStatus({ isSubscribed: false, isAdmin: false });
+    setIsAdmin(false);
+    setDriverStatus({ hasAccess: false, isApproved: false });
+    setIsAffiliate(false);
+    router.replace("/");
+    router.refresh();
+  }, [router]);
 
   const accountHref = isLoggedIn ? "/account" : "/login";
   const showBilling = vendorStatus.isSubscribed || vendorStatus.isAdmin;
@@ -140,24 +184,20 @@ export default function Nav() {
       ? { label: "⭐ My Subscription", href: "/account/subscription" }
       : { label: "⬆️ Upgrade", href: "/pricing?tab=consumer" };
 
-  const consumerRewardsLink =
-    consumerStatus.isSubscribed || consumerStatus.isAdmin
-      ? { label: "🎁 Rewards", href: "/account/subscription" }
-      : null;
-
   const primaryCta = isLoggedIn
     ? isVendorUser
       ? { label: "Vendor Dashboard", href: "/vendors/dashboard" }
-      : { label: "Go to Feed", href: "/newsfeed" }
+      : driverStatus.hasAccess
+        ? { label: "Driver Portal", href: "/driver/dashboard" }
+        : isAffiliate
+          ? { label: "Affiliate", href: "/affiliate" }
+          : { label: "Go to Feed", href: "/newsfeed" }
     : { label: "Join Free", href: "/get-started" };
 
-  const secondaryCta = isLoggedIn
-    ? isVendorUser
-      ? { label: "Vendor Pricing", href: "/pricing?tab=vendor" }
-      : consumerStatus.isSubscribed || consumerStatus.isAdmin
-        ? { label: "Explore Vendors", href: "/vendors" }
-        : { label: "Upgrade", href: "/pricing?tab=consumer" }
-    : null;
+  const secondaryCta =
+    isLoggedIn && primaryCta.href !== "/newsfeed"
+      ? { label: "Go to Feed", href: "/newsfeed" }
+      : null;
 
   const businessLinks = [
     ...businessLinksBase.filter((link) => link.href !== vendorLink.href),

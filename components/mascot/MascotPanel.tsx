@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import type { MascotContext, MascotId } from "./config";
+import type { MascotContext, MascotId, MascotMove } from "./config";
 import { mascotAssets } from "./config";
 import MascotAvatar from "./MascotAvatar";
 import { getMoveForMood } from "./mood";
@@ -21,6 +21,7 @@ type Props = {
   headerLabel: string;
   headerTitle: string;
   headerTagline: string;
+  moveOverride?: MascotMove | null;
 };
 
 export default function MascotPanel({
@@ -36,6 +37,7 @@ export default function MascotPanel({
   headerLabel,
   headerTitle,
   headerTagline,
+  moveOverride,
 }: Props) {
   const [input, setInput] = useState("");
   const asset = mascotAssets[mascot];
@@ -43,7 +45,7 @@ export default function MascotPanel({
     const last = [...messages].reverse().find((msg) => msg.role === "assistant");
     return last?.mood || "CHILL";
   }, [messages]);
-  const avatarMove = isTyping ? "typing_pulse" : getMoveForMood(lastMood);
+  const avatarMove = moveOverride ?? (isTyping ? "typing_pulse" : getMoveForMood(lastMood));
 
   const handleSubmit = () => {
     const value = input.trim();

@@ -35,8 +35,8 @@ export const mascotByContext: Record<MascotContext, MascotId> = {
   SHOP: "JAX",
   EVENTS: "JAX",
   VENDOR: "JAX",
-  DELIVERY_DRIVER: "MILES",
-  B2B_LOGISTICS: "ATLAS",
+  DELIVERY_DRIVER: "JAX",
+  B2B_LOGISTICS: "JAX",
   GENERIC: "JAX",
 };
 

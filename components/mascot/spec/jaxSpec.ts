@@ -11,7 +11,7 @@ export const jaxSpec = {
   },
   personas: {
     JAX_CONSUMER: {
-      name: "Jax",
+      name: "JAX",
       tagline: "Community concierge",
       avatarSources: [
         "/mascot/jax/consumer/idle.png",
@@ -68,7 +68,7 @@ export const jaxSpec = {
       ],
     },
     JAX_VENDOR: {
-      name: "Jax",
+      name: "JAX",
       tagline: "Vendor ops support",
       avatarSources: [
         "/mascot/jax/vendor/idle.png",
