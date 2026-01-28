@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import type { MascotContext } from "./config";
-import { mascotByContext, quickRepliesByContext } from "./config";
+import { mascotByContext, mascotAssets, quickRepliesByContext } from "./config";
 import { detectContext, type MascotUserRole } from "./context";
 import MascotPanel from "./MascotPanel";
 import type { MascotMessage, MascotResults } from "./types";
 import { pickMicroLine } from "./microLines";
+import { getJaxAvatarSources, getJaxPersona, jaxSpec } from "./spec/jaxSpec";
 
 type MascotApiResponse = {
   reply: string;
@@ -28,6 +29,15 @@ const initialRole: MascotUserRole = {
 
 const tooltipKey = "ghd_mascot_tooltip_shown";
 const welcomeKey = "ghd_mascot_welcome_seen";
+const contextLabels: Record<MascotContext, string> = {
+  FEED: "Feed",
+  SHOP: "Shop",
+  EVENTS: "Events",
+  VENDOR: "Vendor",
+  DELIVERY_DRIVER: "Driver",
+  B2B_LOGISTICS: "Logistics",
+  GENERIC: "Guide",
+};
 
 export default function MascotWidget() {
   const enabled =
@@ -44,6 +54,18 @@ export default function MascotWidget() {
 
   const context: MascotContext = useMemo(() => detectContext(pathname, role), [pathname, role]);
   const mascot = mascotByContext[context];
+  const persona = mascot === "JAX" ? getJaxPersona(context, role) : null;
+  const asset = mascotAssets[mascot];
+  const avatarSources = mascot === "JAX" ? getJaxAvatarSources(persona ?? "JAX_CONSUMER") : undefined;
+  const headerLabel =
+    mascot === "JAX"
+      ? persona === "JAX_VENDOR"
+        ? jaxSpec.header.vendorSubtitle
+        : jaxSpec.header.consumerSubtitle
+      : `${asset.name} · ${contextLabels[context]}`;
+  const headerTitle = mascot === "JAX" ? jaxSpec.header.title : `${asset.name} Mascot AI`;
+  const headerTagline =
+    mascot === "JAX" ? jaxSpec.personas[persona ?? "JAX_CONSUMER"].tagline : asset.tagline;
   const quickReplies = quickRepliesByContext[context];
 
   useEffect(() => {
@@ -163,6 +185,7 @@ export default function MascotWidget() {
         signatureMode: payload.reply.includes("?") ? "clarify" : "ack",
         previousSignatureAt: signatureNextAt,
         messageIndex: nextIndex,
+        persona: mascot === "JAX" ? persona ?? "JAX_CONSUMER" : undefined,
       });
 
       setAssistantCount(nextIndex);
@@ -213,6 +236,10 @@ export default function MascotWidget() {
         isTyping={isTyping}
         quickReplies={quickReplies}
         messages={messages}
+        avatarSources={avatarSources}
+        headerLabel={headerLabel}
+        headerTitle={headerTitle}
+        headerTagline={headerTagline}
       />
     </div>
   );

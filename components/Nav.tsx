@@ -90,6 +90,8 @@ export default function Nav() {
 
   const accountHref = "/account";
   const showBilling = vendorStatus.isSubscribed || vendorStatus.isAdmin;
+  const isVendorUser = vendorStatus.isVendor || vendorStatus.isAdmin;
+  const isVendorSubscribed = vendorStatus.isSubscribed || vendorStatus.isAdmin;
 
   const vendorLink = vendorStatus.isAdmin
     ? { label: "🏪 Vendor Dashboard", href: "/vendors/dashboard" }
@@ -112,6 +114,20 @@ export default function Nav() {
     consumerStatus.isSubscribed || consumerStatus.isAdmin
       ? { label: "🎁 Rewards", href: "/account/subscription" }
       : null;
+
+  const primaryCta = isLoggedIn
+    ? isVendorUser
+      ? { label: "Vendor Dashboard", href: "/vendors/dashboard" }
+      : { label: "Go to Feed", href: "/newsfeed" }
+    : { label: "Join Free", href: "/get-started" };
+
+  const secondaryCta = isLoggedIn
+    ? isVendorUser
+      ? { label: "Vendor Pricing", href: "/pricing?tab=vendor" }
+      : consumerStatus.isSubscribed || consumerStatus.isAdmin
+        ? { label: "Explore Vendors", href: "/vendors" }
+        : { label: "Upgrade", href: "/pricing?tab=consumer" }
+    : null;
 
   const businessLinks = [
     ...businessLinksBase.filter((link) => link.href !== vendorLink.href),
@@ -223,11 +239,16 @@ export default function Nav() {
         )}
       </div>
 
-      {/* Mobile/Tablet: Join Free + Menu Hamburger */}
+      {/* Mobile/Tablet: CTA + Account + Menu Hamburger */}
       <div className="flex items-center gap-2 lg:hidden">
-        <Link href="/get-started" className="btn-primary text-sm py-2 px-4">
-          Join Free
+        <Link href={primaryCta.href} className="btn-primary text-sm py-2 px-4">
+          {primaryCta.label}
         </Link>
+        {isLoggedIn && (
+          <Link href={accountHref} className="btn-ghost text-sm py-2 px-3">
+            Account
+          </Link>
+        )}
         <button
           type="button"
           aria-label="Open Menu"
@@ -239,7 +260,7 @@ export default function Nav() {
         </button>
       </div>
 
-      {/* Desktop: Join / Logout */}
+      {/* Desktop: CTA / Logout */}
       <div className="hidden lg:flex items-center gap-4">
         {isLoggedIn && (
           <button
@@ -250,8 +271,13 @@ export default function Nav() {
             Logout
           </button>
         )}
-        <Link href="/get-started" className="btn-primary text-sm py-2 px-4">
-          Join Free
+        {secondaryCta && (
+          <Link href={secondaryCta.href} className="btn-ghost text-sm py-2 px-4">
+            {secondaryCta.label}
+          </Link>
+        )}
+        <Link href={primaryCta.href} className="btn-primary text-sm py-2 px-4">
+          {primaryCta.label}
         </Link>
       </div>
 
@@ -284,14 +310,23 @@ export default function Nav() {
 
             {/* Drawer Content */}
             <div className="p-6 flex flex-col gap-2">
-              {/* Prominent Get Started in drawer */}
+              {/* Prominent CTA in drawer */}
               <Link
-                href="/get-started"
-                className="btn-primary text-center py-3 mb-4 font-bold"
+                href={primaryCta.href}
+                className="btn-primary text-center py-3 mb-3 font-bold"
                 onClick={() => setDrawerOpen(false)}
               >
-                🚀 Join Free
+                🚀 {primaryCta.label}
               </Link>
+              {secondaryCta && (
+                <Link
+                  href={secondaryCta.href}
+                  className="btn-ghost text-center py-2 mb-4 font-semibold"
+                  onClick={() => setDrawerOpen(false)}
+                >
+                  {secondaryCta.label}
+                </Link>
+              )}
 
               <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Primary</div>
               {primaryLinks.map((link) => (

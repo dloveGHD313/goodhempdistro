@@ -126,7 +126,7 @@ export default async function ProductsPage({
               <div>
                 <p className="text-xs uppercase tracking-[0.3em] text-muted mb-2">Local-first Shop</p>
                 <h1 className="text-4xl font-bold mb-3 text-accent">
-                  {vendorName ? `Products from ${vendorName}` : "DoorDash-style Hemp Discovery"}
+                  {vendorName ? `Products from ${vendorName}` : "Local Hemp Discovery, Verified & Smooth"}
                 </h1>
                 <p className="text-muted max-w-2xl">
                   {vendorName
