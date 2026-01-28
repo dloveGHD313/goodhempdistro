@@ -17,16 +17,10 @@ type Props = {
   isTyping: boolean;
   quickReplies: string[];
   messages: MascotMessage[];
-};
-
-const contextLabels: Record<MascotContext, string> = {
-  FEED: "Feed",
-  SHOP: "Shop",
-  EVENTS: "Events",
-  VENDOR: "Vendor",
-  DELIVERY_DRIVER: "Driver",
-  B2B_LOGISTICS: "Logistics",
-  GENERIC: "Guide",
+  avatarSources?: readonly string[];
+  headerLabel: string;
+  headerTitle: string;
+  headerTagline: string;
 };
 
 export default function MascotPanel({
@@ -38,6 +32,10 @@ export default function MascotPanel({
   isTyping,
   quickReplies,
   messages,
+  avatarSources,
+  headerLabel,
+  headerTitle,
+  headerTagline,
 }: Props) {
   const [input, setInput] = useState("");
   const asset = mascotAssets[mascot];
@@ -45,6 +43,7 @@ export default function MascotPanel({
     const last = [...messages].reverse().find((msg) => msg.role === "assistant");
     return last?.mood || "CHILL";
   }, [messages]);
+  const avatarMove = isTyping ? "typing_pulse" : getMoveForMood(lastMood);
 
   const handleSubmit = () => {
     const value = input.trim();
@@ -59,13 +58,11 @@ export default function MascotPanel({
         <div className="mascot-panel card-glass" role="dialog" aria-label="Mascot assistant">
           <div className="mascot-panel-header">
             <div className="mascot-panel-title">
-              <MascotAvatar mascot={mascot} move={getMoveForMood(lastMood)} />
+              <MascotAvatar mascot={mascot} move={avatarMove} sources={avatarSources} />
               <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-muted">
-                  {asset.name} · {contextLabels[context]}
-                </p>
-                <h3 className="text-lg font-semibold text-accent">GHD Mascot AI</h3>
-                <p className="text-xs text-muted">{asset.tagline}</p>
+                <p className="text-xs uppercase tracking-[0.3em] text-muted">{headerLabel}</p>
+                <h3 className="text-lg font-semibold text-accent">{headerTitle}</h3>
+                <p className="text-xs text-muted">{headerTagline}</p>
               </div>
             </div>
             <button type="button" className="mascot-close" onClick={onToggle} aria-label="Minimize">
@@ -159,7 +156,7 @@ export default function MascotPanel({
         onClick={onToggle}
         aria-label="Open mascot assistant"
       >
-        <MascotAvatar mascot={mascot} size={40} move={getMoveForMood(lastMood)} />
+        <MascotAvatar mascot={mascot} size={40} move={avatarMove} sources={avatarSources} />
         <span className="mascot-bubble-text">Ask {asset.name}</span>
       </button>
     </div>

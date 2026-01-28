@@ -4,6 +4,7 @@
 - Set `NEXT_PUBLIC_MASCOT_ENABLED=true`
 - Set `MASCOT_AI_ENABLED=true`
 - Set both to `false` to confirm nothing renders
+- With flags off, confirm no mascot UI renders across routes
 
 ## Manual Scenarios
 1. **Home / Feed**
@@ -26,6 +27,7 @@
    - Visit `/vendors/dashboard`
    - Ask: "Upload COA"
    - Confirm response shows vendor help links
+   - Confirm vendor persona uses professional language (no slang)
 
 5. **Driver context**
    - Visit `/driver/dashboard` with an approved driver
@@ -41,8 +43,20 @@
    - Ask for medical advice or dosage
    - Confirm compliance-safe response with no results
 
+8. **AI availability**
+   - With valid `OPENAI_API_KEY`, send a typed message and tap a chip
+   - Confirm no "AI is temporarily unavailable" response
+   - Temporarily remove key and confirm structured fallback response
+
+9. **Mobile navigation**
+   - Logged OUT: Join Free visible
+   - Logged IN: Join Free hidden, Account accessible, Logout easy to reach
+   - Logged IN (free): Primary CTA points to Feed
+   - Logged IN (vendor): Primary CTA points to Vendor Dashboard
+
 ## Expected Behaviors
 - No console errors
 - Widget never blocks page load
 - Quick reply chips match context
 - No slang in ERROR/BLOCKED/COMPLIANCE/LEGAL/URGENT moods
+- `/api/mascot-chat` always returns structured JSON

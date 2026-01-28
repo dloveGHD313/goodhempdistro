@@ -6,13 +6,18 @@ import { mascotAssets } from "./config";
 
 type Props = {
   mascot: MascotId;
+  sources?: readonly string[];
   size?: number;
   move?: string;
 };
 
-export default function MascotAvatar({ mascot, size = 48, move }: Props) {
+export default function MascotAvatar({ mascot, sources, size = 48, move }: Props) {
   const asset = mascotAssets[mascot];
-  const [src, setSrc] = useState(asset.idleSrc);
+  const fallbackSources = sources?.length
+    ? [...sources]
+    : [asset.idleSrc, asset.fallbackSrc].filter(Boolean);
+  const [sourceIndex, setSourceIndex] = useState(0);
+  const src = fallbackSources[sourceIndex] || asset.fallbackSrc;
 
   return (
     <div className="mascot-avatar" data-move={move} style={{ width: size, height: size }}>
@@ -22,7 +27,11 @@ export default function MascotAvatar({ mascot, size = 48, move }: Props) {
         width={size}
         height={size}
         loading="lazy"
-        onError={() => setSrc(asset.fallbackSrc)}
+        onError={() => {
+          setSourceIndex((current) =>
+            current + 1 < fallbackSources.length ? current + 1 : current
+          );
+        }}
       />
     </div>
   );

@@ -49,7 +49,7 @@ export function detectContext(pathname: string, role: MascotUserRole): MascotCon
     return role.isLogistics ? "B2B_LOGISTICS" : "GENERIC";
   }
 
-  if (role.isVendor && role.isVendorSubscribed) {
+  if (role.isVendor || role.isAdmin) {
     return "VENDOR";
   }
 

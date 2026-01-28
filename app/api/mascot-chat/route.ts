@@ -10,6 +10,7 @@ import { getDriverDeliveries } from "@/server/mascot/tools/getDriverDeliveries";
 import { getLogisticsLoads } from "@/server/mascot/tools/getLogisticsLoads";
 import { getOrderDetails } from "@/server/mascot/tools/getOrderDetails";
 import { logMascotFlagMismatch } from "@/lib/mascotFlags";
+import { setMascotLastError } from "@/lib/mascotDiagnostics";
 
 type MascotMessage = { role: "user" | "assistant"; content: string };
 
@@ -73,39 +74,88 @@ const buildSystemPrompt = (params: {
   ].join("\n");
 };
 
+const isTransientStatus = (status?: number) =>
+  status === 408 || status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+
+const timeoutMs = 12000;
+
 const openaiChat = async (params: {
   apiKey: string;
   model: string;
   systemPrompt: string;
   messages: MascotMessage[];
 }) => {
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${params.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: params.model,
-      temperature: 0.4,
-      messages: [
-        { role: "system", content: params.systemPrompt },
-        ...params.messages.slice(-6),
-      ],
-    }),
-  });
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${params.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: params.model,
+          temperature: 0.4,
+          messages: [
+            { role: "system", content: params.systemPrompt },
+            ...params.messages.slice(-6),
+          ],
+        }),
+      });
 
-  if (!response.ok) {
-    return { ok: false as const, status: response.status };
+      if (!response.ok) {
+        if (attempt === 0 && isTransientStatus(response.status)) {
+          continue;
+        }
+        return {
+          ok: false as const,
+          status: response.status,
+          errorName: "OpenAIResponseError",
+          errorMessage: `OpenAI status ${response.status}`,
+        };
+      }
+
+      const data = await response.json();
+      const reply = data?.choices?.[0]?.message?.content?.trim();
+      if (!reply) {
+        if (attempt === 0) {
+          continue;
+        }
+        return {
+          ok: false as const,
+          status: response.status,
+          errorName: "OpenAIEmptyReply",
+          errorMessage: "OpenAI returned no reply",
+        };
+      }
+
+      return { ok: true as const, status: response.status, reply };
+    } catch (error) {
+      const errorName = error instanceof Error ? error.name : "UnknownError";
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      if (attempt === 0) {
+        continue;
+      }
+      return {
+        ok: false as const,
+        status: undefined,
+        errorName,
+        errorMessage,
+      };
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
-  const data = await response.json();
-  const reply = data?.choices?.[0]?.message?.content?.trim();
-  if (!reply) {
-    return { ok: false as const, status: response.status };
-  }
-
-  return { ok: true as const, status: response.status, reply };
+  return {
+    ok: false as const,
+    status: undefined,
+    errorName: "OpenAIUnknown",
+    errorMessage: "OpenAI request failed",
+  };
 };
 
 export async function POST(req: NextRequest) {
@@ -129,6 +179,11 @@ export async function POST(req: NextRequest) {
   }
 
   if (!hasOpenAIKey) {
+    setMascotLastError({
+      name: "MissingOpenAIKey",
+      message: "OPENAI_API_KEY is not set",
+      at: new Date().toISOString(),
+    });
     console.info(
       `[mascot-chat] requestId=${requestId} status=200 flags:client=${flagStatus.clientEnabled} server=${flagStatus.serverEnabled} key=${hasOpenAIKey}`
     );
@@ -281,8 +336,14 @@ export async function POST(req: NextRequest) {
     });
 
     if (!openaiResult.ok) {
+      setMascotLastError({
+        name: openaiResult.errorName,
+        message: openaiResult.errorMessage,
+        status: openaiResult.status,
+        at: new Date().toISOString(),
+      });
       console.warn(
-        `[mascot-chat] requestId=${requestId} status=200 openaiStatus=${openaiResult.status} flags:client=${flagStatus.clientEnabled} server=${flagStatus.serverEnabled} key=${hasOpenAIKey}`
+        `[mascot-chat] requestId=${requestId} status=200 openaiStatus=${openaiResult.status ?? "n/a"} error=${openaiResult.errorName} flags:client=${flagStatus.clientEnabled} server=${flagStatus.serverEnabled} key=${hasOpenAIKey}`
       );
       return unavailableResponse(
         "AI is temporarily unavailable. Please try again soon.",
@@ -290,6 +351,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    setMascotLastError(null);
     console.info(
       `[mascot-chat] requestId=${requestId} status=200 flags:client=${flagStatus.clientEnabled} server=${flagStatus.serverEnabled} key=${hasOpenAIKey}`
     );
@@ -299,6 +361,13 @@ export async function POST(req: NextRequest) {
       reply: openaiResult.reply,
     });
   } catch (error) {
+    const errorName = error instanceof Error ? error.name : "UnknownError";
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    setMascotLastError({
+      name: errorName,
+      message: errorMessage,
+      at: new Date().toISOString(),
+    });
     console.error("[mascot-chat] error", error);
     console.info(
       `[mascot-chat] requestId=${requestId} status=500 flags:client=${flagStatus.clientEnabled} server=${flagStatus.serverEnabled} key=${hasOpenAIKey}`

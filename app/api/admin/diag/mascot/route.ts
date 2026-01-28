@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { getMascotFlagStatus } from "@/lib/mascotFlags";
+import { getMascotLastError } from "@/lib/mascotDiagnostics";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -19,6 +20,7 @@ export async function GET(req: NextRequest) {
     const openaiModel = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
     const openaiSearchModel = process.env.OPENAI_SEARCH_MODEL?.trim() || "";
     const hasOpenAIKey = Boolean(process.env.OPENAI_API_KEY?.trim());
+    const lastError = getMascotLastError();
 
     console.log(
       `[admin/diag/mascot] Admin ${adminCheck.user.id} checked mascot status. client=${flagStatus.clientEnabled} server=${flagStatus.serverEnabled}`
@@ -31,6 +33,8 @@ export async function GET(req: NextRequest) {
         hasOpenAIKey,
         openaiModel,
         openaiSearchModel,
+        runtime,
+        lastError,
       },
       {
         headers: {

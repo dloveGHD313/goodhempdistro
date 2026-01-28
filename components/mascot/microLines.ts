@@ -1,38 +1,5 @@
 import type { MascotContext, MascotId, MascotMood } from "./config";
-
-export const jaxContextLines: Record<
-  Exclude<MascotContext, "VENDOR" | "DELIVERY_DRIVER" | "B2B_LOGISTICS">,
-  string[]
-> = {
-  FEED: [
-    "Searching the feed now.",
-    "I'll pull the real posts.",
-    "Let's see what people are saying.",
-    "Receipts coming up.",
-    "Feed don’t lie.",
-  ],
-  SHOP: [
-    "Scanning the marketplace.",
-    "Let's find the legit stuff.",
-    "Only real listings.",
-    "No funny business.",
-    "What are we hunting today?",
-  ],
-  EVENTS: [
-    "Checking the calendar.",
-    "Where we pulling up?",
-    "Events coming right up.",
-    "Let's see what's popping.",
-    "I'll line it up for you.",
-  ],
-  GENERIC: [
-    "Say less - I got you.",
-    "No stress.",
-    "Handled.",
-    "Let's keep it simple.",
-    "Point me where to look.",
-  ],
-};
+import { jaxSpec, type JaxPersona } from "./spec/jaxSpec";
 
 export const ledgerLines = [
   "Compliance comes first.",
@@ -58,20 +25,6 @@ export const atlasLines = [
   "Proceed with verified info.",
 ];
 
-export const jaxSignatureAcknowledgements = [
-  "I'm hip.",
-  "I'm hip - say less.",
-  "I'm hip, let's go.",
-  "I'm hip. One sec.",
-];
-
-export const jaxSignatureClarifications = [
-  "You hip?",
-  "You hip so far?",
-  "You hip with that?",
-  "You hip, or want me to break it down?",
-];
-
 const slugify = (value: string) => value.toLowerCase().replace(/\s+/g, "_");
 
 export type MicroLineInput = {
@@ -82,6 +35,7 @@ export type MicroLineInput = {
   signatureMode?: "ack" | "clarify";
   previousSignatureAt: number | null;
   messageIndex: number;
+  persona?: JaxPersona;
 };
 
 export type MicroLineOutput = {
@@ -89,7 +43,7 @@ export type MicroLineOutput = {
   nextSignatureAt: number | null;
 };
 
-const pickFrom = (lines: string[], seed: number) => {
+const pickFrom = (lines: readonly string[], seed: number) => {
   if (!lines.length) return null;
   const index = seed % lines.length;
   return lines[index];
@@ -103,39 +57,44 @@ export function pickMicroLine({
   signatureMode,
   previousSignatureAt,
   messageIndex,
+  persona,
 }: MicroLineInput): MicroLineOutput {
-  const blockedMoods = new Set(["ERROR", "BLOCKED", "COMPLIANCE", "LEGAL", "URGENT"]);
+  const blockedMoods = new Set(jaxSpec.slangBlockedMoods);
+  const jaxPersona = persona ?? "JAX_CONSUMER";
+  const jaxPersonaSpec = jaxSpec.personas[jaxPersona];
   const canUseSignature =
     mascot === "JAX" &&
     allowSignature &&
     !blockedMoods.has(mood) &&
+    jaxPersona === "JAX_CONSUMER" &&
     (previousSignatureAt === null || messageIndex >= previousSignatureAt);
 
   if (canUseSignature) {
     const pool =
-      signatureMode === "clarify" ? jaxSignatureClarifications : jaxSignatureAcknowledgements;
-    const nextCooldown = 3 + (messageIndex % 3);
+      signatureMode === "clarify"
+        ? jaxPersonaSpec.signatureClarifications
+        : jaxPersonaSpec.signatureAcknowledgements;
+    const cooldownSpan = jaxSpec.signatureCooldown.max - jaxSpec.signatureCooldown.min + 1;
+    const nextCooldown = jaxSpec.signatureCooldown.min + (messageIndex % cooldownSpan);
     return {
       line: pickFrom(pool, messageIndex) || null,
       nextSignatureAt: messageIndex + nextCooldown,
     };
   }
 
-  let lines: string[] = [];
+  let lines: readonly string[] = [];
   if (mascot === "LEDGER") {
     lines = ledgerLines;
   } else if (mascot === "MILES") {
     lines = milesLines;
   } else if (mascot === "ATLAS") {
     lines = atlasLines;
+  } else if (blockedMoods.has(mood)) {
+    lines = jaxPersonaSpec.blockedMoodLines;
   } else {
-    const key = (context === "FEED" ||
-      context === "SHOP" ||
-      context === "EVENTS" ||
-      context === "GENERIC"
-      ? context
-      : "GENERIC") as keyof typeof jaxContextLines;
-    lines = jaxContextLines[key] || jaxContextLines.GENERIC;
+    const lineMap = jaxPersonaSpec.microLinesByContext;
+    const key = (context in lineMap ? context : "GENERIC") as keyof typeof lineMap;
+    lines = lineMap[key] || lineMap.GENERIC;
   }
 
   const seed = Number.parseInt(slugify(`${context}-${mood}-${messageIndex}`), 36);
