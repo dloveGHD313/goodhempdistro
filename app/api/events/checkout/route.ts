@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create Stripe checkout session
-    const siteUrl = getSiteUrl();
+    const siteUrl = getSiteUrl(req);
     const lineItems = tickets.map((purchase) => {
       const ticketType = ticketTypeMap.get(purchase.ticket_type_id)!;
       return {

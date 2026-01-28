@@ -224,7 +224,7 @@ export default function MascotWidget() {
     <div className="mascot-widget">
       {showTooltip && !isOpen && (
         <div className="mascot-tooltip" role="status">
-          Need help navigating? Tap me anytime.
+          Need help finding posts, products, or events?
         </div>
       )}
       <MascotPanel

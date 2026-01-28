@@ -42,38 +42,67 @@ export default function Nav() {
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
-    supabase.auth.getUser().then(async ({ data }) => {
-      setIsLoggedIn(!!data.user);
-      if (data.user) {
-        let response: Response | null = null;
-        let consumerResponse: Response | null = null;
-        try {
-          response = await fetch("/api/vendor/status", { cache: "no-store" });
-          consumerResponse = await fetch("/api/consumer/status", { cache: "no-store" });
-        } catch (err) {
-          console.error("[Nav] vendor status fetch failed", err);
-        }
-        if (response && response.ok) {
-          const payload = await response.json();
-          setVendorStatus({
-            isVendor: Boolean(payload?.isVendor),
-            isSubscribed: Boolean(payload?.isSubscribed),
-            isAdmin: Boolean(payload?.isAdmin),
-          });
-          setIsAdmin(Boolean(payload?.isAdmin));
-        }
-        if (consumerResponse && consumerResponse.ok) {
-          const payload = await consumerResponse.json();
-          setConsumerStatus({
-            isSubscribed: Boolean(payload?.isSubscribed),
-            isAdmin: Boolean(payload?.isAdmin),
-          });
-        }
-      } else {
+    let active = true;
+
+    const refreshStatus = async (user: { id: string } | null) => {
+      if (!active) return;
+      setIsLoggedIn(Boolean(user));
+
+      if (!user) {
         setVendorStatus({ isVendor: false, isSubscribed: false, isAdmin: false });
         setConsumerStatus({ isSubscribed: false, isAdmin: false });
+        setIsAdmin(false);
+        return;
       }
-    });
+
+      let response: Response | null = null;
+      let consumerResponse: Response | null = null;
+      try {
+        response = await fetch("/api/vendor/status", { cache: "no-store" });
+        consumerResponse = await fetch("/api/consumer/status", { cache: "no-store" });
+      } catch (err) {
+        console.error("[Nav] vendor status fetch failed", err);
+      }
+
+      if (!active) return;
+
+      if (response && response.ok) {
+        const payload = await response.json();
+        setVendorStatus({
+          isVendor: Boolean(payload?.isVendor),
+          isSubscribed: Boolean(payload?.isSubscribed),
+          isAdmin: Boolean(payload?.isAdmin),
+        });
+        setIsAdmin(Boolean(payload?.isAdmin));
+      } else {
+        setVendorStatus({ isVendor: false, isSubscribed: false, isAdmin: false });
+      }
+
+      if (consumerResponse && consumerResponse.ok) {
+        const payload = await consumerResponse.json();
+        setConsumerStatus({
+          isSubscribed: Boolean(payload?.isSubscribed),
+          isAdmin: Boolean(payload?.isAdmin),
+        });
+        if (payload?.isAdmin) {
+          setIsAdmin(true);
+        }
+      } else {
+        setConsumerStatus({ isSubscribed: false, isAdmin: false });
+      }
+    };
+
+    supabase.auth.getUser().then(({ data }) => refreshStatus(data.user ?? null));
+    const authListener = supabase.auth.onAuthStateChange
+      ? supabase.auth.onAuthStateChange((_event, session) => {
+          refreshStatus(session?.user ?? null);
+        })
+      : null;
+
+    return () => {
+      active = false;
+      authListener?.data?.subscription?.unsubscribe?.();
+    };
   }, []);
 
   const handleLogout = useCallback(async () => {
@@ -93,16 +122,17 @@ export default function Nav() {
   const isVendorUser = vendorStatus.isVendor || vendorStatus.isAdmin;
   const isVendorSubscribed = vendorStatus.isSubscribed || vendorStatus.isAdmin;
 
-  const vendorLink = vendorStatus.isAdmin
+  const vendorLink = isVendorUser
     ? { label: "🏪 Vendor Dashboard", href: "/vendors/dashboard" }
-    : vendorStatus.isVendor
-      ? vendorStatus.isSubscribed
-        ? { label: "🏪 Vendor Dashboard", href: "/vendors/dashboard" }
-        : { label: "💳 Vendor Plans", href: "/pricing?tab=vendor&reason=subscription_required" }
-      : { label: "🤝 Vendor Registration", href: "/vendor-registration" };
+    : { label: "🤝 Vendor Registration", href: "/vendor-registration" };
 
-  const vendorLinks = vendorStatus.isAdmin
-    ? [vendorLink, { label: "💳 Vendor Plans", href: "/pricing?tab=vendor" }]
+  const vendorLinks = isVendorUser
+    ? [
+        vendorLink,
+        ...(isVendorSubscribed
+          ? []
+          : [{ label: "💳 Vendor Plans", href: "/pricing?tab=vendor&reason=subscription_required" }]),
+      ]
     : [vendorLink];
 
   const consumerLink =

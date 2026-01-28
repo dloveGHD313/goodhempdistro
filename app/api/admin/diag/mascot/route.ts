@@ -18,7 +18,8 @@ export async function GET(req: NextRequest) {
 
     const flagStatus = getMascotFlagStatus();
     const openaiModel = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
-    const openaiSearchModel = process.env.OPENAI_SEARCH_MODEL?.trim() || "";
+    const openaiSearchModel =
+      process.env.OPENAI_SEARCH_MODEL?.trim() || "gpt-4o-mini-search-preview";
     const hasOpenAIKey = Boolean(process.env.OPENAI_API_KEY?.trim());
     const lastError = getMascotLastError();
 

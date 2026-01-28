@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
         .eq("id", vendor.id);
     }
 
-    const siteUrl = getSiteUrl();
+    const siteUrl = getSiteUrl(req);
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: stripeCustomerId,
@@ -83,8 +83,8 @@ export async function POST(req: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: `${siteUrl}/vendors/dashboard?subscription=success`,
-      cancel_url: `${siteUrl}/pricing?subscription=cancelled`,
+      success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${siteUrl}/pricing?canceled=1`,
       client_reference_id: user.id,
       metadata: {
         plan_type: "vendor",

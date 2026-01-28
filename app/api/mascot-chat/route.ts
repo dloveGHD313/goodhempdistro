@@ -314,10 +314,13 @@ export async function POST(req: NextRequest) {
       };
     }
 
+    const openaiModel = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
+    const openaiSearchModel =
+      process.env.OPENAI_SEARCH_MODEL?.trim() || "gpt-4o-mini-search-preview";
     const model =
       intent === "product_search" || intent === "event_search" || intent === "feed_search"
-        ? process.env.OPENAI_SEARCH_MODEL?.trim() || process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini"
-        : process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
+        ? openaiSearchModel
+        : openaiModel;
 
     const systemPrompt = buildSystemPrompt({
       contextMode,

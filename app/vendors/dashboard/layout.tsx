@@ -21,9 +21,6 @@ export default async function VendorsDashboardLayout({
   if (!access.isVendor) {
     redirect("/vendor-registration");
   }
-  if (!access.isSubscribed) {
-    redirect("/pricing?tab=vendor&reason=subscription_required");
-  }
 
   return <>{children}</>;
 }

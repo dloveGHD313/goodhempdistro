@@ -189,6 +189,7 @@ export default async function VendorDashboardPage() {
     vendor.compliance_acknowledged_at;
   const approved = vendor.is_approved || vendor.status === "active";
   const active = vendor.is_active && approved;
+  const isSubscribed = ["active", "trialing"].includes(vendor.subscription_status || "");
   const submittedDate = vendor.created_at
     ? new Date(vendor.created_at).toLocaleDateString("en-US", {
         year: "numeric",
@@ -209,6 +210,15 @@ export default async function VendorDashboardPage() {
             <h1 className="text-4xl font-bold mb-2 text-accent">{vendor.business_name}</h1>
             <p className="text-muted">Vendor Dashboard</p>
           </div>
+
+          {!isSubscribed && (
+            <div className="mb-8 rounded-xl border border-yellow-600 bg-yellow-900/30 p-4 text-sm text-yellow-200">
+              Your vendor plan is not active yet. Complete a vendor plan to unlock full dashboard access.
+              <Link href="/pricing?tab=vendor&reason=subscription_required" className="underline text-accent ml-2">
+                Complete vendor plan
+              </Link>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="surface-card p-6">

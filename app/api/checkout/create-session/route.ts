@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     }
 
     const totalCents = product.price_cents * quantity;
-    const siteUrl = getSiteUrl();
+    const siteUrl = getSiteUrl(req);
 
     // Create pending order in Supabase
     const { data: order, error: orderError } = await supabase
