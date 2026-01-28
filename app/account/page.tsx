@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import type { Metadata } from "next";
+import ProfileBasicsClient from "./ProfileBasicsClient";
 
 export const metadata: Metadata = {
   title: "Account | Good Hemp Distro",
@@ -50,6 +51,8 @@ export default async function AccountPage() {
             </div>
           </div>
         </section>
+
+        <ProfileBasicsClient userId={user.id} />
 
         <section className="bg-gray-800 border border-gray-700 rounded-lg p-6 space-y-4">
           <h2 className="text-xl font-semibold">Quick Actions</h2>

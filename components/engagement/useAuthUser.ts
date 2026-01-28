@@ -18,13 +18,26 @@ export default function useAuthUser(): AuthState {
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
-    supabase.auth.getUser().then(({ data }) => {
+    let active = true;
+
+    const updateState = (user: { id: string; email?: string | null } | null) => {
+      if (!active) return;
       setState({
-        userId: data.user?.id || null,
-        email: data.user?.email || null,
+        userId: user?.id || null,
+        email: user?.email || null,
         loading: false,
       });
-    });
+    };
+
+    supabase.auth.getUser().then(({ data }) => updateState(data.user ?? null));
+    const listener = supabase.auth.onAuthStateChange
+      ? supabase.auth.onAuthStateChange((_event, session) => updateState(session?.user ?? null))
+      : null;
+
+    return () => {
+      active = false;
+      listener?.data?.subscription?.unsubscribe?.();
+    };
   }, []);
 
   return state;

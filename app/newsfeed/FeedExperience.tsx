@@ -24,6 +24,9 @@ type FeedPost = {
   created_at: string;
   post_media: FeedMedia[];
   priorityRank: number;
+  likes_count: number;
+  liked_by_me: boolean;
+  vendor_verified?: boolean;
 };
 
 const filters = [
@@ -56,6 +59,9 @@ function FeedCard({ post }: { post: FeedPost }) {
         <div className="flex items-center gap-2 flex-wrap">
           <span className="feed-type-badge">{post.author_role.toUpperCase()}</span>
           {badge && <span className="vip-badge">{badge}</span>}
+          {post.author_role === "vendor" && post.vendor_verified && (
+            <span className="info-pill">Verified</span>
+          )}
         </div>
         <span className="text-xs text-muted">{formatRelativeTime(post.created_at)}</span>
       </div>
@@ -88,10 +94,14 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
   const [activeFilter, setActiveFilter] = useState<(typeof filters)[number]["id"]>("all");
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [roleCta, setRoleCta] = useState<{ label: string; href: string } | null>(null);
   const composerRef = useRef<HTMLDivElement | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
   const emptyNotifiedRef = useRef(false);
+  const nextCursorRef = useRef<string | null>(null);
+  const hasMoreRef = useRef(true);
 
   const dispatchMascotEvent = useCallback(
     (detail: {
@@ -105,19 +115,34 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
     []
   );
 
-  useEffect(() => {
-    const loadPosts = async () => {
-      setLoading(true);
-      setError(null);
+  const loadPosts = useCallback(
+    async (cursor: string | null, mode: "reset" | "append") => {
+      if (mode === "append") {
+        if (!hasMoreRef.current || loadingMore) return;
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+        setError(null);
+        hasMoreRef.current = true;
+        nextCursorRef.current = null;
+      }
+
       try {
-        const response = await fetch("/api/posts", { cache: "no-store" });
+        const params = new URLSearchParams();
+        if (cursor) params.set("cursor", cursor);
+        const response = await fetch(`/api/posts?${params.toString()}`, { cache: "no-store" });
         if (!response.ok) {
           throw new Error("Failed to load posts.");
         }
         const payload = await response.json();
         const items = (payload.posts || []) as FeedPost[];
-        setPosts(items);
-        if (items.length === 0 && !emptyNotifiedRef.current) {
+        const nextCursor = payload.nextCursor || null;
+        nextCursorRef.current = nextCursor;
+        hasMoreRef.current = Boolean(nextCursor);
+
+        setPosts((prev) => (mode === "append" ? [...prev, ...items] : items));
+
+        if (mode === "reset" && items.length === 0 && !emptyNotifiedRef.current) {
           emptyNotifiedRef.current = true;
           dispatchMascotEvent({
             message: "The feed is empty. Want to be the first to post?",
@@ -130,11 +155,27 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
         setError(message);
       } finally {
         setLoading(false);
+        setLoadingMore(false);
       }
-    };
+    },
+    [dispatchMascotEvent, loadingMore]
+  );
 
-    loadPosts();
-  }, [dispatchMascotEvent]);
+  useEffect(() => {
+    loadPosts(null, "reset");
+  }, [loadPosts]);
+
+  useEffect(() => {
+    if (!sentinelRef.current || !hasMoreRef.current) return;
+    const observer = new IntersectionObserver((entries) => {
+      const entry = entries[0];
+      if (entry.isIntersecting && nextCursorRef.current) {
+        loadPosts(nextCursorRef.current, "append");
+      }
+    });
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [loadPosts]);
 
   useEffect(() => {
     if (!userId) {
@@ -186,6 +227,59 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
     if (activeFilter === "driver") return sorted.filter((post) => post.author_role === "driver");
     return sorted.filter((post) => post.author_role === "consumer" || post.author_role === "admin");
   }, [activeFilter, posts]);
+
+  const toggleLike = async (postId: string) => {
+    if (!userId) {
+      dispatchMascotEvent({
+        message: "Sign in to like posts.",
+        mood: "BLOCKED",
+        move: "attention_pop",
+      });
+      return;
+    }
+
+    const current = posts.find((post) => post.id === postId);
+    if (!current) return;
+
+    const wasLiked = current.liked_by_me;
+    const rollback = { ...current };
+    setPosts((prev) =>
+      prev.map((post) => {
+        if (post.id !== postId) return post;
+        const nextLiked = !post.liked_by_me;
+        const nextCount = post.likes_count + (nextLiked ? 1 : -1);
+        return { ...post, liked_by_me: nextLiked, likes_count: Math.max(nextCount, 0) };
+      })
+    );
+
+    try {
+      const method = wasLiked ? "DELETE" : "POST";
+      const response = await fetch(`/api/posts/${postId}/likes`, { method });
+      if (!response.ok) {
+        throw new Error("Failed to update like.");
+      }
+      const payload = await response.json();
+      setPosts((prev) =>
+        prev.map((post) =>
+          post.id === postId ? { ...post, likes_count: payload.likes_count ?? post.likes_count } : post
+        )
+      );
+      if (!wasLiked) {
+        dispatchMascotEvent({
+          message: "Like registered.",
+          mood: "SUCCESS",
+          move: "success_nod",
+        });
+      }
+    } catch {
+      setPosts((prev) => prev.map((post) => (post.id === rollback.id ? rollback : post)));
+      dispatchMascotEvent({
+        message: "Like failed. Want me to retry?",
+        mood: "ERROR",
+        move: "error_shake",
+      });
+    }
+  };
 
   return (
     <section className="section-shell section-shell--tight feed-shell">
@@ -279,13 +373,43 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
             </div>
           )}
 
-          {!loading && !error && filteredPosts.map((post) => <FeedCard key={post.id} post={post} />)}
+          {!loading &&
+            !error &&
+            filteredPosts.map((post) => (
+              <div key={post.id} className="space-y-3">
+                <FeedCard post={post} />
+                <div className="flex items-center gap-3 text-sm">
+                  <button
+                    type="button"
+                    onClick={() => toggleLike(post.id)}
+                    className={`btn-ghost ${post.liked_by_me ? "text-accent" : ""}`}
+                  >
+                    {post.liked_by_me ? "♥ Liked" : "♡ Like"}
+                  </button>
+                  <span className="text-muted">{post.likes_count} likes</span>
+                </div>
+              </div>
+            ))}
 
           {!loading && !error && filteredPosts.length === 0 && (
             <div className="card-glass p-8 text-center">
               <p className="text-muted">No posts in this channel yet.</p>
             </div>
           )}
+
+          {!loading && !error && hasMoreRef.current && (
+            <div className="text-center">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => loadPosts(nextCursorRef.current, "append")}
+                disabled={loadingMore}
+              >
+                {loadingMore ? "Loading..." : "Load more"}
+              </button>
+            </div>
+          )}
+          <div ref={sentinelRef} />
         </div>
 
         <aside className="space-y-6">

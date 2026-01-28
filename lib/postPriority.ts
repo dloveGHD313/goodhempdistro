@@ -13,7 +13,7 @@ const priorityRank: Record<PriorityKey, number> = {
   "vendor:enterprise": 3,
   "vendor:pro": 4,
   "vendor:starter": 6,
-  "vendor:none": 6,
+  "vendor:none": 7,
   "consumer:vip": 5,
   "consumer:enterprise": 7,
   "consumer:pro": 7,
@@ -37,16 +37,17 @@ export function getPostPriorityRank(role: PostAuthorRole, tier: PostAuthorTier):
 
 export function getPostBadgeLabel(role: PostAuthorRole, tier: PostAuthorTier, isAdminPost: boolean): string | null {
   if (role === "admin" || isAdminPost) {
-    return "Good Hemp Distros • Official";
+    return "Good Hemp Distros Official";
   }
   if (role === "vendor") {
     if (tier === "vip") return "VIP Vendor";
     if (tier === "enterprise") return "Enterprise Vendor";
     if (tier === "pro") return "Pro Vendor";
-    return "Starter Vendor";
+    if (tier === "starter") return "Starter Vendor";
+    return null;
   }
   if (role === "consumer") {
-    return tier === "vip" ? "VIP Consumer" : "Consumer";
+    return tier === "vip" ? "VIP Consumer" : null;
   }
   if (role === "affiliate") {
     return "Affiliate";
