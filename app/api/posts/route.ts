@@ -125,15 +125,14 @@ export async function GET(req: NextRequest) {
   const hasMore = (posts || []).length > limit;
   const sliced = (posts || []).slice(0, limit);
   const authorIds = Array.from(new Set(sliced.map((post) => post.author_id)));
-  const admin = getSupabaseAdminClient();
   const { data: profiles } = authorIds.length
-    ? await admin
+    ? await supabase
         .from("profiles")
         .select("id, display_name, username, avatar_url, role, tier")
         .in("id", authorIds)
     : { data: [] };
   const { data: vendors } = authorIds.length
-    ? await admin
+    ? await supabase
         .from("vendors")
         .select("owner_user_id, business_name, subscription_status, coa_attested")
         .in("owner_user_id", authorIds)
@@ -165,7 +164,7 @@ export async function GET(req: NextRequest) {
     const vendor = vendorMap.get(post.author_id);
     const displayName = getDisplayName(
       {
-        id: profile?.id,
+        id: profile?.id ?? post.author_id,
         display_name: profile?.display_name,
         username: (profile as { username?: string | null })?.username || null,
       },
@@ -176,7 +175,6 @@ export async function GET(req: NextRequest) {
 
     return {
       ...post,
-      author_name: displayName,
       authorDisplayName: displayName,
       authorAvatarUrl: profile?.avatar_url || null,
       authorBadgeModel: getBadgeForContext({
@@ -402,7 +400,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     post: {
       ...post,
-      author_name: authorName,
       authorDisplayName: authorName,
       authorAvatarUrl: profile?.avatar_url || null,
       authorBadgeModel: getBadgeForContext({

@@ -1,6 +1,6 @@
 "use client";
 
-import { getBadgeModel } from "@/lib/badges";
+import { getBadgeModel, type BadgeInfo } from "@/lib/badges";
 import { getInitials } from "@/lib/identity";
 import type { PostAuthorRole, PostAuthorTier } from "@/lib/postPriority";
 import ProfileBadge from "./ProfileBadge";
@@ -12,6 +12,7 @@ type Props = {
   tier: PostAuthorTier;
   isOfficial?: boolean;
   isVerifiedVendor?: boolean;
+  badgeModel?: BadgeInfo | null;
 };
 
 export default function ProfileChip({
@@ -21,8 +22,10 @@ export default function ProfileChip({
   tier,
   isOfficial,
   isVerifiedVendor,
+  badgeModel,
 }: Props) {
-  const badge = getBadgeModel({ role, tier, isOfficial, isVerifiedVendor });
+  const badge =
+    badgeModel === undefined ? getBadgeModel({ role, tier, isOfficial, isVerifiedVendor }) : badgeModel;
   return (
     <div className="profile-chip">
       <div className="profile-chip-avatar">

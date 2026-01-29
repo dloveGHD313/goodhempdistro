@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import useAuthUser from "@/components/engagement/useAuthUser";
+import { type BadgeInfo } from "@/lib/badges";
+import { getDisplayName } from "@/lib/identity";
 import { type PostAuthorRole, type PostAuthorTier } from "@/lib/postPriority";
 import PostComposer from "./PostComposer";
 import ProfileCard from "@/components/profile/ProfileCard";
@@ -18,9 +20,9 @@ type FeedMedia = {
 type FeedPost = {
   id: string;
   author_id: string;
-  author_name: string;
   authorDisplayName?: string | null;
   authorAvatarUrl?: string | null;
+  authorBadgeModel?: BadgeInfo | null;
   author_role: PostAuthorRole;
   author_tier: PostAuthorTier;
   content: string;
@@ -56,7 +58,10 @@ const formatRelativeTime = (value: string) => {
 };
 
 function FeedCard({ post }: { post: FeedPost }) {
-  const displayName = post.authorDisplayName || post.author_name || "Member";
+  const displayName = getDisplayName({
+    id: post.author_id,
+    display_name: post.authorDisplayName ?? null,
+  });
   return (
     <article className="feed-card hover-lift">
       <div className="flex items-center justify-between mb-3">
@@ -67,6 +72,7 @@ function FeedCard({ post }: { post: FeedPost }) {
           tier={post.author_tier}
           isOfficial={post.is_admin_post}
           isVerifiedVendor={post.vendor_verified}
+          badgeModel={post.authorBadgeModel ?? null}
         />
         <span className="text-xs text-muted">{formatRelativeTime(post.created_at)}</span>
       </div>
