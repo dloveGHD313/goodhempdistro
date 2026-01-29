@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 type ProfileBasics = {
+  display_name: string | null;
   avatar_url: string | null;
   banner_url: string | null;
   border_style: string | null;
@@ -24,6 +25,7 @@ const sanitizeFileName = (name: string) => name.replace(/[^a-zA-Z0-9.-]/g, "_");
 export default function ProfileBasicsClient({ userId }: { userId: string }) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [profile, setProfile] = useState<ProfileBasics>({
+    display_name: null,
     avatar_url: null,
     banner_url: null,
     border_style: "none",
@@ -31,6 +33,8 @@ export default function ProfileBasicsClient({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [displayNameInput, setDisplayNameInput] = useState("");
+  const [savingName, setSavingName] = useState(false);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -39,10 +43,12 @@ export default function ProfileBasicsClient({ userId }: { userId: string }) {
         const payload = await response.json();
         const data = payload.profile || {};
         setProfile({
+          display_name: data.display_name || null,
           avatar_url: data.avatar_url || null,
           banner_url: data.banner_url || null,
           border_style: data.border_style || "none",
         });
+        setDisplayNameInput(data.display_name || "");
       }
       setLoading(false);
     };
@@ -129,7 +135,7 @@ export default function ProfileBasicsClient({ userId }: { userId: string }) {
         </div>
       )}
 
-      <div className="profile-avatar-row">
+        <div className="profile-avatar-row">
         <div
           className={`profile-avatar ${profile.border_style ? `profile-avatar--${profile.border_style}` : ""}`}
         >
@@ -139,6 +145,31 @@ export default function ProfileBasicsClient({ userId }: { userId: string }) {
             <span className="text-muted text-sm">No avatar</span>
           )}
         </div>
+
+      <div className="space-y-2">
+        <label className="text-sm text-muted">Display name</label>
+        <div className="flex flex-wrap gap-3">
+          <input
+            type="text"
+            value={displayNameInput}
+            onChange={(event) => setDisplayNameInput(event.target.value)}
+            placeholder="Add your display name"
+            className="flex-1 min-w-[220px] px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white text-sm"
+          />
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={savingName}
+            onClick={async () => {
+              setSavingName(true);
+              await updateProfile({ display_name: displayNameInput.trim() || null });
+              setSavingName(false);
+            }}
+          >
+            {savingName ? "Saving..." : "Save"}
+          </button>
+        </div>
+      </div>
         <div className="space-y-2">
           <label className="text-sm text-muted">Avatar image</label>
           <input

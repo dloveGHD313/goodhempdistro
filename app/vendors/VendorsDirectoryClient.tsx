@@ -6,6 +6,7 @@ import SearchInput from "@/components/discovery/SearchInput";
 import FilterSelect from "@/components/discovery/FilterSelect";
 import FavoriteButton from "@/components/engagement/FavoriteButton";
 import RatingBadge from "@/components/engagement/RatingBadge";
+import ProfileCard from "@/components/profile/ProfileCard";
 
 type Vendor = {
   id: string;
@@ -175,9 +176,6 @@ export default function VendorsDirectoryClient({ vendors }: Props) {
             return (
               <div key={vendor.id} className="surface-card p-8 hover-lift h-full">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="text-sm text-[var(--brand-lime)] border border-[var(--brand-lime)]/40 bg-[var(--brand-lime)]/15 px-3 py-1 rounded-full">
-                    Verified & Approved
-                  </div>
                   {vendor.vendor_type && (
                     <span className="text-xs uppercase tracking-wide text-muted">
                       {formatVendorType(vendor.vendor_type)}
@@ -192,20 +190,18 @@ export default function VendorsDirectoryClient({ vendors }: Props) {
                     initialFavorited={favorites.has(vendor.id)}
                   />
                 </div>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  <span className="compliance-chip">✅ Compliance Ready</span>
-                  <span className="delivery-chip">🚚 Delivery Ready</span>
-                </div>
                 <Link href={`/vendors/${vendor.id}`} className="group">
-                  <div className="w-20 h-20 bg-[var(--surface)]/60 rounded-full mb-4 group-hover:bg-[var(--surface)]/80 transition flex items-center justify-center text-3xl">
-                    🌿
-                  </div>
-                  <h3 className="text-2xl font-semibold mb-2 group-hover:text-accent transition">
-                    {vendor.business_name}
-                  </h3>
-                  <p className="text-muted mb-3 text-sm">
-                    {vendor.description || "Trusted hemp products and services."}
-                  </p>
+                  <ProfileCard
+                    displayName={vendor.business_name}
+                    avatarUrl={null}
+                    bannerUrl={null}
+                    role="vendor"
+                    tier="none"
+                    isOfficial={false}
+                    isVerifiedVendor={false}
+                    secondary={vendor.description || "Trusted hemp products and services."}
+                    compact
+                  />
                   <div className="text-sm text-muted mb-4">
                     {[vendor.city, vendor.state].filter(Boolean).join(", ") || "Location available on profile"}
                   </div>

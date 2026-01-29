@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getBadgeForContext, isOfficial, isVerifiedVendor } from "@/lib/badges";
+import { getDisplayName, normalizeRole } from "@/lib/identity";
 import { getPostPriorityRank, type PostAuthorRole, type PostAuthorTier } from "@/lib/postPriority";
 
 type ProfileUpdate = {
+  display_name?: string | null;
   avatar_url?: string | null;
   banner_url?: string | null;
   border_style?: string | null;
@@ -42,9 +44,7 @@ export async function GET() {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  let role: PostAuthorRole = "consumer";
-  if (profile?.role === "admin") role = "admin";
-  else if (vendor?.id) role = "vendor";
+  let role: PostAuthorRole = normalizeRole(profile?.role || (vendor?.id ? "vendor" : "consumer"));
 
   let tier: PostAuthorTier = "none";
   if (role === "vendor" && vendor?.subscription_status && ["active", "trialing"].includes(vendor.subscription_status)) {
@@ -72,11 +72,14 @@ export async function GET() {
     vendorVerified: verifiedVendor,
   });
 
+  const displayName = getDisplayName(profile, user);
+
   return NextResponse.json({
     ok: true,
     profile: {
       id: profile?.id || user.id,
       email: profile?.email || user.email,
+      display_name: displayName,
       role,
       tier,
       avatar_url: profile?.avatar_url || null,
@@ -101,6 +104,7 @@ export async function PATCH(req: NextRequest) {
   const payload = (await req.json().catch(() => ({}))) as ProfileUpdate;
   const updates: ProfileUpdate = {};
 
+  if ("display_name" in payload) updates.display_name = payload.display_name ?? null;
   if ("avatar_url" in payload) updates.avatar_url = payload.avatar_url ?? null;
   if ("banner_url" in payload) updates.banner_url = payload.banner_url ?? null;
   if ("border_style" in payload) updates.border_style = payload.border_style ?? null;

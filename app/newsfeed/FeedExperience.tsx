@@ -5,8 +5,9 @@ import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import useAuthUser from "@/components/engagement/useAuthUser";
 import { type PostAuthorRole, type PostAuthorTier } from "@/lib/postPriority";
-import { getBadgeForContext } from "@/lib/badges";
 import PostComposer from "./PostComposer";
+import ProfileCard from "@/components/profile/ProfileCard";
+import ProfileChip from "@/components/profile/ProfileChip";
 
 type FeedMedia = {
   id: string;
@@ -18,6 +19,8 @@ type FeedPost = {
   id: string;
   author_id: string;
   author_name: string;
+  author_display_name?: string | null;
+  author_avatar_url?: string | null;
   author_role: PostAuthorRole;
   author_tier: PostAuthorTier;
   content: string;
@@ -53,25 +56,20 @@ const formatRelativeTime = (value: string) => {
 };
 
 function FeedCard({ post }: { post: FeedPost }) {
-  const badge = getBadgeForContext({
-    role: post.author_role,
-    tier: post.author_tier,
-    isAdminPost: post.is_admin_post,
-    vendorVerified: post.vendor_verified,
-  });
+  const displayName = post.author_display_name || post.author_name;
   return (
     <article className="feed-card hover-lift">
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          {badge && (
-            <span className={badge.kind === "official" ? "badge-official" : "badge-tier"}>
-              {badge.label}
-            </span>
-          )}
-        </div>
+        <ProfileChip
+          displayName={displayName}
+          avatarUrl={post.author_avatar_url}
+          role={post.author_role}
+          tier={post.author_tier}
+          isOfficial={post.is_admin_post}
+          isVerifiedVendor={post.vendor_verified}
+        />
         <span className="text-xs text-muted">{formatRelativeTime(post.created_at)}</span>
       </div>
-      <p className="text-sm text-muted mb-2">{post.author_name}</p>
       <p className="text-white mb-4 whitespace-pre-line">{post.content}</p>
 
       {post.post_media.length > 0 && (
@@ -458,9 +456,17 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
         <aside className="space-y-6">
           <div className="card-glass p-6">
             <h2 className="text-lg font-semibold mb-3">VIP Spotlight (Placeholder)</h2>
-            <div className="space-y-3 text-sm text-muted">
-              <p>Featured vendor slots will appear here once verified profiles are available.</p>
-            </div>
+            <ProfileCard
+              displayName="VIP Spotlight"
+              avatarUrl={null}
+              bannerUrl={null}
+              role="vendor"
+              tier="none"
+              isOfficial={false}
+              isVerifiedVendor={false}
+              placeholderText="VIP spotlight slots will appear here once verified profiles are available."
+              compact
+            />
           </div>
 
           <div className="card-glass p-6">

@@ -61,3 +61,21 @@ export function getBadgeForContext(context: BadgeContext): BadgeInfo | null {
   }
   return null;
 }
+
+export function getBadgeModel(params: {
+  role: PostAuthorRole;
+  tier: PostAuthorTier;
+  isOfficial?: boolean;
+  isVerifiedVendor?: boolean;
+  isAdminPost?: boolean;
+}): BadgeInfo | null {
+  if (params.isOfficial || isOfficial(params.role, params.isAdminPost)) {
+    return { label: "Good Hemp Distros — Official", kind: "official" };
+  }
+  return getBadgeForContext({
+    role: params.role,
+    tier: params.tier,
+    isAdminPost: params.isAdminPost,
+    vendorVerified: params.isVerifiedVendor,
+  });
+}

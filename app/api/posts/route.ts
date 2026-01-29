@@ -5,6 +5,7 @@ import { isAdminEmail } from "@/lib/admin";
 import { isConsumerSubscriptionActive } from "@/lib/consumer-access";
 import { getPostPriorityRank, type PostAuthorRole, type PostAuthorTier } from "@/lib/postPriority";
 import { isVerifiedVendor } from "@/lib/badges";
+import { getDisplayName } from "@/lib/identity";
 
 type MediaInput = {
   media_type: "image" | "video";
@@ -59,7 +60,13 @@ const resolveAuthorName = (params: {
   if (params.role === "vendor" && params.vendorName) {
     return params.vendorName;
   }
-  return params.profileName || params.profileEmail || "Good Hemp Member";
+  return getDisplayName(
+    {
+      display_name: params.profileName,
+      email: params.profileEmail,
+    },
+    null
+  );
 };
 
 export async function GET(req: NextRequest) {
@@ -138,7 +145,10 @@ export async function GET(req: NextRequest) {
   const authorIds = Array.from(new Set(sliced.map((post) => post.author_id)));
   const admin = getSupabaseAdminClient();
   const { data: profiles } = authorIds.length
-    ? await admin.from("profiles").select("id, display_name, email").in("id", authorIds)
+    ? await admin
+        .from("profiles")
+        .select("id, display_name, email, avatar_url, role, tier")
+        .in("id", authorIds)
     : { data: [] };
   const { data: vendors } = authorIds.length
     ? await admin
@@ -177,12 +187,21 @@ export async function GET(req: NextRequest) {
       profileEmail: profile?.email || null,
       vendorName: vendor?.business_name || null,
     });
+    const displayName = getDisplayName(
+      {
+        display_name: profile?.display_name,
+        email: profile?.email,
+      },
+      null
+    );
     const media = (post.post_media || []) as Array<{ created_at?: string | null }>;
     media.sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")));
 
     return {
       ...post,
       author_name: authorName,
+      author_display_name: displayName,
+      author_avatar_url: profile?.avatar_url || null,
       priorityRank: post.priority_rank ?? getPostPriorityRank(
         post.author_role as PostAuthorRole,
         post.author_tier as PostAuthorTier

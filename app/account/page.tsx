@@ -4,6 +4,8 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 import type { Metadata } from "next";
 import { type PostAuthorRole, type PostAuthorTier } from "@/lib/postPriority";
 import { getBadgeForContext, isVerifiedVendor } from "@/lib/badges";
+import { getDisplayName } from "@/lib/identity";
+import ProfileChip from "@/components/profile/ProfileChip";
 import ProfileBasicsClient from "./ProfileBasicsClient";
 
 export const metadata: Metadata = {
@@ -26,7 +28,7 @@ export default async function AccountPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, display_name, email")
+    .select("role, display_name, email, avatar_url")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -69,6 +71,8 @@ export default async function AccountPage() {
     }),
   });
 
+  const displayName = getDisplayName(profile, user);
+
   const { data: posts } = await supabase
     .from("posts")
     .select("id, content, created_at")
@@ -81,8 +85,17 @@ export default async function AccountPage() {
       <div className="container mx-auto px-4 py-16 space-y-8">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-gray-400">Signed in as</p>
-            <h1 className="text-3xl font-bold">{user.email}</h1>
+            <ProfileChip
+              displayName={displayName}
+              avatarUrl={profile?.avatar_url || null}
+              role={authorRole}
+              tier={authorTier}
+              isOfficial={authorRole === "admin"}
+              isVerifiedVendor={isVerifiedVendor({
+                subscriptionStatus: vendor?.subscription_status || null,
+                coaAttested: typeof vendor?.coa_attested === "boolean" ? vendor?.coa_attested : null,
+              })}
+            />
           </div>
           <Link
             href="/dashboard"
@@ -100,8 +113,8 @@ export default async function AccountPage() {
               <p className="font-mono text-sm break-all">{user.id}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-400">Email</p>
-              <p>{user.email}</p>
+              <p className="text-sm text-gray-400">Display name</p>
+              <p>{displayName}</p>
             </div>
             <div>
               <p className="text-sm text-gray-400">Role</p>
