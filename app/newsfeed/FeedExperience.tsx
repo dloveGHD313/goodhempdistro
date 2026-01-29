@@ -4,36 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import useAuthUser from "@/components/engagement/useAuthUser";
-import { type BadgeInfo } from "@/lib/badges";
 import { getDisplayName } from "@/lib/identity";
-import { type PostAuthorRole, type PostAuthorTier } from "@/lib/postPriority";
+import type { PostDTO } from "@/lib/types";
 import PostComposer from "./PostComposer";
 import ProfileCard from "@/components/profile/ProfileCard";
 import ProfileChip from "@/components/profile/ProfileChip";
 
-type FeedMedia = {
-  id: string;
-  media_type: "image" | "video";
-  media_url: string;
-};
-
-type FeedPost = {
-  id: string;
-  author_id: string;
-  authorDisplayName?: string | null;
-  authorAvatarUrl?: string | null;
-  authorBadgeModel?: BadgeInfo | null;
-  author_role: PostAuthorRole;
-  author_tier: PostAuthorTier;
-  content: string;
-  is_admin_post: boolean;
-  created_at: string;
-  post_media: FeedMedia[];
-  priorityRank: number;
-  likeCount: number;
-  viewerHasLiked: boolean;
-  vendor_verified?: boolean;
-};
+type FeedPost = PostDTO;
 
 const filters = [
   { id: "all", label: "All" },
@@ -142,7 +119,10 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
       try {
         const params = new URLSearchParams();
         if (cursor) params.set("cursor", cursor);
-        const response = await fetch(`/api/posts?${params.toString()}`, { cache: "no-store" });
+        const response = await fetch(`/api/posts?${params.toString()}`, {
+          cache: "no-store",
+          credentials: "include",
+        });
         if (!response.ok) {
           throw new Error("Failed to load posts.");
         }
@@ -153,15 +133,6 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
         hasMoreRef.current = Boolean(nextCursor);
 
         setPosts((prev) => (mode === "append" ? [...prev, ...items] : items));
-        if (process.env.NODE_ENV !== "production" && items.length > 0) {
-          const sample = items.slice(0, 3).map((item) => ({
-            author_id: item.author_id,
-            authorDisplayName: item.authorDisplayName ?? null,
-            authorAvatarUrl: item.authorAvatarUrl ?? null,
-            authorBadgeModel: item.authorBadgeModel ?? null,
-          }));
-          console.log("[feed] payload identity sample", sample);
-        }
         setHasVerifiedVendors((prev) => prev || items.some((post) => post.vendor_verified));
 
         if (mode === "reset" && items.length === 0 && !emptyNotifiedRef.current) {

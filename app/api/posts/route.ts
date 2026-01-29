@@ -1,3 +1,4 @@
+import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
@@ -7,6 +8,9 @@ import { getPostPriorityRank, type PostAuthorRole, type PostAuthorTier } from "@
 import { getBadgeForContext, isVerifiedVendor } from "@/lib/badges";
 import { getDisplayName } from "@/lib/identity";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 type MediaInput = {
   media_type: "image" | "video";
   media_url: string;
@@ -15,6 +19,82 @@ type MediaInput = {
 const MAX_CONTENT_LENGTH = 2000;
 const MAX_MEDIA_ITEMS = 6;
 const DEFAULT_LIMIT = 20;
+
+type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
+
+const createAnonServerClient = () => {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    throw new Error(
+      "Missing Supabase environment variables. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY"
+    );
+  }
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      cookies: {
+        getAll() {
+          return [];
+        },
+        setAll() {
+          return;
+        },
+      },
+    }
+  );
+};
+
+const getViewerSupabaseClient = async (_req: NextRequest) => {
+  const authed = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await authed.auth.getUser();
+
+  if (user) {
+    return { supabase: authed, viewer: user, mode: "authenticated" as const };
+  }
+
+  return { supabase: createAnonServerClient(), viewer: null, mode: "anon" as const };
+};
+
+const fetchProfilesByAuthorIds = async (supabase: SupabaseServerClient, authorIds: string[]) => {
+  if (authorIds.length === 0) return new Map<string, any>();
+  const { data: profiles, error } = await supabase
+    .from("profiles")
+    .select("id, display_name, username, avatar_url, border_style, role, tier")
+    .in("id", authorIds);
+
+  if (error) {
+    console.error("[posts][GET] profile identity read failed", {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    });
+  }
+
+  return new Map((profiles || []).map((profile) => [profile.id, profile]));
+};
+
+const fetchVendorsByOwnerIds = async (supabase: SupabaseServerClient, authorIds: string[]) => {
+  if (authorIds.length === 0) return new Map<string, any>();
+  const { data: vendors, error } = await supabase
+    .from("vendors")
+    .select("owner_user_id, business_name, subscription_status, coa_attested")
+    .in("owner_user_id", authorIds);
+
+  if (error) {
+    console.error("[posts][GET] vendor read failed", {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    });
+  }
+
+  return new Map((vendors || []).map((vendor) => [vendor.owner_user_id, vendor]));
+};
 
 const resolveVendorTier = async (
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
@@ -52,10 +132,7 @@ const resolveConsumerTier = (planKey: string | null): PostAuthorTier => {
 };
 
 export async function GET(req: NextRequest) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user: viewer },
-  } = await supabase.auth.getUser();
+  const { supabase, viewer } = await getViewerSupabaseClient(req);
   const { searchParams } = new URL(req.url);
   const limit = Math.min(Number(searchParams.get("limit") || DEFAULT_LIMIT), 50);
   const cursor = searchParams.get("cursor");
@@ -128,34 +205,18 @@ export async function GET(req: NextRequest) {
   const hasMore = (posts || []).length > limit;
   const sliced = (posts || []).slice(0, limit);
   const authorIds = Array.from(new Set(sliced.map((post) => post.author_id)));
-  const { data: profiles, error: profilesError } = authorIds.length
-    ? await supabase
-        .from("profiles")
-        .select("id, display_name, username, avatar_url, role, tier")
-        .in("id", authorIds)
-    : { data: [] };
-  const { data: vendors } = authorIds.length
-    ? await supabase
-        .from("vendors")
-        .select("owner_user_id, business_name, subscription_status, coa_attested")
-        .in("owner_user_id", authorIds)
-    : { data: [] };
-
-  const profileMap = new Map(
-    (profiles || []).map((profile) => [profile.id, profile])
-  );
-  const vendorMap = new Map(
-    (vendors || []).map((vendor) => [vendor.owner_user_id, vendor])
-  );
+  const [profileMap, vendorMap] = await Promise.all([
+    fetchProfilesByAuthorIds(supabase, authorIds),
+    fetchVendorsByOwnerIds(supabase, authorIds),
+  ]);
 
   const postIds = sliced.map((post) => post.id);
   const { data: likes } = postIds.length
     ? await supabase.from("post_likes").select("post_id, user_id").in("post_id", postIds)
     : { data: [] };
 
-  const { data: { user } } = await supabase.auth.getUser();
   const likedSet = new Set(
-    (likes || []).filter((like) => like.user_id === user?.id).map((like) => like.post_id)
+    (likes || []).filter((like) => like.user_id === viewer?.id).map((like) => like.post_id)
   );
   const likeCountMap = new Map<string, number>();
   (likes || []).forEach((like) => {
@@ -203,35 +264,6 @@ export async function GET(req: NextRequest) {
     };
   });
 
-  if (process.env.NODE_ENV !== "production") {
-    console.log("[posts][GET] viewer", viewer ? "authenticated" : "anon", "posts", sliced.length);
-    if (profilesError) {
-      console.error("[posts][GET] profiles read error", {
-        message: profilesError.message,
-        code: profilesError.code,
-        details: profilesError.details,
-        hint: profilesError.hint,
-      });
-    }
-    const sample = enriched.slice(0, 3).map((post) => {
-      const profile = profileMap.get(post.author_id);
-      return {
-        post_id: post.id,
-        author_id: post.author_id,
-        joined_profile: {
-          display_name: profile?.display_name ?? null,
-          username: (profile as { username?: string | null })?.username ?? null,
-          avatar_url: profile?.avatar_url ?? null,
-        },
-        computed: {
-          authorDisplayName: post.authorDisplayName ?? null,
-          authorAvatarUrl: post.authorAvatarUrl ?? null,
-        },
-      };
-    });
-    console.log("[posts][GET] identity sample", sample);
-  }
-
   const nextCursor =
     hasMore && enriched.length > 0
       ? Buffer.from(
@@ -243,7 +275,14 @@ export async function GET(req: NextRequest) {
         ).toString("base64")
       : null;
 
-  return NextResponse.json({ posts: enriched, nextCursor });
+  return NextResponse.json(
+    { posts: enriched, nextCursor },
+    {
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    }
+  );
 }
 
 export async function POST(req: NextRequest) {
