@@ -1,5 +1,22 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Release Notes
+
+**Fix(posts): display name and avatar persist in feed**
+
+Root cause: /api/posts was sometimes running with an anonymous Supabase client and lacked an RLS policy to allow profile reads, causing display names/avatars to come back empty after a refresh (the feed fell back to "Member <id>" placeholders).
+
+Fix:
+- Use a viewer-aware Supabase client (authenticated vs anon) in the posts API route to fetch profile data reliably.
+- Enforce dynamic "no-store" caching on both server (API route) and client (newsfeed fetch) to prevent stale or missing profile info.
+- Standardize the PostDTO structure to always include identity fields (display name, avatar) for consistency.
+- Add a SELECT policy on public.profiles to allow reading identity fields in anonymous context while RLS remains enabled (only identity fields, no sensitive data).
+
+Verified:
+- In incognito (anonymous) and logged-in sessions, refreshing the newsfeed multiple times shows correct display names and avatars for all posts (no fallback to "Member <id>").
+- Creating a new post shows the author's display name and avatar immediately, and they persist after a refresh.
+- No user email addresses are ever exposed in the feed (only display names and avatars).
+
 ## Getting Started
 
 First, run the development server:
