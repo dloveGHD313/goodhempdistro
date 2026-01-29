@@ -37,6 +37,7 @@ export default function PostComposer({ userId, onPostCreated, onMascotEvent, isP
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [debugError, setDebugError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const remaining = MAX_CONTENT_LENGTH - content.length;
@@ -132,12 +133,17 @@ export default function PostComposer({ userId, onPostCreated, onMascotEvent, isP
   };
 
   const handleSubmit = async () => {
+    if (!userId) {
+      setError("You must be signed in to post.");
+      return;
+    }
     const trimmed = content.trim();
     if (!trimmed && media.length === 0) {
       setError("Add a message or media to post.");
       return;
     }
     setError(null);
+    setDebugError(null);
     setSubmitting(true);
 
     try {
@@ -151,6 +157,7 @@ export default function PostComposer({ userId, onPostCreated, onMascotEvent, isP
       });
 
       if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
         if (response.status === 401 || response.status === 403) {
           onMascotEvent({
             message: "Permission denied.",
@@ -158,8 +165,11 @@ export default function PostComposer({ userId, onPostCreated, onMascotEvent, isP
             move: "attention_pop",
           });
         }
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error || "Failed to create post.");
+        if (process.env.NODE_ENV !== "production") {
+          console.error("[POST_CREATE_CLIENT]", response.status, payload);
+          setDebugError(JSON.stringify(payload, null, 2));
+        }
+        throw new Error(payload.message || payload.error || "Failed to create post.");
       }
 
       const payload = await response.json();
@@ -185,6 +195,9 @@ export default function PostComposer({ userId, onPostCreated, onMascotEvent, isP
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to create post.";
       setError(message);
+      if (process.env.NODE_ENV !== "production" && err instanceof Error) {
+        setDebugError(err.message);
+      }
       onMascotEvent({
         message: "Post failed to publish. Want me to troubleshoot?",
         mood: "ERROR",
@@ -271,6 +284,9 @@ export default function PostComposer({ userId, onPostCreated, onMascotEvent, isP
       )}
 
       {error && <p className="text-sm text-red-400">{error}</p>}
+      {process.env.NODE_ENV !== "production" && debugError && (
+        <pre className="text-xs text-muted whitespace-pre-wrap">{debugError}</pre>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <button

@@ -193,7 +193,10 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { ok: false, code: "UNAUTHORIZED", message: "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   const payload = await req.json();
@@ -202,15 +205,24 @@ export async function POST(req: NextRequest) {
   const mediaInput = Array.isArray(payload?.media) ? (payload.media as MediaInput[]) : [];
 
   if (!content && mediaInput.length === 0) {
-    return NextResponse.json({ error: "Post requires text or media" }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, code: "VALIDATION_ERROR", message: "Post requires text or media" },
+      { status: 400 }
+    );
   }
 
   if (content.length > MAX_CONTENT_LENGTH) {
-    return NextResponse.json({ error: "Post is too long" }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, code: "VALIDATION_ERROR", message: "Post is too long" },
+      { status: 400 }
+    );
   }
 
   if (mediaInput.length > MAX_MEDIA_ITEMS) {
-    return NextResponse.json({ error: "Too many media items" }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, code: "VALIDATION_ERROR", message: "Too many media items" },
+      { status: 400 }
+    );
   }
 
   const sanitizedMedia = mediaInput.filter(
@@ -311,8 +323,16 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error || !post) {
-    console.error("[posts] create error", error);
-    return NextResponse.json({ error: "Failed to create post" }, { status: 500 });
+    console.error("[POST_CREATE] insert error", error);
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "SUPABASE_INSERT_FAILED",
+        message: error?.message || "Failed to create post",
+        details: error?.details || null,
+      },
+      { status: 500 }
+    );
   }
 
   let mediaRecords: Array<{ id: string; media_type: string; media_url: string; created_at: string }> = [];
@@ -328,8 +348,16 @@ export async function POST(req: NextRequest) {
       )
       .select("id, media_type, media_url, created_at");
     if (mediaError) {
-      console.error("[posts] media insert error", mediaError);
-      return NextResponse.json({ error: "Failed to attach media" }, { status: 500 });
+      console.error("[POST_CREATE] media insert error", mediaError);
+      return NextResponse.json(
+        {
+          ok: false,
+          code: "SUPABASE_MEDIA_INSERT_FAILED",
+          message: mediaError?.message || "Failed to attach media",
+          details: mediaError?.details || null,
+        },
+        { status: 500 }
+      );
     }
     mediaRecords = insertedMedia || [];
   }
