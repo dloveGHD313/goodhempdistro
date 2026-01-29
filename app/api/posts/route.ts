@@ -58,23 +58,14 @@ const getViewerSupabaseClient = async (_req: NextRequest) => {
   return { supabase: createAnonServerClient(), viewer: null, mode: "anon" as const };
 };
 
-const fetchProfilesByAuthorIds = async (supabase: SupabaseServerClient, authorIds: string[]) => {
-  if (authorIds.length === 0) return new Map<string, any>();
-  const { data: profiles, error } = await supabase
-    .from("profiles")
-    .select("id, display_name, username, avatar_url, border_style, role, tier")
-    .in("id", authorIds);
-
-  if (error) {
-    console.error("[posts][GET] profile identity read failed", {
-      message: error.message,
-      code: error.code,
-      details: error.details,
-      hint: error.hint,
-    });
-  }
-
-  return new Map((profiles || []).map((profile) => [profile.id, profile]));
+type ProfileIdentityRow = {
+  id: string;
+  display_name: string | null;
+  username: string | null;
+  avatar_url: string | null;
+  banner_url: string | null;
+  border_style: string | null;
+  role: string | null;
 };
 
 const fetchVendorsByOwnerIds = async (supabase: SupabaseServerClient, authorIds: string[]) => {
@@ -205,10 +196,22 @@ export async function GET(req: NextRequest) {
   const hasMore = (posts || []).length > limit;
   const sliced = (posts || []).slice(0, limit);
   const authorIds = Array.from(new Set(sliced.map((post) => post.author_id)));
-  const [profileMap, vendorMap] = await Promise.all([
-    fetchProfilesByAuthorIds(supabase, authorIds),
-    fetchVendorsByOwnerIds(supabase, authorIds),
-  ]);
+  const anonClient = createAnonServerClient();
+  const { data: identityRows, error: identityError } = authorIds.length
+    ? await anonClient.rpc("get_profiles_identity", { author_ids: authorIds })
+    : { data: [] };
+  if (identityError) {
+    console.error("[posts][GET] profile identity rpc failed", {
+      message: identityError.message,
+      code: identityError.code,
+      details: identityError.details,
+      hint: identityError.hint,
+    });
+  }
+  const profileMap = new Map(
+    ((identityRows || []) as ProfileIdentityRow[]).map((row) => [row.id, row])
+  );
+  const vendorMap = await fetchVendorsByOwnerIds(supabase, authorIds);
 
   const postIds = sliced.map((post) => post.id);
   const { data: likes } = postIds.length
