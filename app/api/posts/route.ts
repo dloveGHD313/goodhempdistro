@@ -46,7 +46,7 @@ const resolveConsumerTier = (planKey: string | null): PostAuthorTier => {
   if (!planKey) return "none";
   const normalized = planKey.toLowerCase();
   if (normalized.includes("vip") || normalized.includes("premium")) return "vip";
-  return "none";
+  return "starter";
 };
 
 const resolveAuthorName = (params: {

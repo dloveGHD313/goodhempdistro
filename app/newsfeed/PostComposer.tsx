@@ -17,6 +17,7 @@ type Props = {
     mood: "SUCCESS" | "ERROR" | "BLOCKED" | "CHILL";
     move?: "success_nod" | "error_shake" | "attention_pop";
   }) => void;
+  isPaidUser?: boolean;
 };
 
 const MAX_CONTENT_LENGTH = 2000;
@@ -29,7 +30,7 @@ const VIDEO_TYPES = new Set(["video/mp4", "video/webm"]);
 
 const sanitizeFileName = (name: string) => name.replace(/[^a-zA-Z0-9.-]/g, "_");
 
-export default function PostComposer({ userId, onPostCreated, onMascotEvent }: Props) {
+export default function PostComposer({ userId, onPostCreated, onMascotEvent, isPaidUser }: Props) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [content, setContent] = useState("");
   const [media, setMedia] = useState<MediaItem[]>([]);
@@ -107,6 +108,11 @@ export default function PostComposer({ userId, onPostCreated, onMascotEvent }: P
 
       setMedia((prev) => [...prev, ...uploaded]);
       setUploadProgress(100);
+      onMascotEvent({
+        message: "Upload complete.",
+        mood: "SUCCESS",
+        move: "success_nod",
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Upload failed.";
       setError(message);
@@ -145,6 +151,13 @@ export default function PostComposer({ userId, onPostCreated, onMascotEvent }: P
       });
 
       if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          onMascotEvent({
+            message: "Permission denied.",
+            mood: "BLOCKED",
+            move: "attention_pop",
+          });
+        }
         const payload = await response.json().catch(() => ({}));
         throw new Error(payload.error || "Failed to create post.");
       }
@@ -153,14 +166,18 @@ export default function PostComposer({ userId, onPostCreated, onMascotEvent }: P
       onPostCreated(payload.post, payload.firstPost);
       setContent("");
       setMedia([]);
+      const paid =
+        typeof isPaidUser === "boolean"
+          ? isPaidUser
+          : payload.post?.author_tier && payload.post?.author_tier !== "none";
       onMascotEvent({
-        message: "Post is live. Want to add another update?",
+        message: paid ? "Posted.\nThis’ll get more eyes." : "Posted.\nThis one’s live.",
         mood: "SUCCESS",
         move: "success_nod",
       });
       if (payload.firstPost) {
         onMascotEvent({
-          message: "First post goes live. Welcome to the feed!",
+          message: "First post. You’re on the board.",
           mood: "SUCCESS",
           move: "attention_pop",
         });

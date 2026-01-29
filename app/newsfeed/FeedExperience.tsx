@@ -97,6 +97,7 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [roleCta, setRoleCta] = useState<{ label: string; href: string } | null>(null);
+  const [isPaidUser, setIsPaidUser] = useState(false);
   const composerRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const emptyNotifiedRef = useRef(false);
@@ -145,7 +146,7 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
         if (mode === "reset" && items.length === 0 && !emptyNotifiedRef.current) {
           emptyNotifiedRef.current = true;
           dispatchMascotEvent({
-            message: "The feed is empty. Want to be the first to post?",
+            message: "It's quiet right now.\nFirst posts always hit different.",
             mood: "CHILL",
             move: "attention_pop",
           });
@@ -185,10 +186,11 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
 
     const supabase = createSupabaseBrowserClient();
     const resolveRole = async () => {
-      const [vendorRes, driverRes, affiliateRes] = await Promise.allSettled([
+      const [vendorRes, driverRes, affiliateRes, consumerRes] = await Promise.allSettled([
         fetch("/api/vendor/status", { cache: "no-store" }),
         fetch("/api/driver/me", { cache: "no-store" }),
         supabase.from("affiliates").select("id").eq("user_id", userId).maybeSingle(),
+        fetch("/api/consumer/status", { cache: "no-store" }),
       ]);
 
       const vendorPayload =
@@ -197,6 +199,15 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
         driverRes.status === "fulfilled" && driverRes.value.ok ? await driverRes.value.json() : null;
       const affiliatePayload =
         affiliateRes.status === "fulfilled" ? affiliateRes.value.data : null;
+      const consumerPayload =
+        consumerRes.status === "fulfilled" && consumerRes.value.ok ? await consumerRes.value.json() : null;
+      const vendorPaid = Boolean(
+        vendorPayload?.isSubscribed && ["active", "trialing", "admin"].includes(vendorPayload?.subscriptionStatus)
+      );
+      const consumerPaid = Boolean(
+        consumerPayload?.isSubscribed && ["active", "trialing", "admin"].includes(consumerPayload?.subscriptionStatus)
+      );
+      setIsPaidUser(vendorPaid || consumerPaid);
 
       if (vendorPayload?.isVendor || vendorPayload?.isAdmin) {
         setRoleCta({ label: "Vendor Dashboard", href: "/vendors/dashboard" });
@@ -311,6 +322,22 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
                 <Link href="/newsfeed" className="btn-secondary">
                   Go to feed
                 </Link>
+                {!isPaidUser && (
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={() =>
+                      dispatchMascotEvent({
+                        message:
+                          "If you want to earn with me, I’ll explain how it works.\nNo gimmicks. Just options.",
+                        mood: "CHILL",
+                        move: "attention_pop",
+                      })
+                    }
+                  >
+                    Earn with JAX
+                  </button>
+                )}
                 {roleCta && (
                   <Link href={roleCta.href} className="btn-ghost">
                     {roleCta.label}
@@ -344,6 +371,7 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
                   }
                 }}
                 onMascotEvent={dispatchMascotEvent}
+                isPaidUser={isPaidUser}
               />
             </div>
           )}
@@ -414,17 +442,9 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
 
         <aside className="space-y-6">
           <div className="card-glass p-6">
-            <h2 className="text-lg font-semibold mb-3">VIP Spotlight</h2>
-            <div className="space-y-4">
-              {[
-                { title: "Sunset Labs", meta: "VIP Vendor · LA", href: "/vendors" },
-                { title: "Jade Collins", meta: "VIP Consumer · NYC", href: "/account" },
-              ].map((spot) => (
-                <Link key={spot.title} href={spot.href} className="vip-spotlight">
-                  <div className="text-sm font-semibold">{spot.title}</div>
-                  <div className="text-xs text-muted">{spot.meta}</div>
-                </Link>
-              ))}
+            <h2 className="text-lg font-semibold mb-3">VIP Spotlight (Placeholder)</h2>
+            <div className="space-y-3 text-sm text-muted">
+              <p>Featured vendor slots will appear here once verified profiles are available.</p>
             </div>
           </div>
 

@@ -50,8 +50,6 @@ export default function MascotWidget() {
   const [assistantCount, setAssistantCount] = useState(0);
   const [moveOverride, setMoveOverride] = useState<MascotMove | null>(null);
   const moveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastContextRef = useRef<MascotContext | null>(null);
-  const lastPathReactionRef = useRef<string | null>(null);
   const hasInteractionRef = useRef(false);
 
   const context: MascotContext = useMemo(() => detectContext(pathname, role), [pathname, role]);
@@ -149,15 +147,9 @@ export default function MascotWidget() {
     load();
 
     const authListener = supabase.auth.onAuthStateChange
-      ? supabase.auth.onAuthStateChange((event, session) => {
+      ? supabase.auth.onAuthStateChange((_event, session) => {
           if (!active) return;
           fetchRole(session?.user ?? null);
-          if (event === "SIGNED_IN") {
-            pushEventMessage("Welcome back! Want me to pull anything for you?", "SUCCESS", "success_nod");
-          }
-          if (event === "SIGNED_OUT") {
-            pushEventMessage("You're signed out. Come back anytime.", "CHILL", "attention_pop");
-          }
         })
       : null;
 
@@ -170,52 +162,6 @@ export default function MascotWidget() {
   useEffect(() => {
     if (!enabled) return;
   }, [enabled]);
-
-  useEffect(() => {
-    if (!enabled) return;
-    if (messages.length === 0) {
-      setMessages([
-        {
-          id: "mascot-welcome",
-          role: "assistant",
-          content:
-            "Welcome to Good Hemp Distros. Tell me what you need and I'll guide you to the right flow.",
-          mood: "CHILL",
-        },
-      ]);
-    }
-  }, [enabled, messages.length]);
-
-  useEffect(() => {
-    if (!enabled) return;
-    if (typeof window === "undefined") return;
-    if (!hasInteractionRef.current) return;
-    if (lastContextRef.current === context) return;
-    lastContextRef.current = context;
-
-    const seenKey = `ghd_mascot_context_${context.toLowerCase()}`;
-    if (sessionStorage.getItem(seenKey)) {
-      return;
-    }
-    sessionStorage.setItem(seenKey, "true");
-
-    const greeting =
-      context === "VENDOR"
-        ? "Vendor mode on. Want help with listings or approvals?"
-        : context === "EVENTS"
-          ? "Events are live. Want local picks or this weekend?"
-          : context === "SHOP"
-            ? "Marketplace is open. Tell me what you’re looking for."
-            : context === "FEED"
-              ? "Feed is moving. Want trending posts or vendor highlights?"
-              : context === "DELIVERY_DRIVER"
-                ? "Driver view ready. Need your latest deliveries?"
-                : context === "B2B_LOGISTICS"
-                  ? "Logistics mode ready. Want assigned loads?"
-                  : "Need a hand navigating the site?";
-
-    pushEventMessage(greeting, "CHILL", "attention_pop");
-  }, [context, enabled, pushEventMessage]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -238,22 +184,6 @@ export default function MascotWidget() {
     window.addEventListener("ghd_mascot_event", handler as EventListener);
     return () => window.removeEventListener("ghd_mascot_event", handler as EventListener);
   }, [enabled, pushEventMessage]);
-
-  useEffect(() => {
-    if (!enabled) return;
-    const normalizedPath = pathname.toLowerCase();
-    if (lastPathReactionRef.current === normalizedPath) return;
-
-    if (normalizedPath.includes("success")) {
-      lastPathReactionRef.current = normalizedPath;
-      pushEventMessage("Success! Want me to line up your next step?", "SUCCESS", "success_nod");
-      return;
-    }
-    if (normalizedPath.includes("cancel") || normalizedPath.includes("error")) {
-      lastPathReactionRef.current = normalizedPath;
-      pushEventMessage("Something didn't go through. Want me to help fix it?", "ERROR", "error_shake");
-    }
-  }, [enabled, pathname, pushEventMessage]);
 
   useEffect(() => {
     return () => {
@@ -349,7 +279,26 @@ export default function MascotWidget() {
         isOpen={isOpen}
         onToggle={() => {
           hasInteractionRef.current = true;
-          setIsOpen((prev) => !prev);
+          setIsOpen((prev) => {
+            const next = !prev;
+            if (next && messages.length === 0) {
+              setMessages([
+                {
+                  id: "mascot-intro-1",
+                  role: "assistant",
+                  content: "I’m JAX. Welcome to Good Hemp Distros.",
+                  mood: "CHILL",
+                },
+                {
+                  id: "mascot-intro-2",
+                  role: "assistant",
+                  content: "You here to learn, shop, post, or earn with me?",
+                  mood: "CHILL",
+                },
+              ]);
+            }
+            return next;
+          });
         }}
         onSend={handleSend}
         isTyping={isTyping}

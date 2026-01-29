@@ -10,25 +10,25 @@ const priorityRank: Record<PriorityKey, number> = {
   "admin:starter": 1,
   "admin:none": 1,
   "vendor:vip": 2,
-  "vendor:enterprise": 3,
+  "vendor:enterprise": 2,
   "vendor:pro": 4,
-  "vendor:starter": 6,
-  "vendor:none": 7,
-  "consumer:vip": 5,
-  "consumer:enterprise": 7,
-  "consumer:pro": 7,
-  "consumer:starter": 7,
-  "consumer:none": 7,
-  "affiliate:vip": 8,
-  "affiliate:enterprise": 8,
-  "affiliate:pro": 8,
-  "affiliate:starter": 8,
-  "affiliate:none": 8,
-  "driver:vip": 9,
-  "driver:enterprise": 9,
-  "driver:pro": 9,
-  "driver:starter": 9,
-  "driver:none": 9,
+  "vendor:starter": 4,
+  "vendor:none": 5,
+  "consumer:vip": 3,
+  "consumer:enterprise": 3,
+  "consumer:pro": 3,
+  "consumer:starter": 3,
+  "consumer:none": 5,
+  "affiliate:vip": 6,
+  "affiliate:enterprise": 6,
+  "affiliate:pro": 6,
+  "affiliate:starter": 6,
+  "affiliate:none": 6,
+  "driver:vip": 7,
+  "driver:enterprise": 7,
+  "driver:pro": 7,
+  "driver:starter": 7,
+  "driver:none": 7,
 };
 
 export function getPostPriorityRank(role: PostAuthorRole, tier: PostAuthorTier): number {
@@ -40,10 +40,8 @@ export function getPostBadgeLabel(role: PostAuthorRole, tier: PostAuthorTier, is
     return "Good Hemp Distros Official";
   }
   if (role === "vendor") {
-    if (tier === "vip") return "VIP Vendor";
-    if (tier === "enterprise") return "Enterprise Vendor";
+    if (tier === "vip" || tier === "enterprise") return "Enterprise Vendor";
     if (tier === "pro") return "Pro Vendor";
-    if (tier === "starter") return "Starter Vendor";
     return null;
   }
   if (role === "consumer") {

@@ -12,7 +12,17 @@ ALTER TABLE posts ADD COLUMN IF NOT EXISTS priority_rank INT NOT NULL DEFAULT 99
 CREATE INDEX IF NOT EXISTS idx_posts_priority_rank ON posts(priority_rank);
 
 -- Backfill priority rank for existing posts (default 99)
-UPDATE posts SET priority_rank = 99 WHERE priority_rank IS NULL;
+UPDATE posts
+SET priority_rank = CASE
+  WHEN author_role = 'admin' THEN 1
+  WHEN author_role = 'vendor' AND author_tier IN ('vip', 'enterprise') THEN 2
+  WHEN author_role = 'consumer' AND author_tier <> 'none' THEN 3
+  WHEN author_role = 'vendor' AND author_tier IN ('pro', 'starter') THEN 4
+  WHEN author_role = 'affiliate' THEN 6
+  WHEN author_role = 'driver' THEN 7
+  ELSE 5
+END
+WHERE priority_rank IS NULL OR priority_rank = 99;
 
 -- ============================================================================
 -- Storage buckets: avatars + banners (public read)
