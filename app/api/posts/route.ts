@@ -4,7 +4,7 @@ import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { isAdminEmail } from "@/lib/admin";
 import { isConsumerSubscriptionActive } from "@/lib/consumer-access";
 import { getPostPriorityRank, type PostAuthorRole, type PostAuthorTier } from "@/lib/postPriority";
-import { isVerifiedVendor } from "@/lib/badges";
+import { getBadgeForContext, isVerifiedVendor } from "@/lib/badges";
 import { getDisplayName } from "@/lib/identity";
 
 type MediaInput = {
@@ -49,24 +49,6 @@ const resolveConsumerTier = (planKey: string | null): PostAuthorTier => {
   const normalized = planKey.toLowerCase();
   if (normalized.includes("vip") || normalized.includes("premium")) return "vip";
   return "starter";
-};
-
-const resolveAuthorName = (params: {
-  role: PostAuthorRole;
-  profileName?: string | null;
-  profileEmail?: string | null;
-  vendorName?: string | null;
-}) => {
-  if (params.role === "vendor" && params.vendorName) {
-    return params.vendorName;
-  }
-  return getDisplayName(
-    {
-      display_name: params.profileName,
-      email: params.profileEmail,
-    },
-    null
-  );
 };
 
 export async function GET(req: NextRequest) {
@@ -147,7 +129,7 @@ export async function GET(req: NextRequest) {
   const { data: profiles } = authorIds.length
     ? await admin
         .from("profiles")
-        .select("id, display_name, email, avatar_url, role, tier")
+        .select("id, display_name, username, avatar_url, role, tier")
         .in("id", authorIds)
     : { data: [] };
   const { data: vendors } = authorIds.length
@@ -181,16 +163,11 @@ export async function GET(req: NextRequest) {
   const enriched = sliced.map((post) => {
     const profile = profileMap.get(post.author_id);
     const vendor = vendorMap.get(post.author_id);
-    const authorName = resolveAuthorName({
-      role: post.author_role as PostAuthorRole,
-      profileName: profile?.display_name || null,
-      profileEmail: profile?.email || null,
-      vendorName: vendor?.business_name || null,
-    });
     const displayName = getDisplayName(
       {
+        id: profile?.id,
         display_name: profile?.display_name,
-        email: profile?.email,
+        username: (profile as { username?: string | null })?.username || null,
       },
       null
     );
@@ -199,9 +176,18 @@ export async function GET(req: NextRequest) {
 
     return {
       ...post,
-      author_name: authorName,
+      author_name: displayName,
       authorDisplayName: displayName,
       authorAvatarUrl: profile?.avatar_url || null,
+      authorBadgeModel: getBadgeForContext({
+        role: post.author_role as PostAuthorRole,
+        tier: post.author_tier as PostAuthorTier,
+        isAdminPost: post.is_admin_post,
+        vendorVerified: isVerifiedVendor({
+          subscriptionStatus: vendor?.subscription_status || null,
+          coaAttested: typeof vendor?.coa_attested === "boolean" ? vendor?.coa_attested : null,
+        }),
+      }),
       priorityRank: post.priority_rank ?? getPostPriorityRank(
         post.author_role as PostAuthorRole,
         post.author_tier as PostAuthorTier
@@ -282,11 +268,11 @@ export async function POST(req: NextRequest) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, role, display_name, email")
+    .select("id, role, display_name, username, avatar_url")
     .eq("id", user.id)
     .maybeSingle();
 
-  const isAdmin = profile?.role === "admin" || isAdminEmail(user.email || profile?.email);
+  const isAdmin = profile?.role === "admin" || isAdminEmail(user.email);
 
   const { data: vendor } = await supabase
     .from("vendors")
@@ -404,17 +390,30 @@ export async function POST(req: NextRequest) {
     mediaRecords = insertedMedia || [];
   }
 
-  const authorName = resolveAuthorName({
-    role: authorRole,
-    profileName: profile?.display_name || null,
-    profileEmail: profile?.email || user.email || null,
-    vendorName: vendor?.business_name || null,
-  });
+  const authorName = getDisplayName(
+    {
+      id: profile?.id,
+      display_name: profile?.display_name,
+      username: (profile as { username?: string | null })?.username || null,
+    },
+    user
+  );
 
   return NextResponse.json({
     post: {
       ...post,
       author_name: authorName,
+      authorDisplayName: authorName,
+      authorAvatarUrl: profile?.avatar_url || null,
+      authorBadgeModel: getBadgeForContext({
+        role: authorRole,
+        tier: authorTier,
+        isAdminPost: isAdmin,
+        vendorVerified: isVerifiedVendor({
+          subscriptionStatus: vendor?.subscription_status || null,
+          coaAttested: typeof vendor?.coa_attested === "boolean" ? vendor?.coa_attested : null,
+        }),
+      }),
       post_media: mediaRecords,
       priorityRank: priorityRank,
       likeCount: 0,

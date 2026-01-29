@@ -2,7 +2,9 @@ import type { User } from "@supabase/supabase-js";
 import type { PostAuthorRole, PostAuthorTier } from "@/lib/postPriority";
 
 type ProfileLike = {
+  id?: string | null;
   display_name?: string | null;
+  username?: string | null;
   email?: string | null;
   role?: string | null;
   tier?: string | null;
@@ -15,14 +17,17 @@ export function getDisplayName(profile?: ProfileLike | null, user?: User | null)
   const raw = profile?.display_name?.trim();
   if (raw) return raw;
 
+  const username = profile?.username?.trim();
+  if (username) return username;
+
   const metaName =
     (user?.user_metadata?.full_name as string | undefined) ||
     (user?.user_metadata?.name as string | undefined);
   if (metaName && metaName.trim()) return metaName.trim();
 
-  const email = profile?.email || user?.email || "";
-  if (email.includes("@")) {
-    return email.split("@")[0];
+  const idSource = profile?.id || user?.id || "";
+  if (idSource) {
+    return `Member ${idSource.slice(0, 6)}`;
   }
   return "Member";
 }
