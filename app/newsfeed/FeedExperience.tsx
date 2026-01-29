@@ -154,7 +154,13 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
 
         setPosts((prev) => (mode === "append" ? [...prev, ...items] : items));
         if (process.env.NODE_ENV !== "production" && items.length > 0) {
-          console.log("[feed] sample post payload", items[0]);
+          const sample = items.slice(0, 3).map((item) => ({
+            author_id: item.author_id,
+            authorDisplayName: item.authorDisplayName ?? null,
+            authorAvatarUrl: item.authorAvatarUrl ?? null,
+            authorBadgeModel: item.authorBadgeModel ?? null,
+          }));
+          console.log("[feed] payload identity sample", sample);
         }
         setHasVerifiedVendors((prev) => prev || items.some((post) => post.vendor_verified));
 

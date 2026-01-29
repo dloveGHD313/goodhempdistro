@@ -53,6 +53,9 @@ const resolveConsumerTier = (planKey: string | null): PostAuthorTier => {
 
 export async function GET(req: NextRequest) {
   const supabase = await createSupabaseServerClient();
+  const {
+    data: { user: viewer },
+  } = await supabase.auth.getUser();
   const { searchParams } = new URL(req.url);
   const limit = Math.min(Number(searchParams.get("limit") || DEFAULT_LIMIT), 50);
   const cursor = searchParams.get("cursor");
@@ -125,7 +128,7 @@ export async function GET(req: NextRequest) {
   const hasMore = (posts || []).length > limit;
   const sliced = (posts || []).slice(0, limit);
   const authorIds = Array.from(new Set(sliced.map((post) => post.author_id)));
-  const { data: profiles } = authorIds.length
+  const { data: profiles, error: profilesError } = authorIds.length
     ? await supabase
         .from("profiles")
         .select("id, display_name, username, avatar_url, role, tier")
@@ -199,6 +202,35 @@ export async function GET(req: NextRequest) {
       post_media: media,
     };
   });
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[posts][GET] viewer", viewer ? "authenticated" : "anon", "posts", sliced.length);
+    if (profilesError) {
+      console.error("[posts][GET] profiles read error", {
+        message: profilesError.message,
+        code: profilesError.code,
+        details: profilesError.details,
+        hint: profilesError.hint,
+      });
+    }
+    const sample = enriched.slice(0, 3).map((post) => {
+      const profile = profileMap.get(post.author_id);
+      return {
+        post_id: post.id,
+        author_id: post.author_id,
+        joined_profile: {
+          display_name: profile?.display_name ?? null,
+          username: (profile as { username?: string | null })?.username ?? null,
+          avatar_url: profile?.avatar_url ?? null,
+        },
+        computed: {
+          authorDisplayName: post.authorDisplayName ?? null,
+          authorAvatarUrl: post.authorAvatarUrl ?? null,
+        },
+      };
+    });
+    console.log("[posts][GET] identity sample", sample);
+  }
 
   const nextCursor =
     hasMore && enriched.length > 0
