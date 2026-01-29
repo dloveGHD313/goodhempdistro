@@ -200,8 +200,8 @@ export async function GET(req: NextRequest) {
     return {
       ...post,
       author_name: authorName,
-      author_display_name: displayName,
-      author_avatar_url: profile?.avatar_url || null,
+      authorDisplayName: displayName,
+      authorAvatarUrl: profile?.avatar_url || null,
       priorityRank: post.priority_rank ?? getPostPriorityRank(
         post.author_role as PostAuthorRole,
         post.author_tier as PostAuthorTier

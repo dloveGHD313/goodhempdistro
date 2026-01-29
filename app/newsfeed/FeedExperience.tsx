@@ -19,8 +19,8 @@ type FeedPost = {
   id: string;
   author_id: string;
   author_name: string;
-  author_display_name?: string | null;
-  author_avatar_url?: string | null;
+  authorDisplayName?: string | null;
+  authorAvatarUrl?: string | null;
   author_role: PostAuthorRole;
   author_tier: PostAuthorTier;
   content: string;
@@ -56,13 +56,13 @@ const formatRelativeTime = (value: string) => {
 };
 
 function FeedCard({ post }: { post: FeedPost }) {
-  const displayName = post.author_display_name || post.author_name;
+  const displayName = post.authorDisplayName || post.author_name || "Member";
   return (
     <article className="feed-card hover-lift">
       <div className="flex items-center justify-between mb-3">
         <ProfileChip
           displayName={displayName}
-          avatarUrl={post.author_avatar_url}
+          avatarUrl={post.authorAvatarUrl}
           role={post.author_role}
           tier={post.author_tier}
           isOfficial={post.is_admin_post}
@@ -147,6 +147,9 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
         hasMoreRef.current = Boolean(nextCursor);
 
         setPosts((prev) => (mode === "append" ? [...prev, ...items] : items));
+        if (process.env.NODE_ENV !== "production" && items.length > 0) {
+          console.log("[feed] sample post payload", items[0]);
+        }
         setHasVerifiedVendors((prev) => prev || items.some((post) => post.vendor_verified));
 
         if (mode === "reset" && items.length === 0 && !emptyNotifiedRef.current) {
