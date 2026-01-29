@@ -34,12 +34,10 @@ export default function ProfileBasicsClient({ userId }: { userId: string }) {
 
   useEffect(() => {
     const loadProfile = async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("avatar_url, banner_url, border_style")
-        .eq("id", userId)
-        .maybeSingle();
-      if (data) {
+      const response = await fetch("/api/profile", { cache: "no-store" });
+      if (response.ok) {
+        const payload = await response.json();
+        const data = payload.profile || {};
         setProfile({
           avatar_url: data.avatar_url || null,
           banner_url: data.banner_url || null,
@@ -54,11 +52,12 @@ export default function ProfileBasicsClient({ userId }: { userId: string }) {
   const updateProfile = async (updates: Partial<ProfileBasics>) => {
     const nextProfile = { ...profile, ...updates };
     setProfile(nextProfile);
-    const { error: updateError } = await supabase
-      .from("profiles")
-      .update(updates)
-      .eq("id", userId);
-    if (updateError) {
+    const response = await fetch("/api/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+    if (!response.ok) {
       setError("Failed to update profile.");
       setProfile(profile);
     }
@@ -74,7 +73,7 @@ export default function ProfileBasicsClient({ userId }: { userId: string }) {
     return null;
   };
 
-  const handleUpload = async (file: File, bucket: "avatars" | "banners") => {
+  const handleUpload = async (file: File, bucket: "profile-avatars" | "profile-banners") => {
     const validation = validateImage(file);
     if (validation) {
       setError(validation);
@@ -99,7 +98,7 @@ export default function ProfileBasicsClient({ userId }: { userId: string }) {
         throw uploadError;
       }
       const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-      if (bucket === "avatars") {
+      if (bucket === "profile-avatars") {
         await updateProfile({ avatar_url: data.publicUrl });
       } else {
         await updateProfile({ banner_url: data.publicUrl });
@@ -149,7 +148,7 @@ export default function ProfileBasicsClient({ userId }: { userId: string }) {
             onChange={(event) => {
               const file = event.target.files?.[0];
               if (file) {
-                handleUpload(file, "avatars");
+                handleUpload(file, "profile-avatars");
               }
             }}
             className="w-full px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-xs file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-accent file:text-white hover:file:bg-accent/80 disabled:opacity-60"
@@ -166,7 +165,7 @@ export default function ProfileBasicsClient({ userId }: { userId: string }) {
           onChange={(event) => {
             const file = event.target.files?.[0];
             if (file) {
-              handleUpload(file, "banners");
+              handleUpload(file, "profile-banners");
             }
           }}
           className="w-full px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-xs file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-accent file:text-white hover:file:bg-accent/80 disabled:opacity-60"

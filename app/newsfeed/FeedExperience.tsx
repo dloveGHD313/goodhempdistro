@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import useAuthUser from "@/components/engagement/useAuthUser";
-import { getPostBadgeLabel, type PostAuthorRole, type PostAuthorTier } from "@/lib/postPriority";
+import { type PostAuthorRole, type PostAuthorTier } from "@/lib/postPriority";
+import { getBadgeForContext } from "@/lib/badges";
 import PostComposer from "./PostComposer";
 
 type FeedMedia = {
@@ -52,15 +53,20 @@ const formatRelativeTime = (value: string) => {
 };
 
 function FeedCard({ post }: { post: FeedPost }) {
-  const badge = getPostBadgeLabel(post.author_role, post.author_tier, post.is_admin_post);
+  const badge = getBadgeForContext({
+    role: post.author_role,
+    tier: post.author_tier,
+    isAdminPost: post.is_admin_post,
+    vendorVerified: post.vendor_verified,
+  });
   return (
     <article className="feed-card hover-lift">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="feed-type-badge">{post.author_role.toUpperCase()}</span>
-          {badge && <span className="vip-badge">{badge}</span>}
-          {post.author_role === "vendor" && post.vendor_verified && (
-            <span className="info-pill">Verified</span>
+          {badge && (
+            <span className={badge.kind === "official" ? "badge-official" : "badge-tier"}>
+              {badge.label}
+            </span>
           )}
         </div>
         <span className="text-xs text-muted">{formatRelativeTime(post.created_at)}</span>
@@ -98,6 +104,7 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
   const [error, setError] = useState<string | null>(null);
   const [roleCta, setRoleCta] = useState<{ label: string; href: string } | null>(null);
   const [isPaidUser, setIsPaidUser] = useState(false);
+  const [hasVerifiedVendors, setHasVerifiedVendors] = useState(false);
   const composerRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const emptyNotifiedRef = useRef(false);
@@ -142,6 +149,7 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
         hasMoreRef.current = Boolean(nextCursor);
 
         setPosts((prev) => (mode === "append" ? [...prev, ...items] : items));
+        setHasVerifiedVendors((prev) => prev || items.some((post) => post.vendor_verified));
 
         if (mode === "reset" && items.length === 0 && !emptyNotifiedRef.current) {
           emptyNotifiedRef.current = true;
@@ -468,12 +476,14 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
           <div className="card-glass p-6">
             <h2 className="text-lg font-semibold mb-3">Compliance Status</h2>
             <p className="text-muted text-sm mb-4">
-              Verified vendors and lab-backed products are highlighted across the ecosystem.
+              {hasVerifiedVendors
+                ? "Verified vendors are highlighted when subscriptions are active."
+                : "Verified vendors will appear once subscriptions are active."}
             </p>
             <div className="space-y-2 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-muted">COA Verified</span>
-                <span className="info-pill">Active</span>
+                <span className="info-pill">Off</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted">Vendor Reviews</span>

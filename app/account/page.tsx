@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import type { Metadata } from "next";
-import { getPostBadgeLabel, type PostAuthorRole, type PostAuthorTier } from "@/lib/postPriority";
+import { type PostAuthorRole, type PostAuthorTier } from "@/lib/postPriority";
+import { getBadgeForContext, isVerifiedVendor } from "@/lib/badges";
 import ProfileBasicsClient from "./ProfileBasicsClient";
 
 export const metadata: Metadata = {
@@ -31,7 +32,7 @@ export default async function AccountPage() {
 
   const { data: vendor } = await supabase
     .from("vendors")
-    .select("id, vendor_plan_id, subscription_status, tier")
+    .select("id, vendor_plan_id, subscription_status, tier, coa_attested")
     .eq("owner_user_id", user.id)
     .maybeSingle();
 
@@ -58,7 +59,15 @@ export default async function AccountPage() {
     authorTier = (consumer?.consumer_plan_key || "").includes("vip") ? "vip" : "starter";
   }
 
-  const badgeLabel = getPostBadgeLabel(authorRole, authorTier, authorRole === "admin");
+  const badge = getBadgeForContext({
+    role: authorRole,
+    tier: authorTier,
+    isAdminPost: authorRole === "admin",
+    vendorVerified: isVerifiedVendor({
+      subscriptionStatus: vendor?.subscription_status || null,
+      coaAttested: typeof vendor?.coa_attested === "boolean" ? vendor?.coa_attested : null,
+    }),
+  });
 
   const { data: posts } = await supabase
     .from("posts")
@@ -98,10 +107,10 @@ export default async function AccountPage() {
               <p className="text-sm text-gray-400">Role</p>
               <p className="capitalize">{authorRole}</p>
             </div>
-            {badgeLabel && (
+            {badge && (
               <div>
                 <p className="text-sm text-gray-400">Badge</p>
-                <p>{badgeLabel}</p>
+                <p>{badge.label}</p>
               </div>
             )}
           </div>

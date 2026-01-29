@@ -381,6 +381,24 @@ footer {
   background: color-mix(in srgb, var(--brand-orange) 16%, transparent);
 }
 
+.badge-tier {
+  font-size: 0.7rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--brand-orange) 55%, transparent);
+  color: var(--brand-orange);
+  background: color-mix(in srgb, var(--brand-orange) 16%, transparent);
+}
+
+.badge-official {
+  font-size: 0.7rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--brand-lime) 55%, transparent);
+  color: var(--brand-lime);
+  background: color-mix(in srgb, var(--brand-lime) 16%, transparent);
+}
+
 .info-pill {
   font-size: 0.75rem;
   padding: 0.2rem 0.6rem;

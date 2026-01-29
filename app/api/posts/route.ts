@@ -4,6 +4,7 @@ import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { isAdminEmail } from "@/lib/admin";
 import { isConsumerSubscriptionActive } from "@/lib/consumer-access";
 import { getPostPriorityRank, type PostAuthorRole, type PostAuthorTier } from "@/lib/postPriority";
+import { isVerifiedVendor } from "@/lib/badges";
 
 type MediaInput = {
   media_type: "image" | "video";
@@ -75,35 +76,57 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  let query = supabase
-    .from("posts")
-    .select(
-      "id, author_id, author_role, author_tier, content, is_admin_post, is_pinned, is_featured, priority_rank, created_at, post_media(id, media_type, media_url, created_at)"
-    )
-    .order("is_pinned", { ascending: false })
-    .order("priority_rank", { ascending: true })
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: false })
-    .limit(limit + 1);
-
-  if (cursorPayload) {
-    const { priorityRank, createdAt, id } = cursorPayload;
-    if (typeof priorityRank === "number") {
-      query = query.or(
-        [
-          `priority_rank.gt.${priorityRank}`,
-          `and(priority_rank.eq.${priorityRank},created_at.lt.${createdAt})`,
-          `and(priority_rank.eq.${priorityRank},created_at.eq.${createdAt},id.lt.${id})`,
-        ].join(",")
-      );
-    } else {
-      query = query.or(
-        [`created_at.lt.${createdAt}`, `and(created_at.eq.${createdAt},id.lt.${id})`].join(",")
-      );
+  const buildQuery = (includePriority: boolean) => {
+    let selectFields =
+      "id, author_id, author_role, author_tier, content, is_admin_post, is_pinned, is_featured, created_at, post_media(id, media_type, media_url, created_at)";
+    if (includePriority) {
+      selectFields =
+        "id, author_id, author_role, author_tier, content, is_admin_post, is_pinned, is_featured, priority_rank, created_at, post_media(id, media_type, media_url, created_at)";
     }
-  }
 
-  const { data: posts, error } = await query;
+    let query = supabase.from("posts").select(selectFields);
+
+    if (includePriority) {
+      query = query
+        .order("is_pinned", { ascending: false })
+        .order("priority_rank", { ascending: true })
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false });
+    } else {
+      query = query.order("created_at", { ascending: false }).order("id", { ascending: false });
+    }
+
+    query = query.limit(limit + 1);
+
+    if (cursorPayload) {
+      const { priorityRank, createdAt, id } = cursorPayload;
+      if (includePriority && typeof priorityRank === "number") {
+        query = query.or(
+          [
+            `priority_rank.gt.${priorityRank}`,
+            `and(priority_rank.eq.${priorityRank},created_at.lt.${createdAt})`,
+            `and(priority_rank.eq.${priorityRank},created_at.eq.${createdAt},id.lt.${id})`,
+          ].join(",")
+        );
+      } else {
+        query = query.or(
+          [`created_at.lt.${createdAt}`, `and(created_at.eq.${createdAt},id.lt.${id})`].join(",")
+        );
+      }
+    }
+
+    return query;
+  };
+
+  let posts: Array<any> | null = null;
+  let error: { message?: string } | null = null;
+  let includePriority = true;
+  ({ data: posts, error } = await buildQuery(true));
+
+  if (error && String(error.message || "").includes("priority_rank")) {
+    includePriority = false;
+    ({ data: posts, error } = await buildQuery(false));
+  }
 
   if (error) {
     console.error("[posts] fetch error", error);
@@ -120,7 +143,7 @@ export async function GET(req: NextRequest) {
   const { data: vendors } = authorIds.length
     ? await admin
         .from("vendors")
-        .select("owner_user_id, business_name, subscription_status")
+        .select("owner_user_id, business_name, subscription_status, coa_attested")
         .in("owner_user_id", authorIds)
     : { data: [] };
 
@@ -154,9 +177,8 @@ export async function GET(req: NextRequest) {
       profileEmail: profile?.email || null,
       vendorName: vendor?.business_name || null,
     });
-    const media = (post.post_media || []).sort((a, b) =>
-      String(a.created_at).localeCompare(String(b.created_at))
-    );
+    const media = (post.post_media || []) as Array<{ created_at?: string | null }>;
+    media.sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")));
 
     return {
       ...post,
@@ -167,9 +189,10 @@ export async function GET(req: NextRequest) {
       ),
       likeCount: likeCountMap.get(post.id) || 0,
       viewerHasLiked: likedSet.has(post.id),
-      vendor_verified: Boolean(
-        vendor?.subscription_status && ["active", "trialing"].includes(vendor.subscription_status)
-      ),
+      vendor_verified: isVerifiedVendor({
+        subscriptionStatus: vendor?.subscription_status || null,
+        coaAttested: typeof vendor?.coa_attested === "boolean" ? vendor?.coa_attested : null,
+      }),
       post_media: media,
     };
   });
@@ -180,7 +203,7 @@ export async function GET(req: NextRequest) {
           JSON.stringify({
             createdAt: enriched[enriched.length - 1].created_at,
             id: enriched[enriched.length - 1].id,
-            priorityRank: enriched[enriched.length - 1].priorityRank,
+            ...(includePriority ? { priorityRank: enriched[enriched.length - 1].priorityRank } : {}),
           })
         ).toString("base64")
       : null;
@@ -248,7 +271,7 @@ export async function POST(req: NextRequest) {
 
   const { data: vendor } = await supabase
     .from("vendors")
-    .select("id, business_name, tier, vendor_plan_id, subscription_status")
+    .select("id, business_name, tier, vendor_plan_id, subscription_status, coa_attested")
     .eq("owner_user_id", user.id)
     .maybeSingle();
 
@@ -377,9 +400,10 @@ export async function POST(req: NextRequest) {
       priorityRank: priorityRank,
       likeCount: 0,
       viewerHasLiked: false,
-      vendor_verified: Boolean(
-        vendor?.subscription_status && ["active", "trialing"].includes(vendor.subscription_status)
-      ),
+      vendor_verified: isVerifiedVendor({
+        subscriptionStatus: vendor?.subscription_status || null,
+        coaAttested: typeof vendor?.coa_attested === "boolean" ? vendor?.coa_attested : null,
+      }),
     },
     firstPost: (count || 0) === 0,
   });
