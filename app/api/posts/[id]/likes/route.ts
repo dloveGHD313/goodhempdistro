@@ -36,7 +36,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const likesCount = await getLikesCount(supabase, postId);
-  return NextResponse.json({ ok: true, likes_count: likesCount });
+  return NextResponse.json({ ok: true, likeCount: likesCount });
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -64,5 +64,5 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   }
 
   const likesCount = await getLikesCount(supabase, postId);
-  return NextResponse.json({ ok: true, likes_count: likesCount });
+  return NextResponse.json({ ok: true, likeCount: likesCount });
 }

@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const limit = Math.min(Number(searchParams.get("limit") || DEFAULT_LIMIT), 50);
   const cursor = searchParams.get("cursor");
-  let cursorPayload: { priorityRank: number; createdAt: string; id: string } | null = null;
+  let cursorPayload: { priorityRank?: number; createdAt: string; id: string } | null = null;
   if (cursor) {
     try {
       cursorPayload = JSON.parse(Buffer.from(cursor, "base64").toString("utf-8"));
@@ -88,13 +88,19 @@ export async function GET(req: NextRequest) {
 
   if (cursorPayload) {
     const { priorityRank, createdAt, id } = cursorPayload;
-    query = query.or(
-      [
-        `priority_rank.gt.${priorityRank}`,
-        `and(priority_rank.eq.${priorityRank},created_at.lt.${createdAt})`,
-        `and(priority_rank.eq.${priorityRank},created_at.eq.${createdAt},id.lt.${id})`,
-      ].join(",")
-    );
+    if (typeof priorityRank === "number") {
+      query = query.or(
+        [
+          `priority_rank.gt.${priorityRank}`,
+          `and(priority_rank.eq.${priorityRank},created_at.lt.${createdAt})`,
+          `and(priority_rank.eq.${priorityRank},created_at.eq.${createdAt},id.lt.${id})`,
+        ].join(",")
+      );
+    } else {
+      query = query.or(
+        [`created_at.lt.${createdAt}`, `and(created_at.eq.${createdAt},id.lt.${id})`].join(",")
+      );
+    }
   }
 
   const { data: posts, error } = await query;
@@ -159,8 +165,8 @@ export async function GET(req: NextRequest) {
         post.author_role as PostAuthorRole,
         post.author_tier as PostAuthorTier
       ),
-      likes_count: likeCountMap.get(post.id) || 0,
-      liked_by_me: likedSet.has(post.id),
+      likeCount: likeCountMap.get(post.id) || 0,
+      viewerHasLiked: likedSet.has(post.id),
       vendor_verified: Boolean(
         vendor?.subscription_status && ["active", "trialing"].includes(vendor.subscription_status)
       ),
@@ -172,9 +178,9 @@ export async function GET(req: NextRequest) {
     hasMore && enriched.length > 0
       ? Buffer.from(
           JSON.stringify({
-            priorityRank: enriched[enriched.length - 1].priorityRank,
             createdAt: enriched[enriched.length - 1].created_at,
             id: enriched[enriched.length - 1].id,
+            priorityRank: enriched[enriched.length - 1].priorityRank,
           })
         ).toString("base64")
       : null;
@@ -341,8 +347,8 @@ export async function POST(req: NextRequest) {
       author_name: authorName,
       post_media: mediaRecords,
       priorityRank: priorityRank,
-      likes_count: 0,
-      liked_by_me: false,
+      likeCount: 0,
+      viewerHasLiked: false,
       vendor_verified: Boolean(
         vendor?.subscription_status && ["active", "trialing"].includes(vendor.subscription_status)
       ),

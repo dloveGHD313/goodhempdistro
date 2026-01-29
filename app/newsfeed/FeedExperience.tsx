@@ -24,8 +24,8 @@ type FeedPost = {
   created_at: string;
   post_media: FeedMedia[];
   priorityRank: number;
-  likes_count: number;
-  liked_by_me: boolean;
+  likeCount: number;
+  viewerHasLiked: boolean;
   vendor_verified?: boolean;
 };
 
@@ -252,14 +252,14 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
     const current = posts.find((post) => post.id === postId);
     if (!current) return;
 
-    const wasLiked = current.liked_by_me;
+    const wasLiked = current.viewerHasLiked;
     const rollback = { ...current };
     setPosts((prev) =>
       prev.map((post) => {
         if (post.id !== postId) return post;
-        const nextLiked = !post.liked_by_me;
-        const nextCount = post.likes_count + (nextLiked ? 1 : -1);
-        return { ...post, liked_by_me: nextLiked, likes_count: Math.max(nextCount, 0) };
+        const nextLiked = !post.viewerHasLiked;
+        const nextCount = post.likeCount + (nextLiked ? 1 : -1);
+        return { ...post, viewerHasLiked: nextLiked, likeCount: Math.max(nextCount, 0) };
       })
     );
 
@@ -272,7 +272,7 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
       const payload = await response.json();
       setPosts((prev) =>
         prev.map((post) =>
-          post.id === postId ? { ...post, likes_count: payload.likes_count ?? post.likes_count } : post
+          post.id === postId ? { ...post, likeCount: payload.likeCount ?? post.likeCount } : post
         )
       );
       if (!wasLiked) {
@@ -365,7 +365,14 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
               <PostComposer
                 userId={userId}
                 onPostCreated={(post, firstPost) => {
-                  setPosts((prev) => [post, ...prev]);
+                  setPosts((prev) => [
+                    {
+                      ...post,
+                      likeCount: post.likeCount ?? 0,
+                      viewerHasLiked: post.viewerHasLiked ?? false,
+                    },
+                    ...prev,
+                  ]);
                   if (firstPost) {
                     emptyNotifiedRef.current = true;
                   }
@@ -410,11 +417,11 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
                   <button
                     type="button"
                     onClick={() => toggleLike(post.id)}
-                    className={`btn-ghost ${post.liked_by_me ? "text-accent" : ""}`}
+                    className={`btn-ghost ${post.viewerHasLiked ? "text-accent" : ""}`}
                   >
-                    {post.liked_by_me ? "♥ Liked" : "♡ Like"}
+                    {post.viewerHasLiked ? "♥ Liked" : "♡ Like"}
                   </button>
-                  <span className="text-muted">{post.likes_count} likes</span>
+                  <span className="text-muted">{post.likeCount} likes</span>
                 </div>
               </div>
             ))}
