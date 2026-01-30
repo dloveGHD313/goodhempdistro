@@ -5,9 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 type Verification = {
   id: string;
   user_id: string;
-  status: string;
+  status: "pending" | "approved" | "rejected";
   created_at: string;
   reviewed_at: string | null;
+  reviewed_by?: string | null;
   notes: string | null;
 };
 
@@ -37,7 +38,9 @@ export default function IdVerificationsClient() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("/api/admin/id-verifications", { cache: "no-store" });
+      const response = await fetch("/api/admin/id-verifications?status=pending", {
+        cache: "no-store",
+      });
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || "Failed to load verification queue.");
@@ -55,16 +58,16 @@ export default function IdVerificationsClient() {
     loadQueue();
   }, []);
 
-  const handleAction = async (id: string, action: "verify" | "reject") => {
+  const handleAction = async (id: string, action: "approve" | "reject") => {
     setActionLoading(id);
     setError(null);
+    const previous = verifications;
+    setVerifications((current) => current.filter((item) => item.id !== id));
     try {
-      const response = await fetch("/api/admin/id-verifications", {
-        method: "PATCH",
+      const response = await fetch(`/api/admin/id-verifications/${id}/${action}`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          verificationId: id,
-          action,
           notes: notesById[id] || null,
         }),
       });
@@ -72,8 +75,8 @@ export default function IdVerificationsClient() {
       if (!response.ok) {
         throw new Error(data.error || "Failed to update verification.");
       }
-      await loadQueue();
     } catch (err) {
+      setVerifications(previous);
       setError(err instanceof Error ? err.message : "Failed to update verification.");
     } finally {
       setActionLoading(null);
@@ -94,74 +97,89 @@ export default function IdVerificationsClient() {
 
   return (
     <div className="space-y-6">
-      {verifications.map((verification) => {
-        const filesForVerification = filesByVerification[verification.id] || [];
-        return (
-          <div key={verification.id} className="card-glass p-6 space-y-4">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-              <div>
-                <p className="text-sm text-muted">User ID</p>
-                <p className="text-sm">{verification.user_id}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted">Status</p>
-                <p className="text-sm capitalize">{verification.status}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted">Submitted</p>
-                <p className="text-sm">{new Date(verification.created_at).toLocaleString()}</p>
-              </div>
-            </div>
-
-            {filesForVerification.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {filesForVerification.map((file) => (
-                  <a
-                    key={file.id}
-                    href={file.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="btn-secondary px-3 py-2 text-xs"
-                  >
-                    View ID
-                  </a>
-                ))}
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <label className="block text-sm text-muted">Notes (optional)</label>
-              <textarea
-                className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm"
-                rows={2}
-                value={notesById[verification.id] ?? verification.notes ?? ""}
-                onChange={(event) =>
-                  setNotesById((prev) => ({ ...prev, [verification.id]: event.target.value }))
-                }
-              />
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => handleAction(verification.id, "verify")}
-                disabled={actionLoading === verification.id}
-              >
-                Approve
-              </button>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => handleAction(verification.id, "reject")}
-                disabled={actionLoading === verification.id}
-              >
-                Reject
-              </button>
-            </div>
-          </div>
-        );
-      })}
+      <div className="card-glass overflow-hidden">
+        <table className="min-w-full text-sm">
+          <thead className="bg-[var(--surface)]/80 text-left">
+            <tr>
+              <th className="px-4 py-3 text-muted">User</th>
+              <th className="px-4 py-3 text-muted">Submitted</th>
+              <th className="px-4 py-3 text-muted">ID Preview</th>
+              <th className="px-4 py-3 text-muted">Notes</th>
+              <th className="px-4 py-3 text-muted">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {verifications.map((verification) => {
+              const filesForVerification = filesByVerification[verification.id] || [];
+              return (
+                <tr key={verification.id} className="border-t border-[var(--border)]/60">
+                  <td className="px-4 py-4 align-top">
+                    <div className="text-xs text-muted">User ID</div>
+                    <div className="text-sm">{verification.user_id}</div>
+                  </td>
+                  <td className="px-4 py-4 align-top">
+                    {new Date(verification.created_at).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-4 align-top">
+                    <div className="flex flex-wrap gap-2">
+                      {filesForVerification.length === 0 && (
+                        <span className="text-xs text-muted">No files</span>
+                      )}
+                      {filesForVerification.map((file) => (
+                        <a
+                          key={file.id}
+                          href={file.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block w-16 h-16 rounded-lg overflow-hidden border border-[var(--border)]"
+                        >
+                          <img
+                            src={file.url}
+                            alt="ID preview"
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 align-top w-64">
+                    <textarea
+                      className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs"
+                      rows={3}
+                      value={notesById[verification.id] ?? verification.notes ?? ""}
+                      onChange={(event) =>
+                        setNotesById((prev) => ({ ...prev, [verification.id]: event.target.value }))
+                      }
+                      placeholder="Optional rejection reason"
+                    />
+                  </td>
+                  <td className="px-4 py-4 align-top">
+                    <div className="flex flex-col gap-2">
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        onClick={() => handleAction(verification.id, "approve")}
+                        disabled={actionLoading === verification.id}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => handleAction(verification.id, "reject")}
+                        disabled={actionLoading === verification.id}
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
