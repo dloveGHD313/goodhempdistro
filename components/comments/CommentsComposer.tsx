@@ -73,7 +73,6 @@ const CommentsComposer = React.memo(
         e.preventDefault();
         handleSubmit(e as unknown as React.FormEvent);
       }
-      e.stopPropagation();
     };
 
     return (
@@ -93,9 +92,6 @@ const CommentsComposer = React.memo(
             defaultValue=""
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-            onTouchStart={(e) => e.stopPropagation()}
             placeholder={placeholder}
             disabled={!canPost || submitting}
             aria-label="Write a comment"

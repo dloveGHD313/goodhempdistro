@@ -77,7 +77,7 @@ const setBodyScrollLock = (locked: boolean) => {
     body.dataset.scrollY = scrollY.toString();
 
     body.style.overflow = "hidden";
-    body.style.touchAction = "none";
+    body.style.touchAction = "pan-y";
     body.style.position = "fixed";
     body.style.top = `-${scrollY}px`;
     body.style.width = "100%";
@@ -173,10 +173,6 @@ export default function CommentsDrawer({
   const drawerHeight = useDrawerHeight();
 
   const canPost = Boolean(userId);
-
-  const handleContentInteraction = useCallback((event: React.MouseEvent | React.TouchEvent) => {
-    event.stopPropagation();
-  }, []);
 
   const cleanupOnClose = useCallback(() => {
     if (controllerRef.current && !controllerRef.current.signal.aborted) {
@@ -574,13 +570,7 @@ export default function CommentsDrawer({
   return (
     <Drawer open={isOpen} onOpenChange={handleDrawerChange} title="Comments" side={drawerSide}>
       <CommentsDrawerErrorBoundary>
-        <div
-          className="flex flex-col h-full"
-          onPointerDown={handleContentInteraction}
-          onTouchStart={handleContentInteraction}
-          onClick={handleContentInteraction}
-          style={{ height: drawerSide === "bottom" ? drawerHeight : "100%" }}
-        >
+        <div className="flex flex-col h-full" style={{ height: drawerSide === "bottom" ? drawerHeight : "100%" }}>
           <div className="flex-shrink-0 sticky top-0 z-10 backdrop-blur-md bg-[var(--surface)]/90 border-b border-[var(--border)] px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
@@ -601,9 +591,6 @@ export default function CommentsDrawer({
           <div
             ref={scrollRef}
             onScroll={handleScroll}
-            onPointerDown={handleContentInteraction}
-            onTouchStart={handleContentInteraction}
-            onClick={handleContentInteraction}
             className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-4 space-y-5"
             style={{
               overscrollBehavior: "contain",
@@ -636,24 +623,14 @@ export default function CommentsDrawer({
           </div>
 
           {showJump && (
-            <div
-              className="px-6 py-2 border-t border-[var(--border)] bg-[var(--surface)]/90"
-              onPointerDown={handleContentInteraction}
-              onTouchStart={handleContentInteraction}
-              onClick={handleContentInteraction}
-            >
+            <div className="px-6 py-2 border-t border-[var(--border)] bg-[var(--surface)]/90">
               <button type="button" className="btn-secondary w-full" onClick={scrollToBottom}>
                 Jump to latest
               </button>
             </div>
           )}
 
-          <div
-            className="flex-shrink-0 sticky bottom-0 z-10 backdrop-blur-md bg-[var(--surface)]/95 border-t border-[var(--border)] px-6 py-4 space-y-3"
-            onPointerDown={handleContentInteraction}
-            onTouchStart={handleContentInteraction}
-            onClick={handleContentInteraction}
-          >
+          <div className="flex-shrink-0 sticky bottom-0 z-10 backdrop-blur-md bg-[var(--surface)]/95 border-t border-[var(--border)] px-6 py-4 space-y-3">
             <CommentsComposer
               canPost={canPost}
               submitting={submitting}
