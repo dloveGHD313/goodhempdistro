@@ -6,7 +6,7 @@ import { getDelta8WarningText, requiresWarning } from "@/lib/compliance";
 import FavoriteButton from "@/components/engagement/FavoriteButton";
 import ReviewSection from "@/components/engagement/ReviewSection";
 import Footer from "@/components/Footer";
-import { enforceGatedAccess } from "@/lib/server/marketGate";
+import { isGatedProduct, requireMarketAccess } from "@/lib/server/marketGate";
 
 type Product = {
   id: string;
@@ -15,6 +15,7 @@ type Product = {
   price_cents: number | null;
   is_gated: boolean;
   market_category: string | null;
+  market_mode: "gated" | "ungated";
   featured: boolean;
   description?: string | null;
   vendor_id?: string | null;
@@ -79,6 +80,8 @@ async function getProduct(id: string): Promise<ProductFetchResult> {
   return {
     product: {
       ...data,
+      market_mode:
+        data.is_gated || data.market_category === "INTOXICATING" ? "gated" : "ungated",
       coa_public_url: coaPublicUrl,
     },
     supabaseErrorMessage: null,
@@ -193,8 +196,8 @@ export default async function ProductDetailPage(props: Props) {
     );
   }
 
-  if (product.is_gated || product.market_category === "INTOXICATING") {
-    const gate = await enforceGatedAccess(user?.id ?? null);
+  if (isGatedProduct(product)) {
+    const gate = await requireMarketAccess(user?.id ?? null, "gated");
     if (!gate.ok) {
       return (
         <div className="min-h-screen text-white flex flex-col">

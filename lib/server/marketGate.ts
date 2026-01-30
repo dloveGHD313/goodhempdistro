@@ -9,7 +9,22 @@ type GateError = {
   message: string;
 };
 
-export async function isGatedMarketVerified(userId: string | null): Promise<boolean> {
+type MarketType = "gated" | "ungated";
+
+type GateProduct = {
+  market_mode?: MarketType | null;
+  is_gated?: boolean | null;
+  market_category?: string | null;
+};
+
+export function isGatedProduct(product: GateProduct | null | undefined): boolean {
+  if (!product) return false;
+  if (product.market_mode === "gated") return true;
+  if (product.is_gated === true) return true;
+  return product.market_category === "INTOXICATING";
+}
+
+async function isVerifiedForGatedMarket(userId: string | null): Promise<boolean> {
   if (!userId) return false;
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase
@@ -24,8 +39,15 @@ export async function isGatedMarketVerified(userId: string | null): Promise<bool
   );
 }
 
-export async function enforceGatedAccess(userId: string | null): Promise<GateOk | GateError> {
-  const verified = await isGatedMarketVerified(userId);
+export async function requireMarketAccess(
+  userId: string | null,
+  marketType: MarketType
+): Promise<GateOk | GateError> {
+  if (marketType === "ungated") {
+    return { ok: true };
+  }
+
+  const verified = await isVerifiedForGatedMarket(userId);
   if (verified) return { ok: true };
   return {
     ok: false,
@@ -33,8 +55,4 @@ export async function enforceGatedAccess(userId: string | null): Promise<GateOk 
     code: "GATED_MARKET_REQUIRES_VERIFICATION",
     message: "Intoxicating market requires 21+ verification.",
   };
-}
-
-export async function requireGatedAccess(userId: string | null): Promise<GateOk | GateError> {
-  return enforceGatedAccess(userId);
 }

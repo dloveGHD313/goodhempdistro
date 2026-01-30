@@ -3,10 +3,6 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 
 type GateResult = { allow: true } | { redirectTo: string };
 
-type GateInput = {
-  pathname: string;
-};
-
 type ProfileRow = {
   id: string;
   role: string | null;
@@ -23,9 +19,6 @@ type VendorRow = {
 
 const isDev = process.env.NODE_ENV !== "production";
 type SupabaseClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
-
-const buildRedirectUrl = (basePath: string, pathname: string) =>
-  `${basePath}?redirect=${encodeURIComponent(pathname)}`;
 
 const logDev = (message: string, detail?: Record<string, unknown>) => {
   if (!isDev) return;
@@ -70,16 +63,15 @@ async function loadVendor(supabase: SupabaseClient, userId: string) {
   return (data as VendorRow | null) ?? null;
 }
 
-export async function requireConsumerOnboarding({ pathname }: GateInput): Promise<GateResult> {
+export async function requireConsumerOnboarding(userId: string | null): Promise<GateResult> {
   const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) {
-    logDev("redirect: login", { pathname });
-    return { redirectTo: buildRedirectUrl("/login", pathname) };
+  if (!userId) {
+    logDev("redirect: login");
+    return { redirectTo: "/login" };
   }
 
-  const profile = await loadProfile(supabase, user.id);
+  const profile = await loadProfile(supabase, userId);
   const isAdmin = profile?.role === "admin";
   if (isAdmin) {
     return { allow: true };
@@ -87,37 +79,30 @@ export async function requireConsumerOnboarding({ pathname }: GateInput): Promis
 
   const completed = !!profile?.consumer_onboarding_completed;
   if (!completed) {
-    if (pathname.startsWith("/onboarding/consumer")) {
-      return { allow: true };
-    }
-    logDev("redirect: consumer onboarding", { pathname, userId: user.id });
+    logDev("redirect: consumer onboarding", { userId });
     return { redirectTo: "/onboarding/consumer" };
   }
 
   return { allow: true };
 }
 
-export async function requireVendorOnboarding({ pathname }: GateInput): Promise<GateResult> {
+export async function requireVendorOnboarding(userId: string | null): Promise<GateResult> {
   const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) {
-    logDev("redirect: login", { pathname });
-    return { redirectTo: buildRedirectUrl("/login", pathname) };
+  if (!userId) {
+    logDev("redirect: login");
+    return { redirectTo: "/login" };
   }
 
-  const profile = await loadProfile(supabase, user.id);
+  const profile = await loadProfile(supabase, userId);
   const isAdmin = profile?.role === "admin";
   if (isAdmin) {
     return { allow: true };
   }
 
-  const vendor = await loadVendor(supabase, user.id);
-  if (!vendor || vendor.owner_user_id !== user.id) {
-    if (pathname === "/vendor-registration") {
-      return { allow: true };
-    }
-    logDev("redirect: vendor registration", { pathname, userId: user.id });
+  const vendor = await loadVendor(supabase, userId);
+  if (!vendor || vendor.owner_user_id !== userId) {
+    logDev("redirect: vendor registration", { userId });
     return { redirectTo: "/vendor-registration" };
   }
 
@@ -126,10 +111,7 @@ export async function requireVendorOnboarding({ pathname }: GateInput): Promise<
     && !!vendor.compliance_acknowledged_at;
 
   if (!isComplete) {
-    if (pathname.startsWith("/onboarding/vendor")) {
-      return { allow: true };
-    }
-    logDev("redirect: vendor onboarding", { pathname, vendorId: vendor.id });
+    logDev("redirect: vendor onboarding", { vendorId: vendor.id });
     return { redirectTo: "/onboarding/vendor" };
   }
 

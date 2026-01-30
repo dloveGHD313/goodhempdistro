@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { createSupabaseServerClient } from "@/lib/supabase";
 import { requireConsumerOnboarding } from "@/lib/server/onboardingGate";
 
 export default async function ProductsLayout({
@@ -6,7 +7,13 @@ export default async function ProductsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const result = await requireConsumerOnboarding({ pathname: "/products" });
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    redirect(`/login?redirect=${encodeURIComponent("/products")}`);
+  }
+
+  const result = await requireConsumerOnboarding(user.id);
   if ("redirectTo" in result) {
     redirect(result.redirectTo);
   }

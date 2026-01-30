@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { createSupabaseServerClient } from "@/lib/supabase";
 import { requireConsumerOnboarding } from "@/lib/server/onboardingGate";
 
 export default async function DashboardLayout({
@@ -6,7 +7,13 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const result = await requireConsumerOnboarding({ pathname: "/dashboard" });
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    redirect(`/login?redirect=${encodeURIComponent("/dashboard")}`);
+  }
+
+  const result = await requireConsumerOnboarding(user.id);
   if ("redirectTo" in result) {
     redirect(result.redirectTo);
   }

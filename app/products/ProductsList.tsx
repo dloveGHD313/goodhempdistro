@@ -17,6 +17,7 @@ type Product = {
   price_cents: number;
   is_gated: boolean;
   market_category: string | null;
+  market_mode?: "gated" | "ungated";
   featured: boolean;
   description?: string | null;
   vendor_name?: string | null;
@@ -175,7 +176,8 @@ export default function ProductsList({ initialProducts, initialCategoryId }: Pro
                 : "Product details coming soon.";
             const marketCategory = product.market_category || "CBD_WELLNESS";
             const isIntoxicating = marketCategory === "INTOXICATING";
-            const isLocked = isIntoxicating && !isVerified;
+            const marketMode = product.market_mode ?? (isIntoxicating ? "gated" : "ungated");
+            const isLocked = marketMode === "gated" && !isVerified;
             return (
               <div key={product.id} className="card-glass p-6 hover-lift h-full">
               <div className="flex items-center justify-between mb-3">

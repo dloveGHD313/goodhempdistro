@@ -47,33 +47,19 @@ export async function middleware(request: NextRequest) {
   const protectedRoutes = [
     "/dashboard",
     "/account",
-    "/products",
-    "/orders",
     "/checkout",
     "/driver/dashboard",
-    "/onboarding",
-    "/vendors/dashboard",
-    "/vendors/products",
-    "/vendors/services",
-    "/vendors/events",
-    "/vendors/settings",
-    "/vendor",
   ];
-  const isProtectedRoute = protectedRoutes.some((route) => 
+  const isProtectedRoute = protectedRoutes.some((route) =>
     pathname === route || pathname.startsWith(`${route}/`)
   );
-  
-  // Admin routes - require admin role (checked at page level, but redirect here if not authenticated)
+
+  // Vendor tooling - require authentication
+  const isVendorRoute = pathname === "/vendors" || pathname.startsWith("/vendors/");
+
+  // Admin routes - require authentication (admin role checked at page level)
   const isAdminRoute = pathname.startsWith("/admin");
   const isAdminApiRoute = pathname.startsWith("/api/admin");
-
-  // Auth pages - redirect to dashboard if already authenticated (but NOT reset-password)
-  const authRoutes = ["/login", "/signup", "/auth/reset"];
-  const isAuthRoute = authRoutes.includes(pathname);
-  
-  const isOnboardingRoute = pathname === "/onboarding" || pathname.startsWith("/onboarding/");
-  const isVendorOnboardingRoute = pathname === "/onboarding/vendor" || pathname.startsWith("/onboarding/vendor/");
-  const isApiRoute = pathname.startsWith("/api");
 
   // Public auth routes - allow unauthenticated AND authenticated access
   // These routes handle their own auth logic (e.g., reset-password needs session for recovery)
@@ -99,97 +85,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // Redirect protected routes to login if not authenticated
-  if (isProtectedRoute && !user) {
+  // Redirect protected and vendor routes to login if not authenticated
+  if ((isProtectedRoute || isVendorRoute) && !user) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(redirectUrl);
-  }
-
-  // Checkout is gated so consumers complete onboarding before purchase.
-  const consumerGateRoutes = [
-    "/dashboard",
-    "/products",
-    "/services",
-    "/events",
-    "/vendors",
-    "/orders",
-    "/checkout",
-  ];
-  const isConsumerGateRoute = consumerGateRoutes.some((route) =>
-    pathname === route || pathname.startsWith(`${route}/`)
-  );
-
-  // Consumer onboarding enforcement (marketplace-only)
-  if (user && isConsumerGateRoute && !isOnboardingRoute && !isApiRoute) {
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role, consumer_onboarding_completed")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    if (profileError) {
-      console.error("[middleware] Error fetching consumer onboarding status:", profileError.message);
-    }
-
-    const role = profile?.role ?? "consumer";
-    const onboardingCompleted = profile?.consumer_onboarding_completed ?? false;
-
-    if (role === "consumer" && !onboardingCompleted) {
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/onboarding/consumer";
-      return NextResponse.redirect(redirectUrl);
-    }
-  }
-
-  const vendorToolingRoutes = [
-    "/vendor",
-    "/vendors/dashboard",
-    "/vendors/products",
-    "/vendors/services",
-    "/vendors/events",
-    "/vendors/settings",
-  ];
-  const isVendorToolingRoute = vendorToolingRoutes.some((route) =>
-    pathname === route || pathname.startsWith(`${route}/`)
-  );
-
-  // Vendor onboarding enforcement: block vendor tooling until onboarding complete + terms accepted.
-  if (user && isVendorToolingRoute && !isVendorOnboardingRoute && !isApiRoute) {
-    const { data: vendor, error: vendorError } = await supabase
-      .from("vendors")
-      .select("id, owner_user_id, vendor_onboarding_completed, terms_accepted_at, compliance_acknowledged_at")
-      .eq("owner_user_id", user.id)
-      .maybeSingle();
-
-    if (vendorError) {
-      console.error("[middleware] Error fetching vendor onboarding status:", vendorError.message);
-    }
-
-    if (!vendor) {
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/vendor-registration";
-      return NextResponse.redirect(redirectUrl);
-    }
-
-    const vendorOnboardingComplete =
-      vendor.vendor_onboarding_completed &&
-      vendor.terms_accepted_at &&
-      vendor.compliance_acknowledged_at;
-
-    if (!vendorOnboardingComplete) {
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/onboarding/vendor";
-      return NextResponse.redirect(redirectUrl);
-    }
-  }
-
-  // Redirect auth pages to dashboard if already authenticated
-  // Note: reset-password is excluded from this because it's in publicAuthRoutes above
-  if (isAuthRoute && user) {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/dashboard";
     return NextResponse.redirect(redirectUrl);
   }
 

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { createSupabaseServerClient } from "@/lib/supabase";
 import { requireVendorOnboarding } from "@/lib/server/onboardingGate";
 
 export default async function VendorLayout({
@@ -6,7 +7,13 @@ export default async function VendorLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const result = await requireVendorOnboarding({ pathname: "/vendor" });
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    redirect(`/login?redirect=${encodeURIComponent("/vendor")}`);
+  }
+
+  const result = await requireVendorOnboarding(user.id);
   if ("redirectTo" in result) {
     redirect(result.redirectTo);
   }

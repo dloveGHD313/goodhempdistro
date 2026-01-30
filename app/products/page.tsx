@@ -19,6 +19,7 @@ type Product = {
   price_cents: number;
   is_gated: boolean;
   market_category: string | null;
+  market_mode: "gated" | "ungated";
   featured: boolean;
   description?: string | null;
   vendor_id?: string | null;
@@ -86,10 +87,17 @@ async function getProducts(vendorId?: string | null): Promise<{
       }
     }
 
-    const products = rawProducts.map((product) => ({
-      ...product,
-      vendor_name: vendorName || (product.vendor_id ? vendorMap[product.vendor_id] : null) || null,
-    }));
+    const products = rawProducts.map((product) => {
+      const marketMode: "gated" | "ungated" =
+        product.is_gated || product.market_category === "INTOXICATING"
+          ? "gated"
+          : "ungated";
+      return {
+        ...product,
+        market_mode: marketMode,
+        vendor_name: vendorName || (product.vendor_id ? vendorMap[product.vendor_id] : null) || null,
+      };
+    });
 
     return { products, vendorName };
   } catch (err) {
