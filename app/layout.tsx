@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { validateEnvironmentVariables } from "@/lib/env-validator";
 import { brand, colorVars } from "@/lib/brand";
@@ -16,14 +16,28 @@ if (typeof window === "undefined") {
   validateEnvironmentVariables({ logSuccess: false });
 }
 
-const geistSans = Geist({
+const geistSans = localFont({
   variable: "--font-geist-sans",
-  subsets: ["latin"],
+  src: [
+    {
+      path: "../public/fonts/Geist-Variable.woff2",
+      weight: "100 900",
+      style: "normal",
+    },
+  ],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
+const geistMono = localFont({
   variable: "--font-geist-mono",
-  subsets: ["latin"],
+  src: [
+    {
+      path: "../public/fonts/GeistMono-Variable.woff2",
+      weight: "100 900",
+      style: "normal",
+    },
+  ],
+  display: "swap",
 });
 
 export const metadata: Metadata = {

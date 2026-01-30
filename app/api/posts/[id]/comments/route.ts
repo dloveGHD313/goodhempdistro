@@ -49,13 +49,13 @@ const createAnonServerClient = () => {
   );
 };
 
-const withTimeout = async <T,>(promise: Promise<T>, label: string): Promise<T> => {
+const withTimeout = async <T,>(promise: PromiseLike<T>, label: string): Promise<T> => {
   let timer: ReturnType<typeof setTimeout> | null = null;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error(`${label} timeout`)), QUERY_TIMEOUT_MS);
   });
   try {
-    return await Promise.race([promise, timeout]);
+    return await Promise.race([Promise.resolve(promise), timeout]);
   } finally {
     if (timer) clearTimeout(timer);
   }

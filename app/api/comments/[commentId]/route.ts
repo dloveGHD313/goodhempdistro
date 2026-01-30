@@ -3,13 +3,13 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 
 const QUERY_TIMEOUT_MS = 4000;
 
-const withTimeout = async <T,>(promise: Promise<T>, label: string): Promise<T> => {
+const withTimeout = async <T,>(promise: PromiseLike<T>, label: string): Promise<T> => {
   let timer: ReturnType<typeof setTimeout> | null = null;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error(`${label} timeout`)), QUERY_TIMEOUT_MS);
   });
   try {
-    return await Promise.race([promise, timeout]);
+    return await Promise.race([Promise.resolve(promise), timeout]);
   } finally {
     if (timer) clearTimeout(timer);
   }
@@ -35,7 +35,7 @@ export async function DELETE(
   let data: { id: string } | null = null;
   let error: { message?: string } | null = null;
   try {
-    ({ data, error } = await withTimeout(
+    const response = (await withTimeout(
       supabase
         .from("post_comments")
         .update({ is_deleted: true, deleted_at: timestamp })
@@ -43,7 +43,9 @@ export async function DELETE(
         .select("id")
         .maybeSingle(),
       "comment delete"
-    ));
+    )) as { data: { id: string } | null; error: { message?: string } | null };
+    data = response.data;
+    error = response.error;
   } catch (err) {
     console.error("[comments] delete timeout", err);
     return NextResponse.json({ error: "Comment delete timed out." }, { status: 504 });
