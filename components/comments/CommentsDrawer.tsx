@@ -168,6 +168,7 @@ export default function CommentsDrawer({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const nearBottomRef = useRef(true);
   const controllerRef = useRef<AbortController | null>(null);
+  const submittingRef = useRef(false);
   const requestSeq = useRef(0);
   const lastLoadedPostIdRef = useRef<string | null>(null);
   const drawerHeight = useDrawerHeight();
@@ -183,6 +184,7 @@ export default function CommentsDrawer({
     setReplyTarget(null);
     setError(null);
     setSubmitting(false);
+    submittingRef.current = false;
     setShowJump(false);
     setLoading(false);
     setStatus("idle");
@@ -408,9 +410,14 @@ export default function CommentsDrawer({
 
   const handleCommentSubmit = useCallback(
     async (body: string) => {
-      if (!canPost || submitting) return;
+      if (submittingRef.current) return;
+      if (!canPost) {
+        setError("Sign in to comment.");
+        return;
+      }
       const trimmed = body.trim();
       if (!trimmed) return;
+      submittingRef.current = true;
       const parentId = replyTarget?.id || null;
       const previous = comments;
       const previousCount = count;
@@ -455,9 +462,10 @@ export default function CommentsDrawer({
         setError(err instanceof Error ? err.message : "Failed to post comment.");
       } finally {
         setSubmitting(false);
+        submittingRef.current = false;
       }
     },
-    [canPost, submitting, replyTarget, comments, count, insertOptimisticComment, updateCount, postId]
+    [canPost, replyTarget, comments, count, insertOptimisticComment, updateCount, postId]
   );
 
   const handleDelete = useCallback(

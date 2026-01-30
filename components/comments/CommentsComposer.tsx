@@ -44,7 +44,8 @@ const CommentsComposer = React.memo(
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      const body = draftRef.current.trim();
+      const raw = textareaRef.current?.value ?? draftRef.current;
+      const body = raw.trim();
 
       if (!body) {
         setLocalError("Comment cannot be empty");
@@ -93,7 +94,7 @@ const CommentsComposer = React.memo(
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
-            disabled={!canPost || submitting}
+            disabled={submitting}
             aria-label="Write a comment"
             style={{
               touchAction: "manipulation",
