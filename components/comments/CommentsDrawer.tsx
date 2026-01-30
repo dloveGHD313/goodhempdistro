@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+// Comments drawer fixes: scroll lock, touch handling, and focus timing.
 import ProfileChip from "@/components/profile/ProfileChip";
 import Drawer from "@/components/ui/Drawer";
 import { getDisplayName } from "@/lib/identity";
@@ -37,6 +38,70 @@ type ReplyTarget = {
 };
 
 const commentsCache = new Map<string, { comments: CommentItem[]; count: number }>();
+
+const setBodyScrollLock = (locked: boolean) => {
+  if (typeof document === "undefined") return;
+  const body = document.body;
+  const html = document.documentElement;
+
+  if (locked) {
+    const scrollY = window.scrollY;
+    if (!body.dataset.prevOverflow) body.dataset.prevOverflow = body.style.overflow || "";
+    if (!body.dataset.prevTouchAction) body.dataset.prevTouchAction = body.style.touchAction || "";
+    if (!html.dataset.prevOverscroll) html.dataset.prevOverscroll = html.style.overscrollBehavior || "";
+    if (!body.dataset.prevPosition) body.dataset.prevPosition = body.style.position || "";
+    if (!body.dataset.prevTop) body.dataset.prevTop = body.style.top || "";
+    if (!body.dataset.prevWidth) body.dataset.prevWidth = body.style.width || "";
+    body.dataset.scrollY = scrollY.toString();
+
+    body.style.overflow = "hidden";
+    body.style.touchAction = "none";
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.width = "100%";
+    html.style.overscrollBehavior = "none";
+  } else {
+    const scrollY = parseInt(body.dataset.scrollY || "0", 10);
+    body.style.overflow = body.dataset.prevOverflow ?? "";
+    body.style.touchAction = body.dataset.prevTouchAction ?? "";
+    body.style.position = body.dataset.prevPosition ?? "";
+    body.style.top = body.dataset.prevTop ?? "";
+    body.style.width = body.dataset.prevWidth ?? "";
+    html.style.overscrollBehavior = html.dataset.prevOverscroll ?? "";
+    window.scrollTo(0, scrollY);
+
+    delete body.dataset.prevOverflow;
+    delete body.dataset.prevTouchAction;
+    delete html.dataset.prevOverscroll;
+    delete body.dataset.prevPosition;
+    delete body.dataset.prevTop;
+    delete body.dataset.prevWidth;
+    delete body.dataset.scrollY;
+  }
+};
+
+const useDrawerHeight = () => {
+  const [height, setHeight] = useState("80vh");
+
+  useEffect(() => {
+    const updateHeight = () => {
+      const supportsDvh = typeof CSS !== "undefined" && CSS.supports("height", "100dvh");
+      const isMobile = window.innerWidth < 768;
+      if (isMobile && supportsDvh) {
+        setHeight("70dvh");
+      } else if (isMobile) {
+        setHeight(`${window.innerHeight * 0.7}px`);
+      } else {
+        setHeight("80vh");
+      }
+    };
+    updateHeight();
+    window.addEventListener("resize", updateHeight);
+    return () => window.removeEventListener("resize", updateHeight);
+  }, []);
+
+  return height;
+};
 
 const formatShortTime = (value: string) => {
   const date = new Date(value);
@@ -85,8 +150,71 @@ export default function CommentsDrawer({
   const controllerRef = useRef<AbortController | null>(null);
   const requestSeq = useRef(0);
   const lastLoadedPostIdRef = useRef<string | null>(null);
+  const focusTimerRef = useRef<number | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const drawerHeight = useDrawerHeight();
 
   const canPost = Boolean(userId);
+
+  const clearFocusTimer = useCallback(() => {
+    if (focusTimerRef.current) {
+      window.clearTimeout(focusTimerRef.current);
+      focusTimerRef.current = null;
+    }
+  }, []);
+
+  const handleTextareaFocus = useCallback(() => {
+    if (!composerRef.current || !isOpen) return;
+    rafRef.current = window.requestAnimationFrame(() => {
+      if (!composerRef.current) return;
+      focusTimerRef.current = window.setTimeout(() => {
+        if (!composerRef.current || !isOpen) return;
+        composerRef.current.focus();
+        if (window.innerWidth < 768) {
+          const length = composerRef.current.value.length;
+          composerRef.current.setSelectionRange(length, length);
+        }
+      }, 150);
+    });
+  }, [isOpen]);
+
+  const handleContentInteraction = useCallback((event: React.MouseEvent | React.TouchEvent) => {
+    event.stopPropagation();
+  }, []);
+
+  const cleanupOnClose = useCallback(() => {
+    if (controllerRef.current && !controllerRef.current.signal.aborted) {
+      controllerRef.current.abort();
+    }
+    controllerRef.current = null;
+    setActionMenuId(null);
+    setReplyTarget(null);
+    setNewBody("");
+    setError(null);
+    setSubmitting(false);
+    setShowJump(false);
+    setLoading(false);
+    setStatus("idle");
+    setBodyScrollLock(false);
+    clearFocusTimer();
+    if (rafRef.current) {
+      window.cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[comments-ui]", { postId, state: "idle", reason: "cleanup" });
+    }
+  }, [clearFocusTimer, postId]);
+
+  const handleDrawerChange = useCallback(
+    (next: boolean) => {
+      if (!next) {
+        cleanupOnClose();
+        onClose();
+      }
+    },
+    [cleanupOnClose, onClose]
+  );
 
   const updateCount = useCallback(
     (next: number) => {
@@ -175,20 +303,18 @@ export default function CommentsDrawer({
 
   useEffect(() => {
     if (!isOpen) return;
+    setBodyScrollLock(true);
     fetchComments();
   }, [fetchComments, isOpen, openToken]);
 
   useEffect(() => {
     if (!isOpen) {
-      controllerRef.current?.abort();
-      controllerRef.current = null;
-      setStatus("idle");
+      cleanupOnClose();
     }
     return () => {
-      controllerRef.current?.abort();
-      controllerRef.current = null;
+      cleanupOnClose();
     };
-  }, [isOpen]);
+  }, [cleanupOnClose, isOpen]);
 
   useEffect(() => {
     if (!postId) return;
@@ -207,7 +333,7 @@ export default function CommentsDrawer({
 
   useEffect(() => {
     if (!isOpen || !canPost) return;
-    composerRef.current?.focus();
+    handleTextareaFocus();
   }, [isOpen, canPost]);
 
   useEffect(() => {
@@ -446,16 +572,15 @@ export default function CommentsDrawer({
   const composerPlaceholder = canPost ? "Write a comment..." : "Sign in to comment";
 
   return (
-    <Drawer
-      open={isOpen}
-      onOpenChange={(next) => {
-        if (!next) onClose();
-      }}
-      title="Comments"
-      side={drawerSide}
-    >
-      <div className="flex flex-col h-full">
-        <div className="sticky top-0 z-10 backdrop-blur-md bg-[var(--surface)]/90 border-b border-[var(--border)] px-6 py-4">
+    <Drawer open={isOpen} onOpenChange={handleDrawerChange} title="Comments" side={drawerSide}>
+      <div
+        className="flex flex-col h-full"
+        onPointerDown={handleContentInteraction}
+        onTouchStart={handleContentInteraction}
+        onClick={handleContentInteraction}
+        style={{ height: drawerSide === "bottom" ? drawerHeight : "100%" }}
+      >
+        <div className="flex-shrink-0 sticky top-0 z-10 backdrop-blur-md bg-[var(--surface)]/90 border-b border-[var(--border)] px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-semibold flex items-center gap-2">
@@ -477,7 +602,18 @@ export default function CommentsDrawer({
         <div
           ref={scrollRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto px-6 py-4 space-y-5"
+          onPointerDown={handleContentInteraction}
+          onTouchStart={handleContentInteraction}
+          onClick={handleContentInteraction}
+          className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-4 space-y-5"
+          style={{
+            overscrollBehavior: "contain",
+            WebkitOverflowScrolling: "touch",
+            touchAction: "pan-y",
+            willChange: "scroll-position",
+            scrollBehavior: "smooth",
+            position: "relative",
+          }}
         >
           {error && (
             <div className="card-glass p-4 border border-red-500/40">
@@ -501,14 +637,24 @@ export default function CommentsDrawer({
         </div>
 
         {showJump && (
-          <div className="px-6 py-2 border-t border-[var(--border)] bg-[var(--surface)]/90">
+          <div
+            className="px-6 py-2 border-t border-[var(--border)] bg-[var(--surface)]/90"
+            onPointerDown={handleContentInteraction}
+            onTouchStart={handleContentInteraction}
+            onClick={handleContentInteraction}
+          >
             <button type="button" className="btn-secondary w-full" onClick={scrollToBottom}>
               Jump to latest
             </button>
           </div>
         )}
 
-        <div className="sticky bottom-0 z-10 backdrop-blur-md bg-[var(--surface)]/95 border-t border-[var(--border)] px-6 py-4 space-y-3">
+        <div
+          className="flex-shrink-0 sticky bottom-0 z-10 backdrop-blur-md bg-[var(--surface)]/95 border-t border-[var(--border)] px-6 py-4 space-y-3"
+          onPointerDown={handleContentInteraction}
+          onTouchStart={handleContentInteraction}
+          onClick={handleContentInteraction}
+        >
           {replyTarget && (
             <div className="flex items-center justify-between bg-[var(--surface)]/80 border border-[var(--border)] rounded-full px-3 py-1 text-xs">
               <span>Replying to {replyTarget.name}</span>
@@ -526,6 +672,11 @@ export default function CommentsDrawer({
             className="w-full min-h-[48px] max-h-[140px] px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm text-white disabled:opacity-60 resize-none"
             maxLength={1000}
             aria-label="Comment composer"
+            style={{ touchAction: "manipulation", fontSize: "16px" }}
+            onPointerDown={(event) => event.stopPropagation()}
+            onTouchStart={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+            onFocus={handleTextareaFocus}
           />
           <div className="flex items-center justify-between">
             {!canPost && (
