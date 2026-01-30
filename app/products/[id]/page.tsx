@@ -6,12 +6,14 @@ import { getDelta8WarningText, requiresWarning } from "@/lib/compliance";
 import FavoriteButton from "@/components/engagement/FavoriteButton";
 import ReviewSection from "@/components/engagement/ReviewSection";
 import Footer from "@/components/Footer";
+import { requireGatedAccess } from "@/lib/server/marketGate";
 
 type Product = {
   id: string;
   name: string;
   category_id: string | null;
   price_cents: number | null;
+  is_gated: boolean;
   featured: boolean;
   description?: string | null;
   vendor_id?: string | null;
@@ -42,7 +44,7 @@ async function getProduct(id: string): Promise<ProductFetchResult> {
   const { data, error } = await supabase
     .from("products")
     .select(
-      "id, name, description, category_id, price_cents, featured, vendor_id, status, active, product_type, coa_url, coa_object_path, coa_verified, created_at"
+      "id, name, description, category_id, price_cents, is_gated, featured, vendor_id, status, active, product_type, coa_url, coa_object_path, coa_verified, created_at"
     )
     .eq("id", id)
     .single();
@@ -138,6 +140,8 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 
 export default async function ProductDetailPage(props: Props) {
   const params = await props.params;
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
   const stripeDetected = Boolean(process.env.STRIPE_SECRET_KEY);
   const { product, supabaseErrorMessage } = await getProduct(params.id);
 
@@ -186,6 +190,35 @@ export default async function ProductDetailPage(props: Props) {
         <Footer />
       </div>
     );
+  }
+
+  if (product.is_gated) {
+    const gate = await requireGatedAccess(user?.id ?? null);
+    if (!gate.ok) {
+      return (
+        <div className="min-h-screen text-white flex flex-col">
+          <main className="flex-1">
+            <section className="section-shell">
+              <div className="max-w-3xl mx-auto card-glass p-8 space-y-6 text-center">
+                <div className="space-y-4">
+                  <h1 className="text-3xl font-bold text-accent">{product.name}</h1>
+                  <p className="text-muted">
+                    This product is part of the gated market and requires 21+ verification to view.
+                  </p>
+                </div>
+                <Link href="/verify" className="btn-primary">
+                  Start 21+ Verification
+                </Link>
+                <Link href="/products" className="btn-secondary">
+                  Back to Products
+                </Link>
+              </div>
+            </section>
+          </main>
+          <Footer />
+        </div>
+      );
+    }
   }
 
   const categoryName = await getCategoryName(product.category_id);

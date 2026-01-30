@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
 import ProductsList from "./ProductsList";
+import MarketModeToggle from "@/components/market/MarketModeToggle";
 
 export const metadata: Metadata = {
   title: "Products | Good Hemp Distro",
@@ -16,6 +17,7 @@ type Product = {
   name: string;
   category_id: string | null;
   price_cents: number;
+  is_gated: boolean;
   featured: boolean;
   description?: string | null;
   vendor_id?: string | null;
@@ -46,7 +48,7 @@ async function getProducts(vendorId?: string | null): Promise<{
 
     const query = supabase
       .from("products")
-      .select("id, name, category_id, price_cents, featured, description, vendor_id")
+      .select("id, name, category_id, price_cents, is_gated, featured, description, vendor_id")
       .eq("status", "approved") // Only approved products
       .eq("active", true) // Only active products
       .order("created_at", { ascending: false });
@@ -134,13 +136,16 @@ export default async function ProductsPage({
                     : "See what is deliverable near you, compare vendors, and order from verified listings."}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-3">
-                <button type="button" className="btn-secondary">
-                  📍 Set delivery location
-                </button>
-                <button type="button" className="btn-ghost">
-                  ⚡ Fastest delivery
-                </button>
+              <div className="flex flex-col items-start gap-4">
+                <div className="flex flex-wrap gap-3">
+                  <button type="button" className="btn-secondary">
+                    📍 Set delivery location
+                  </button>
+                  <button type="button" className="btn-ghost">
+                    ⚡ Fastest delivery
+                  </button>
+                </div>
+                <MarketModeToggle />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">

@@ -9,6 +9,7 @@ import AgeGateClient from "@/components/AgeGateClient";
 import RecoveryHashRedirect from "@/components/RecoveryHashRedirect";
 import { logMascotFlagMismatch } from "@/lib/mascotFlags";
 import MascotMountClient from "@/components/mascot/MascotMountClient";
+import { MarketModeProvider } from "@/lib/marketMode";
 
 // Validate environment variables at startup (logs warnings, doesn't throw)
 if (typeof window === "undefined") {
@@ -67,16 +68,18 @@ export default function RootLayout({
   return (
     <html lang="en" style={themeVars}>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <div className="app-bg" aria-hidden="true" />
-        <header className="topbar">
-          <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between w-full">
-            <Nav />
-          </div>
-        </header>
-        {children}
-        {mascotEnabled ? <MascotMountClient /> : null}
-        <AgeGateClient />
-        <RecoveryHashRedirect />
+        <MarketModeProvider>
+          <div className="app-bg" aria-hidden="true" />
+          <header className="topbar">
+            <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between w-full">
+              <Nav />
+            </div>
+          </header>
+          {children}
+          {mascotEnabled ? <MascotMountClient /> : null}
+          <AgeGateClient />
+          <RecoveryHashRedirect />
+        </MarketModeProvider>
       </body>
     </html>
   );

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe, getSiteUrl } from "@/lib/stripe";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { requireGatedAccess } from "@/lib/server/marketGate";
 
 /**
  * Create Stripe checkout session for product purchase
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
     // Fetch product
     const { data: product, error: productError } = await supabase
       .from("products")
-      .select("id, name, price_cents, vendor_id, active, status")
+      .select("id, name, price_cents, vendor_id, active, status, is_gated")
       .eq("id", productId)
       .single();
 
@@ -62,6 +63,16 @@ export async function POST(req: NextRequest) {
         { error: "Product is not available" },
         { status: 400, headers: { "Cache-Control": "no-store" } }
       );
+    }
+
+    if (product.is_gated) {
+      const gate = await requireGatedAccess(user.id);
+      if (!gate.ok) {
+        return NextResponse.json(
+          { ok: false, code: gate.code, message: gate.message },
+          { status: gate.status, headers: { "Cache-Control": "no-store" } }
+        );
+      }
     }
 
     if (!product.price_cents || product.price_cents <= 0) {

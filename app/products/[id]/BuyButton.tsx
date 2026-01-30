@@ -43,7 +43,7 @@ export default function BuyButton({
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "Failed to create checkout session");
+        setError(data.error || data.message || "Failed to create checkout session");
         setLoading(false);
         return;
       }

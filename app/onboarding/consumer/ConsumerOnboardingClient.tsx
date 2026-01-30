@@ -18,6 +18,7 @@ type BusinessType =
 type PurchaseIntent = "bulk" | "recurring" | "one-time";
 type Interest = "products" | "services" | "education" | "events";
 type ExperienceLevel = "new" | "experienced";
+type UseCase = "Business Supplies" | "Skincare" | "Wellness" | "General";
 
 type InitialProfile = {
   role: string | null;
@@ -29,6 +30,8 @@ type InitialProfile = {
   state: string | null;
   city: string | null;
   company_size: string | null;
+  consumer_interest_tags: string[] | null;
+  consumer_use_case: string | null;
   consumer_onboarding_step: number | null;
   consumer_onboarding_completed: boolean | null;
 };
@@ -118,6 +121,21 @@ const INTERESTS: { value: Interest; label: string }[] = [
   { value: "events", label: "Events" },
 ];
 
+const USE_CASES: { value: UseCase; label: string; description: string }[] = [
+  { value: "Business Supplies", label: "Business supplies", description: "Paper, textiles, supplies" },
+  { value: "Skincare", label: "Skincare / topicals", description: "Lotions, balms, topical care" },
+  { value: "Wellness", label: "Wellness CBD", description: "Non-intoxicating wellness" },
+  { value: "General", label: "I’m just browsing", description: "Show me a little of everything" },
+];
+
+const INTEREST_TAGS: { value: string; label: string }[] = [
+  { value: "Business Supplies", label: "Business supplies" },
+  { value: "Skincare", label: "Skincare" },
+  { value: "Wellness", label: "Wellness CBD" },
+  { value: "Topicals", label: "Topicals" },
+  { value: "General", label: "General" },
+];
+
 export default function ConsumerOnboardingClient({
   userId,
   initialProfile,
@@ -151,6 +169,12 @@ export default function ConsumerOnboardingClient({
   const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel | "">(
     initialProfile.experience_level || ""
   );
+  const [useCase, setUseCase] = useState<UseCase | "">(
+    (initialProfile.consumer_use_case as UseCase | null) || ""
+  );
+  const [interestTags, setInterestTags] = useState<string[]>(
+    initialProfile.consumer_interest_tags || []
+  );
 
   const steps = useMemo(() => {
     const base = [
@@ -160,6 +184,7 @@ export default function ConsumerOnboardingClient({
     if (consumerType === "business") {
       base.push({ key: "business", label: "Business Details" });
     }
+    base.push({ key: "use_case", label: "Shopping Goals" });
     base.push({ key: "interests", label: "Interests" });
     base.push({ key: "experience", label: "Experience" });
     return base;
@@ -204,6 +229,12 @@ export default function ConsumerOnboardingClient({
     );
   };
 
+  const toggleInterestTag = (value: string) => {
+    setInterestTags((prev) =>
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+    );
+  };
+
   const validateStep = (stepKey: string) => {
     if (stepKey === "location") {
       if (!stateValue) return "Please select your state.";
@@ -214,6 +245,10 @@ export default function ConsumerOnboardingClient({
     if (stepKey === "business") {
       if (!businessType) return "Please choose a business type.";
       if (purchaseIntent.length === 0) return "Select at least one purchase intent.";
+    }
+    if (stepKey === "use_case") {
+      if (!useCase) return "Please select your shopping goal.";
+      if (interestTags.length === 0) return "Select at least one interest tag.";
     }
     if (stepKey === "interests") {
       if (interests.length === 0) return "Select at least one interest.";
@@ -232,6 +267,8 @@ export default function ConsumerOnboardingClient({
       purchase_intent: consumerType === "business" ? purchaseIntent : null,
       company_size: consumerType === "business" ? companySize || null : null,
       interests,
+      consumer_interest_tags: interestTags,
+      consumer_use_case: useCase || null,
       experience_level: experienceLevel || null,
       state: stateValue || null,
       city: city || null,
@@ -433,6 +470,53 @@ export default function ConsumerOnboardingClient({
           </div>
         )}
 
+        {stepKey === "use_case" && (
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold">What are you shopping for?</h2>
+              <p className="text-sm text-muted">
+                This helps us tailor your CBD browsing experience.
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              {USE_CASES.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setUseCase(option.value)}
+                  className={[
+                    "p-4 rounded-lg border text-left transition-all",
+                    useCase === option.value
+                      ? "border-accent bg-[rgba(95,255,215,0.08)]"
+                      : "border-[var(--border)]",
+                  ].join(" ")}
+                >
+                  <p className="text-lg font-semibold">{option.label}</p>
+                  <p className="text-sm text-muted mt-1">{option.description}</p>
+                </button>
+              ))}
+            </div>
+            <div>
+              <p className="text-sm text-muted mb-2">Pick interest tags</p>
+              <div className="grid gap-2 md:grid-cols-2">
+                {INTEREST_TAGS.map((tag) => (
+                  <label
+                    key={tag.value}
+                    className="flex items-center gap-2 p-3 border border-[var(--border)] rounded-lg"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={interestTags.includes(tag.value)}
+                      onChange={() => toggleInterestTag(tag.value)}
+                    />
+                    <span>{tag.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {stepKey === "interests" && (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold">What are you most interested in?</h2>
@@ -517,6 +601,8 @@ export default function ConsumerOnboardingClient({
                 purchaseIntent,
                 companySize,
                 interests,
+                consumerUseCase: useCase,
+                consumerInterestTags: interestTags,
                 experienceLevel,
                 state: stateValue,
                 city,
