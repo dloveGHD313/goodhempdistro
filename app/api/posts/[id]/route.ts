@@ -14,11 +14,21 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     return NextResponse.json({ error: "Post ID required" }, { status: 400 });
   }
 
-  const { error } = await supabase.from("posts").delete().eq("id", postId);
+  const { data, error } = await supabase
+    .from("posts")
+    .update({ is_deleted: true, deleted_at: new Date().toISOString() })
+    .eq("id", postId)
+    .eq("is_deleted", false)
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     console.error("[posts] delete error", error);
     return NextResponse.json({ error: "Failed to delete post" }, { status: 500 });
+  }
+
+  if (!data) {
+    return NextResponse.json({ error: "Post not found or not permitted" }, { status: 404 });
   }
 
   return NextResponse.json({ ok: true });

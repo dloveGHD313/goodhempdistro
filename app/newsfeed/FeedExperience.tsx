@@ -86,6 +86,8 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
   const [roleCta, setRoleCta] = useState<{ label: string; href: string } | null>(null);
   const [isPaidUser, setIsPaidUser] = useState(false);
   const [hasVerifiedVendors, setHasVerifiedVendors] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const composerRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const emptyNotifiedRef = useRef(false);
@@ -173,6 +175,7 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
   useEffect(() => {
     if (!userId) {
       setRoleCta(null);
+      setIsAdmin(false);
       return;
     }
 
@@ -184,6 +187,12 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
         supabase.from("affiliates").select("id").eq("user_id", userId).maybeSingle(),
         fetch("/api/consumer/status", { cache: "no-store" }),
       ]);
+      const profileRes = await fetch("/api/profile", { cache: "no-store" }).catch(() => null);
+      if (profileRes && profileRes.ok) {
+        const profilePayload = await profileRes.json();
+        const role = profilePayload?.profile?.role || null;
+        setIsAdmin(role === "admin");
+      }
 
       const vendorPayload =
         vendorRes.status === "fulfilled" && vendorRes.value.ok ? await vendorRes.value.json() : null;
@@ -218,6 +227,72 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
 
     resolveRole();
   }, [userId]);
+
+  const handleDelete = async (postId: string) => {
+    if (!userId) {
+      dispatchMascotEvent({
+        message: "Sign in to manage posts.",
+        mood: "BLOCKED",
+        move: "attention_pop",
+      });
+      return;
+    }
+    if (!confirm("Delete this post? This removes it from the feed.")) return;
+
+    const prev = posts;
+    setPosts((current) => current.filter((post) => post.id !== postId));
+    try {
+      const response = await fetch(`/api/posts/${postId}`, { method: "DELETE" });
+      if (!response.ok) {
+        throw new Error("Failed to delete post.");
+      }
+      dispatchMascotEvent({
+        message: "Post removed.",
+        mood: "SUCCESS",
+        move: "success_nod",
+      });
+    } catch {
+      setPosts(prev);
+      dispatchMascotEvent({
+        message: "Delete failed.",
+        mood: "ERROR",
+        move: "error_shake",
+      });
+    }
+  };
+
+  const handleFlag = async (postId: string) => {
+    if (!userId) {
+      dispatchMascotEvent({
+        message: "Sign in to report posts.",
+        mood: "BLOCKED",
+        move: "attention_pop",
+      });
+      return;
+    }
+    const reason = prompt("Report this post (optional reason):", "") || "";
+    try {
+      const response = await fetch(`/api/posts/${postId}/flag`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+      if (!response.ok) {
+        throw new Error("Failed to flag post.");
+      }
+      dispatchMascotEvent({
+        message: "Reported. Thanks.",
+        mood: "SUCCESS",
+        move: "success_nod",
+      });
+    } catch {
+      dispatchMascotEvent({
+        message: "Report failed.",
+        mood: "ERROR",
+        move: "error_shake",
+      });
+    }
+  };
 
   const filteredPosts = useMemo(() => {
     const sorted = [...posts].sort((a, b) => {
@@ -404,7 +479,57 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
             !error &&
             filteredPosts.map((post) => (
               <div key={post.id} className="space-y-3">
-                <FeedCard post={post} />
+                <div className="relative">
+                  <FeedCard post={post} />
+                  {(userId || isAdmin) && (
+                    <div className="absolute top-4 right-4">
+                      <button
+                        type="button"
+                        className="btn-ghost text-lg leading-none"
+                        onClick={() => setOpenMenuId((prev) => (prev === post.id ? null : post.id))}
+                        aria-label="Post actions"
+                      >
+                        ⋯
+                      </button>
+                      {openMenuId === post.id && (
+                        <div className="absolute right-0 mt-2 w-44 rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-lg z-20">
+                          {userId && userId !== post.author_id && (
+                            <button
+                              type="button"
+                              className="w-full text-left px-4 py-2 text-sm hover:bg-white/5"
+                              onClick={() => {
+                                setOpenMenuId(null);
+                                handleFlag(post.id);
+                              }}
+                            >
+                              Report post
+                            </button>
+                          )}
+                          {userId && (userId === post.author_id || isAdmin) && (
+                            <button
+                              type="button"
+                              className="w-full text-left px-4 py-2 text-sm hover:bg-white/5"
+                              onClick={() => {
+                                setOpenMenuId(null);
+                                handleDelete(post.id);
+                              }}
+                            >
+                              Delete post
+                            </button>
+                          )}
+                          {isAdmin && (
+                            <a
+                              href="/admin/moderation"
+                              className="block px-4 py-2 text-sm hover:bg-white/5"
+                            >
+                              Moderation queue
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <div className="flex items-center gap-3 text-sm">
                   <button
                     type="button"

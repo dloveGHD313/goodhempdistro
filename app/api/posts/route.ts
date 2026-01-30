@@ -144,7 +144,7 @@ export async function GET(req: NextRequest) {
         "id, author_id, author_role, author_tier, content, is_admin_post, is_pinned, is_featured, priority_rank, created_at, post_media(id, media_type, media_url, created_at)";
     }
 
-    let query = supabase.from("posts").select(selectFields);
+    let query = supabase.from("posts").select(selectFields).eq("is_deleted", false);
 
     if (includePriority) {
       query = query
