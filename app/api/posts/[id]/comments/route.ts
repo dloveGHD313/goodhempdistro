@@ -5,6 +5,7 @@ import { getDisplayName } from "@/lib/identity";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+const QUERY_TIMEOUT_MS = 4000;
 
 type ProfileIdentityRow = {
   id: string;
@@ -48,10 +49,25 @@ const createAnonServerClient = () => {
   );
 };
 
+const withTimeout = async <T,>(promise: Promise<T>, label: string): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timeout`)), QUERY_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+};
+
 const getProfileMap = async (authorIds: string[]) => {
   if (authorIds.length === 0) return new Map<string, ProfileIdentityRow>();
   const anon = createAnonServerClient();
-  const { data } = await anon.rpc("get_profiles_identity", { author_ids: authorIds });
+  const { data } = await withTimeout(
+    anon.rpc("get_profiles_identity", { author_ids: authorIds }),
+    "profile identity"
+  );
   return new Map(
     ((data || []) as ProfileIdentityRow[]).map((row) => [row.id, row])
   );
@@ -86,12 +102,22 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   const anon = createAnonServerClient();
-  const { data: comments, error } = await anon
-    .from("post_comments")
-    .select("id, post_id, parent_id, body, created_at, author_id")
-    .eq("post_id", postId)
-    .eq("is_deleted", false)
-    .order("created_at", { ascending: false });
+  let comments: CommentRow[] | null = null;
+  let error: { message?: string } | null = null;
+  try {
+    ({ data: comments, error } = await withTimeout(
+      anon
+        .from("post_comments")
+        .select("id, post_id, parent_id, body, created_at, author_id")
+        .eq("post_id", postId)
+        .eq("is_deleted", false)
+        .order("created_at", { ascending: false }),
+      "comments fetch"
+    ));
+  } catch (err) {
+    console.error("[comments] fetch timeout", err);
+    return NextResponse.json({ error: "Comments are taking too long to load." }, { status: 504 });
+  }
 
   if (error) {
     console.error("[comments] fetch error", error);
@@ -100,7 +126,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const rows = (comments || []) as CommentRow[];
   const authorIds = Array.from(new Set(rows.map((row) => row.author_id)));
-  const profileMap = await getProfileMap(authorIds);
+  let profileMap = new Map<string, ProfileIdentityRow>();
+  try {
+    profileMap = await getProfileMap(authorIds);
+  } catch (err) {
+    console.error("[comments] profile lookup timeout", err);
+  }
 
   const topLevel = rows.filter((row) => !row.parent_id);
   const repliesByParent = new Map<string, CommentRow[]>();
@@ -153,11 +184,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   if (parentId) {
-    const { data: parent, error: parentError } = await supabase
-      .from("post_comments")
-      .select("id, post_id, parent_id")
-      .eq("id", parentId)
-      .maybeSingle();
+    let parent: { id: string; post_id: string; parent_id: string | null } | null = null;
+    let parentError: { message?: string } | null = null;
+    try {
+      ({ data: parent, error: parentError } = await withTimeout(
+        supabase
+          .from("post_comments")
+          .select("id, post_id, parent_id")
+          .eq("id", parentId)
+          .maybeSingle(),
+        "parent lookup"
+      ));
+    } catch (err) {
+      console.error("[comments] parent lookup timeout", err);
+      return NextResponse.json({ error: "Comment reply check timed out." }, { status: 504 });
+    }
     if (parentError || !parent) {
       return NextResponse.json({ error: "Parent comment not found" }, { status: 404 });
     }
@@ -169,23 +210,38 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  const { data: comment, error } = await supabase
-    .from("post_comments")
-    .insert({
-      post_id: postId,
-      parent_id: parentId,
-      body,
-      author_id: user.id,
-    })
-    .select("id, post_id, parent_id, body, created_at, author_id")
-    .single();
+  let comment: CommentRow | null = null;
+  let error: { message?: string } | null = null;
+  try {
+    ({ data: comment, error } = await withTimeout(
+      supabase
+        .from("post_comments")
+        .insert({
+          post_id: postId,
+          parent_id: parentId,
+          body,
+          author_id: user.id,
+        })
+        .select("id, post_id, parent_id, body, created_at, author_id")
+        .single(),
+      "comment insert"
+    ));
+  } catch (err) {
+    console.error("[comments] insert timeout", err);
+    return NextResponse.json({ error: "Comment save timed out." }, { status: 504 });
+  }
 
   if (error || !comment) {
     console.error("[comments] insert error", error);
     return NextResponse.json({ error: "Failed to create comment" }, { status: 500 });
   }
 
-  const profileMap = await getProfileMap([comment.author_id]);
+  let profileMap = new Map<string, ProfileIdentityRow>();
+  try {
+    profileMap = await getProfileMap([comment.author_id]);
+  } catch (err) {
+    console.error("[comments] profile lookup timeout", err);
+  }
   const mapped = mapComment(comment as CommentRow, profileMap);
 
   return NextResponse.json({ comment: { ...mapped, replies: [] } });

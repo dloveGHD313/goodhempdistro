@@ -6,6 +6,15 @@ import { NextResponse, type NextRequest } from "next/server";
  * This runs on every request and refreshes the session if needed
  */
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  if (
+    pathname.startsWith("/api/comments") ||
+    pathname.startsWith("/comments") ||
+    (pathname.startsWith("/api/posts/") && pathname.endsWith("/comments"))
+  ) {
+    return NextResponse.next();
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -40,8 +49,6 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const { pathname } = request.nextUrl;
 
   // Protected routes - require authentication
   const protectedRoutes = [
@@ -104,7 +111,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
+     * - comments API and routes
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/comments|api/posts/[^/]+/comments|comments|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
