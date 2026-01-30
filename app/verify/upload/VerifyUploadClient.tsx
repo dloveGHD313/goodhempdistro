@@ -6,14 +6,21 @@ import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 type Props = {
   userId: string;
+  existingVerificationId?: string | null;
+  existingStatus?: "pending" | "approved" | "rejected" | "none" | null;
 };
 
-export default function VerifyUploadClient({ userId }: Props) {
+export default function VerifyUploadClient({
+  userId,
+  existingVerificationId = null,
+  existingStatus = null,
+}: Props) {
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const [files, setFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [verificationId, setVerificationId] = useState<string | null>(existingVerificationId);
 
   const handleFilesChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const next = Array.from(event.target.files || []);
@@ -22,6 +29,10 @@ export default function VerifyUploadClient({ userId }: Props) {
 
   const handleSubmit = async () => {
     setError(null);
+    if (existingStatus === "approved") {
+      setError("You are already verified. No upload is needed.");
+      return;
+    }
     if (files.length === 0) {
       setError("Please select at least one ID image or document.");
       return;
@@ -29,49 +40,65 @@ export default function VerifyUploadClient({ userId }: Props) {
 
     setSubmitting(true);
     try {
-      const { data: verification, error: verificationError } = await supabase
-        .from("id_verifications")
-        .insert({ user_id: userId, status: "pending" })
-        .select("id")
-        .single();
+      let activeVerificationId = verificationId;
+      if (!activeVerificationId) {
+        const { data: verification, error: verificationError } = await supabase
+          .from("id_verifications")
+          .insert({ user_id: userId, status: "pending" })
+          .select("id")
+          .single();
 
-      if (verificationError || !verification) {
-        throw new Error(verificationError?.message || "Failed to create verification request.");
+        if (verificationError || !verification) {
+          if (process.env.NODE_ENV !== "production") {
+            console.error("[verify-age] create verification failed", verificationError);
+          }
+          throw new Error("We couldn't start your verification. Please try again.");
+        }
+        activeVerificationId = verification.id;
+        setVerificationId(activeVerificationId);
       }
 
-      const uploadResults = await Promise.all(
-        files.map(async (file) => {
-          const safeName = file.name.replace(/\s+/g, "-");
-          const path = `${userId}/${Date.now()}-${safeName}`;
-          const { error: uploadError } = await supabase
-            .storage
-            .from("id-verifications")
-            .upload(path, file, { upsert: false });
-          if (uploadError) {
-            throw uploadError;
+      const uploaded: string[] = [];
+      for (const file of files) {
+        const safeName = file.name.replace(/\s+/g, "-");
+        const path = `${userId}/${Date.now()}-${safeName}`;
+        const { error: uploadError } = await supabase
+          .storage
+          .from("id-verifications")
+          .upload(path, file, { upsert: false });
+        if (uploadError) {
+          if (process.env.NODE_ENV !== "production") {
+            console.error("[verify-age] upload failed", uploadError);
           }
-          const { error: insertError } = await supabase
-            .from("id_verification_files")
-            .insert({
-              verification_id: verification.id,
-              file_url: path,
-              file_path: path,
-            });
-          if (insertError) {
-            throw insertError;
+          throw new Error("Upload failed. Please retry.");
+        }
+        const { error: insertError } = await supabase
+          .from("id_verification_files")
+          .insert({
+            verification_id: activeVerificationId,
+            file_url: path,
+            file_path: path,
+          });
+        if (insertError) {
+          if (process.env.NODE_ENV !== "production") {
+            console.error("[verify-age] file row insert failed", insertError);
           }
-          return path;
-        })
-      );
+          throw new Error("We couldn't save your upload. Please retry.");
+        }
+        uploaded.push(path);
+      }
 
-      if (uploadResults.length === 0) {
-        throw new Error("No files were uploaded.");
+      if (uploaded.length === 0) {
+        throw new Error("No files were uploaded. Please try again.");
       }
 
       router.replace("/verify-age/status");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to upload verification.";
-      setError(message);
+      const raw = err instanceof Error ? err.message : "Upload failed.";
+      const safeMessage = /timeout/i.test(raw)
+        ? "Upload timed out. Please try again."
+        : "Upload failed. Please try again.";
+      setError(safeMessage);
     } finally {
       setSubmitting(false);
     }
@@ -85,6 +112,11 @@ export default function VerifyUploadClient({ userId }: Props) {
         <p className="text-muted">
           Upload a clear photo of a government-issued ID. We review submissions manually.
         </p>
+        {existingStatus === "pending" && (
+          <p className="text-xs text-yellow-200 mt-2">
+            We already have a pending verification. You can add more files if needed.
+          </p>
+        )}
       </div>
 
       {error && (

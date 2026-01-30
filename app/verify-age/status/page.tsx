@@ -15,7 +15,7 @@ export default async function VerifyAgeStatusPage() {
 
   const { data: verification } = await supabase
     .from("id_verifications")
-    .select("id, status, created_at, reviewed_at")
+    .select("id, status, created_at, reviewed_at, notes")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -65,6 +65,14 @@ export default async function VerifyAgeStatusPage() {
               <p className="text-sm">Status: {statusLabel}</p>
               {summary.reviewedAt && (
                 <p className="text-xs text-muted mt-1">Reviewed at: {summary.reviewedAt}</p>
+              )}
+              {statusLabel === "rejected" && (
+                <p className="text-xs text-muted mt-2">
+                  Your submission was rejected. Please upload clearer ID images to retry.
+                </p>
+              )}
+              {verification?.notes && (
+                <p className="text-xs text-muted mt-2">Reviewer notes: {verification.notes}</p>
               )}
             </div>
 

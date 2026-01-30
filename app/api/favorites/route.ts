@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { getUserVerificationStatus } from "@/lib/server/idVerification";
 
 const allowedTypes = new Set(["vendor", "product", "service", "event"]);
 
 async function ensureEntityIsVisible(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   entityType: string,
-  entityId: string
+  entityId: string,
+  includeGated: boolean
 ) {
   if (entityType === "vendor") {
     const { data } = await supabase
@@ -22,12 +24,13 @@ async function ensureEntityIsVisible(
   if (entityType === "product") {
     const { data: product } = await supabase
       .from("products")
-      .select("id, vendor_id, status, active")
+      .select("id, vendor_id, status, active, is_gated")
       .eq("id", entityId)
       .eq("status", "approved")
       .eq("active", true)
       .maybeSingle();
     if (!product?.vendor_id) return false;
+    if (!includeGated && product.is_gated) return false;
     const { data: vendor } = await supabase
       .from("vendors")
       .select("id")
@@ -135,7 +138,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid favorite request" }, { status: 400 });
   }
 
-  const isVisible = await ensureEntityIsVisible(supabase, normalizedType, entity_id);
+  const verification = await getUserVerificationStatus(user.id);
+  const includeGated = verification.status === "approved";
+  const isVisible = await ensureEntityIsVisible(supabase, normalizedType, entity_id, includeGated);
   if (!isVisible) {
     return NextResponse.json({ error: "Entity not available" }, { status: 404 });
   }

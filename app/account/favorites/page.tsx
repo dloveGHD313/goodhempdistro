@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
+import { getUserVerificationStatus } from "@/lib/server/idVerification";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,8 @@ export default async function FavoritesPage() {
   if (!user) {
     redirect("/login?redirect=/account/favorites");
   }
+  const verification = await getUserVerificationStatus(user.id);
+  const includeGated = verification.status === "approved";
 
   const { data: favorites } = await supabase
     .from("favorites")
@@ -45,7 +48,7 @@ export default async function FavoritesPage() {
     grouped.product.length
       ? supabase
           .from("products")
-          .select("id, name, price_cents")
+          .select("id, name, price_cents, is_gated")
           .in("id", grouped.product)
       : Promise.resolve({ data: [] }),
     grouped.service.length
@@ -63,7 +66,9 @@ export default async function FavoritesPage() {
   ]);
 
   const vendors = vendorsRes.data || [];
-  const products = productsRes.data || [];
+  const products = (productsRes.data || []).filter((product: any) =>
+    includeGated ? true : product?.is_gated !== true
+  );
   const services = servicesRes.data || [];
   const events = eventsRes.data || [];
 

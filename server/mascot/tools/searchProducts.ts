@@ -25,6 +25,7 @@ export async function searchProducts(
     .select("id, name, price_cents, vendor_id")
     .eq("status", "approved")
     .eq("active", true)
+    .eq("is_gated", false)
     .order("created_at", { ascending: false })
     .limit(limit);
 

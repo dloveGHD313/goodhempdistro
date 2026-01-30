@@ -46,16 +46,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .eq("id", id);
 
   if (updateError) {
-    return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 });
-  }
-
-  const { error: profileError } = await supabase
-    .from("profiles")
-    .update({ age_verified: true, id_verification_status: "approved", id_verified_at: now })
-    .eq("id", verification.user_id);
-
-  if (profileError) {
-    return NextResponse.json({ ok: false, error: profileError.message }, { status: 500 });
+    console.error("[id-verifications] approve update failed", updateError);
+    return NextResponse.json(
+      { ok: false, error: "Failed to update verification." },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ ok: true });

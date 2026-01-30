@@ -15,7 +15,29 @@ export default async function VerifyAgeUploadPage() {
   }
 
   const verification = await getUserVerificationStatus(user.id);
-  if (verification.status === "pending" || verification.status === "approved") {
+  const { data: latestVerification } = await supabase
+    .from("id_verifications")
+    .select("id, status, created_at")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let existingVerificationId: string | null = null;
+  if (latestVerification?.id && latestVerification.status === "pending") {
+    const { data: fileRows } = await supabase
+      .from("id_verification_files")
+      .select("id")
+      .eq("verification_id", latestVerification.id);
+    const fileCount = fileRows?.length ?? 0;
+    if (fileCount < 2) {
+      existingVerificationId = latestVerification.id;
+    } else {
+      redirect("/verify-age/status");
+    }
+  }
+
+  if (verification.status === "approved") {
     redirect("/verify-age/status");
   }
 
@@ -23,7 +45,11 @@ export default async function VerifyAgeUploadPage() {
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
         <section className="section-shell">
-          <VerifyUploadClient userId={user.id} />
+          <VerifyUploadClient
+            userId={user.id}
+            existingVerificationId={existingVerificationId}
+            existingStatus={verification.status}
+          />
         </section>
       </main>
       <Footer />

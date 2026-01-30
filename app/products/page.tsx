@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { getUserVerificationStatus } from "@/lib/server/idVerification";
 import Footer from "@/components/Footer";
 import ProductsList from "./ProductsList";
 import MarketSwitcher from "@/components/market/MarketSwitcher";
@@ -26,7 +27,10 @@ type Product = {
   vendor_name?: string | null;
 };
 
-async function getProducts(vendorId?: string | null): Promise<{
+async function getProducts(
+  vendorId?: string | null,
+  includeGated = false
+): Promise<{
   products: Product[];
   vendorName?: string | null;
 }> {
@@ -54,6 +58,9 @@ async function getProducts(vendorId?: string | null): Promise<{
       .eq("status", "approved") // Only approved products
       .eq("active", true) // Only active products
       .order("created_at", { ascending: false });
+    if (!includeGated) {
+      query.eq("is_gated", false);
+    }
 
     const { data, error } = vendorId
       ? await query.eq("vendor_id", vendorId)
@@ -126,7 +133,11 @@ export default async function ProductsPage({
   searchParams?: { vendor?: string };
 }) {
   const vendorId = searchParams?.vendor || null;
-  const { products, vendorName } = await getProducts(vendorId);
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const verification = await getUserVerificationStatus(user?.id ?? null);
+  const includeGated = verification.status === "approved";
+  const { products, vendorName } = await getProducts(vendorId, includeGated);
 
   return (
     <div className="min-h-screen text-white flex flex-col">

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { getUserVerificationStatus } from "@/lib/server/idVerification";
 import Footer from "@/components/Footer";
 import FavoriteButton from "@/components/engagement/FavoriteButton";
 import ReviewSection from "@/components/engagement/ReviewSection";
@@ -69,17 +70,20 @@ type ListingEvent = {
   location?: string | null;
 };
 
-async function getVendorListings(vendorId: string) {
+async function getVendorListings(vendorId: string, includeGated: boolean) {
   const supabase = await createSupabaseServerClient();
 
   const { data: products } = await supabase
     .from("products")
-    .select("id, name, price_cents, category_id")
+    .select("id, name, price_cents, category_id, is_gated")
     .eq("vendor_id", vendorId)
     .eq("status", "approved")
     .eq("active", true)
     .order("created_at", { ascending: false })
     .limit(6);
+  const filteredProducts = (products || []).filter((product) =>
+    includeGated ? true : product.is_gated !== true
+  );
 
   const { data: services } = await supabase
     .from("services")
@@ -99,7 +103,7 @@ async function getVendorListings(vendorId: string) {
     .limit(6);
 
   return {
-    products: (products || []) as ListingProduct[],
+    products: (filteredProducts || []) as ListingProduct[],
     services: (services || []) as ListingService[],
     events: (events || []) as ListingEvent[],
   };
@@ -124,12 +128,16 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
 export default async function VendorDetailPage(props: Props) {
   const params = await props.params;
   const vendor = await getVendor(params.id);
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const verification = await getUserVerificationStatus(user?.id ?? null);
+  const includeGated = verification.status === "approved";
 
   if (!vendor) {
     notFound();
   }
 
-  const listings = await getVendorListings(vendor.id);
+  const listings = await getVendorListings(vendor.id, includeGated);
 
   return (
     <div className="min-h-screen text-white flex flex-col">

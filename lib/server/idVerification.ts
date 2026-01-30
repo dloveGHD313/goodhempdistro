@@ -17,13 +17,20 @@ export async function getUserVerificationStatus(
   }
 
   const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("id_verifications")
     .select("id, status, reviewed_at")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  if (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.error("[idVerification] load failed", error);
+    }
+    return { status: "none" };
+  }
 
   if (!data) {
     return { status: "none" };

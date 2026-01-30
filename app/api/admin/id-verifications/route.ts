@@ -29,7 +29,11 @@ export async function GET(req: NextRequest) {
   const { data: verifications, error } = await query;
 
   if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    console.error("[id-verifications] list failed", error);
+    return NextResponse.json(
+      { ok: false, error: "Failed to load verification queue." },
+      { status: 500 }
+    );
   }
 
   const verificationIds = (verifications || []).map((row) => row.id);

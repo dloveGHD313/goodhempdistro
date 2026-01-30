@@ -1,4 +1,5 @@
 import { createSupabaseServerClient, hasSupabase } from "@/lib/supabase";
+import { getUserVerificationStatus } from "@/lib/server/idVerification";
 
 export type ViewerProfile = {
   state: string | null;
@@ -205,10 +206,10 @@ async function fetchFallbackVendors(limit: number, excludeIds: string[]) {
   return (data || []) as DiscoveryVendor[];
 }
 
-async function fetchProducts(vendorIds: string[], limit: number) {
+async function fetchProducts(vendorIds: string[], limit: number, includeGated: boolean) {
   if (vendorIds.length === 0) return [];
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("products")
     .select("id, name, description, price_cents, vendor_id")
     .eq("status", "approved")
@@ -216,6 +217,10 @@ async function fetchProducts(vendorIds: string[], limit: number) {
     .in("vendor_id", vendorIds)
     .order("updated_at", { ascending: false })
     .limit(limit);
+  if (!includeGated) {
+    query = query.eq("is_gated", false);
+  }
+  const { data, error } = await query;
 
   if (error) {
     console.error("[recommendations] products query failed:", error.message);
@@ -303,6 +308,7 @@ export async function getDiscoveryRecommendations(limit = 6): Promise<DiscoveryR
   const { data: { user } } = await supabase.auth.getUser();
 
   let viewerProfile: ViewerProfile | null = null;
+  let includeGated = false;
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
@@ -319,6 +325,8 @@ export async function getDiscoveryRecommendations(limit = 6): Promise<DiscoveryR
         purchase_intent: profile.purchase_intent ?? null,
       };
     }
+    const verification = await getUserVerificationStatus(user.id);
+    includeGated = verification.status === "approved";
   }
 
   const primaryVendors = await fetchVendors(viewerProfile, limit);
@@ -340,7 +348,7 @@ export async function getDiscoveryRecommendations(limit = 6): Promise<DiscoveryR
   const approvedVendorIds = combinedVendors.map((vendor) => vendor.id);
 
   const [products, services, events, education] = await Promise.all([
-    fetchProducts(approvedVendorIds, limit),
+    fetchProducts(approvedVendorIds, limit, includeGated),
     fetchServices(approvedVendorIds, limit),
     fetchEvents(approvedVendorIds, limit),
     fetchEducation(viewerProfile, limit),
