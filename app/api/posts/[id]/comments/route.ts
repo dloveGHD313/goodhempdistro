@@ -6,6 +6,7 @@ import { getDisplayName } from "@/lib/identity";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 const QUERY_TIMEOUT_MS = 4000;
+const SLOW_QUERY_MS = 1200;
 
 type ProfileIdentityRow = {
   id: string;
@@ -61,6 +62,11 @@ const withTimeout = async <T,>(promise: PromiseLike<T>, label: string): Promise<
   }
 };
 
+const logIfSlow = (label: string, durationMs: number, requestId: string) => {
+  if (durationMs < SLOW_QUERY_MS) return;
+  console.warn(`[comments] requestId=${requestId} ${label} ${durationMs}ms`);
+};
+
 const getProfileMap = async (authorIds: string[]) => {
   if (authorIds.length === 0) return new Map<string, ProfileIdentityRow>();
   const anon = createAnonServerClient();
@@ -96,6 +102,8 @@ const mapComment = (comment: CommentRow, profileMap: Map<string, ProfileIdentity
 };
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const requestId = _req.headers.get("x-request-id") ?? crypto.randomUUID();
+  const totalStart = Date.now();
   const { id: postId } = await params;
   if (!postId) {
     return NextResponse.json({ error: "Post ID required" }, { status: 400 });
@@ -105,6 +113,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   let comments: CommentRow[] | null = null;
   let error: { message?: string } | null = null;
   try {
+    const started = Date.now();
     ({ data: comments, error } = await withTimeout(
       anon
         .from("post_comments")
@@ -114,13 +123,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         .order("created_at", { ascending: false }),
       "comments fetch"
     ));
+    logIfSlow("comments_query", Date.now() - started, requestId);
   } catch (err) {
     console.error("[comments] fetch timeout", err);
+    logIfSlow("comments_total", Date.now() - totalStart, requestId);
     return NextResponse.json({ error: "Comments are taking too long to load." }, { status: 504 });
   }
 
   if (error) {
     console.error("[comments] fetch error", error);
+    logIfSlow("comments_total", Date.now() - totalStart, requestId);
     return NextResponse.json({ error: "Failed to load comments" }, { status: 500 });
   }
 
@@ -128,7 +140,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const authorIds = Array.from(new Set(rows.map((row) => row.author_id)));
   let profileMap = new Map<string, ProfileIdentityRow>();
   try {
+    const started = Date.now();
     profileMap = await getProfileMap(authorIds);
+    logIfSlow("profile_identity", Date.now() - started, requestId);
   } catch (err) {
     console.error("[comments] profile lookup timeout", err);
   }
@@ -153,6 +167,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     };
   });
 
+  logIfSlow("comments_total", Date.now() - totalStart, requestId);
   return NextResponse.json(
     { postId, count: rows.length, comments: response },
     { headers: { "Cache-Control": "no-store" } }
@@ -160,6 +175,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID();
+  const totalStart = Date.now();
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -187,6 +204,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     let parent: { id: string; post_id: string; parent_id: string | null } | null = null;
     let parentError: { message?: string } | null = null;
     try {
+      const started = Date.now();
       ({ data: parent, error: parentError } = await withTimeout(
         supabase
           .from("post_comments")
@@ -195,8 +213,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           .maybeSingle(),
         "parent lookup"
       ));
+      logIfSlow("parent_lookup", Date.now() - started, requestId);
     } catch (err) {
       console.error("[comments] parent lookup timeout", err);
+      logIfSlow("comments_total", Date.now() - totalStart, requestId);
       return NextResponse.json({ error: "Comment reply check timed out." }, { status: 504 });
     }
     if (parentError || !parent) {
@@ -213,6 +233,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   let comment: CommentRow | null = null;
   let error: { message?: string } | null = null;
   try {
+    const started = Date.now();
     ({ data: comment, error } = await withTimeout(
       supabase
         .from("post_comments")
@@ -226,8 +247,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         .single(),
       "comment insert"
     ));
+    logIfSlow("comment_insert", Date.now() - started, requestId);
   } catch (err) {
     console.error("[comments] insert timeout", err);
+    logIfSlow("comments_total", Date.now() - totalStart, requestId);
     return NextResponse.json({ error: "Comment save timed out." }, { status: 504 });
   }
 
@@ -238,11 +261,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   let profileMap = new Map<string, ProfileIdentityRow>();
   try {
+    const started = Date.now();
     profileMap = await getProfileMap([comment.author_id]);
+    logIfSlow("profile_identity", Date.now() - started, requestId);
   } catch (err) {
     console.error("[comments] profile lookup timeout", err);
   }
   const mapped = mapComment(comment as CommentRow, profileMap);
 
+  logIfSlow("comments_total", Date.now() - totalStart, requestId);
   return NextResponse.json({ comment: { ...mapped, replies: [] } });
 }
