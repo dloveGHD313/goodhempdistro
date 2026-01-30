@@ -24,8 +24,8 @@ type VendorRow = {
 const isDev = process.env.NODE_ENV !== "production";
 type SupabaseClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
 
-const buildLoginRedirect = (pathname: string) =>
-  `/login?redirect=${encodeURIComponent(pathname)}`;
+const buildRedirectUrl = (basePath: string, pathname: string) =>
+  `${basePath}?redirect=${encodeURIComponent(pathname)}`;
 
 const logDev = (message: string, detail?: Record<string, unknown>) => {
   if (!isDev) return;
@@ -76,7 +76,7 @@ export async function requireConsumerOnboarding({ pathname }: GateInput): Promis
 
   if (!user) {
     logDev("redirect: login", { pathname });
-    return { redirectTo: buildLoginRedirect(pathname) };
+    return { redirectTo: buildRedirectUrl("/login", pathname) };
   }
 
   const profile = await loadProfile(supabase, user.id);
@@ -87,6 +87,9 @@ export async function requireConsumerOnboarding({ pathname }: GateInput): Promis
 
   const completed = !!profile?.consumer_onboarding_completed;
   if (!completed) {
+    if (pathname.startsWith("/onboarding/consumer")) {
+      return { allow: true };
+    }
     logDev("redirect: consumer onboarding", { pathname, userId: user.id });
     return { redirectTo: "/onboarding/consumer" };
   }
@@ -100,7 +103,7 @@ export async function requireVendorOnboarding({ pathname }: GateInput): Promise<
 
   if (!user) {
     logDev("redirect: login", { pathname });
-    return { redirectTo: buildLoginRedirect(pathname) };
+    return { redirectTo: buildRedirectUrl("/login", pathname) };
   }
 
   const profile = await loadProfile(supabase, user.id);
@@ -111,6 +114,9 @@ export async function requireVendorOnboarding({ pathname }: GateInput): Promise<
 
   const vendor = await loadVendor(supabase, user.id);
   if (!vendor || vendor.owner_user_id !== user.id) {
+    if (pathname === "/vendor-registration") {
+      return { allow: true };
+    }
     logDev("redirect: vendor registration", { pathname, userId: user.id });
     return { redirectTo: "/vendor-registration" };
   }
@@ -120,6 +126,9 @@ export async function requireVendorOnboarding({ pathname }: GateInput): Promise<
     && !!vendor.compliance_acknowledged_at;
 
   if (!isComplete) {
+    if (pathname.startsWith("/onboarding/vendor")) {
+      return { allow: true };
+    }
     logDev("redirect: vendor onboarding", { pathname, vendorId: vendor.id });
     return { redirectTo: "/onboarding/vendor" };
   }
