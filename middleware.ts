@@ -7,6 +7,16 @@ import { NextResponse, type NextRequest } from "next/server";
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  if (pathname.startsWith("/api")) {
+    return NextResponse.next();
+  }
+  const publicRoutes = ["/", "/get-started", "/login", "/signup", "/newsfeed"];
+  const isPublicRoute = publicRoutes.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  );
+  if (isPublicRoute) {
+    return NextResponse.next();
+  }
   if (
     pathname.startsWith("/api/comments") ||
     pathname.startsWith("/comments") ||
@@ -86,6 +96,7 @@ export async function middleware(request: NextRequest) {
     if (isAdminApiRoute) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    console.warn("[middleware] blocked", { path: pathname, reason: "admin_auth" });
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("redirect", pathname);
@@ -94,6 +105,7 @@ export async function middleware(request: NextRequest) {
 
   // Redirect protected and vendor routes to login if not authenticated
   if ((isProtectedRoute || isVendorRoute) && !user) {
+    console.warn("[middleware] blocked", { path: pathname, reason: "protected_auth" });
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("redirect", pathname);

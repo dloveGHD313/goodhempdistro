@@ -1,4 +1,3 @@
-import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getDisplayName } from "@/lib/identity";
@@ -27,29 +26,6 @@ type CommentRow = {
   author_id: string;
 };
 
-const createAnonServerClient = () => {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    throw new Error(
-      "Missing Supabase environment variables. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY"
-    );
-  }
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll() {
-          return [];
-        },
-        setAll() {
-          return;
-        },
-      },
-    }
-  );
-};
-
 const withTimeout = async <T,>(promise: PromiseLike<T>, label: string): Promise<T> => {
   let timer: ReturnType<typeof setTimeout> | null = null;
   const timeout = new Promise<never>((_, reject) => {
@@ -69,9 +45,9 @@ const logIfSlow = (label: string, durationMs: number, requestId: string) => {
 
 const getProfileMap = async (authorIds: string[]) => {
   if (authorIds.length === 0) return new Map<string, ProfileIdentityRow>();
-  const anon = createAnonServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data } = await withTimeout(
-    anon.rpc("get_profiles_identity", { author_ids: authorIds }),
+    supabase.rpc("get_profiles_identity", { author_ids: authorIds }),
     "profile identity"
   );
   return new Map(
@@ -109,13 +85,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Post ID required" }, { status: 400 });
   }
 
-  const anon = createAnonServerClient();
+  const supabase = await createSupabaseServerClient();
   let comments: CommentRow[] | null = null;
   let error: { message?: string } | null = null;
   try {
     const started = Date.now();
     ({ data: comments, error } = await withTimeout(
-      anon
+      supabase
         .from("post_comments")
         .select("id, post_id, parent_id, body, created_at, author_id")
         .eq("post_id", postId)
@@ -125,15 +101,31 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     ));
     logIfSlow("comments_query", Date.now() - started, requestId);
   } catch (err) {
-    console.error("[comments] fetch timeout", err);
+    console.error("[comments][GET]", {
+      requestId,
+      source: "post_comments_query",
+      postId,
+      error: err,
+    });
     logIfSlow("comments_total", Date.now() - totalStart, requestId);
-    return NextResponse.json({ error: "Comments are taking too long to load." }, { status: 504 });
+    return NextResponse.json(
+      { postId, count: 0, comments: [], error: "comments_unavailable" },
+      { headers: { "Cache-Control": "no-store" } }
+    );
   }
 
   if (error) {
-    console.error("[comments] fetch error", error);
+    console.error("[comments][GET]", {
+      requestId,
+      source: "post_comments_query",
+      postId,
+      error,
+    });
     logIfSlow("comments_total", Date.now() - totalStart, requestId);
-    return NextResponse.json({ error: "Failed to load comments" }, { status: 500 });
+    return NextResponse.json(
+      { postId, count: 0, comments: [], error: "comments_unavailable" },
+      { headers: { "Cache-Control": "no-store" } }
+    );
   }
 
   const rows = (comments || []) as CommentRow[];
@@ -144,7 +136,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     profileMap = await getProfileMap(authorIds);
     logIfSlow("profile_identity", Date.now() - started, requestId);
   } catch (err) {
-    console.error("[comments] profile lookup timeout", err);
+    console.error("[comments][GET]", {
+      requestId,
+      source: "profiles_identity_rpc",
+      postId,
+      error: err,
+    });
   }
 
   const topLevel = rows.filter((row) => !row.parent_id);
@@ -215,7 +212,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       ));
       logIfSlow("parent_lookup", Date.now() - started, requestId);
     } catch (err) {
-      console.error("[comments] parent lookup timeout", err);
+      console.error("[comments][POST]", {
+        requestId,
+        source: "parent_lookup",
+        postId,
+        error: err,
+      });
       logIfSlow("comments_total", Date.now() - totalStart, requestId);
       return NextResponse.json({ error: "Comment reply check timed out." }, { status: 504 });
     }
@@ -249,13 +251,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     ));
     logIfSlow("comment_insert", Date.now() - started, requestId);
   } catch (err) {
-    console.error("[comments] insert timeout", err);
+    console.error("[comments][POST]", {
+      requestId,
+      source: "comment_insert",
+      postId,
+      error: err,
+    });
     logIfSlow("comments_total", Date.now() - totalStart, requestId);
     return NextResponse.json({ error: "Comment save timed out." }, { status: 504 });
   }
 
   if (error || !comment) {
-    console.error("[comments] insert error", error);
+    console.error("[comments][POST]", {
+      requestId,
+      source: "comment_insert",
+      postId,
+      error,
+    });
     return NextResponse.json({ error: "Failed to create comment" }, { status: 500 });
   }
 
@@ -265,7 +277,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     profileMap = await getProfileMap([comment.author_id]);
     logIfSlow("profile_identity", Date.now() - started, requestId);
   } catch (err) {
-    console.error("[comments] profile lookup timeout", err);
+    console.error("[comments][POST]", {
+      requestId,
+      source: "profiles_identity_rpc",
+      postId,
+      error: err,
+    });
   }
   const mapped = mapComment(comment as CommentRow, profileMap);
 
