@@ -91,6 +91,7 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [commentsPostId, setCommentsPostId] = useState<string | null>(null);
   const [commentsCount, setCommentsCount] = useState(0);
+  const [commentsOpenToken, setCommentsOpenToken] = useState(0);
   const composerRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const emptyNotifiedRef = useRef(false);
@@ -546,8 +547,13 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
                     type="button"
                     className="btn-ghost"
                     onClick={() => {
+                      if (commentsPostId === post.id) {
+                        return;
+                      }
+                      console.debug("[comments-ui]", { postId: post.id, state: "open", reason: "click" });
                       setCommentsPostId(post.id);
                       setCommentsCount(post.commentCount ?? 0);
+                      setCommentsOpenToken((prev) => prev + 1);
                     }}
                   >
                     Comments ({post.commentCount ?? 0})
@@ -631,6 +637,7 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
         <CommentsDrawer
           postId={commentsPostId}
           isOpen={Boolean(commentsPostId)}
+          openToken={commentsOpenToken}
           onClose={() => setCommentsPostId(null)}
           commentCount={commentsCount}
           isAdmin={isAdmin}

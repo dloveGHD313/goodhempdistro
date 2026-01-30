@@ -10,7 +10,7 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith("/api")) {
     return NextResponse.next();
   }
-  const publicRoutes = ["/", "/get-started", "/login", "/signup", "/newsfeed"];
+  const publicRoutes = ["/", "/about", "/get-started", "/login", "/signup", "/newsfeed"];
   const isPublicRoute = publicRoutes.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
   );

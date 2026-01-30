@@ -24,6 +24,7 @@ type CommentItem = {
 type Props = {
   postId: string;
   isOpen: boolean;
+  openToken: number;
   onClose: () => void;
   commentCount: number;
   isAdmin: boolean;
@@ -34,6 +35,8 @@ type ReplyTarget = {
   id: string;
   name: string;
 };
+
+const commentsCache = new Map<string, { comments: CommentItem[]; count: number }>();
 
 const formatShortTime = (value: string) => {
   const date = new Date(value);
@@ -54,6 +57,7 @@ const makeTempId = () => `temp-${Date.now()}-${Math.random().toString(36).slice(
 export default function CommentsDrawer({
   postId,
   isOpen,
+  openToken,
   onClose,
   commentCount,
   isAdmin,
@@ -103,15 +107,25 @@ export default function CommentsDrawer({
         setStatus("error");
         return;
       }
-      if (!force && status !== "idle" && lastLoadedPostIdRef.current === postId) {
-        return;
+      if (!force && status !== "idle") return;
+      if (!force) {
+        const cached = commentsCache.get(postId);
+        if (cached) {
+          setComments(cached.comments);
+          updateCount(cached.count);
+          setStatus("loaded");
+          console.debug("[comments-ui]", { postId, state: "loaded", reason: "cache_hit" });
+          return;
+        }
       }
+      if (status === "loading") return;
       const seq = ++requestSeq.current;
       controllerRef.current?.abort();
       controllerRef.current = new AbortController();
       setLoading(true);
       setStatus("loading");
       setError(null);
+      console.debug("[comments-ui]", { postId, state: "loading", reason: "open" });
       const url = `/api/posts/${postId}/comments`;
       try {
         const response = await fetch(url, {
@@ -132,10 +146,14 @@ export default function CommentsDrawer({
         }
         const payload = await response.json();
         if (!isOpen || seq !== requestSeq.current) return;
-        setComments(payload.comments || []);
-        updateCount(payload.count ?? commentCount);
+        const nextComments = payload.comments || [];
+        const nextCount = payload.count ?? commentCount;
+        commentsCache.set(postId, { comments: nextComments, count: nextCount });
+        setComments(nextComments);
+        updateCount(nextCount);
         lastLoadedPostIdRef.current = postId;
         setStatus("loaded");
+        console.debug("[comments-ui]", { postId, state: "loaded", reason: "fetch_success" });
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") {
           return;
@@ -145,6 +163,7 @@ export default function CommentsDrawer({
         }
         setError(err instanceof Error ? err.message : "Failed to load comments.");
         setStatus("error");
+        console.debug("[comments-ui]", { postId, state: "error", reason: "fetch_error" });
       } finally {
         if (seq === requestSeq.current) {
           setLoading(false);
@@ -157,7 +176,7 @@ export default function CommentsDrawer({
   useEffect(() => {
     if (!isOpen) return;
     fetchComments();
-  }, [fetchComments, isOpen]);
+  }, [fetchComments, isOpen, openToken]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -174,6 +193,8 @@ export default function CommentsDrawer({
   useEffect(() => {
     if (!postId) return;
     if (lastLoadedPostIdRef.current && lastLoadedPostIdRef.current !== postId) {
+      controllerRef.current?.abort();
+      controllerRef.current = null;
       setStatus("idle");
       setComments([]);
       setError(null);

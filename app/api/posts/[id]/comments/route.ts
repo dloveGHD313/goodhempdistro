@@ -108,6 +108,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       error: err,
     });
     logIfSlow("comments_total", Date.now() - totalStart, requestId);
+    console.warn("[comments-api]", { requestId, outcome: "comments_unavailable", postId });
     return NextResponse.json(
       { postId, count: 0, comments: [], error: "comments_unavailable" },
       { headers: { "Cache-Control": "no-store" } }
@@ -122,6 +123,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       error,
     });
     logIfSlow("comments_total", Date.now() - totalStart, requestId);
+    console.warn("[comments-api]", { requestId, outcome: "comments_unavailable", postId });
     return NextResponse.json(
       { postId, count: 0, comments: [], error: "comments_unavailable" },
       { headers: { "Cache-Control": "no-store" } }
@@ -165,6 +167,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   });
 
   logIfSlow("comments_total", Date.now() - totalStart, requestId);
+  console.warn("[comments-api]", { requestId, outcome: "ok", postId, count: rows.length });
   return NextResponse.json(
     { postId, count: rows.length, comments: response },
     { headers: { "Cache-Control": "no-store" } }
@@ -268,6 +271,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       postId,
       error,
     });
+    console.warn("[comments-api]", { requestId, outcome: "insert_failed", postId });
     return NextResponse.json({ error: "Failed to create comment" }, { status: 500 });
   }
 
@@ -287,5 +291,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const mapped = mapComment(comment as CommentRow, profileMap);
 
   logIfSlow("comments_total", Date.now() - totalStart, requestId);
+  console.warn("[comments-api]", { requestId, outcome: "ok", postId, commentId: comment.id });
   return NextResponse.json({ comment: { ...mapped, replies: [] } });
 }
