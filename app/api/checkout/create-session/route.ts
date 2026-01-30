@@ -73,7 +73,12 @@ export async function POST(req: NextRequest) {
       const gate = await requireMarketAccess(user.id, "gated");
       if (!gate.ok) {
         return NextResponse.json(
-          { ok: false, code: gate.code, message: gate.message },
+          {
+            ok: false,
+            code: gate.code,
+            message: gate.message,
+            redirectTo: gate.redirectTo || "/verify-age",
+          },
           { status: gate.status, headers: { "Cache-Control": "no-store" } }
         );
       }

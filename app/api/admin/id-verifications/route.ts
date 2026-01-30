@@ -87,7 +87,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const now = new Date().toISOString();
-  const status = action === "verify" ? "verified" : "rejected";
+  const status = action === "verify" ? "approved" : "rejected";
 
   const { error: updateError } = await supabase
     .from("id_verifications")
@@ -95,6 +95,7 @@ export async function PATCH(req: NextRequest) {
       status,
       reviewed_at: now,
       reviewer_id: adminCheck.user.id,
+      reviewed_by: adminCheck.user.id,
       notes,
     })
     .eq("id", verificationId);
@@ -104,7 +105,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const profileUpdate = action === "verify"
-    ? { age_verified: true, id_verification_status: "verified", id_verified_at: now }
+    ? { age_verified: true, id_verification_status: "approved", id_verified_at: now }
     : { age_verified: false, id_verification_status: "rejected" };
 
   const { error: profileError } = await supabase

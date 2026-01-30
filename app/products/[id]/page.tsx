@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Metadata } from "next";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import BuyButton from "./BuyButton";
@@ -199,29 +200,8 @@ export default async function ProductDetailPage(props: Props) {
   if (isGatedProduct(product)) {
     const gate = await requireMarketAccess(user?.id ?? null, "gated");
     if (!gate.ok) {
-      return (
-        <div className="min-h-screen text-white flex flex-col">
-          <main className="flex-1">
-            <section className="section-shell">
-              <div className="max-w-3xl mx-auto card-glass p-8 space-y-6 text-center">
-                <div className="space-y-4">
-                  <h1 className="text-3xl font-bold text-accent">{product.name}</h1>
-                  <p className="text-muted">
-                    This product is part of the intoxicating market and requires 21+ verification to view.
-                  </p>
-                </div>
-                <Link href="/verify" className="btn-primary">
-                  Start 21+ Verification
-                </Link>
-                <Link href="/products" className="btn-secondary">
-                  Back to Products
-                </Link>
-              </div>
-            </section>
-          </main>
-          <Footer />
-        </div>
-      );
+      const redirectTarget = `/verify-age?redirect=${encodeURIComponent(`/products/${product.id}`)}`;
+      redirect(redirectTarget);
     }
   }
 

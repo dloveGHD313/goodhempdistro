@@ -56,7 +56,9 @@ export function MarketModeProvider({ children }: { children: React.ReactNode }) 
         .maybeSingle();
 
       const verified =
-        profile?.age_verified === true && profile?.id_verification_status === "verified";
+        profile?.age_verified === true &&
+        (profile?.id_verification_status === "verified" ||
+          profile?.id_verification_status === "approved");
       setIsVerified(verified);
 
       if (typeof window !== "undefined") {

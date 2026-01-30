@@ -53,7 +53,7 @@ export default function MarketSwitcher() {
   const handleStartVerification = async () => {
     setShowModal(false);
     await refreshVerification();
-    router.push("/verify");
+    router.push("/verify-age");
   };
 
   const handleStayInCbd = async () => {

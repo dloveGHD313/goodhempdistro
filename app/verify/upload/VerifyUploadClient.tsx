@@ -68,16 +68,7 @@ export default function VerifyUploadClient({ userId }: Props) {
         throw new Error("No files were uploaded.");
       }
 
-      await supabase
-        .from("profiles")
-        .update({
-          id_verification_status: "pending",
-          age_verified: false,
-          id_verification_provider: "manual",
-        })
-        .eq("id", userId);
-
-      router.replace("/verify/status");
+      router.replace("/verify-age/status");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to upload verification.";
       setError(message);
@@ -131,7 +122,7 @@ export default function VerifyUploadClient({ userId }: Props) {
         <button
           type="button"
           className="btn-secondary"
-          onClick={() => router.push("/verify/status")}
+          onClick={() => router.push("/verify-age/status")}
           disabled={submitting}
         >
           Check Status

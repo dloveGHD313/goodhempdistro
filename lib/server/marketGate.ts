@@ -1,12 +1,13 @@
 import "server-only";
-import { createSupabaseServerClient } from "@/lib/supabase";
+import { require21Plus } from "@/lib/server/idVerification";
 
 type GateOk = { ok: true };
 type GateError = {
   ok: false;
   status: number;
-  code: "GATED_MARKET_REQUIRES_VERIFICATION";
+  code: "GATED_MARKET_REQUIRES_VERIFICATION" | "ID_VERIFICATION_REQUIRED";
   message: string;
+  redirectTo?: string;
 };
 
 type MarketType = "gated" | "ungated";
@@ -24,21 +25,6 @@ export function isGatedProduct(product: GateProduct | null | undefined): boolean
   return product.market_category === "INTOXICATING";
 }
 
-async function isVerifiedForGatedMarket(userId: string | null): Promise<boolean> {
-  if (!userId) return false;
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
-    .from("profiles")
-    .select("age_verified, id_verification_status, role")
-    .eq("id", userId)
-    .maybeSingle();
-
-  return (
-    data?.role === "admin" ||
-    (data?.age_verified === true && data?.id_verification_status === "verified")
-  );
-}
-
 export async function requireMarketAccess(
   userId: string | null,
   marketType: MarketType
@@ -46,13 +32,13 @@ export async function requireMarketAccess(
   if (marketType === "ungated") {
     return { ok: true };
   }
-
-  const verified = await isVerifiedForGatedMarket(userId);
-  if (verified) return { ok: true };
+  const gate = await require21Plus(userId);
+  if (gate.ok) return { ok: true };
   return {
     ok: false,
-    status: 403,
-    code: "GATED_MARKET_REQUIRES_VERIFICATION",
-    message: "Intoxicating market requires 21+ verification.",
+    status: gate.status,
+    code: gate.code,
+    message: gate.message,
+    redirectTo: gate.redirectTo,
   };
 }
