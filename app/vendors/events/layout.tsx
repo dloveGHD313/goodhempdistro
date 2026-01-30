@@ -1,28 +1,14 @@
 import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "@/lib/supabase";
-import { getVendorAccessStatus } from "@/lib/vendor-access";
+import { requireVendorOnboarding } from "@/lib/server/onboardingGate";
 
 export default async function VendorsEventsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/login?redirect=/vendors/events");
-  }
-
-  const access = await getVendorAccessStatus(user.id, user.email);
-  if (access.isAdmin) {
-    return <>{children}</>;
-  }
-  if (!access.isVendor) {
-    redirect("/vendor-registration");
-  }
-  if (!access.isSubscribed) {
-    redirect("/pricing?tab=vendor&reason=subscription_required");
+  const result = await requireVendorOnboarding({ pathname: "/vendors/events" });
+  if ("redirectTo" in result) {
+    redirect(result.redirectTo);
   }
 
   return <>{children}</>;
