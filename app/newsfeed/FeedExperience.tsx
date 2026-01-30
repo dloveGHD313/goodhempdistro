@@ -634,6 +634,14 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
           onClose={() => setCommentsPostId(null)}
           commentCount={commentsCount}
           isAdmin={isAdmin}
+          onCountChange={(next) => {
+            setCommentsCount(next);
+            setPosts((prev) =>
+              prev.map((post) =>
+                post.id === commentsPostId ? { ...post, commentCount: next } : post
+              )
+            );
+          }}
         />
       )}
     </section>

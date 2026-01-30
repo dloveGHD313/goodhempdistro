@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ProfileChip from "@/components/profile/ProfileChip";
+import Drawer from "@/components/ui/Drawer";
 import { getDisplayName } from "@/lib/identity";
 import type { BadgeInfo } from "@/lib/badges";
 import type { PostAuthorRole, PostAuthorTier } from "@/lib/postPriority";
@@ -26,9 +27,29 @@ type Props = {
   onClose: () => void;
   commentCount: number;
   isAdmin: boolean;
+  onCountChange?: (count: number) => void;
 };
 
-const formatTime = (value: string) => new Date(value).toLocaleString();
+type ReplyTarget = {
+  id: string;
+  name: string;
+};
+
+const formatShortTime = (value: string) => {
+  const date = new Date(value);
+  const delta = Date.now() - date.getTime();
+  if (Number.isNaN(delta)) return "now";
+  const seconds = Math.floor(delta / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `${days}d`;
+};
+
+const makeTempId = () => `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 export default function CommentsDrawer({
   postId,
@@ -36,6 +57,7 @@ export default function CommentsDrawer({
   onClose,
   commentCount,
   isAdmin,
+  onCountChange,
 }: Props) {
   const { userId } = useAuthUser();
   const [comments, setComments] = useState<CommentItem[]>([]);
@@ -43,10 +65,27 @@ export default function CommentsDrawer({
   const [error, setError] = useState<string | null>(null);
   const [count, setCount] = useState(commentCount);
   const [newBody, setNewBody] = useState("");
-  const [replyBody, setReplyBody] = useState<Record<string, string>>({});
-  const [activeReply, setActiveReply] = useState<string | null>(null);
+  const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
+  const [actionMenuId, setActionMenuId] = useState<string | null>(null);
+  const [justAddedId, setJustAddedId] = useState<string | null>(null);
+  const [showJump, setShowJump] = useState(false);
+  const [drawerSide, setDrawerSide] = useState<"right" | "bottom">("right");
+  const [profileSnapshot, setProfileSnapshot] = useState<{ name: string; avatarUrl: string | null } | null>(
+    null
+  );
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const nearBottomRef = useRef(true);
 
   const canPost = Boolean(userId);
+
+  const updateCount = useCallback(
+    (next: number) => {
+      setCount(next);
+      onCountChange?.(next);
+    },
+    [onCountChange]
+  );
 
   const fetchComments = useCallback(async () => {
     if (!isOpen) return;
@@ -59,43 +98,149 @@ export default function CommentsDrawer({
       }
       const payload = await response.json();
       setComments(payload.comments || []);
-      setCount(payload.count ?? commentCount);
+      updateCount(payload.count ?? commentCount);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load comments.");
     } finally {
       setLoading(false);
     }
-  }, [isOpen, postId]);
+  }, [isOpen, postId, commentCount, updateCount]);
 
   useEffect(() => {
     fetchComments();
   }, [fetchComments]);
 
   useEffect(() => {
-    setCount(commentCount);
-  }, [commentCount]);
+    updateCount(commentCount);
+  }, [commentCount, updateCount]);
 
-  const handleSubmit = async (body: string, parentId: string | null) => {
+  useEffect(() => {
+    if (!isOpen || !canPost) return;
+    composerRef.current?.focus();
+  }, [isOpen, canPost]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 768px)");
+    const handle = () => setDrawerSide(mediaQuery.matches ? "bottom" : "right");
+    handle();
+    mediaQuery.addEventListener("change", handle);
+    return () => mediaQuery.removeEventListener("change", handle);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen || !userId) return;
+    const loadProfile = async () => {
+      const response = await fetch("/api/profile", { cache: "no-store" });
+      if (!response.ok) return;
+      const payload = await response.json();
+      const displayName = payload?.profile?.display_name || payload?.profile?.displayName || null;
+      const name = getDisplayName({ id: userId, display_name: displayName }, null);
+      setProfileSnapshot({ name, avatarUrl: payload?.profile?.avatar_url || null });
+    };
+    loadProfile();
+  }, [isOpen, userId]);
+
+  useEffect(() => {
+    if (!justAddedId) return;
+    const timer = window.setTimeout(() => setJustAddedId(null), 1200);
+    return () => window.clearTimeout(timer);
+  }, [justAddedId]);
+
+  const handleScroll = useCallback(() => {
+    const node = scrollRef.current;
+    if (!node) return;
+    const distance = node.scrollHeight - node.scrollTop - node.clientHeight;
+    const nearBottom = distance < 140;
+    nearBottomRef.current = nearBottom;
+    if (nearBottom) {
+      setShowJump(false);
+    }
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    const node = scrollRef.current;
+    if (!node) return;
+    node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
+  }, []);
+
+  const insertOptimisticComment = useCallback(
+    (body: string, parentId: string | null) => {
+      if (!userId) return { updated: comments, tempId: "" };
+      const tempId = makeTempId();
+      const now = new Date().toISOString();
+      const displayName = profileSnapshot?.name || getDisplayName({ id: userId }, null);
+      const optimistic: CommentItem = {
+        id: tempId,
+        postId,
+        parentId,
+        body,
+        createdAt: now,
+        authorId: userId,
+        authorDisplayName: displayName,
+        authorAvatarUrl: profileSnapshot?.avatarUrl || null,
+        authorBadgeModel: null,
+        replies: [],
+      };
+      let nextComments = comments;
+      if (parentId) {
+        nextComments = comments.map((comment) => {
+          if (comment.id !== parentId) return comment;
+          return { ...comment, replies: [...comment.replies, optimistic] };
+        });
+      } else {
+        nextComments = [optimistic, ...comments];
+      }
+      setComments(nextComments);
+      updateCount(count + 1);
+      setJustAddedId(tempId);
+      if (nearBottomRef.current) {
+        requestAnimationFrame(scrollToBottom);
+      } else {
+        setShowJump(true);
+      }
+      return { updated: nextComments, tempId };
+    },
+    [comments, count, postId, profileSnapshot, scrollToBottom, updateCount, userId]
+  );
+
+  const handleSubmit = async () => {
     if (!canPost) return;
-    const trimmed = body.trim();
+    const trimmed = newBody.trim();
     if (!trimmed) return;
-    const response = await fetch(`/api/posts/${postId}/comments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body: trimmed, parentId }),
-    });
-    if (!response.ok) {
-      setError("Failed to post comment.");
-      return;
-    }
+    const parentId = replyTarget?.id || null;
+    const previous = comments;
+    const previousCount = count;
+    const { tempId } = insertOptimisticComment(trimmed, parentId);
+    setNewBody("");
+    setReplyTarget(null);
     setError(null);
-    if (parentId) {
-      setReplyBody((prev) => ({ ...prev, [parentId]: "" }));
-      setActiveReply(null);
-    } else {
-      setNewBody("");
+    try {
+      const response = await fetch(`/api/posts/${postId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: trimmed, parentId }),
+      });
+      if (!response.ok) {
+        throw new Error("Failed to post comment.");
+      }
+      const payload = await response.json();
+      const real = payload.comment as CommentItem;
+      setComments((current) => {
+        const replace = (items: CommentItem[]): CommentItem[] =>
+          items.map((item) => {
+            if (item.id === tempId) return { ...real, replies: item.replies };
+            return {
+              ...item,
+              replies: item.replies ? replace(item.replies) : [],
+            };
+          });
+        return replace(current);
+      });
+    } catch (err) {
+      setComments(previous);
+      updateCount(previousCount);
+      setError(err instanceof Error ? err.message : "Failed to post comment.");
     }
-    await fetchComments();
   };
 
   const handleDelete = async (commentId: string) => {
@@ -113,8 +258,15 @@ export default function CommentsDrawer({
       id: comment.authorId,
       display_name: comment.authorDisplayName ?? null,
     });
+    const isOwner = userId === comment.authorId;
+    const highlight = comment.id === justAddedId;
     return (
-      <div key={comment.id} className={`space-y-2 ${depth ? "pl-6 border-l border-[var(--border)]" : ""}`}>
+      <div
+        key={comment.id}
+        className={`space-y-2 rounded-xl p-3 border ${
+          highlight ? "border-[var(--brand-lime)]/60 bg-[var(--brand-lime)]/10" : "border-transparent"
+        } ${depth ? "ml-4 border-l border-[var(--border)]/60" : ""}`}
+      >
         <div className="flex items-center justify-between">
           <ProfileChip
             displayName={displayName}
@@ -123,98 +275,161 @@ export default function CommentsDrawer({
             tier={"none" as PostAuthorTier}
             badgeModel={comment.authorBadgeModel ?? null}
           />
-          <span className="text-xs text-muted">{formatTime(comment.createdAt)}</span>
+          <span className="text-xs text-muted">{formatShortTime(comment.createdAt)}</span>
         </div>
-        <p className="text-sm text-white/90">{comment.body}</p>
-        <div className="flex gap-3 text-xs text-muted">
+        <p className="text-sm text-white/90 whitespace-pre-line">{comment.body}</p>
+        <div className="flex gap-3 text-xs text-muted items-center">
           {canPost && depth === 0 && (
             <button
               type="button"
               className="hover:text-accent"
-              onClick={() => setActiveReply((prev) => (prev === comment.id ? null : comment.id))}
+              onClick={() => {
+                setActionMenuId(null);
+                setReplyTarget({
+                  id: comment.id,
+                  name: displayName,
+                });
+              }}
             >
               Reply
             </button>
           )}
-          {(userId === comment.authorId || isAdmin) && (
-            <button
-              type="button"
-              className="hover:text-accent"
-              onClick={() => handleDelete(comment.id)}
-            >
-              Delete
-            </button>
+          {(isOwner || isAdmin) && (
+            <div className="relative">
+              <button
+                type="button"
+                className="hover:text-accent"
+                onClick={() => setActionMenuId((prev) => (prev === comment.id ? null : comment.id))}
+                aria-label="Comment actions"
+              >
+                ⋯
+              </button>
+              {actionMenuId === comment.id && (
+                <div className="absolute z-10 mt-2 w-32 rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-lg">
+                  <button
+                    type="button"
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-white/5"
+                    onClick={() => {
+                      setActionMenuId(null);
+                      handleDelete(comment.id);
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
-        {activeReply === comment.id && canPost && (
-          <div className="space-y-2">
-            <textarea
-              value={replyBody[comment.id] || ""}
-              onChange={(event) =>
-                setReplyBody((prev) => ({ ...prev, [comment.id]: event.target.value }))
-              }
-              placeholder="Write a reply..."
-              className="w-full min-h-[80px] px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded text-sm text-white"
-              maxLength={1000}
-            />
-            <div className="flex justify-end gap-2">
-              <button type="button" className="btn-secondary" onClick={() => setActiveReply(null)}>
-                Cancel
-              </button>
-              <button type="button" className="btn-primary" onClick={() => handleSubmit(replyBody[comment.id] || "", comment.id)}>
-                Reply
-              </button>
-            </div>
-          </div>
-        )}
         {comment.replies.map((reply) => renderComment(reply, depth + 1))}
       </div>
     );
   };
 
-  if (!isOpen) return null;
+  const skeletons = useMemo(
+    () =>
+      Array.from({ length: 4 }).map((_, idx) => (
+        <div key={idx} className="space-y-3 animate-pulse">
+          <div className="h-10 bg-white/5 rounded-lg" />
+          <div className="h-4 bg-white/5 rounded-lg w-3/4" />
+        </div>
+      )),
+    []
+  );
+
+  const composerPlaceholder = canPost ? "Write a comment..." : "Sign in to comment";
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/50">
-      <div className="w-full max-w-xl h-full bg-[var(--surface)]/95 border-l border-[var(--border)] p-6 overflow-y-auto">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Comments ({count})</h2>
-          <button type="button" className="btn-ghost" onClick={onClose}>
-            Close
-          </button>
+    <Drawer
+      open={isOpen}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      title="Comments"
+      side={drawerSide}
+    >
+      <div className="flex flex-col h-full">
+        <div className="sticky top-0 z-10 backdrop-blur-md bg-[var(--surface)]/90 border-b border-[var(--border)] px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                Comments
+                <span className="text-xs px-2 py-1 rounded-full bg-white/5 border border-[var(--border)]">
+                  {count}
+                </span>
+              </h2>
+              <p className="text-xs text-muted mt-1">
+                Be respectful — keep it hemp-friendly 🌿
+              </p>
+            </div>
+            <button type="button" className="btn-ghost" onClick={onClose} aria-label="Close comments">
+              Close
+            </button>
+          </div>
         </div>
 
-        {error && <p className="text-sm text-red-400 mb-3">{error}</p>}
-        {loading ? (
-          <p className="text-muted">Loading comments...</p>
-        ) : comments.length === 0 ? (
-          <p className="text-muted">No comments yet.</p>
-        ) : (
-          <div className="space-y-6">{comments.map((comment) => renderComment(comment, 0))}</div>
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto px-6 py-4 space-y-5"
+        >
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          {loading ? (
+            <div className="space-y-6">{skeletons}</div>
+          ) : comments.length === 0 ? (
+            <div className="text-center text-muted py-12">
+              <p className="text-lg font-semibold">Start the conversation</p>
+              <p className="text-sm mt-2">Be the first to drop a comment.</p>
+            </div>
+          ) : (
+            <div className="space-y-6">{comments.map((comment) => renderComment(comment, 0))}</div>
+          )}
+        </div>
+
+        {showJump && (
+          <div className="px-6 py-2 border-t border-[var(--border)] bg-[var(--surface)]/90">
+            <button type="button" className="btn-secondary w-full" onClick={scrollToBottom}>
+              Jump to latest
+            </button>
+          </div>
         )}
 
-        <div className="mt-6 border-t border-[var(--border)] pt-4 space-y-3">
-          <h3 className="text-sm text-muted">Add a comment</h3>
+        <div className="sticky bottom-0 z-10 backdrop-blur-md bg-[var(--surface)]/95 border-t border-[var(--border)] px-6 py-4 space-y-3">
+          {replyTarget && (
+            <div className="flex items-center justify-between bg-[var(--surface)]/80 border border-[var(--border)] rounded-full px-3 py-1 text-xs">
+              <span>Replying to {replyTarget.name}</span>
+              <button type="button" className="text-muted" onClick={() => setReplyTarget(null)}>
+                ✕
+              </button>
+            </div>
+          )}
           <textarea
+            ref={composerRef}
             value={newBody}
             onChange={(event) => setNewBody(event.target.value)}
-            placeholder={canPost ? "Write a comment..." : "Sign in to comment"}
+            placeholder={composerPlaceholder}
             disabled={!canPost}
-            className="w-full min-h-[100px] px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded text-sm text-white disabled:opacity-60"
+            className="w-full min-h-[48px] max-h-[140px] px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm text-white disabled:opacity-60 resize-none"
             maxLength={1000}
+            aria-label="Comment composer"
           />
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between">
+            {!canPost && (
+              <a href="/login" className="text-xs text-accent">
+                Sign in to comment
+              </a>
+            )}
             <button
               type="button"
-              className="btn-primary"
+              className="btn-primary ml-auto"
               disabled={!canPost || !newBody.trim()}
-              onClick={() => handleSubmit(newBody, null)}
+              onClick={handleSubmit}
             >
-              Post comment
+              Send
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </Drawer>
   );
 }
