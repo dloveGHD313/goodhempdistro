@@ -3,6 +3,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
 import ServicesList from "./ServicesList";
+import MarketSwitcher from "@/components/market/MarketSwitcher";
 
 export const metadata: Metadata = {
   title: "Services | Good Hemp Distro",
@@ -80,14 +81,19 @@ export default async function ServicesPage({
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
         <section className="section-shell">
-          <h1 className="text-4xl font-bold mb-6 text-accent">
-            {vendorName ? `Services from ${vendorName}` : "Services"}
-          </h1>
-          <p className="text-muted mb-12">
-            {vendorName
-              ? "Explore approved services from this vendor."
-              : "Find professional services for your hemp business needs."}
-          </p>
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-6">
+            <div>
+              <h1 className="text-4xl font-bold mb-3 text-accent">
+                {vendorName ? `Services from ${vendorName}` : "Services"}
+              </h1>
+              <p className="text-muted">
+                {vendorName
+                  ? "Explore approved services from this vendor."
+                  : "Find professional services for your hemp business needs."}
+              </p>
+            </div>
+            <MarketSwitcher />
+          </div>
 
           {errorMessage && (
             <div className="card-glass p-4 mb-6 border border-red-500/40 text-red-300">

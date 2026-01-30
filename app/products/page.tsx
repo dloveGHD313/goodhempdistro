@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
 import ProductsList from "./ProductsList";
-import MarketModeToggle from "@/components/market/MarketModeToggle";
+import MarketSwitcher from "@/components/market/MarketSwitcher";
 
 export const metadata: Metadata = {
   title: "Products | Good Hemp Distro",
@@ -18,6 +18,7 @@ type Product = {
   category_id: string | null;
   price_cents: number;
   is_gated: boolean;
+  market_category: string | null;
   featured: boolean;
   description?: string | null;
   vendor_id?: string | null;
@@ -48,7 +49,7 @@ async function getProducts(vendorId?: string | null): Promise<{
 
     const query = supabase
       .from("products")
-      .select("id, name, category_id, price_cents, is_gated, featured, description, vendor_id")
+      .select("id, name, category_id, price_cents, is_gated, market_category, featured, description, vendor_id")
       .eq("status", "approved") // Only approved products
       .eq("active", true) // Only active products
       .order("created_at", { ascending: false });
@@ -145,7 +146,7 @@ export default async function ProductsPage({
                     ⚡ Fastest delivery
                   </button>
                 </div>
-                <MarketModeToggle />
+                <MarketSwitcher />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">

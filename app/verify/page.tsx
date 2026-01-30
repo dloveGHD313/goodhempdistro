@@ -28,9 +28,11 @@ export default async function VerifyStartPage() {
           <div className="max-w-3xl mx-auto card-glass p-8 space-y-6 text-center">
             <div className="space-y-3">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">21+ Verification</p>
-              <h1 className="text-3xl font-bold text-accent">Verify your ID to unlock the gated market</h1>
+              <h1 className="text-3xl font-bold text-accent">
+                Verify your ID to unlock the intoxicating market
+              </h1>
               <p className="text-muted">
-                The gated market includes intoxicating or smokable products and requires a quick
+                The intoxicating market includes smokable or consumable products and requires a quick
                 verification step with an ID upload.
               </p>
             </div>

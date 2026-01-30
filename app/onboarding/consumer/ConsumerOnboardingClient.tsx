@@ -19,9 +19,11 @@ type PurchaseIntent = "bulk" | "recurring" | "one-time";
 type Interest = "products" | "services" | "education" | "events";
 type ExperienceLevel = "new" | "experienced";
 type UseCase = "Business Supplies" | "Skincare" | "Wellness" | "General";
+type MarketPreference = "CBD_WELLNESS" | "INDUSTRIAL" | "SERVICES" | "INTOXICATING" | "BROWSING";
 
 type InitialProfile = {
   role: string | null;
+  market_mode_preference: string | null;
   consumer_type: ConsumerType | null;
   business_type: BusinessType | null;
   purchase_intent: PurchaseIntent[] | null;
@@ -124,7 +126,7 @@ const INTERESTS: { value: Interest; label: string }[] = [
 const USE_CASES: { value: UseCase; label: string; description: string }[] = [
   { value: "Business Supplies", label: "Business supplies", description: "Paper, textiles, supplies" },
   { value: "Skincare", label: "Skincare / topicals", description: "Lotions, balms, topical care" },
-  { value: "Wellness", label: "Wellness CBD", description: "Non-intoxicating wellness" },
+  { value: "Wellness", label: "Wellness", description: "Non-intoxicating wellness" },
   { value: "General", label: "I’m just browsing", description: "Show me a little of everything" },
 ];
 
@@ -133,7 +135,18 @@ const INTEREST_TAGS: { value: string; label: string }[] = [
   { value: "Skincare", label: "Skincare" },
   { value: "Wellness", label: "Wellness CBD" },
   { value: "Topicals", label: "Topicals" },
+  { value: "Industrial", label: "Industrial materials" },
+  { value: "Services", label: "Professional services" },
+  { value: "Labs", label: "Lab / COA testing" },
+  { value: "Consulting", label: "Consulting" },
   { value: "General", label: "General" },
+];
+
+const MARKET_CHOICES: { value: MarketPreference; label: string; description: string }[] = [
+  { value: "CBD_WELLNESS", label: "CBD & Wellness", description: "Non-intoxicating CBD essentials" },
+  { value: "INDUSTRIAL", label: "Industrial", description: "Materials, fiber, and supplies" },
+  { value: "SERVICES", label: "Services", description: "Legal, banking, labs, consulting" },
+  { value: "BROWSING", label: "Just browsing", description: "Show a little of everything" },
 ];
 
 export default function ConsumerOnboardingClient({
@@ -153,6 +166,9 @@ export default function ConsumerOnboardingClient({
 
   const [stateValue, setStateValue] = useState(initialProfile.state || "");
   const [city, setCity] = useState(initialProfile.city || "");
+  const [marketPreference, setMarketPreference] = useState<MarketPreference>(
+    (initialProfile.market_mode_preference as MarketPreference) || "CBD_WELLNESS"
+  );
   const [consumerType, setConsumerType] = useState<ConsumerType | "">(
     initialProfile.consumer_type || ""
   );
@@ -184,6 +200,7 @@ export default function ConsumerOnboardingClient({
     if (consumerType === "business") {
       base.push({ key: "business", label: "Business Details" });
     }
+    base.push({ key: "market", label: "Market Focus" });
     base.push({ key: "use_case", label: "Shopping Goals" });
     base.push({ key: "interests", label: "Interests" });
     base.push({ key: "experience", label: "Experience" });
@@ -246,6 +263,9 @@ export default function ConsumerOnboardingClient({
       if (!businessType) return "Please choose a business type.";
       if (purchaseIntent.length === 0) return "Select at least one purchase intent.";
     }
+    if (stepKey === "market") {
+      if (!marketPreference) return "Please select a market.";
+    }
     if (stepKey === "use_case") {
       if (!useCase) return "Please select your shopping goal.";
       if (interestTags.length === 0) return "Select at least one interest tag.";
@@ -262,6 +282,7 @@ export default function ConsumerOnboardingClient({
   const saveProfile = async (nextStepIndex: number, completed: boolean) => {
     const payload = {
       id: userId,
+      market_mode_preference: marketPreference === "BROWSING" ? "CBD_WELLNESS" : marketPreference,
       consumer_type: consumerType || null,
       business_type: consumerType === "business" ? businessType || null : null,
       purchase_intent: consumerType === "business" ? purchaseIntent : null,
@@ -470,12 +491,41 @@ export default function ConsumerOnboardingClient({
           </div>
         )}
 
+        {stepKey === "market" && (
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold">Which market are you here for?</h2>
+              <p className="text-sm text-muted">
+                We will tailor your default browsing experience (ungated only).
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              {MARKET_CHOICES.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setMarketPreference(option.value)}
+                  className={[
+                    "p-4 rounded-lg border text-left transition-all",
+                    marketPreference === option.value
+                      ? "border-accent bg-[rgba(95,255,215,0.08)]"
+                      : "border-[var(--border)]",
+                  ].join(" ")}
+                >
+                  <p className="text-lg font-semibold">{option.label}</p>
+                  <p className="text-sm text-muted mt-1">{option.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {stepKey === "use_case" && (
           <div className="space-y-6">
             <div className="space-y-2">
               <h2 className="text-xl font-semibold">What are you shopping for?</h2>
               <p className="text-sm text-muted">
-                This helps us tailor your CBD browsing experience.
+                This helps us tailor your browsing experience.
               </p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
@@ -598,6 +648,7 @@ export default function ConsumerOnboardingClient({
                 steps: steps.map((step) => step.key),
                 consumerType,
                 businessType,
+                marketPreference,
                 purchaseIntent,
                 companySize,
                 interests,

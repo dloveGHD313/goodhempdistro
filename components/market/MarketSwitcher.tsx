@@ -12,11 +12,13 @@ type Option = {
 };
 
 const OPTIONS: Option[] = [
-  { value: "CBD", label: "CBD Market", description: "Non-intoxicating, fully public" },
-  { value: "GATED", label: "Gated Market", description: "21+ verified, intoxicating" },
+  { value: "CBD_WELLNESS", label: "CBD & Wellness", description: "Non-intoxicating essentials" },
+  { value: "INDUSTRIAL", label: "Industrial", description: "Hemp materials + supplies" },
+  { value: "SERVICES", label: "Services", description: "Professional hemp services" },
+  { value: "INTOXICATING", label: "Intoxicating", description: "21+ verified products" },
 ];
 
-export default function MarketModeToggle() {
+export default function MarketSwitcher() {
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const { mode, setMode, isVerified, loadingVerification, refreshVerification } = useMarketMode();
@@ -24,11 +26,10 @@ export default function MarketModeToggle() {
   const [savingPreference, setSavingPreference] = useState(false);
 
   const handleSelect = async (next: MarketMode) => {
-    if (next === "GATED" && !isVerified) {
-      setShowModal(true);
-      return;
-    }
     setMode(next);
+    if (next === "INTOXICATING" && !isVerified) {
+      setShowModal(true);
+    }
     setSavingPreference(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -41,6 +42,12 @@ export default function MarketModeToggle() {
     } finally {
       setSavingPreference(false);
     }
+
+    if (next === "SERVICES") {
+      router.push("/services");
+    } else {
+      router.push("/products");
+    }
   };
 
   const handleStartVerification = async () => {
@@ -49,11 +56,23 @@ export default function MarketModeToggle() {
     router.push("/verify");
   };
 
+  const handleStayInCbd = async () => {
+    setShowModal(false);
+    setMode("CBD_WELLNESS");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase
+        .from("profiles")
+        .update({ market_mode_preference: "CBD_WELLNESS" })
+        .eq("id", user.id);
+    }
+  };
+
   return (
     <>
       <div className="flex flex-col gap-2">
-        <p className="text-xs uppercase tracking-[0.2em] text-muted">Market Mode</p>
-        <div className="inline-flex rounded-full border border-[var(--border)] bg-[var(--surface)]/60 p-1">
+        <p className="text-xs uppercase tracking-[0.2em] text-muted">Market Switcher</p>
+        <div className="inline-flex flex-wrap rounded-2xl border border-[var(--border)] bg-[var(--surface)]/60 p-1 gap-1">
           {OPTIONS.map((option) => {
             const active = mode === option.value;
             return (
@@ -63,7 +82,7 @@ export default function MarketModeToggle() {
                 onClick={() => handleSelect(option.value)}
                 disabled={loadingVerification || savingPreference}
                 className={[
-                  "px-4 py-2 rounded-full text-sm transition",
+                  "px-4 py-2 rounded-xl text-sm transition",
                   active ? "bg-accent text-black" : "text-muted hover:text-white",
                   loadingVerification || savingPreference ? "opacity-70 cursor-wait" : "",
                 ].join(" ")}
@@ -75,7 +94,7 @@ export default function MarketModeToggle() {
           })}
         </div>
         <p className="text-xs text-muted">
-          {mode === "CBD" ? OPTIONS[0].description : OPTIONS[1].description}
+          {OPTIONS.find((option) => option.value === mode)?.description}
         </p>
       </div>
 
@@ -84,23 +103,18 @@ export default function MarketModeToggle() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
-          aria-label="Gated market verification required"
+          aria-label="Intoxicating market verification required"
         >
           <div className="card-glass p-6 max-w-md w-full border border-[var(--border)]">
-            <h2 className="text-xl font-semibold text-accent mb-2">Gated Market is 21+</h2>
+            <h2 className="text-xl font-semibold text-accent mb-2">Intoxicating Market is 21+</h2>
             <p className="text-sm text-muted mb-4">
-              The gated market requires age verification and a government ID upload before you can
-              browse or buy intoxicating products.
+              The intoxicating market requires age verification and a government ID upload.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <button type="button" className="btn-primary w-full" onClick={handleStartVerification}>
                 Start Verification
               </button>
-              <button
-                type="button"
-                className="btn-secondary w-full"
-                onClick={() => setShowModal(false)}
-              >
+              <button type="button" className="btn-secondary w-full" onClick={handleStayInCbd}>
                 Stay in CBD Market
               </button>
             </div>

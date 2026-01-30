@@ -16,6 +16,7 @@ type Product = {
   category_id: string | null;
   price_cents: number;
   is_gated: boolean;
+  market_category: string | null;
   featured: boolean;
   description?: string | null;
   vendor_name?: string | null;
@@ -101,13 +102,13 @@ export default function ProductsList({ initialProducts, initialCategoryId }: Pro
       .catch(() => undefined);
   }, [initialProducts]);
 
-  const effectiveMode = mode === "GATED" && isVerified ? "GATED" : "CBD";
-  const showVerificationNotice = mode === "GATED" && !isVerified;
+  const showVerificationNotice = mode === "INTOXICATING" && !isVerified;
 
   const filteredProducts = useMemo(() => {
-    let filtered = initialProducts.filter((product) =>
-      effectiveMode === "CBD" ? !product.is_gated : product.is_gated
-    );
+    let filtered = initialProducts.filter((product) => {
+      const category = product.market_category || "CBD_WELLNESS";
+      return category === mode;
+    });
     if (selectedCategoryId) {
       filtered = filtered.filter((product) => product.category_id === selectedCategoryId);
     }
@@ -117,16 +118,27 @@ export default function ProductsList({ initialProducts, initialCategoryId }: Pro
       );
     }
     return filtered;
-  }, [effectiveMode, initialProducts, selectedCategoryId, search]);
+  }, [mode, initialProducts, selectedCategoryId, search]);
 
   return (
     <>
+      {mode === "SERVICES" && (
+        <div className="card-glass p-4 mb-6 border border-[var(--border)] text-muted">
+          Services are listed in the Services marketplace.
+          <a href="/services" className="btn-secondary ml-3 inline-flex">
+            View Services
+          </a>
+        </div>
+      )}
       {showVerificationNotice && (
         <div className="card-glass p-4 mb-6 border border-yellow-500/40 text-yellow-200">
           <p className="text-sm">
-            The gated market requires 21+ verification. Start verification to unlock gated
+            The intoxicating market requires 21+ verification. Start verification to unlock gated
             products.
           </p>
+          <a href="/verify" className="btn-secondary mt-3 inline-flex">
+            Start Verification
+          </a>
         </div>
       )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -161,7 +173,9 @@ export default function ProductsList({ initialProducts, initialCategoryId }: Pro
               product.description && product.description.trim().length > 0
                 ? product.description.trim()
                 : "Product details coming soon.";
-            const isLocked = product.is_gated && !isVerified;
+            const marketCategory = product.market_category || "CBD_WELLNESS";
+            const isIntoxicating = marketCategory === "INTOXICATING";
+            const isLocked = isIntoxicating && !isVerified;
             return (
               <div key={product.id} className="card-glass p-6 hover-lift h-full">
               <div className="flex items-center justify-between mb-3">
@@ -202,12 +216,14 @@ export default function ProductsList({ initialProducts, initialCategoryId }: Pro
               <div className="flex flex-wrap gap-2 mt-4 mb-4">
                 <span className="delivery-chip">🚚 {deliveryEta}</span>
                 <span className="compliance-chip">✅ Compliance Ready</span>
-                {product.is_gated ? (
+                {isIntoxicating ? (
                   <span className="compliance-chip">
-                    {isLocked ? "🔒 Locked (21+)" : "🔒 21+ Verified"}
+                    {isLocked ? "🔒 Gated" : "🔒 21+ Verified"}
                   </span>
                 ) : (
-                  <span className="compliance-chip">CBD</span>
+                  <span className="compliance-chip">
+                    {marketCategory.replace(/_/g, " ")}
+                  </span>
                 )}
               </div>
               <div className="flex justify-between items-center">

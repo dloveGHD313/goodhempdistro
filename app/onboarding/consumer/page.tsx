@@ -10,6 +10,7 @@ export const revalidate = 0;
 
 type ConsumerProfile = {
   role: string | null;
+  market_mode_preference: string | null;
   consumer_type: "individual" | "business" | null;
   business_type:
     | "hotel"
@@ -46,7 +47,7 @@ export default async function ConsumerOnboardingPage() {
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select(
-      "role, consumer_type, business_type, purchase_intent, interests, experience_level, state, city, company_size, consumer_interest_tags, consumer_use_case, consumer_onboarding_step, consumer_onboarding_completed"
+      "role, market_mode_preference, consumer_type, business_type, purchase_intent, interests, experience_level, state, city, company_size, consumer_interest_tags, consumer_use_case, consumer_onboarding_step, consumer_onboarding_completed"
     )
     .eq("id", user.id)
     .maybeSingle();
@@ -61,6 +62,7 @@ export default async function ConsumerOnboardingPage() {
 
   const initialProfile: ConsumerProfile = {
     role: profile?.role ?? "consumer",
+    market_mode_preference: profile?.market_mode_preference ?? "CBD_WELLNESS",
     consumer_type: profile?.consumer_type ?? null,
     business_type: profile?.business_type ?? null,
     purchase_intent: profile?.purchase_intent ?? [],

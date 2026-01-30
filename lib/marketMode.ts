@@ -1,9 +1,9 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
-export type MarketMode = "CBD" | "GATED";
+export type MarketMode = "CBD_WELLNESS" | "INDUSTRIAL" | "SERVICES" | "INTOXICATING";
 
 type MarketModeContextValue = {
   mode: MarketMode;
@@ -16,10 +16,19 @@ type MarketModeContextValue = {
 const MarketModeContext = createContext<MarketModeContextValue | null>(null);
 
 const STORAGE_KEY = "ghd_market_mode";
+const VALID_MODES: MarketMode[] = ["CBD_WELLNESS", "INDUSTRIAL", "SERVICES", "INTOXICATING"];
+
+const normalizeMode = (value: string | null | undefined): MarketMode | null => {
+  if (!value) return null;
+  if (VALID_MODES.includes(value as MarketMode)) return value as MarketMode;
+  if (value === "CBD") return "CBD_WELLNESS";
+  if (value === "GATED") return "INTOXICATING";
+  return null;
+};
 
 export function MarketModeProvider({ children }: { children: React.ReactNode }) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-  const [mode, setModeState] = useState<MarketMode>("CBD");
+  const [mode, setModeState] = useState<MarketMode>("CBD_WELLNESS");
   const [isVerified, setIsVerified] = useState(false);
   const [loadingVerification, setLoadingVerification] = useState(true);
 
@@ -36,13 +45,6 @@ export function MarketModeProvider({ children }: { children: React.ReactNode }) 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setIsVerified(false);
-        if (typeof window !== "undefined") {
-          const stored = window.localStorage.getItem(STORAGE_KEY);
-          if (stored === "GATED") {
-            setModeState("CBD");
-            window.localStorage.setItem(STORAGE_KEY, "CBD");
-          }
-        }
         setLoadingVerification(false);
         return;
       }
@@ -59,16 +61,12 @@ export function MarketModeProvider({ children }: { children: React.ReactNode }) 
 
       if (typeof window !== "undefined") {
         const stored = window.localStorage.getItem(STORAGE_KEY);
-        if (
-          !stored &&
-          (profile?.market_mode_preference === "CBD" || profile?.market_mode_preference === "GATED")
-        ) {
-          setModeState(profile.market_mode_preference);
-          window.localStorage.setItem(STORAGE_KEY, profile.market_mode_preference);
-        }
-        if (!verified && stored === "GATED") {
-          setModeState("CBD");
-          window.localStorage.setItem(STORAGE_KEY, "CBD");
+        if (!stored && profile?.market_mode_preference) {
+          const preference = normalizeMode(profile.market_mode_preference);
+          if (preference) {
+            setModeState(preference);
+            window.localStorage.setItem(STORAGE_KEY, preference);
+          }
         }
       }
     } finally {
@@ -79,8 +77,9 @@ export function MarketModeProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored === "CBD" || stored === "GATED") {
-      setModeState(stored);
+    const normalized = normalizeMode(stored);
+    if (normalized) {
+      setModeState(normalized);
     }
   }, []);
 
@@ -93,7 +92,7 @@ export function MarketModeProvider({ children }: { children: React.ReactNode }) 
     [mode, setMode, isVerified, loadingVerification, refreshVerification]
   );
 
-  return <MarketModeContext.Provider value={value}>{children}</MarketModeContext.Provider>;
+  return React.createElement(MarketModeContext.Provider, { value }, children);
 }
 
 export function useMarketMode() {

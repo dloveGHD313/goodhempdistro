@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe, getSiteUrl } from "@/lib/stripe";
 import { createSupabaseServerClient } from "@/lib/supabase";
-import { requireGatedAccess } from "@/lib/server/marketGate";
+import { enforceGatedAccess } from "@/lib/server/marketGate";
 
 /**
  * Create Stripe checkout session for product purchase
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     // Fetch product
     const { data: product, error: productError } = await supabase
       .from("products")
-      .select("id, name, price_cents, vendor_id, active, status, is_gated")
+      .select("id, name, price_cents, vendor_id, active, status, is_gated, market_category")
       .eq("id", productId)
       .single();
 
@@ -65,8 +65,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (product.is_gated) {
-      const gate = await requireGatedAccess(user.id);
+    if (product.is_gated || product.market_category === "INTOXICATING") {
+      const gate = await enforceGatedAccess(user.id);
       if (!gate.ok) {
         return NextResponse.json(
           { ok: false, code: gate.code, message: gate.message },

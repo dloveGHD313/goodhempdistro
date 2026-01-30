@@ -6,7 +6,7 @@ import { getDelta8WarningText, requiresWarning } from "@/lib/compliance";
 import FavoriteButton from "@/components/engagement/FavoriteButton";
 import ReviewSection from "@/components/engagement/ReviewSection";
 import Footer from "@/components/Footer";
-import { requireGatedAccess } from "@/lib/server/marketGate";
+import { enforceGatedAccess } from "@/lib/server/marketGate";
 
 type Product = {
   id: string;
@@ -14,6 +14,7 @@ type Product = {
   category_id: string | null;
   price_cents: number | null;
   is_gated: boolean;
+  market_category: string | null;
   featured: boolean;
   description?: string | null;
   vendor_id?: string | null;
@@ -44,7 +45,7 @@ async function getProduct(id: string): Promise<ProductFetchResult> {
   const { data, error } = await supabase
     .from("products")
     .select(
-      "id, name, description, category_id, price_cents, is_gated, featured, vendor_id, status, active, product_type, coa_url, coa_object_path, coa_verified, created_at"
+      "id, name, description, category_id, price_cents, is_gated, market_category, featured, vendor_id, status, active, product_type, coa_url, coa_object_path, coa_verified, created_at"
     )
     .eq("id", id)
     .single();
@@ -192,8 +193,8 @@ export default async function ProductDetailPage(props: Props) {
     );
   }
 
-  if (product.is_gated) {
-    const gate = await requireGatedAccess(user?.id ?? null);
+  if (product.is_gated || product.market_category === "INTOXICATING") {
+    const gate = await enforceGatedAccess(user?.id ?? null);
     if (!gate.ok) {
       return (
         <div className="min-h-screen text-white flex flex-col">
@@ -203,7 +204,7 @@ export default async function ProductDetailPage(props: Props) {
                 <div className="space-y-4">
                   <h1 className="text-3xl font-bold text-accent">{product.name}</h1>
                   <p className="text-muted">
-                    This product is part of the gated market and requires 21+ verification to view.
+                    This product is part of the intoxicating market and requires 21+ verification to view.
                   </p>
                 </div>
                 <Link href="/verify" className="btn-primary">
