@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 // Comments drawer fixes: scroll lock, touch handling, and focus timing.
 import ProfileChip from "@/components/profile/ProfileChip";
 import Drawer from "@/components/ui/Drawer";
@@ -8,6 +8,7 @@ import { getDisplayName } from "@/lib/identity";
 import type { BadgeInfo } from "@/lib/badges";
 import type { PostAuthorRole, PostAuthorTier } from "@/lib/postPriority";
 import useAuthUser from "@/components/engagement/useAuthUser";
+import CommentsComposer from "./CommentsComposer";
 
 type CommentItem = {
   id: string;
@@ -25,7 +26,6 @@ type CommentItem = {
 type Props = {
   postId: string;
   isOpen: boolean;
-  openToken: number;
   onClose: () => void;
   commentCount: number;
   isAdmin: boolean;
@@ -34,10 +34,32 @@ type Props = {
 
 type ReplyTarget = {
   id: string;
-  name: string;
+  author: string;
 };
 
 const commentsCache = new Map<string, { comments: CommentItem[]; count: number }>();
+
+class CommentsDrawerErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-6 text-sm text-red-200">
+          Something went wrong loading comments. Please close and try again.
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const setBodyScrollLock = (locked: boolean) => {
   if (typeof document === "undefined") return;
@@ -122,7 +144,6 @@ const makeTempId = () => `temp-${Date.now()}-${Math.random().toString(36).slice(
 export default function CommentsDrawer({
   postId,
   isOpen,
-  openToken,
   onClose,
   commentCount,
   isAdmin,
@@ -134,7 +155,7 @@ export default function CommentsDrawer({
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [count, setCount] = useState(commentCount);
-  const [newBody, setNewBody] = useState("");
+  const [openToken, setOpenToken] = useState(0);
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [justAddedId, setJustAddedId] = useState<string | null>(null);
@@ -144,39 +165,14 @@ export default function CommentsDrawer({
   const [profileSnapshot, setProfileSnapshot] = useState<{ name: string; avatarUrl: string | null } | null>(
     null
   );
-  const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const nearBottomRef = useRef(true);
   const controllerRef = useRef<AbortController | null>(null);
   const requestSeq = useRef(0);
   const lastLoadedPostIdRef = useRef<string | null>(null);
-  const focusTimerRef = useRef<number | null>(null);
-  const rafRef = useRef<number | null>(null);
   const drawerHeight = useDrawerHeight();
 
   const canPost = Boolean(userId);
-
-  const clearFocusTimer = useCallback(() => {
-    if (focusTimerRef.current) {
-      window.clearTimeout(focusTimerRef.current);
-      focusTimerRef.current = null;
-    }
-  }, []);
-
-  const handleTextareaFocus = useCallback(() => {
-    if (!composerRef.current || !isOpen) return;
-    rafRef.current = window.requestAnimationFrame(() => {
-      if (!composerRef.current) return;
-      focusTimerRef.current = window.setTimeout(() => {
-        if (!composerRef.current || !isOpen) return;
-        composerRef.current.focus();
-        if (window.innerWidth < 768) {
-          const length = composerRef.current.value.length;
-          composerRef.current.setSelectionRange(length, length);
-        }
-      }, 150);
-    });
-  }, [isOpen]);
 
   const handleContentInteraction = useCallback((event: React.MouseEvent | React.TouchEvent) => {
     event.stopPropagation();
@@ -189,22 +185,16 @@ export default function CommentsDrawer({
     controllerRef.current = null;
     setActionMenuId(null);
     setReplyTarget(null);
-    setNewBody("");
     setError(null);
     setSubmitting(false);
     setShowJump(false);
     setLoading(false);
     setStatus("idle");
     setBodyScrollLock(false);
-    clearFocusTimer();
-    if (rafRef.current) {
-      window.cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
     if (process.env.NODE_ENV !== "production") {
       console.debug("[comments-ui]", { postId, state: "idle", reason: "cleanup" });
     }
-  }, [clearFocusTimer, postId]);
+  }, [postId]);
 
   const handleDrawerChange = useCallback(
     (next: boolean) => {
@@ -303,9 +293,14 @@ export default function CommentsDrawer({
 
   useEffect(() => {
     if (!isOpen) return;
+    setOpenToken((prev) => prev + 1);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
     setBodyScrollLock(true);
     fetchComments();
-  }, [fetchComments, isOpen, openToken]);
+  }, [fetchComments, isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -330,11 +325,6 @@ export default function CommentsDrawer({
   useEffect(() => {
     updateCount(commentCount);
   }, [commentCount, updateCount]);
-
-  useEffect(() => {
-    if (!isOpen || !canPost) return;
-    handleTextareaFocus();
-  }, [isOpen, canPost]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 768px)");
@@ -420,72 +410,77 @@ export default function CommentsDrawer({
     [comments, count, postId, profileSnapshot, scrollToBottom, updateCount, userId]
   );
 
-  const handleSubmit = async () => {
-    if (!canPost || submitting) return;
-    const trimmed = newBody.trim();
-    if (!trimmed) return;
-    const parentId = replyTarget?.id || null;
-    const previous = comments;
-    const previousCount = count;
-    const { tempId } = insertOptimisticComment(trimmed, parentId);
-    setNewBody("");
-    setReplyTarget(null);
-    setError(null);
-    setSubmitting(true);
-    try {
-      const response = await fetch(`/api/posts/${postId}/comments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+  const handleCommentSubmit = useCallback(
+    async (body: string) => {
+      if (!canPost || submitting) return;
+      const trimmed = body.trim();
+      if (!trimmed) return;
+      const parentId = replyTarget?.id || null;
+      const previous = comments;
+      const previousCount = count;
+      const { tempId } = insertOptimisticComment(trimmed, parentId);
+      setReplyTarget(null);
+      setError(null);
+      setSubmitting(true);
+      try {
+        const response = await fetch(`/api/posts/${postId}/comments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ body: trimmed, parentId }),
+        });
+        if (!response.ok) {
+          let message = response.statusText;
+          try {
+            const json = await response.json();
+            message = json?.error || json?.message || message;
+          } catch {
+            const text = await response.text();
+            if (text) message = text;
+          }
+          throw new Error(`Failed to post comment: ${message}`);
+        }
+        const payload = await response.json();
+        const real = payload.comment as CommentItem;
+        setComments((current) => {
+          const replace = (items: CommentItem[]): CommentItem[] =>
+            items.map((item) => {
+              if (item.id === tempId) return { ...real, replies: item.replies };
+              return {
+                ...item,
+                replies: item.replies ? replace(item.replies) : [],
+              };
+            });
+          return replace(current);
+        });
+      } catch (err) {
+        setComments(previous);
+        updateCount(previousCount);
+        setError(err instanceof Error ? err.message : "Failed to post comment.");
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [canPost, submitting, replyTarget, comments, count, insertOptimisticComment, updateCount, postId]
+  );
+
+  const handleDelete = useCallback(
+    async (commentId: string) => {
+      if (!confirm("Delete this comment? This removes it from the thread.")) return;
+      const response = await fetch(`/api/comments/${commentId}`, {
+        method: "DELETE",
         credentials: "include",
-        body: JSON.stringify({ body: trimmed, parentId }),
       });
       if (!response.ok) {
-        let message = response.statusText;
-        try {
-          const json = await response.json();
-          message = json?.error || json?.message || message;
-        } catch {
-          const text = await response.text();
-          if (text) message = text;
-        }
-        throw new Error(`Failed to post comment: ${message}`);
+        setError("Failed to delete comment.");
+        return;
       }
-      const payload = await response.json();
-      const real = payload.comment as CommentItem;
-      setComments((current) => {
-        const replace = (items: CommentItem[]): CommentItem[] =>
-          items.map((item) => {
-            if (item.id === tempId) return { ...real, replies: item.replies };
-            return {
-              ...item,
-              replies: item.replies ? replace(item.replies) : [],
-            };
-          });
-        return replace(current);
-      });
-    } catch (err) {
-      setComments(previous);
-      updateCount(previousCount);
-      setError(err instanceof Error ? err.message : "Failed to post comment.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
+      await fetchComments();
+    },
+    [fetchComments]
+  );
 
-  const handleDelete = async (commentId: string) => {
-    if (!confirm("Delete this comment? This removes it from the thread.")) return;
-    const response = await fetch(`/api/comments/${commentId}`, {
-      method: "DELETE",
-      credentials: "include",
-    });
-    if (!response.ok) {
-      setError("Failed to delete comment.");
-      return;
-    }
-    await fetchComments();
-  };
-
-  const renderComment = (comment: CommentItem, depth: number) => {
+  const renderComment = useCallback(function renderComment(comment: CommentItem, depth: number) {
     const displayName = getDisplayName({
       id: comment.authorId,
       display_name: comment.authorDisplayName ?? null,
@@ -519,7 +514,7 @@ export default function CommentsDrawer({
                 setActionMenuId(null);
                 setReplyTarget({
                   id: comment.id,
-                  name: displayName,
+                  author: displayName,
                 });
               }}
             >
@@ -556,7 +551,12 @@ export default function CommentsDrawer({
         {comment.replies.map((reply) => renderComment(reply, depth + 1))}
       </div>
     );
-  };
+  }, [actionMenuId, canPost, handleDelete, isAdmin, justAddedId, userId]);
+
+  const commentsList = useMemo(
+    () => comments.map((comment) => renderComment(comment, 0)),
+    [comments, renderComment, replyTarget]
+  );
 
   const skeletons = useMemo(
     () =>
@@ -573,128 +573,104 @@ export default function CommentsDrawer({
 
   return (
     <Drawer open={isOpen} onOpenChange={handleDrawerChange} title="Comments" side={drawerSide}>
-      <div
-        className="flex flex-col h-full"
-        onPointerDown={handleContentInteraction}
-        onTouchStart={handleContentInteraction}
-        onClick={handleContentInteraction}
-        style={{ height: drawerSide === "bottom" ? drawerHeight : "100%" }}
-      >
-        <div className="flex-shrink-0 sticky top-0 z-10 backdrop-blur-md bg-[var(--surface)]/90 border-b border-[var(--border)] px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold flex items-center gap-2">
-                Comments
-                <span className="text-xs px-2 py-1 rounded-full bg-white/5 border border-[var(--border)]">
-                  {count}
-                </span>
-              </h2>
-              <p className="text-xs text-muted mt-1">
-                Be respectful — keep it hemp-friendly 🌿
-              </p>
-            </div>
-            <button type="button" className="btn-ghost" onClick={onClose} aria-label="Close comments">
-              Close
-            </button>
-          </div>
-        </div>
-
+      <CommentsDrawerErrorBoundary>
         <div
-          ref={scrollRef}
-          onScroll={handleScroll}
+          className="flex flex-col h-full"
           onPointerDown={handleContentInteraction}
           onTouchStart={handleContentInteraction}
           onClick={handleContentInteraction}
-          className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-4 space-y-5"
-          style={{
-            overscrollBehavior: "contain",
-            WebkitOverflowScrolling: "touch",
-            touchAction: "pan-y",
-            willChange: "scroll-position",
-            scrollBehavior: "smooth",
-            position: "relative",
-          }}
+          style={{ height: drawerSide === "bottom" ? drawerHeight : "100%" }}
         >
-          {error && (
-            <div className="card-glass p-4 border border-red-500/40">
-              <p className="text-sm font-semibold text-red-300">Couldn’t load comments</p>
-              <p className="text-xs text-red-200 mt-1">{error}</p>
-              <button type="button" className="btn-secondary mt-3" onClick={() => fetchComments(true)}>
-                Retry
+          <div className="flex-shrink-0 sticky top-0 z-10 backdrop-blur-md bg-[var(--surface)]/90 border-b border-[var(--border)] px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  Comments
+                  <span className="text-xs px-2 py-1 rounded-full bg-white/5 border border-[var(--border)]">
+                    {count}
+                  </span>
+                </h2>
+                <p className="text-xs text-muted mt-1">Be respectful — keep it hemp-friendly 🌿</p>
+              </div>
+              <button type="button" className="btn-ghost" onClick={onClose} aria-label="Close comments">
+                Close
+              </button>
+            </div>
+          </div>
+
+          <div
+            ref={scrollRef}
+            onScroll={handleScroll}
+            onPointerDown={handleContentInteraction}
+            onTouchStart={handleContentInteraction}
+            onClick={handleContentInteraction}
+            className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-4 space-y-5"
+            style={{
+              overscrollBehavior: "contain",
+              WebkitOverflowScrolling: "touch",
+              touchAction: "pan-y",
+              willChange: "scroll-position",
+              scrollBehavior: "smooth",
+              position: "relative",
+            }}
+          >
+            {error && (
+              <div className="card-glass p-4 border border-red-500/40">
+                <p className="text-sm font-semibold text-red-300">Couldn’t load comments</p>
+                <p className="text-xs text-red-200 mt-1">{error}</p>
+                <button type="button" className="btn-secondary mt-3" onClick={() => fetchComments(true)}>
+                  Retry
+                </button>
+              </div>
+            )}
+            {loading ? (
+              <div className="space-y-6">{skeletons}</div>
+            ) : comments.length === 0 ? (
+              <div className="text-center text-muted py-12">
+                <p className="text-lg font-semibold">Start the conversation</p>
+                <p className="text-sm mt-2">Be the first to drop a comment.</p>
+              </div>
+            ) : (
+              <div className="space-y-6">{commentsList}</div>
+            )}
+          </div>
+
+          {showJump && (
+            <div
+              className="px-6 py-2 border-t border-[var(--border)] bg-[var(--surface)]/90"
+              onPointerDown={handleContentInteraction}
+              onTouchStart={handleContentInteraction}
+              onClick={handleContentInteraction}
+            >
+              <button type="button" className="btn-secondary w-full" onClick={scrollToBottom}>
+                Jump to latest
               </button>
             </div>
           )}
-          {loading ? (
-            <div className="space-y-6">{skeletons}</div>
-          ) : comments.length === 0 ? (
-            <div className="text-center text-muted py-12">
-              <p className="text-lg font-semibold">Start the conversation</p>
-              <p className="text-sm mt-2">Be the first to drop a comment.</p>
-            </div>
-          ) : (
-            <div className="space-y-6">{comments.map((comment) => renderComment(comment, 0))}</div>
-          )}
-        </div>
 
-        {showJump && (
           <div
-            className="px-6 py-2 border-t border-[var(--border)] bg-[var(--surface)]/90"
+            className="flex-shrink-0 sticky bottom-0 z-10 backdrop-blur-md bg-[var(--surface)]/95 border-t border-[var(--border)] px-6 py-4 space-y-3"
             onPointerDown={handleContentInteraction}
             onTouchStart={handleContentInteraction}
             onClick={handleContentInteraction}
           >
-            <button type="button" className="btn-secondary w-full" onClick={scrollToBottom}>
-              Jump to latest
-            </button>
-          </div>
-        )}
-
-        <div
-          className="flex-shrink-0 sticky bottom-0 z-10 backdrop-blur-md bg-[var(--surface)]/95 border-t border-[var(--border)] px-6 py-4 space-y-3"
-          onPointerDown={handleContentInteraction}
-          onTouchStart={handleContentInteraction}
-          onClick={handleContentInteraction}
-        >
-          {replyTarget && (
-            <div className="flex items-center justify-between bg-[var(--surface)]/80 border border-[var(--border)] rounded-full px-3 py-1 text-xs">
-              <span>Replying to {replyTarget.name}</span>
-              <button type="button" className="text-muted" onClick={() => setReplyTarget(null)}>
-                ✕
-              </button>
-            </div>
-          )}
-          <textarea
-            ref={composerRef}
-            value={newBody}
-            onChange={(event) => setNewBody(event.target.value)}
-            placeholder={composerPlaceholder}
-            disabled={!canPost}
-            className="w-full min-h-[48px] max-h-[140px] px-3 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-sm text-white disabled:opacity-60 resize-none"
-            maxLength={1000}
-            aria-label="Comment composer"
-            style={{ touchAction: "manipulation", fontSize: "16px" }}
-            onPointerDown={(event) => event.stopPropagation()}
-            onTouchStart={(event) => event.stopPropagation()}
-            onClick={(event) => event.stopPropagation()}
-            onFocus={handleTextareaFocus}
-          />
-          <div className="flex items-center justify-between">
+            <CommentsComposer
+              canPost={canPost}
+              submitting={submitting}
+              onSubmit={handleCommentSubmit}
+              replyTarget={replyTarget}
+              onCancelReply={() => setReplyTarget(null)}
+              autoFocusToken={openToken}
+              placeholder={composerPlaceholder}
+            />
             {!canPost && (
               <a href="/login" className="text-xs text-accent">
                 Sign in to comment
               </a>
             )}
-            <button
-              type="button"
-              className="btn-primary ml-auto"
-              disabled={!canPost || !newBody.trim()}
-              onClick={handleSubmit}
-            >
-              Send
-            </button>
           </div>
         </div>
-      </div>
+      </CommentsDrawerErrorBoundary>
     </Drawer>
   );
 }
