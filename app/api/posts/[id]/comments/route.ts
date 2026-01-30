@@ -85,8 +85,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Post ID required" }, { status: 400 });
   }
 
-  const supabase = await createSupabaseServerClient();
-  const { data: comments, error } = await supabase
+  const anon = createAnonServerClient();
+  const { data: comments, error } = await anon
     .from("post_comments")
     .select("id, post_id, parent_id, body, created_at, author_id")
     .eq("post_id", postId)
