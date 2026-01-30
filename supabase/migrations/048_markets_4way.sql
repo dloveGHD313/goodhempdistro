@@ -15,6 +15,8 @@ SET market_category = CASE
     CASE WHEN is_gated THEN 'INTOXICATING' ELSE 'CBD_WELLNESS' END
   ELSE market_category
 END;
+WHERE market_category IS NULL
+   OR market_category NOT IN ('CBD_WELLNESS', 'INDUSTRIAL', 'SERVICES', 'INTOXICATING');
 
 UPDATE public.products
 SET is_gated = CASE WHEN market_category = 'INTOXICATING' THEN true ELSE false END
@@ -65,7 +67,7 @@ SET market_mode_preference = CASE market_mode_preference
   WHEN 'GATED' THEN 'INTOXICATING'
   ELSE market_mode_preference
 END
-WHERE market_mode_preference IS NOT NULL;
+WHERE market_mode_preference IN ('CBD', 'GATED');
 
 UPDATE public.profiles
 SET market_mode_preference = 'CBD_WELLNESS'
