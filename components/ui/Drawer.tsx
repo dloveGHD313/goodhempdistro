@@ -24,6 +24,7 @@ export default function Drawer({
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement | null>(null);
   const lastFocusedRef = useRef<HTMLElement | null>(null);
+  const prevOverflowRef = useRef<string>("");
 
   const panelClasses = useMemo(() => {
     if (side === "bottom") {
@@ -35,6 +36,7 @@ export default function Drawer({
   useEffect(() => {
     if (!open) return;
     lastFocusedRef.current = document.activeElement as HTMLElement | null;
+    prevOverflowRef.current = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
     const focusFirst = () => {
@@ -48,7 +50,7 @@ export default function Drawer({
       }
     };
 
-    const timer = window.setTimeout(focusFirst, 10);
+    const raf = window.requestAnimationFrame(focusFirst);
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -59,10 +61,7 @@ export default function Drawer({
       const panel = panelRef.current;
       if (!panel) return;
       const focusables = Array.from(panel.querySelectorAll<HTMLElement>(focusableSelector));
-      if (focusables.length === 0) {
-        event.preventDefault();
-        return;
-      }
+      if (focusables.length === 0) return;
       const first = focusables[0];
       const last = focusables[focusables.length - 1];
       const current = document.activeElement as HTMLElement | null;
@@ -78,14 +77,14 @@ export default function Drawer({
     document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      window.clearTimeout(timer);
+      window.cancelAnimationFrame(raf);
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [open, onOpenChange]);
 
   useEffect(() => {
     if (open) return;
-    document.body.style.overflow = "";
+    document.body.style.overflow = prevOverflowRef.current;
     if (lastFocusedRef.current) {
       lastFocusedRef.current.focus();
     }
@@ -95,7 +94,7 @@ export default function Drawer({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end md:items-stretch justify-end bg-black/50 backdrop-blur-sm transition-opacity"
+      className="fixed inset-0 z-50 flex items-end md:items-stretch justify-end bg-black/50 backdrop-blur-sm transition-opacity pointer-events-auto"
       aria-hidden={!open}
       onClick={() => onOpenChange(false)}
     >

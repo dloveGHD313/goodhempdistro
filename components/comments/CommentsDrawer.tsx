@@ -76,6 +76,8 @@ export default function CommentsDrawer({
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const nearBottomRef = useRef(true);
+  const controllerRef = useRef<AbortController | null>(null);
+  const requestSeq = useRef(0);
 
   const canPost = Boolean(userId);
 
@@ -89,26 +91,69 @@ export default function CommentsDrawer({
 
   const fetchComments = useCallback(async () => {
     if (!isOpen) return;
+    if (!postId) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[comments] missing postId");
+      }
+      setError("Missing post id");
+      return;
+    }
+    const seq = ++requestSeq.current;
+    controllerRef.current?.abort();
+    controllerRef.current = new AbortController();
     setLoading(true);
     setError(null);
+    const url = `/api/posts/${postId}/comments`;
     try {
-      const response = await fetch(`/api/posts/${postId}/comments`, { cache: "no-store" });
+      const response = await fetch(url, {
+        cache: "no-store",
+        credentials: "include",
+        signal: controllerRef.current.signal,
+      });
       if (!response.ok) {
-        throw new Error("Failed to load comments.");
+        let message = response.statusText;
+        try {
+          const json = await response.json();
+          message = json?.error || json?.message || message;
+        } catch {
+          const text = await response.text();
+          if (text) message = text;
+        }
+        throw new Error(`HTTP ${response.status} ${response.statusText}: ${message}`);
       }
       const payload = await response.json();
+      if (!isOpen || seq !== requestSeq.current) return;
       setComments(payload.comments || []);
       updateCount(payload.count ?? commentCount);
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return;
+      }
+      if (process.env.NODE_ENV !== "production") {
+        console.error("Comments fetch failed", { postId, url, error: err });
+      }
       setError(err instanceof Error ? err.message : "Failed to load comments.");
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) {
+        setLoading(false);
+      }
     }
   }, [isOpen, postId, commentCount, updateCount]);
 
   useEffect(() => {
     fetchComments();
   }, [fetchComments]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      controllerRef.current?.abort();
+      controllerRef.current = null;
+    }
+    return () => {
+      controllerRef.current?.abort();
+      controllerRef.current = null;
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     updateCount(commentCount);
@@ -245,7 +290,10 @@ export default function CommentsDrawer({
 
   const handleDelete = async (commentId: string) => {
     if (!confirm("Delete this comment? This removes it from the thread.")) return;
-    const response = await fetch(`/api/comments/${commentId}`, { method: "DELETE" });
+    const response = await fetch(`/api/comments/${commentId}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
     if (!response.ok) {
       setError("Failed to delete comment.");
       return;
@@ -373,7 +421,15 @@ export default function CommentsDrawer({
           onScroll={handleScroll}
           className="flex-1 overflow-y-auto px-6 py-4 space-y-5"
         >
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && (
+            <div className="card-glass p-4 border border-red-500/40">
+              <p className="text-sm font-semibold text-red-300">Couldn’t load comments</p>
+              <p className="text-xs text-red-200 mt-1">{error}</p>
+              <button type="button" className="btn-secondary mt-3" onClick={fetchComments}>
+                Retry
+              </button>
+            </div>
+          )}
           {loading ? (
             <div className="space-y-6">{skeletons}</div>
           ) : comments.length === 0 ? (
