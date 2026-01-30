@@ -6,6 +6,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase";
 import useAuthUser from "@/components/engagement/useAuthUser";
 import { getDisplayName } from "@/lib/identity";
 import type { PostDTO } from "@/lib/types";
+import CommentsDrawer from "@/components/comments/CommentsDrawer";
 import PostComposer from "./PostComposer";
 import ProfileCard from "@/components/profile/ProfileCard";
 import ProfileChip from "@/components/profile/ProfileChip";
@@ -88,6 +89,8 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
   const [hasVerifiedVendors, setHasVerifiedVendors] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [commentsPostId, setCommentsPostId] = useState<string | null>(null);
+  const [commentsCount, setCommentsCount] = useState(0);
   const composerRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const emptyNotifiedRef = useRef(false);
@@ -539,6 +542,16 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
                     {post.viewerHasLiked ? "♥ Liked" : "♡ Like"}
                   </button>
                   <span className="text-muted">{post.likeCount} likes</span>
+                  <button
+                    type="button"
+                    className="btn-ghost"
+                    onClick={() => {
+                      setCommentsPostId(post.id);
+                      setCommentsCount(post.commentCount ?? 0);
+                    }}
+                  >
+                    Comments ({post.commentCount ?? 0})
+                  </button>
                 </div>
               </div>
             ))}
@@ -614,6 +627,15 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
           </div>
         </aside>
       </div>
+      {commentsPostId && (
+        <CommentsDrawer
+          postId={commentsPostId}
+          isOpen={Boolean(commentsPostId)}
+          onClose={() => setCommentsPostId(null)}
+          commentCount={commentsCount}
+          isAdmin={isAdmin}
+        />
+      )}
     </section>
   );
 }

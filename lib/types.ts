@@ -23,5 +23,6 @@ export type PostDTO = {
   priorityRank: number;
   likeCount: number;
   viewerHasLiked: boolean;
+  commentCount?: number;
   vendor_verified?: boolean;
 };

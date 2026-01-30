@@ -214,6 +214,19 @@ export async function GET(req: NextRequest) {
   const vendorMap = await fetchVendorsByOwnerIds(supabase, authorIds);
 
   const postIds = sliced.map((post) => post.id);
+  const { data: commentCounts } = postIds.length
+    ? await supabase
+        .from("post_comments")
+        .select("post_id")
+        .in("post_id", postIds)
+        .eq("is_deleted", false)
+    : { data: [] };
+  const commentCountMap = new Map<string, number>();
+  (commentCounts || []).forEach((row) => {
+    const postId = (row as { post_id?: string }).post_id;
+    if (!postId) return;
+    commentCountMap.set(postId, (commentCountMap.get(postId) || 0) + 1);
+  });
   const { data: likes } = postIds.length
     ? await supabase.from("post_likes").select("post_id, user_id").in("post_id", postIds)
     : { data: [] };
@@ -259,6 +272,7 @@ export async function GET(req: NextRequest) {
       ),
       likeCount: likeCountMap.get(post.id) || 0,
       viewerHasLiked: likedSet.has(post.id),
+      commentCount: commentCountMap.get(post.id) || 0,
       vendor_verified: isVerifiedVendor({
         subscriptionStatus: vendor?.subscription_status || null,
         coaAttested: typeof vendor?.coa_attested === "boolean" ? vendor?.coa_attested : null,
