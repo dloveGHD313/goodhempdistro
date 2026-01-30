@@ -68,6 +68,7 @@ export default function CommentsDrawer({
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [justAddedId, setJustAddedId] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [showJump, setShowJump] = useState(false);
   const [drawerSide, setDrawerSide] = useState<"right" | "bottom">("right");
   const [profileSnapshot, setProfileSnapshot] = useState<{ name: string; avatarUrl: string | null } | null>(
@@ -249,7 +250,7 @@ export default function CommentsDrawer({
   );
 
   const handleSubmit = async () => {
-    if (!canPost) return;
+    if (!canPost || submitting) return;
     const trimmed = newBody.trim();
     if (!trimmed) return;
     const parentId = replyTarget?.id || null;
@@ -259,14 +260,24 @@ export default function CommentsDrawer({
     setNewBody("");
     setReplyTarget(null);
     setError(null);
+    setSubmitting(true);
     try {
       const response = await fetch(`/api/posts/${postId}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ body: trimmed, parentId }),
       });
       if (!response.ok) {
-        throw new Error("Failed to post comment.");
+        let message = response.statusText;
+        try {
+          const json = await response.json();
+          message = json?.error || json?.message || message;
+        } catch {
+          const text = await response.text();
+          if (text) message = text;
+        }
+        throw new Error(`Failed to post comment: ${message}`);
       }
       const payload = await response.json();
       const real = payload.comment as CommentItem;
@@ -285,6 +296,8 @@ export default function CommentsDrawer({
       setComments(previous);
       updateCount(previousCount);
       setError(err instanceof Error ? err.message : "Failed to post comment.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
