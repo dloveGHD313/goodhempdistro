@@ -123,6 +123,7 @@ const resolveConsumerTier = (planKey: string | null): PostAuthorTier => {
 };
 
 export async function GET(req: NextRequest) {
+  const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID();
   const { supabase, viewer } = await getViewerSupabaseClient(req);
   const { searchParams } = new URL(req.url);
   const limit = Math.min(Number(searchParams.get("limit") || DEFAULT_LIMIT), 50);
@@ -181,55 +182,107 @@ export async function GET(req: NextRequest) {
   let posts: Array<any> | null = null;
   let error: { message?: string } | null = null;
   let includePriority = true;
-  ({ data: posts, error } = await buildQuery(true));
+  try {
+    ({ data: posts, error } = await buildQuery(true));
+  } catch (err) {
+    console.error("[posts][GET] requestId=%s source=posts_query error=%s", requestId, err);
+    return NextResponse.json(
+      { posts: [], nextCursor: null },
+      { headers: { "Cache-Control": "no-store" } }
+    );
+  }
 
   if (error && String(error.message || "").includes("priority_rank")) {
     includePriority = false;
-    ({ data: posts, error } = await buildQuery(false));
+    try {
+      ({ data: posts, error } = await buildQuery(false));
+    } catch (err) {
+      console.error("[posts][GET] requestId=%s source=posts_query_fallback error=%s", requestId, err);
+      return NextResponse.json(
+        { posts: [], nextCursor: null },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
   }
 
   if (error) {
-    console.error("[posts] fetch error", error);
-    return NextResponse.json({ error: "Failed to load posts" }, { status: 500 });
+    console.error("[posts][GET] requestId=%s source=posts_query_error %o", requestId, error);
+    return NextResponse.json(
+      { posts: [], nextCursor: null },
+      { headers: { "Cache-Control": "no-store" } }
+    );
   }
 
   const hasMore = (posts || []).length > limit;
   const sliced = (posts || []).slice(0, limit);
   const authorIds = Array.from(new Set(sliced.map((post) => post.author_id)));
-  const anonClient = createAnonServerClient();
-  const { data: identityRows, error: identityError } = authorIds.length
-    ? await anonClient.rpc("get_profiles_identity", { author_ids: authorIds })
-    : { data: [] };
-  if (identityError) {
-    console.error("[posts][GET] profile identity rpc failed", {
-      message: identityError.message,
-      code: identityError.code,
-      details: identityError.details,
-      hint: identityError.hint,
-    });
+  let identityRows: ProfileIdentityRow[] = [];
+  if (authorIds.length > 0) {
+    try {
+      const anonClient = createAnonServerClient();
+      const { data, error: identityError } = await anonClient.rpc("get_profiles_identity", {
+        author_ids: authorIds,
+      });
+      if (identityError) {
+        console.error("[posts][GET] requestId=%s source=profile_identity_rpc %o", requestId, identityError);
+      }
+      identityRows = (data || []) as ProfileIdentityRow[];
+    } catch (err) {
+      console.error("[posts][GET] requestId=%s source=profile_identity_rpc_exception error=%s", requestId, err);
+      identityRows = [];
+    }
   }
   const profileMap = new Map(
     ((identityRows || []) as ProfileIdentityRow[]).map((row) => [row.id, row])
   );
-  const vendorMap = await fetchVendorsByOwnerIds(supabase, authorIds);
+  let vendorMap = new Map<string, any>();
+  try {
+    vendorMap = await fetchVendorsByOwnerIds(supabase, authorIds);
+  } catch (err) {
+    console.error("[posts][GET] requestId=%s source=vendor_lookup error=%s", requestId, err);
+    vendorMap = new Map();
+  }
 
   const postIds = sliced.map((post) => post.id);
-  const { data: commentCounts } = postIds.length
-    ? await supabase
+  let commentCounts: Array<{ post_id?: string }> = [];
+  if (postIds.length > 0) {
+    try {
+      const { data, error: commentError } = await supabase
         .from("post_comments")
         .select("post_id")
         .in("post_id", postIds)
-        .eq("is_deleted", false)
-    : { data: [] };
+        .eq("is_deleted", false);
+      if (commentError) {
+        console.error("[posts][GET] requestId=%s source=comment_counts %o", requestId, commentError);
+      }
+      commentCounts = (data || []) as Array<{ post_id?: string }>;
+    } catch (err) {
+      console.error("[posts][GET] requestId=%s source=comment_counts_exception error=%s", requestId, err);
+      commentCounts = [];
+    }
+  }
   const commentCountMap = new Map<string, number>();
   (commentCounts || []).forEach((row) => {
     const postId = (row as { post_id?: string }).post_id;
     if (!postId) return;
     commentCountMap.set(postId, (commentCountMap.get(postId) || 0) + 1);
   });
-  const { data: likes } = postIds.length
-    ? await supabase.from("post_likes").select("post_id, user_id").in("post_id", postIds)
-    : { data: [] };
+  let likes: Array<{ post_id: string; user_id: string }> = [];
+  if (postIds.length > 0) {
+    try {
+      const { data, error: likesError } = await supabase
+        .from("post_likes")
+        .select("post_id, user_id")
+        .in("post_id", postIds);
+      if (likesError) {
+        console.error("[posts][GET] requestId=%s source=post_likes %o", requestId, likesError);
+      }
+      likes = (data || []) as Array<{ post_id: string; user_id: string }>;
+    } catch (err) {
+      console.error("[posts][GET] requestId=%s source=post_likes_exception error=%s", requestId, err);
+      likes = [];
+    }
+  }
 
   const likedSet = new Set(
     (likes || []).filter((like) => like.user_id === viewer?.id).map((like) => like.post_id)
