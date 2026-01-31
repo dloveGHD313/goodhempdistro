@@ -124,6 +124,32 @@ onCountChange?.(next);
 [onCountChange]
 );
 
+const countSubtree = useCallback((node: CommentItem): number => {
+return 1 + (node.replies?.reduce((acc, reply) => acc + countSubtree(reply), 0) ?? 0);
+}, []);
+
+const removeById = useCallback(
+(items: CommentItem[], id: string): { nextItems: CommentItem[]; removedCount: number } => {
+let removedCount = 0;
+const nextItems: CommentItem[] = [];
+for (const item of items) {
+if (item.id === id) {
+removedCount += countSubtree(item);
+continue;
+}
+const child = removeById(item.replies ?? [], id);
+if (child.removedCount > 0) {
+removedCount += child.removedCount;
+nextItems.push({ ...item, replies: child.nextItems });
+} else {
+nextItems.push(item);
+}
+}
+return { nextItems, removedCount };
+},
+[countSubtree]
+);
+
 const fetchComments = useCallback(
 async (force = false) => {
 if (!isOpen) return;
@@ -398,9 +424,32 @@ method: "DELETE",
 credentials: "include",
 });
 if (!response.ok) {
-setError("Failed to delete comment.");
+let message = response.statusText;
+try {
+const json = await response.json();
+message = json?.error || json?.message || message;
+} catch {
+const text = await response.text();
+if (text) message = text;
+}
+setError(`Failed to delete comment: ${message}`);
 return;
 }
+
+let removedCount = 0;
+setComments((prev) => {
+const result = removeById(prev, commentId);
+removedCount = result.removedCount;
+return result.nextItems;
+});
+if (removedCount > 0) {
+setCount((prev) => {
+const next = Math.max(0, prev - removedCount);
+onCountChange?.(next);
+return next;
+});
+}
+
 await fetchComments(true);
 };
 
@@ -524,7 +573,7 @@ aria-label="Close comments"
 <div
 ref={scrollRef}
 onScroll={handleScroll}
-className="flex-1 overflow-y-auto p-4 space-y-4"
+className="flex-1 overflow-y-auto p-4 pb-28 space-y-4"
 style={{
 overscrollBehavior: 'contain',
 WebkitOverflowScrolling: 'touch'
@@ -565,7 +614,7 @@ className="fixed bottom-24 right-8 bg-accent text-black px-4 py-2 rounded-full s
 </div>
 
 {/* Composer - fixed at bottom */}
-<div className="border-t border-[var(--border)] p-4 bg-[var(--surface)]">
+<div className="sticky bottom-0 z-20 border-t border-[var(--border)] p-4 bg-[var(--surface)]">
 {replyTarget && (
 <div className="flex items-center justify-between mb-2 p-2 bg-white/5 rounded-lg">
 <span className="text-xs text-muted">
@@ -608,7 +657,7 @@ autoCapitalize="sentences"
 autoCorrect="on"
 spellCheck={true}
 />
-<div className="flex items-center justify-between gap-3">
+<div className="flex items-center justify-between gap-3 pr-16">
 <div className="text-xs text-muted">
 {canPost ? (
 <span>Tip: Press {navigator.platform.includes("Mac") ? "Cmd" : "Ctrl"}+Enter to post</span>
