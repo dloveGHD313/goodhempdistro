@@ -10,8 +10,19 @@ type DrawerProps = {
   widthClassName?: string;
 };
 
-const focusableSelector =
-  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const lockBodyScroll = () => {
+  const scrollY = window.scrollY;
+  document.body.style.position = "fixed";
+  document.body.style.top = `-${scrollY}px`;
+  document.body.style.width = "100%";
+  return () => {
+    const y = document.body.style.top;
+    document.body.style.position = "";
+    document.body.style.top = "";
+    document.body.style.width = "";
+    window.scrollTo(0, parseInt(y || "0", 10) * -1);
+  };
+};
 
 export default function Drawer({
   open,
@@ -23,8 +34,6 @@ export default function Drawer({
 }: DrawerProps) {
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement | null>(null);
-  const lastFocusedRef = useRef<HTMLElement | null>(null);
-  const prevOverflowRef = useRef<string>("");
 
   const panelClasses = useMemo(() => {
     if (side === "bottom") {
@@ -35,59 +44,8 @@ export default function Drawer({
 
   useEffect(() => {
     if (!open) return;
-    lastFocusedRef.current = document.activeElement as HTMLElement | null;
-    prevOverflowRef.current = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const focusFirst = () => {
-      const panel = panelRef.current;
-      if (!panel) return;
-      const focusables = panel.querySelectorAll<HTMLElement>(focusableSelector);
-      if (focusables.length > 0) {
-        focusables[0]?.focus();
-      } else {
-        panel.focus();
-      }
-    };
-
-    const raf = window.requestAnimationFrame(focusFirst);
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onOpenChange(false);
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const panel = panelRef.current;
-      if (!panel) return;
-      const focusables = Array.from(panel.querySelectorAll<HTMLElement>(focusableSelector));
-      if (focusables.length === 0) return;
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      const current = document.activeElement as HTMLElement | null;
-      if (event.shiftKey && current === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && current === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.cancelAnimationFrame(raf);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open, onOpenChange]);
-
-  useEffect(() => {
-    if (open) return;
-    document.body.style.overflow = prevOverflowRef.current;
-    if (lastFocusedRef.current) {
-      lastFocusedRef.current.focus();
-    }
+    const unlock = lockBodyScroll();
+    return () => unlock();
   }, [open]);
 
   if (!open) return null;
@@ -103,7 +61,6 @@ export default function Drawer({
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}
         ref={panelRef}
-        tabIndex={-1}
         className={`bg-[var(--surface)]/95 border border-[var(--border)] shadow-2xl transform transition-transform duration-300 ease-out ${panelClasses}`}
         onClick={(event) => event.stopPropagation()}
       >

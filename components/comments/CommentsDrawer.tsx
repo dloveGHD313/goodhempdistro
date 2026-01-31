@@ -563,13 +563,7 @@ className="fixed bottom-24 right-8 bg-accent text-black px-4 py-2 rounded-full s
 </div>
 
 {/* Composer - fixed at bottom */}
-<div
-className="border-t border-[var(--border)] p-4 bg-[var(--surface)]"
-onPointerDownCapture={(e) => e.stopPropagation()}
-onMouseDownCapture={(e) => e.stopPropagation()}
-onClickCapture={(e) => e.stopPropagation()}
-onTouchStartCapture={(e) => e.stopPropagation()}
->
+<div className="border-t border-[var(--border)] p-4 bg-[var(--surface)]">
 {replyTarget && (
 <div className="flex items-center justify-between mb-2 p-2 bg-white/5 rounded-lg">
 <span className="text-xs text-muted">
@@ -609,10 +603,6 @@ inputMode="text"
 autoCapitalize="sentences"
 autoCorrect="on"
 spellCheck={true}
-onPointerDownCapture={(e) => e.stopPropagation()}
-onMouseDownCapture={(e) => e.stopPropagation()}
-onClickCapture={(e) => e.stopPropagation()}
-onTouchStartCapture={(e) => e.stopPropagation()}
 />
 <button
 type="button"
