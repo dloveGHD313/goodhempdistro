@@ -28,6 +28,7 @@ openToken?: number;
 onClose: () => void;
 commentCount: number;
 isAdmin: boolean;
+postAuthorId: string | null;
 onCountChange?: (count: number) => void;
 };
 
@@ -61,6 +62,7 @@ openToken = 0,
 onClose,
 commentCount,
 isAdmin,
+postAuthorId,
 onCountChange,
 }: Props) {
 const { userId } = useAuthUser();
@@ -459,6 +461,7 @@ id: comment.authorId,
 display_name: comment.authorDisplayName ?? null,
 });
 const isOwner = userId === comment.authorId;
+const canDeleteThis = !!userId && (isAdmin || isOwner || (postAuthorId != null && postAuthorId === userId));
 const highlight = comment.id === justAddedId;
 return (
 <div
@@ -501,7 +504,7 @@ console.debug("[composer]", { focused: document.activeElement === textareaRef.cu
 Reply
 </button>
 )}
-{(isOwner || isAdmin) && (
+{canDeleteThis && (
 <div className="relative">
 <button
 type="button"

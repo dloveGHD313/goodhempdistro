@@ -638,6 +638,7 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
           onClose={() => setCommentsPostId(null)}
           commentCount={commentsCount}
           isAdmin={isAdmin}
+          postAuthorId={posts.find((p) => p.id === commentsPostId)?.author_id ?? null}
           onCountChange={(next) => {
             setCommentsCount(next);
             setPosts((prev) =>
