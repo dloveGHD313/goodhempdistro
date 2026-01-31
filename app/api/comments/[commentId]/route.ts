@@ -1,17 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { applySupabaseCookies, createSupabaseRouteClient } from "@/lib/supabaseRoute";
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ commentId: string }> }
 ) {
-  const supabase = await createSupabaseServerClient();
+  const { supabase, response } = createSupabaseRouteClient(req);
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
 
   if (authError || !user) {
     console.error("[comments/delete] Auth error:", authError);
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const res = NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    applySupabaseCookies(response, res);
+    return res;
   }
 
   console.log("[comments/delete] Authenticated user:", user.id);
@@ -24,29 +30,40 @@ export async function DELETE(
 
   const { commentId } = await params;
   if (!commentId) {
-    return NextResponse.json({ error: "Comment ID required" }, { status: 400 });
+    const res = NextResponse.json({ error: "Comment ID required" }, { status: 400 });
+    applySupabaseCookies(response, res);
+    return res;
   }
 
-  const { data: existingComment } = await supabase
+  const { data: existingComment, error: existingError } = await supabase
     .from("post_comments")
     .select("id, author_id, parent_id")
     .eq("id", commentId)
     .maybeSingle();
 
-  if (!existingComment) {
-    return NextResponse.json({ error: "Comment not found" }, { status: 404 });
+  if (existingError) {
+    const res = NextResponse.json(
+      { error: "Failed to load comment", details: existingError.message },
+      { status: 500 }
+    );
+    applySupabaseCookies(response, res);
+    return res;
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-  const isAdmin = profile?.role === "admin";
+  if (!existingComment) {
+    const res = NextResponse.json({ error: "Comment not found" }, { status: 404 });
+    applySupabaseCookies(response, res);
+    return res;
+  }
+
+  const adminCheck = await requireAdmin();
+  const isAdmin = adminCheck.isAdmin;
   const isAuthor = existingComment.author_id === user.id;
 
   if (!isAdmin && !isAuthor) {
-    return NextResponse.json({ error: "Not permitted" }, { status: 403 });
+    const res = NextResponse.json({ error: "Not permitted" }, { status: 403 });
+    applySupabaseCookies(response, res);
+    return res;
   }
 
   console.log(
@@ -63,23 +80,27 @@ export async function DELETE(
       .eq("parent_id", commentId)
       .neq("author_id", user.id);
     if (replyCheckError) {
-      return NextResponse.json(
+      const res = NextResponse.json(
         { error: "Failed to verify comment replies", details: replyCheckError.message },
         { status: 500 }
       );
+      applySupabaseCookies(response, res);
+      return res;
     }
     if (otherReplies && otherReplies.length > 0) {
-      return NextResponse.json(
+      const res = NextResponse.json(
         { error: "Not permitted to delete comments with replies from other users" },
         { status: 403 }
       );
+      applySupabaseCookies(response, res);
+      return res;
     }
   }
 
   const timestamp = new Date().toISOString();
   const { data, error } = await supabase
     .from("post_comments")
-    .update({ is_deleted: true, deleted_at: timestamp })
+    .update({ is_deleted: true, deleted_at: timestamp, deleted_by: user.id })
     .eq("id", commentId)
     .select("id")
     .maybeSingle();
@@ -92,34 +113,48 @@ export async function DELETE(
       hint: error.hint,
     });
     if (error.code === "42501") {
-      return NextResponse.json({ error: "Not permitted" }, { status: 403 });
+      const res = NextResponse.json({ error: "Not permitted" }, { status: 403 });
+      applySupabaseCookies(response, res);
+      return res;
     }
-    return NextResponse.json(
+    const res = NextResponse.json(
       { error: "Failed to delete comment", details: error.message },
       { status: 500 }
     );
+    applySupabaseCookies(response, res);
+    return res;
   }
 
   if (!data) {
-    return NextResponse.json(
+    const res = NextResponse.json(
       { error: "Comment not found or not permitted" },
       { status: 404 }
     );
+    applySupabaseCookies(response, res);
+    return res;
   }
 
-  if (!existingComment.parent_id && isAdmin) {
-    const { error: repliesError } = await supabase
+  if (!existingComment.parent_id) {
+    const repliesQuery = supabase
       .from("post_comments")
       .update({ is_deleted: true, deleted_at: timestamp })
       .eq("parent_id", commentId);
+    if (!isAdmin) {
+      repliesQuery.eq("author_id", user.id);
+    }
+    const { error: repliesError } = await repliesQuery;
 
     if (repliesError) {
       console.error("[comments/delete] Replies deletion error:", repliesError);
       if (repliesError.code === "42501") {
-        return NextResponse.json({ error: "Not permitted" }, { status: 403 });
+        const res = NextResponse.json({ error: "Not permitted" }, { status: 403 });
+        applySupabaseCookies(response, res);
+        return res;
       }
     }
   }
 
-  return NextResponse.json({ ok: true });
+  const res = NextResponse.json({ ok: true });
+  applySupabaseCookies(response, res);
+  return res;
 }
