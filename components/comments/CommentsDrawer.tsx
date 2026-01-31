@@ -579,19 +579,22 @@ overscrollBehavior: 'contain',
 WebkitOverflowScrolling: 'touch'
 }}
 >
-{loading && status === "loading" && comments.length === 0 ? (
-<div className="space-y-4">{skeletons}</div>
-) : error ? (
-<div className="text-center py-8">
-<p className="text-sm text-red-400 mb-3">{error}</p>
+{error && (
+<div className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-200">
+<div className="flex items-center justify-between gap-3">
+<span>{error}</span>
 <button
 type="button"
 onClick={() => fetchComments(true)}
-className="text-xs text-accent hover:underline"
+className="text-xs text-accent hover:underline shrink-0"
 >
 Retry
 </button>
 </div>
+</div>
+)}
+{loading && status === "loading" && comments.length === 0 ? (
+<div className="space-y-4">{skeletons}</div>
 ) : comments.length === 0 ? (
 <div className="text-center py-12 text-muted">
 <p className="mb-2">No comments yet.</p>
