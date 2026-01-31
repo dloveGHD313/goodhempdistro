@@ -553,7 +553,7 @@ open={isOpen}
 onOpenChange={handleDrawerChange}
 side={drawerSide}
 >
-<div className="flex flex-col h-full">
+<div className="flex flex-col h-full min-h-0">
 {/* Header */}
 <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
 <h2 className="text-lg font-semibold text-white">
@@ -573,7 +573,7 @@ aria-label="Close comments"
 <div
 ref={scrollRef}
 onScroll={handleScroll}
-className="flex-1 overflow-y-auto p-4 pb-28 space-y-4"
+className="flex-1 min-h-0 overflow-y-auto p-4 pb-28 space-y-4"
 style={{
 overscrollBehavior: 'contain',
 WebkitOverflowScrolling: 'touch'
