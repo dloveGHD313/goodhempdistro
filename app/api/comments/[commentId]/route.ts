@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { applySupabaseCookies, createSupabaseRouteClient } from "@/lib/supabaseRoute";
 
 export async function DELETE(
@@ -37,7 +36,7 @@ export async function DELETE(
 
   const { data: existingComment, error: existingError } = await supabase
     .from("post_comments")
-    .select("id, author_id, parent_id")
+    .select("id, author_id, post_id, parent_id")
     .eq("id", commentId)
     .maybeSingle();
 
@@ -56,11 +55,51 @@ export async function DELETE(
     return res;
   }
 
-  const adminCheck = await requireAdmin();
-  const isAdmin = adminCheck.isAdmin;
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (profileError) {
+    const res = NextResponse.json(
+      { error: "Failed to verify admin status", details: profileError.message },
+      { status: 500 }
+    );
+    applySupabaseCookies(response, res);
+    return res;
+  }
+  const { data: adminRow, error: adminRowError } = await supabase
+    .from("admin_users")
+    .select("user_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (adminRowError) {
+    const res = NextResponse.json(
+      { error: "Failed to verify admin status", details: adminRowError.message },
+      { status: 500 }
+    );
+    applySupabaseCookies(response, res);
+    return res;
+  }
+  const isAdmin = profile?.role === "admin" || !!adminRow;
+
+  const { data: postRow, error: postError } = await supabase
+    .from("posts")
+    .select("author_id")
+    .eq("id", existingComment.post_id)
+    .maybeSingle();
+  if (postError) {
+    const res = NextResponse.json(
+      { error: "Failed to verify post ownership", details: postError.message },
+      { status: 500 }
+    );
+    applySupabaseCookies(response, res);
+    return res;
+  }
+  const isPostOwner = postRow?.author_id === user.id;
   const isAuthor = existingComment.author_id === user.id;
 
-  if (!isAdmin && !isAuthor) {
+  if (!isAdmin && !isAuthor && !isPostOwner) {
     const res = NextResponse.json({ error: "Not permitted" }, { status: 403 });
     applySupabaseCookies(response, res);
     return res;
@@ -73,7 +112,7 @@ export async function DELETE(
     user.id
   );
 
-  if (!isAdmin && !existingComment.parent_id) {
+  if (!isAdmin && !isPostOwner && !existingComment.parent_id) {
     const { data: otherReplies, error: replyCheckError } = await supabase
       .from("post_comments")
       .select("id, author_id")
@@ -137,9 +176,9 @@ export async function DELETE(
   if (!existingComment.parent_id) {
     const repliesQuery = supabase
       .from("post_comments")
-      .update({ is_deleted: true, deleted_at: timestamp })
+      .update({ is_deleted: true, deleted_at: timestamp, deleted_by: user.id })
       .eq("parent_id", commentId);
-    if (!isAdmin) {
+    if (!isAdmin && !isPostOwner) {
       repliesQuery.eq("author_id", user.id);
     }
     const { error: repliesError } = await repliesQuery;
