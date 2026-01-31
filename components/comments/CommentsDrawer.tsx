@@ -643,9 +643,12 @@ const nextHasText = Boolean(e.target.value.trim());
 setHasTextState((prev) => (prev === nextHasText ? prev : nextHasText));
 }}
 onKeyDown={(e) => {
+// Enter submits, Shift+Enter creates newline
 if (e.key === "Enter" && !e.shiftKey) {
 e.preventDefault();
+if (canPost && hasText) {
 handleSubmit();
+}
 }
 }}
 placeholder={composerPlaceholder}
@@ -670,9 +673,9 @@ spellCheck={true}
 </div>
 <button
 type="button"
+className="btn-primary ml-auto"
+disabled={!canPost || !hasText || submitting}
 onClick={handleSubmit}
-disabled={!canPost || submitting || !hasText}
-className="px-4 py-2 bg-accent text-black rounded-lg font-medium text-sm hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shrink-0"
 >
 {submitting ? "Posting..." : "Post"}
 </button>
