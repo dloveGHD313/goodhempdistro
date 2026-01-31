@@ -181,6 +181,33 @@ export function getSupabaseAdminClientOrThrow() {
 }
 
 /**
+ * Create Supabase admin client (service role) for route handlers.
+ * Bypasses RLS. Server-only. Throws if env vars missing.
+ * Uses: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+ */
+export function createSupabaseAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!url) {
+    throw new Error(
+      "[createSupabaseAdminClient] Missing NEXT_PUBLIC_SUPABASE_URL. Set in Vercel env (Production + Preview)."
+    );
+  }
+  if (!key) {
+    throw new Error(
+      "[createSupabaseAdminClient] Missing SUPABASE_SERVICE_ROLE_KEY. Set in Vercel env (Production + Preview). Never expose to client."
+    );
+  }
+  return createClient(url, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+}
+
+/**
  * Legacy function name for backward compatibility
  * @deprecated Use getSupabaseAdminClientOrThrow() instead
  */

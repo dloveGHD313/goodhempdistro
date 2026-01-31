@@ -105,6 +105,7 @@ describe("CommentsDrawer", () => {
         onClose={vi.fn()}
         commentCount={0}
         isAdmin={false}
+        postAuthorId={null}
       />
     );
 
@@ -123,6 +124,7 @@ describe("CommentsDrawer", () => {
         onClose={onClose}
         commentCount={0}
         isAdmin={false}
+        postAuthorId={null}
       />
     );
 
@@ -142,6 +144,7 @@ describe("CommentsDrawer", () => {
         onClose={onClose}
         commentCount={0}
         isAdmin={false}
+        postAuthorId={null}
       />
     );
 
@@ -160,6 +163,7 @@ describe("CommentsDrawer", () => {
         onClose={vi.fn()}
         commentCount={0}
         isAdmin={false}
+        postAuthorId={null}
       />
     );
 
@@ -198,6 +202,7 @@ describe("CommentsDrawer", () => {
         onClose={vi.fn()}
         commentCount={0}
         isAdmin={false}
+        postAuthorId={null}
       />
     );
 
