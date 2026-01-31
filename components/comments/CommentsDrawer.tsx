@@ -73,6 +73,7 @@ const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
 const [actionMenuId, setActionMenuId] = useState<string | null>(null);
 const [justAddedId, setJustAddedId] = useState<string | null>(null);
 const [submitting, setSubmitting] = useState(false);
+const [hasTextState, setHasTextState] = useState(false);
 const [showJump, setShowJump] = useState(false);
 const [drawerSide, setDrawerSide] = useState<"right" | "bottom">("right");
 const [profileSnapshot, setProfileSnapshot] = useState<{ name: string; avatarUrl: string | null } | null>(
@@ -495,6 +496,7 @@ Array.from({ length: 4 }).map((_, idx) => (
 );
 
 const composerPlaceholder = canPost ? "Write a comment..." : "Sign in to comment";
+const hasText = Boolean((textareaRef.current?.value ?? draftRef.current).trim()) || hasTextState;
 
 return (
 <Drawer
@@ -578,13 +580,15 @@ Cancel
 </button>
 </div>
 )}
-<div className="flex gap-2">
+<div className="space-y-2">
 <textarea
 ref={textareaRef}
 defaultValue=""
 onChange={(e) => {
 draftRef.current = e.target.value;
 setError(null);
+const nextHasText = Boolean(e.target.value.trim());
+setHasTextState((prev) => (prev === nextHasText ? prev : nextHasText));
 }}
 onKeyDown={(e) => {
 if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -593,8 +597,8 @@ handleSubmit();
 }
 }}
 placeholder={composerPlaceholder}
-disabled={submitting}
-className="flex-1 bg-white/5 border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white placeholder:text-muted resize-none focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:opacity-50 disabled:cursor-not-allowed"
+disabled={submitting || !canPost}
+className="w-full bg-white/5 border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white placeholder:text-muted resize-none focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:opacity-50 disabled:cursor-not-allowed"
 rows={3}
 style={{
 touchAction: 'manipulation'
@@ -604,20 +608,24 @@ autoCapitalize="sentences"
 autoCorrect="on"
 spellCheck={true}
 />
+<div className="flex items-center justify-between gap-3">
+<div className="text-xs text-muted">
+{canPost ? (
+<span>Tip: Press {navigator.platform.includes("Mac") ? "Cmd" : "Ctrl"}+Enter to post</span>
+) : (
+<span>You must be a member to comment.</span>
+)}
+</div>
 <button
 type="button"
 onClick={handleSubmit}
-disabled={!canPost || submitting}
-className="self-end px-4 py-2 bg-accent text-black rounded-lg font-medium text-sm hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+disabled={!canPost || submitting || !hasText}
+className="px-4 py-2 bg-accent text-black rounded-lg font-medium text-sm hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shrink-0"
 >
-{submitting ? "..." : "Post"}
+{submitting ? "Posting..." : "Post"}
 </button>
 </div>
-{canPost && (
-<p className="text-xs text-muted mt-2">
-Press {navigator.platform.includes("Mac") ? "Cmd" : "Ctrl"}+Enter to post
-</p>
-)}
+</div>
 </div>
 </div>
 </Drawer>
