@@ -24,6 +24,7 @@ type CommentRow = {
   body: string;
   created_at: string;
   author_id: string;
+  is_locked?: boolean;
 };
 
 const withTimeout = async <T,>(promise: PromiseLike<T>, label: string): Promise<T> => {
@@ -74,6 +75,7 @@ const mapComment = (comment: CommentRow, profileMap: Map<string, ProfileIdentity
     ),
     authorAvatarUrl: profile?.avatar_url ?? null,
     authorBadgeModel: null,
+    isLocked: comment.is_locked ?? false,
   };
 };
 
@@ -93,7 +95,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     ({ data: comments, error } = await withTimeout(
       supabase
         .from("post_comments")
-        .select("id, post_id, parent_id, body, created_at, author_id")
+        .select("id, post_id, parent_id, body, created_at, author_id, is_locked")
         .eq("post_id", postId)
         .eq("is_deleted", false)
         .order("created_at", { ascending: false }),
@@ -201,14 +203,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   if (parentId) {
-    let parent: { id: string; post_id: string; parent_id: string | null } | null = null;
+    let parent: { id: string; post_id: string; parent_id: string | null; is_deleted?: boolean; is_locked?: boolean } | null = null;
     let parentError: { message?: string } | null = null;
     try {
       const started = Date.now();
       ({ data: parent, error: parentError } = await withTimeout(
         supabase
           .from("post_comments")
-          .select("id, post_id, parent_id")
+          .select("id, post_id, parent_id, is_deleted, is_locked")
           .eq("id", parentId)
           .maybeSingle(),
         "parent lookup"
@@ -232,6 +234,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     if (parent.parent_id) {
       return NextResponse.json({ error: "Replies only allowed on top-level comments" }, { status: 400 });
+    }
+    if (parent.is_deleted) {
+      return NextResponse.json({ error: "Cannot reply to a deleted comment" }, { status: 400 });
+    }
+    if (parent.is_locked) {
+      return NextResponse.json({ error: "Thread is locked. New replies are not allowed." }, { status: 403 });
     }
   }
 
