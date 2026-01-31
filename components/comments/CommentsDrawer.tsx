@@ -18,6 +18,7 @@ authorId: string;
 authorDisplayName: string;
 authorAvatarUrl: string | null;
 authorBadgeModel?: BadgeInfo | null;
+isLocked?: boolean;
 replies: CommentItem[];
 };
 
@@ -419,6 +420,28 @@ textareaRef.current.value = "";
 }
 };
 
+const handleReport = async (commentId: string) => {
+  setActionMenuId(null);
+  const reason = window.prompt("Why are you reporting this comment?");
+  if (!reason?.trim()) return;
+  try {
+    const response = await fetch(`/api/comments/${commentId}/report`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ reason: reason.trim() }),
+    });
+    if (!response.ok) {
+      const json = await response.json().catch(() => ({}));
+      setError(json?.error || "Failed to submit report.");
+      return;
+    }
+    setError(null);
+  } catch {
+    setError("Failed to submit report.");
+  }
+};
+
 const handleDelete = async (commentId: string) => {
 if (!confirm("Delete this comment? This removes it from the thread.")) return;
 const response = await fetch(`/api/comments/${commentId}`, {
@@ -483,28 +506,31 @@ badgeModel={comment.authorBadgeModel ?? null}
 <p className="text-sm text-white/90 whitespace-pre-line">{comment.body}</p>
 <div className="flex gap-3 text-xs text-muted items-center">
 {canPost && depth === 0 && (
-<button
-type="button"
-className="hover:text-accent"
-onClick={() => {
-setActionMenuId(null);
-setReplyTarget({
-id: comment.id,
-name: displayName,
-});
-// Focus the textarea after setting reply target
-setTimeout(() => {
-textareaRef.current?.focus();
-if (process.env.NODE_ENV !== "production") {
-console.debug("[composer]", { focused: document.activeElement === textareaRef.current });
-}
-}, 100);
-}}
->
-Reply
-</button>
+  comment.isLocked ? (
+    <span className="text-amber-500/80">Thread locked</span>
+  ) : (
+    <button
+      type="button"
+      className="hover:text-accent"
+      onClick={() => {
+        setActionMenuId(null);
+        setReplyTarget({
+          id: comment.id,
+          name: displayName,
+        });
+        setTimeout(() => {
+          textareaRef.current?.focus();
+          if (process.env.NODE_ENV !== "production") {
+            console.debug("[composer]", { focused: document.activeElement === textareaRef.current });
+          }
+        }, 100);
+      }}
+    >
+      Reply
+    </button>
+  )
 )}
-{canDeleteThis && (
+{(canDeleteThis || canPost) && (
 <div className="relative">
 <button
 type="button"
@@ -516,6 +542,16 @@ aria-label="Comment actions"
 </button>
 {actionMenuId === comment.id && (
 <div className="absolute z-10 mt-2 w-32 rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-lg">
+{canPost && (
+<button
+type="button"
+className="w-full text-left px-3 py-2 text-xs hover:bg-white/5"
+onClick={() => handleReport(comment.id)}
+>
+Report
+</button>
+)}
+{canDeleteThis && (
 <button
 type="button"
 className="w-full text-left px-3 py-2 text-xs hover:bg-white/5"
@@ -526,6 +562,7 @@ handleDelete(comment.id);
 >
 Delete
 </button>
+)}
 </div>
 )}
 </div>
