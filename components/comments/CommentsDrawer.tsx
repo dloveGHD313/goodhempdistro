@@ -1,661 +1,635 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-// Comments drawer fixes: scroll lock, touch handling, and focus timing.
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ProfileChip from "@/components/profile/ProfileChip";
 import Drawer from "@/components/ui/Drawer";
 import { getDisplayName } from "@/lib/identity";
 import type { BadgeInfo } from "@/lib/badges";
 import type { PostAuthorRole, PostAuthorTier } from "@/lib/postPriority";
 import useAuthUser from "@/components/engagement/useAuthUser";
-import CommentsComposer from "./CommentsComposer";
 
 type CommentItem = {
-  id: string;
-  postId: string;
-  parentId: string | null;
-  body: string;
-  createdAt: string;
-  authorId: string;
-  authorDisplayName: string;
-  authorAvatarUrl: string | null;
-  authorBadgeModel?: BadgeInfo | null;
-  replies: CommentItem[];
+id: string;
+postId: string;
+parentId: string | null;
+body: string;
+createdAt: string;
+authorId: string;
+authorDisplayName: string;
+authorAvatarUrl: string | null;
+authorBadgeModel?: BadgeInfo | null;
+replies: CommentItem[];
 };
 
 type Props = {
-  postId: string;
-  isOpen: boolean;
-  onClose: () => void;
-  commentCount: number;
-  isAdmin: boolean;
-  onCountChange?: (count: number) => void;
+postId: string;
+isOpen: boolean;
+openToken?: number;
+onClose: () => void;
+commentCount: number;
+isAdmin: boolean;
+onCountChange?: (count: number) => void;
 };
 
 type ReplyTarget = {
-  id: string;
-  author: string;
+id: string;
+name: string;
 };
 
 const commentsCache = new Map<string, { comments: CommentItem[]; count: number }>();
 
-class CommentsDrawerErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { hasError: boolean }
-> {
-  state = { hasError: false };
-
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="p-6 text-sm text-red-200">
-          Something went wrong loading comments. Please close and try again.
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
-const setBodyScrollLock = (locked: boolean) => {
-  if (typeof document === "undefined") return;
-  const body = document.body;
-  const html = document.documentElement;
-
-  if (locked) {
-    const scrollY = window.scrollY;
-    if (!body.dataset.prevOverflow) body.dataset.prevOverflow = body.style.overflow || "";
-    if (!body.dataset.prevTouchAction) body.dataset.prevTouchAction = body.style.touchAction || "";
-    if (!html.dataset.prevOverscroll) html.dataset.prevOverscroll = html.style.overscrollBehavior || "";
-    if (!body.dataset.prevPosition) body.dataset.prevPosition = body.style.position || "";
-    if (!body.dataset.prevTop) body.dataset.prevTop = body.style.top || "";
-    if (!body.dataset.prevWidth) body.dataset.prevWidth = body.style.width || "";
-    body.dataset.scrollY = scrollY.toString();
-
-    body.style.overflow = "hidden";
-    body.style.touchAction = "pan-y";
-    body.style.position = "fixed";
-    body.style.top = `-${scrollY}px`;
-    body.style.width = "100%";
-    html.style.overscrollBehavior = "none";
-  } else {
-    const scrollY = parseInt(body.dataset.scrollY || "0", 10);
-    body.style.overflow = body.dataset.prevOverflow ?? "";
-    body.style.touchAction = body.dataset.prevTouchAction ?? "";
-    body.style.position = body.dataset.prevPosition ?? "";
-    body.style.top = body.dataset.prevTop ?? "";
-    body.style.width = body.dataset.prevWidth ?? "";
-    html.style.overscrollBehavior = html.dataset.prevOverscroll ?? "";
-    window.scrollTo(0, scrollY);
-
-    delete body.dataset.prevOverflow;
-    delete body.dataset.prevTouchAction;
-    delete html.dataset.prevOverscroll;
-    delete body.dataset.prevPosition;
-    delete body.dataset.prevTop;
-    delete body.dataset.prevWidth;
-    delete body.dataset.scrollY;
-  }
-};
-
-const useDrawerHeight = () => {
-  const [height, setHeight] = useState("80vh");
-
-  useEffect(() => {
-    const updateHeight = () => {
-      const supportsDvh = typeof CSS !== "undefined" && CSS.supports("height", "100dvh");
-      const isMobile = window.innerWidth < 768;
-      if (isMobile && supportsDvh) {
-        setHeight("70dvh");
-      } else if (isMobile) {
-        setHeight(`${window.innerHeight * 0.7}px`);
-      } else {
-        setHeight("80vh");
-      }
-    };
-    updateHeight();
-    window.addEventListener("resize", updateHeight);
-    return () => window.removeEventListener("resize", updateHeight);
-  }, []);
-
-  return height;
-};
-
 const formatShortTime = (value: string) => {
-  const date = new Date(value);
-  const delta = Date.now() - date.getTime();
-  if (Number.isNaN(delta)) return "now";
-  const seconds = Math.floor(delta / 1000);
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  return `${days}d`;
+const date = new Date(value);
+const delta = Date.now() - date.getTime();
+if (Number.isNaN(delta)) return "now";
+const seconds = Math.floor(delta / 1000);
+if (seconds < 60) return "just now";
+const minutes = Math.floor(seconds / 60);
+if (minutes < 60) return `${minutes}m`;
+const hours = Math.floor(minutes / 60);
+if (hours < 24) return `${hours}h`;
+const days = Math.floor(hours / 24);
+return `${days}d`;
 };
 
 const makeTempId = () => `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 export default function CommentsDrawer({
-  postId,
-  isOpen,
-  onClose,
-  commentCount,
-  isAdmin,
-  onCountChange,
+postId,
+isOpen,
+openToken = 0,
+onClose,
+commentCount,
+isAdmin,
+onCountChange,
 }: Props) {
-  const { userId } = useAuthUser();
-  const [comments, setComments] = useState<CommentItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<"idle" | "loading" | "loaded" | "error">("idle");
-  const [count, setCount] = useState(commentCount);
-  const [openToken, setOpenToken] = useState(0);
-  const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
-  const [actionMenuId, setActionMenuId] = useState<string | null>(null);
-  const [justAddedId, setJustAddedId] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [showJump, setShowJump] = useState(false);
-  const [drawerSide, setDrawerSide] = useState<"right" | "bottom">("right");
-  const [profileSnapshot, setProfileSnapshot] = useState<{ name: string; avatarUrl: string | null } | null>(
-    null
-  );
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  const nearBottomRef = useRef(true);
-  const controllerRef = useRef<AbortController | null>(null);
-  const submittingRef = useRef(false);
-  const requestSeq = useRef(0);
-  const lastLoadedPostIdRef = useRef<string | null>(null);
-  const drawerHeight = useDrawerHeight();
+const { userId } = useAuthUser();
+const [comments, setComments] = useState<CommentItem[]>([]);
+const [loading, setLoading] = useState(false);
+const [error, setError] = useState<string | null>(null);
+const [status, setStatus] = useState<"idle" | "loading" | "loaded" | "error">("idle");
+const [count, setCount] = useState(commentCount);
+const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
+const [actionMenuId, setActionMenuId] = useState<string | null>(null);
+const [justAddedId, setJustAddedId] = useState<string | null>(null);
+const [submitting, setSubmitting] = useState(false);
+const [showJump, setShowJump] = useState(false);
+const [drawerSide, setDrawerSide] = useState<"right" | "bottom">("right");
+const [profileSnapshot, setProfileSnapshot] = useState<{ name: string; avatarUrl: string | null } | null>(
+null
+);
+const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+const draftRef = useRef("");
+const scrollRef = useRef<HTMLDivElement | null>(null);
+const nearBottomRef = useRef(true);
+const controllerRef = useRef<AbortController | null>(null);
+const submittingRef = useRef(false);
+const requestSeq = useRef(0);
+const lastLoadedPostIdRef = useRef<string | null>(null);
 
-  const canPost = Boolean(userId);
+const canPost = Boolean(userId);
 
-  const cleanupOnClose = useCallback(() => {
-    if (controllerRef.current && !controllerRef.current.signal.aborted) {
-      controllerRef.current.abort();
-    }
-    controllerRef.current = null;
-    setActionMenuId(null);
-    setReplyTarget(null);
-    setError(null);
-    setSubmitting(false);
-    submittingRef.current = false;
-    setShowJump(false);
-    setLoading(false);
-    setStatus("idle");
-    setBodyScrollLock(false);
-    if (process.env.NODE_ENV !== "production") {
-      console.debug("[comments-ui]", { postId, state: "idle", reason: "cleanup" });
-    }
-  }, [postId]);
+const cleanupOnClose = useCallback(() => {
+setActionMenuId(null);
+setReplyTarget(null);
+setError(null);
+setStatus("idle");
+setSubmitting(false);
+submittingRef.current = false;
+setShowJump(false);
+if (controllerRef.current && !controllerRef.current.signal.aborted) {
+controllerRef.current.abort();
+}
+controllerRef.current = null;
+draftRef.current = "";
+if (textareaRef.current) {
+textareaRef.current.value = "";
+}
+}, []);
 
-  const handleDrawerChange = useCallback(
-    (next: boolean) => {
-      if (!next) {
-        cleanupOnClose();
-        onClose();
-      }
-    },
-    [cleanupOnClose, onClose]
-  );
+// Handle drawer close - ensure cleanup always runs
+const handleDrawerChange = useCallback((open: boolean) => {
+if (!open) {
+cleanupOnClose();
+onClose();
+}
+}, [cleanupOnClose, onClose]);
 
-  const updateCount = useCallback(
-    (next: number) => {
-      setCount(next);
-      onCountChange?.(next);
-    },
-    [onCountChange]
-  );
+const updateCount = useCallback(
+(next: number) => {
+setCount(next);
+onCountChange?.(next);
+},
+[onCountChange]
+);
 
-  const fetchComments = useCallback(
-    async (force = false) => {
-      if (!isOpen) return;
-      if (!postId) {
-        if (process.env.NODE_ENV !== "production") {
-          console.warn("[comments] missing postId");
-        }
-        setError("Missing post id");
-        setStatus("error");
-        return;
-      }
-      if (!force && status !== "idle") return;
-      if (!force) {
-        const cached = commentsCache.get(postId);
-        if (cached) {
-          setComments(cached.comments);
-          updateCount(cached.count);
-          setStatus("loaded");
-          console.debug("[comments-ui]", { postId, state: "loaded", reason: "cache_hit" });
-          return;
-        }
-      }
-      if (status === "loading") return;
-      const seq = ++requestSeq.current;
-      controllerRef.current?.abort();
-      controllerRef.current = new AbortController();
-      setLoading(true);
-      setStatus("loading");
-      setError(null);
-      console.debug("[comments-ui]", { postId, state: "loading", reason: "open" });
-      const url = `/api/posts/${postId}/comments`;
-      try {
-        const response = await fetch(url, {
-          cache: "no-store",
-          credentials: "include",
-          signal: controllerRef.current.signal,
-        });
-        if (!response.ok) {
-          let message = response.statusText;
-          try {
-            const json = await response.json();
-            message = json?.error || json?.message || message;
-          } catch {
-            const text = await response.text();
-            if (text) message = text;
-          }
-          throw new Error(`HTTP ${response.status} ${response.statusText}: ${message}`);
-        }
-        const payload = await response.json();
-        if (!isOpen || seq !== requestSeq.current) return;
-        const nextComments = payload.comments || [];
-        const nextCount = payload.count ?? commentCount;
-        commentsCache.set(postId, { comments: nextComments, count: nextCount });
-        setComments(nextComments);
-        updateCount(nextCount);
-        lastLoadedPostIdRef.current = postId;
-        setStatus("loaded");
-        console.debug("[comments-ui]", { postId, state: "loaded", reason: "fetch_success" });
-      } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") {
-          return;
-        }
-        if (process.env.NODE_ENV !== "production") {
-          console.error("Comments fetch failed", { postId, url, error: err });
-        }
-        setError(err instanceof Error ? err.message : "Failed to load comments.");
-        setStatus("error");
-        console.debug("[comments-ui]", { postId, state: "error", reason: "fetch_error" });
-      } finally {
-        if (seq === requestSeq.current) {
-          setLoading(false);
-        }
-      }
-    },
-    [isOpen, postId, commentCount, status, updateCount]
-  );
+const fetchComments = useCallback(
+async (force = false) => {
+if (!isOpen) return;
+if (!postId) {
+if (process.env.NODE_ENV !== "production") {
+console.warn("[comments] missing postId");
+}
+setError("Missing post id");
+setStatus("error");
+return;
+}
+if (!force && status !== "idle") return;
+if (!force) {
+const cached = commentsCache.get(postId);
+if (cached) {
+setComments(cached.comments);
+updateCount(cached.count);
+setStatus("loaded");
+console.debug("[comments-ui]", { postId, state: "loaded", reason: "cache_hit" });
+return;
+}
+}
+if (status === "loading") return;
+const seq = ++requestSeq.current;
+controllerRef.current?.abort();
+controllerRef.current = new AbortController();
+setLoading(true);
+setStatus("loading");
+setError(null);
+console.debug("[comments-ui]", { postId, state: "loading", reason: "open" });
+const url = `/api/posts/${postId}/comments`;
+try {
+const response = await fetch(url, {
+cache: "no-store",
+credentials: "include",
+signal: controllerRef.current.signal,
+});
+if (!response.ok) {
+let message = response.statusText;
+try {
+const json = await response.json();
+message = json?.error || json?.message || message;
+} catch {
+const text = await response.text();
+if (text) message = text;
+}
+throw new Error(`HTTP ${response.status} ${response.statusText}: ${message}`);
+}
+const payload = await response.json();
+if (!isOpen || seq !== requestSeq.current) return;
+const nextComments = payload.comments || [];
+const nextCount = payload.count ?? commentCount;
+commentsCache.set(postId, { comments: nextComments, count: nextCount });
+setComments(nextComments);
+updateCount(nextCount);
+lastLoadedPostIdRef.current = postId;
+setStatus("loaded");
+console.debug("[comments-ui]", { postId, state: "loaded", reason: "fetch_success" });
+} catch (err) {
+if (err instanceof DOMException && err.name === "AbortError") {
+return;
+}
+if (process.env.NODE_ENV !== "production") {
+console.error("Comments fetch failed", { postId, url, error: err });
+}
+setError(err instanceof Error ? err.message : "Failed to load comments.");
+setStatus("error");
+console.debug("[comments-ui]", { postId, state: "error", reason: "fetch_error" });
+} finally {
+if (seq === requestSeq.current) {
+setLoading(false);
+}
+}
+},
+[isOpen, postId, commentCount, status, updateCount]
+);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    setOpenToken((prev) => prev + 1);
-  }, [isOpen]);
+useEffect(() => {
+if (!isOpen) return;
+fetchComments();
+}, [fetchComments, isOpen, openToken]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    setBodyScrollLock(true);
-    fetchComments();
-  }, [fetchComments, isOpen]);
+useEffect(() => {
+if (!isOpen) {
+cleanupOnClose();
+}
+return () => {
+cleanupOnClose();
+};
+}, [cleanupOnClose, isOpen]);
 
-  useEffect(() => {
-    if (!isOpen) {
-      cleanupOnClose();
-    }
-    return () => {
-      cleanupOnClose();
-    };
-  }, [cleanupOnClose, isOpen]);
+useEffect(() => {
+if (!postId) return;
+if (lastLoadedPostIdRef.current && lastLoadedPostIdRef.current !== postId) {
+controllerRef.current?.abort();
+controllerRef.current = null;
+setStatus("idle");
+setComments([]);
+setError(null);
+}
+}, [postId]);
 
-  useEffect(() => {
-    if (!postId) return;
-    if (lastLoadedPostIdRef.current && lastLoadedPostIdRef.current !== postId) {
-      controllerRef.current?.abort();
-      controllerRef.current = null;
-      setStatus("idle");
-      setComments([]);
-      setError(null);
-    }
-  }, [postId]);
+useEffect(() => {
+updateCount(commentCount);
+}, [commentCount, updateCount]);
 
-  useEffect(() => {
-    updateCount(commentCount);
-  }, [commentCount, updateCount]);
+useEffect(() => {
+if (!isOpen) return;
+const timer = setTimeout(() => {
+textareaRef.current?.focus();
+if (process.env.NODE_ENV !== "production") {
+console.debug("[composer]", { focused: document.activeElement === textareaRef.current });
+}
+}, 100);
+return () => clearTimeout(timer);
+}, [isOpen, openToken]);
 
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 768px)");
-    const handle = () => setDrawerSide(mediaQuery.matches ? "bottom" : "right");
-    handle();
-    mediaQuery.addEventListener("change", handle);
-    return () => mediaQuery.removeEventListener("change", handle);
-  }, []);
+useEffect(() => {
+const mediaQuery = window.matchMedia("(max-width: 768px)");
+const handle = () => setDrawerSide(mediaQuery.matches ? "bottom" : "right");
+handle();
+mediaQuery.addEventListener("change", handle);
+return () => mediaQuery.removeEventListener("change", handle);
+}, []);
 
-  useEffect(() => {
-    if (!isOpen || !userId) return;
-    const loadProfile = async () => {
-      const response = await fetch("/api/profile", { cache: "no-store" });
-      if (!response.ok) return;
-      const payload = await response.json();
-      const displayName = payload?.profile?.display_name || payload?.profile?.displayName || null;
-      const name = getDisplayName({ id: userId, display_name: displayName }, null);
-      setProfileSnapshot({ name, avatarUrl: payload?.profile?.avatar_url || null });
-    };
-    loadProfile();
-  }, [isOpen, userId]);
+useEffect(() => {
+if (!isOpen || !userId) return;
+const loadProfile = async () => {
+const response = await fetch("/api/profile", { cache: "no-store" });
+if (!response.ok) return;
+const payload = await response.json();
+const displayName = payload?.profile?.display_name || payload?.profile?.displayName || null;
+const name = getDisplayName({ id: userId, display_name: displayName }, null);
+setProfileSnapshot({ name, avatarUrl: payload?.profile?.avatar_url || null });
+};
+loadProfile();
+}, [isOpen, userId]);
 
-  useEffect(() => {
-    if (!justAddedId) return;
-    const timer = window.setTimeout(() => setJustAddedId(null), 1200);
-    return () => window.clearTimeout(timer);
-  }, [justAddedId]);
+useEffect(() => {
+if (!justAddedId) return;
+const timer = window.setTimeout(() => setJustAddedId(null), 1200);
+return () => window.clearTimeout(timer);
+}, [justAddedId]);
 
-  const handleScroll = useCallback(() => {
-    const node = scrollRef.current;
-    if (!node) return;
-    const distance = node.scrollHeight - node.scrollTop - node.clientHeight;
-    const nearBottom = distance < 140;
-    nearBottomRef.current = nearBottom;
-    if (nearBottom) {
-      setShowJump(false);
-    }
-  }, []);
+const handleScroll = useCallback(() => {
+const node = scrollRef.current;
+if (!node) return;
+const distance = node.scrollHeight - node.scrollTop - node.clientHeight;
+const nearBottom = distance < 140;
+nearBottomRef.current = nearBottom;
+if (nearBottom) {
+setShowJump(false);
+}
+}, []);
 
-  const scrollToBottom = useCallback(() => {
-    const node = scrollRef.current;
-    if (!node) return;
-    node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
-  }, []);
+const scrollToBottom = useCallback(() => {
+const node = scrollRef.current;
+if (!node) return;
+node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
+}, []);
 
-  const insertOptimisticComment = useCallback(
-    (body: string, parentId: string | null) => {
-      if (!userId) return { updated: comments, tempId: "" };
-      const tempId = makeTempId();
-      const now = new Date().toISOString();
-      const displayName = profileSnapshot?.name || getDisplayName({ id: userId }, null);
-      const optimistic: CommentItem = {
-        id: tempId,
-        postId,
-        parentId,
-        body,
-        createdAt: now,
-        authorId: userId,
-        authorDisplayName: displayName,
-        authorAvatarUrl: profileSnapshot?.avatarUrl || null,
-        authorBadgeModel: null,
-        replies: [],
-      };
-      let nextComments = comments;
-      if (parentId) {
-        nextComments = comments.map((comment) => {
-          if (comment.id !== parentId) return comment;
-          return { ...comment, replies: [...comment.replies, optimistic] };
-        });
-      } else {
-        nextComments = [optimistic, ...comments];
-      }
-      setComments(nextComments);
-      updateCount(count + 1);
-      setJustAddedId(tempId);
-      if (nearBottomRef.current) {
-        requestAnimationFrame(scrollToBottom);
-      } else {
-        setShowJump(true);
-      }
-      return { updated: nextComments, tempId };
-    },
-    [comments, count, postId, profileSnapshot, scrollToBottom, updateCount, userId]
-  );
+const insertOptimisticComment = useCallback(
+(body: string, parentId: string | null) => {
+if (!userId) return { updated: comments, tempId: "" };
+const tempId = makeTempId();
+const now = new Date().toISOString();
+const displayName = profileSnapshot?.name || getDisplayName({ id: userId }, null);
+const optimistic: CommentItem = {
+id: tempId,
+postId,
+parentId,
+body,
+createdAt: now,
+authorId: userId,
+authorDisplayName: displayName,
+authorAvatarUrl: profileSnapshot?.avatarUrl || null,
+authorBadgeModel: null,
+replies: [],
+};
+let nextComments = comments;
+if (parentId) {
+nextComments = comments.map((comment) => {
+if (comment.id !== parentId) return comment;
+return { ...comment, replies: [...comment.replies, optimistic] };
+});
+} else {
+nextComments = [optimistic, ...comments];
+}
+setComments(nextComments);
+updateCount(count + 1);
+setJustAddedId(tempId);
+if (nearBottomRef.current) {
+requestAnimationFrame(scrollToBottom);
+} else {
+setShowJump(true);
+}
+return { updated: nextComments, tempId };
+},
+[comments, count, postId, profileSnapshot, scrollToBottom, updateCount, userId]
+);
 
-  const handleCommentSubmit = useCallback(
-    async (body: string) => {
-      if (submittingRef.current) return;
-      if (!canPost) {
-        setError("Sign in to comment.");
-        return;
-      }
-      const trimmed = body.trim();
-      if (!trimmed) return;
-      submittingRef.current = true;
-      const parentId = replyTarget?.id || null;
-      const previous = comments;
-      const previousCount = count;
-      const { tempId } = insertOptimisticComment(trimmed, parentId);
-      setReplyTarget(null);
-      setError(null);
-      setSubmitting(true);
-      try {
-        const response = await fetch(`/api/posts/${postId}/comments`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ body: trimmed, parentId }),
-        });
-        if (!response.ok) {
-          let message = response.statusText;
-          try {
-            const json = await response.json();
-            message = json?.error || json?.message || message;
-          } catch {
-            const text = await response.text();
-            if (text) message = text;
-          }
-          throw new Error(`Failed to post comment: ${message}`);
-        }
-        const payload = await response.json();
-        const real = payload.comment as CommentItem;
-        setComments((current) => {
-          const replace = (items: CommentItem[]): CommentItem[] =>
-            items.map((item) => {
-              if (item.id === tempId) return { ...real, replies: item.replies };
-              return {
-                ...item,
-                replies: item.replies ? replace(item.replies) : [],
-              };
-            });
-          return replace(current);
-        });
-      } catch (err) {
-        setComments(previous);
-        updateCount(previousCount);
-        setError(err instanceof Error ? err.message : "Failed to post comment.");
-      } finally {
-        setSubmitting(false);
-        submittingRef.current = false;
-      }
-    },
-    [canPost, replyTarget, comments, count, insertOptimisticComment, updateCount, postId]
-  );
+const handleSubmit = async () => {
+if (submittingRef.current) return;
+if (!canPost) {
+setError("Sign in to comment.");
+return;
+}
+const raw = textareaRef.current?.value ?? draftRef.current;
+const trimmed = raw.trim();
+if (!trimmed) return;
+submittingRef.current = true;
+let didSubmit = false;
+const parentId = replyTarget?.id || null;
+const previous = comments;
+const previousCount = count;
+const { tempId } = insertOptimisticComment(trimmed, parentId);
+setReplyTarget(null);
+setError(null);
+setSubmitting(true);
+try {
+const response = await fetch(`/api/posts/${postId}/comments`, {
+method: "POST",
+headers: { "Content-Type": "application/json" },
+credentials: "include",
+body: JSON.stringify({ body: trimmed, parentId }),
+});
+if (!response.ok) {
+let message = response.statusText;
+try {
+const json = await response.json();
+message = json?.error || json?.message || message;
+} catch {
+const text = await response.text();
+if (text) message = text;
+}
+throw new Error(`Failed to post comment: ${message}`);
+}
+const payload = await response.json();
+const real = payload.comment as CommentItem;
+setComments((current) => {
+const replace = (items: CommentItem[]): CommentItem[] =>
+items.map((item) => {
+if (item.id === tempId) return { ...real, replies: item.replies };
+return {
+...item,
+replies: item.replies ? replace(item.replies) : [],
+};
+});
+return replace(current);
+});
+didSubmit = true;
+} catch (err) {
+setComments(previous);
+updateCount(previousCount);
+setError(err instanceof Error ? err.message : "Failed to post comment.");
+} finally {
+setSubmitting(false);
+submittingRef.current = false;
+if (didSubmit) {
+draftRef.current = "";
+if (textareaRef.current) {
+textareaRef.current.value = "";
+}
+}
+}
+};
 
-  const handleDelete = useCallback(
-    async (commentId: string) => {
-      if (!confirm("Delete this comment? This removes it from the thread.")) return;
-      const response = await fetch(`/api/comments/${commentId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!response.ok) {
-        setError("Failed to delete comment.");
-        return;
-      }
-      await fetchComments();
-    },
-    [fetchComments]
-  );
+const handleDelete = async (commentId: string) => {
+if (!confirm("Delete this comment? This removes it from the thread.")) return;
+const response = await fetch(`/api/comments/${commentId}`, {
+method: "DELETE",
+credentials: "include",
+});
+if (!response.ok) {
+setError("Failed to delete comment.");
+return;
+}
+await fetchComments(true);
+};
 
-  const renderComment = useCallback(function renderComment(comment: CommentItem, depth: number) {
-    const displayName = getDisplayName({
-      id: comment.authorId,
-      display_name: comment.authorDisplayName ?? null,
-    });
-    const isOwner = userId === comment.authorId;
-    const highlight = comment.id === justAddedId;
-    return (
-      <div
-        key={comment.id}
-        className={`space-y-2 rounded-xl p-3 border ${
-          highlight ? "border-[var(--brand-lime)]/60 bg-[var(--brand-lime)]/10" : "border-transparent"
-        } ${depth ? "ml-4 border-l border-[var(--border)]/60" : ""}`}
-      >
-        <div className="flex items-center justify-between">
-          <ProfileChip
-            displayName={displayName}
-            avatarUrl={comment.authorAvatarUrl}
-            role={"consumer" as PostAuthorRole}
-            tier={"none" as PostAuthorTier}
-            badgeModel={comment.authorBadgeModel ?? null}
-          />
-          <span className="text-xs text-muted">{formatShortTime(comment.createdAt)}</span>
-        </div>
-        <p className="text-sm text-white/90 whitespace-pre-line">{comment.body}</p>
-        <div className="flex gap-3 text-xs text-muted items-center">
-          {canPost && depth === 0 && (
-            <button
-              type="button"
-              className="hover:text-accent"
-              onClick={() => {
-                setActionMenuId(null);
-                setReplyTarget({
-                  id: comment.id,
-                  author: displayName,
-                });
-              }}
-            >
-              Reply
-            </button>
-          )}
-          {(isOwner || isAdmin) && (
-            <div className="relative">
-              <button
-                type="button"
-                className="hover:text-accent"
-                onClick={() => setActionMenuId((prev) => (prev === comment.id ? null : comment.id))}
-                aria-label="Comment actions"
-              >
-                ⋯
-              </button>
-              {actionMenuId === comment.id && (
-                <div className="absolute z-10 mt-2 w-32 rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-lg">
-                  <button
-                    type="button"
-                    className="w-full text-left px-3 py-2 text-xs hover:bg-white/5"
-                    onClick={() => {
-                      setActionMenuId(null);
-                      handleDelete(comment.id);
-                    }}
-                  >
-                    Delete
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-        {comment.replies.map((reply) => renderComment(reply, depth + 1))}
-      </div>
-    );
-  }, [actionMenuId, canPost, handleDelete, isAdmin, justAddedId, userId]);
+const renderComment = (comment: CommentItem, depth: number) => {
+const displayName = getDisplayName({
+id: comment.authorId,
+display_name: comment.authorDisplayName ?? null,
+});
+const isOwner = userId === comment.authorId;
+const highlight = comment.id === justAddedId;
+return (
+<div
+key={comment.id}
+className={`space-y-2 rounded-xl p-3 border ${
+highlight ? "border-[var(--brand-lime)]/60 bg-[var(--brand-lime)]/10" : "border-transparent"
+} ${depth ? "ml-4 border-l border-[var(--border)]/60" : ""}`}
+>
+<div className="flex items-center justify-between">
+<ProfileChip
+displayName={displayName}
+avatarUrl={comment.authorAvatarUrl}
+role={"consumer" as PostAuthorRole}
+tier={"none" as PostAuthorTier}
+badgeModel={comment.authorBadgeModel ?? null}
+/>
+<span className="text-xs text-muted">{formatShortTime(comment.createdAt)}</span>
+</div>
+<p className="text-sm text-white/90 whitespace-pre-line">{comment.body}</p>
+<div className="flex gap-3 text-xs text-muted items-center">
+{canPost && depth === 0 && (
+<button
+type="button"
+className="hover:text-accent"
+onClick={() => {
+setActionMenuId(null);
+setReplyTarget({
+id: comment.id,
+name: displayName,
+});
+// Focus the textarea after setting reply target
+setTimeout(() => {
+textareaRef.current?.focus();
+if (process.env.NODE_ENV !== "production") {
+console.debug("[composer]", { focused: document.activeElement === textareaRef.current });
+}
+}, 100);
+}}
+>
+Reply
+</button>
+)}
+{(isOwner || isAdmin) && (
+<div className="relative">
+<button
+type="button"
+className="hover:text-accent"
+onClick={() => setActionMenuId((prev) => (prev === comment.id ? null : comment.id))}
+aria-label="Comment actions"
+>
+⋯
+</button>
+{actionMenuId === comment.id && (
+<div className="absolute z-10 mt-2 w-32 rounded-lg border border-[var(--border)] bg-[var(--surface)] shadow-lg">
+<button
+type="button"
+className="w-full text-left px-3 py-2 text-xs hover:bg-white/5"
+onClick={() => {
+setActionMenuId(null);
+handleDelete(comment.id);
+}}
+>
+Delete
+</button>
+</div>
+)}
+</div>
+)}
+</div>
+{comment.replies.map((reply) => renderComment(reply, depth + 1))}
+</div>
+);
+};
 
-  const commentsList = useMemo(
-    () => comments.map((comment) => renderComment(comment, 0)),
-    [comments, renderComment, replyTarget]
-  );
+const skeletons = useMemo(
+() =>
+Array.from({ length: 4 }).map((_, idx) => (
+<div key={idx} className="space-y-3 animate-pulse">
+<div className="h-10 bg-white/5 rounded-lg" />
+<div className="h-4 bg-white/5 rounded-lg w-3/4" />
+</div>
+)),
+[]
+);
 
-  const skeletons = useMemo(
-    () =>
-      Array.from({ length: 4 }).map((_, idx) => (
-        <div key={idx} className="space-y-3 animate-pulse">
-          <div className="h-10 bg-white/5 rounded-lg" />
-          <div className="h-4 bg-white/5 rounded-lg w-3/4" />
-        </div>
-      )),
-    []
-  );
+const composerPlaceholder = canPost ? "Write a comment..." : "Sign in to comment";
 
-  const composerPlaceholder = canPost ? "Write a comment..." : "Sign in to comment";
+return (
+<Drawer
+open={isOpen}
+onOpenChange={handleDrawerChange}
+side={drawerSide}
+>
+<div className="flex flex-col h-full">
+{/* Header */}
+<div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
+<h2 className="text-lg font-semibold text-white">
+Comments {count > 0 && `(${count})`}
+</h2>
+<button
+type="button"
+onClick={() => handleDrawerChange(false)}
+className="text-muted hover:text-white transition-colors"
+aria-label="Close comments"
+>
+✕
+</button>
+</div>
 
-  return (
-    <Drawer open={isOpen} onOpenChange={handleDrawerChange} title="Comments" side={drawerSide}>
-      <CommentsDrawerErrorBoundary>
-        <div className="flex flex-col h-full" style={{ height: drawerSide === "bottom" ? drawerHeight : "100%" }}>
-          <div className="flex-shrink-0 sticky top-0 z-10 backdrop-blur-md bg-[var(--surface)]/90 border-b border-[var(--border)] px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold flex items-center gap-2">
-                  Comments
-                  <span className="text-xs px-2 py-1 rounded-full bg-white/5 border border-[var(--border)]">
-                    {count}
-                  </span>
-                </h2>
-                <p className="text-xs text-muted mt-1">Be respectful — keep it hemp-friendly 🌿</p>
-              </div>
-              <button type="button" className="btn-ghost" onClick={onClose} aria-label="Close comments">
-                Close
-              </button>
-            </div>
-          </div>
+{/* Scrollable content area */}
+<div
+ref={scrollRef}
+onScroll={handleScroll}
+className="flex-1 overflow-y-auto p-4 space-y-4"
+style={{
+overscrollBehavior: 'contain',
+WebkitOverflowScrolling: 'touch'
+}}
+>
+{loading && status === "loading" && comments.length === 0 ? (
+<div className="space-y-4">{skeletons}</div>
+) : error ? (
+<div className="text-center py-8">
+<p className="text-sm text-red-400 mb-3">{error}</p>
+<button
+type="button"
+onClick={() => fetchComments(true)}
+className="text-xs text-accent hover:underline"
+>
+Retry
+</button>
+</div>
+) : comments.length === 0 ? (
+<div className="text-center py-12 text-muted">
+<p className="mb-2">No comments yet.</p>
+{canPost && <p className="text-xs">Be the first to comment!</p>}
+</div>
+) : (
+<>
+{comments.map((comment) => renderComment(comment, 0))}
+{showJump && (
+<button
+type="button"
+onClick={scrollToBottom}
+className="fixed bottom-24 right-8 bg-accent text-black px-4 py-2 rounded-full shadow-lg hover:scale-105 transition-transform text-sm font-medium"
+>
+↓ New comment
+</button>
+)}
+</>
+)}
+</div>
 
-          <div
-            ref={scrollRef}
-            onScroll={handleScroll}
-            className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-4 space-y-5"
-            style={{
-              overscrollBehavior: "contain",
-              WebkitOverflowScrolling: "touch",
-              touchAction: "pan-y",
-              willChange: "scroll-position",
-              scrollBehavior: "smooth",
-              position: "relative",
-            }}
-          >
-            {error && (
-              <div className="card-glass p-4 border border-red-500/40">
-                <p className="text-sm font-semibold text-red-300">Couldn’t load comments</p>
-                <p className="text-xs text-red-200 mt-1">{error}</p>
-                <button type="button" className="btn-secondary mt-3" onClick={() => fetchComments(true)}>
-                  Retry
-                </button>
-              </div>
-            )}
-            {loading ? (
-              <div className="space-y-6">{skeletons}</div>
-            ) : comments.length === 0 ? (
-              <div className="text-center text-muted py-12">
-                <p className="text-lg font-semibold">Start the conversation</p>
-                <p className="text-sm mt-2">Be the first to drop a comment.</p>
-              </div>
-            ) : (
-              <div className="space-y-6">{commentsList}</div>
-            )}
-          </div>
-
-          {showJump && (
-            <div className="px-6 py-2 border-t border-[var(--border)] bg-[var(--surface)]/90">
-              <button type="button" className="btn-secondary w-full" onClick={scrollToBottom}>
-                Jump to latest
-              </button>
-            </div>
-          )}
-
-          <div className="flex-shrink-0 sticky bottom-0 z-10 backdrop-blur-md bg-[var(--surface)]/95 border-t border-[var(--border)] px-6 py-4 space-y-3">
-            <CommentsComposer
-              canPost={canPost}
-              submitting={submitting}
-              onSubmit={handleCommentSubmit}
-              replyTarget={replyTarget}
-              onCancelReply={() => setReplyTarget(null)}
-              autoFocusToken={openToken}
-              placeholder={composerPlaceholder}
-            />
-            {!canPost && (
-              <a href="/login" className="text-xs text-accent">
-                Sign in to comment
-              </a>
-            )}
-          </div>
-        </div>
-      </CommentsDrawerErrorBoundary>
-    </Drawer>
-  );
+{/* Composer - fixed at bottom */}
+<div
+className="border-t border-[var(--border)] p-4 bg-[var(--surface)]"
+onPointerDownCapture={(e) => e.stopPropagation()}
+onMouseDownCapture={(e) => e.stopPropagation()}
+onClickCapture={(e) => e.stopPropagation()}
+onTouchStartCapture={(e) => e.stopPropagation()}
+>
+{replyTarget && (
+<div className="flex items-center justify-between mb-2 p-2 bg-white/5 rounded-lg">
+<span className="text-xs text-muted">
+Replying to <span className="text-accent">{replyTarget.name}</span>
+</span>
+<button
+type="button"
+onClick={() => setReplyTarget(null)}
+className="text-muted hover:text-white text-xs"
+>
+Cancel
+</button>
+</div>
+)}
+<div className="flex gap-2">
+<textarea
+ref={textareaRef}
+defaultValue=""
+onChange={(e) => {
+draftRef.current = e.target.value;
+setError(null);
+}}
+onKeyDown={(e) => {
+if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+e.preventDefault();
+handleSubmit();
+}
+}}
+placeholder={composerPlaceholder}
+disabled={submitting}
+className="flex-1 bg-white/5 border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-white placeholder:text-muted resize-none focus:outline-none focus:ring-2 focus:ring-accent/50 disabled:opacity-50 disabled:cursor-not-allowed"
+rows={3}
+style={{
+touchAction: 'manipulation'
+}}
+inputMode="text"
+autoCapitalize="sentences"
+autoCorrect="on"
+spellCheck={true}
+onPointerDownCapture={(e) => e.stopPropagation()}
+onMouseDownCapture={(e) => e.stopPropagation()}
+onClickCapture={(e) => e.stopPropagation()}
+onTouchStartCapture={(e) => e.stopPropagation()}
+/>
+<button
+type="button"
+onClick={handleSubmit}
+disabled={!canPost || submitting}
+className="self-end px-4 py-2 bg-accent text-black rounded-lg font-medium text-sm hover:bg-accent/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+>
+{submitting ? "..." : "Post"}
+</button>
+</div>
+{canPost && (
+<p className="text-xs text-muted mt-2">
+Press {navigator.platform.includes("Mac") ? "Cmd" : "Ctrl"}+Enter to post
+</p>
+)}
+</div>
+</div>
+</Drawer>
+);
 }
