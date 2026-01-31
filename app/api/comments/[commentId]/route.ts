@@ -37,12 +37,44 @@ export async function DELETE(
     return NextResponse.json({ error: "Comment not found" }, { status: 404 });
   }
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  const isAdmin = profile?.role === "admin";
+  const isAuthor = existingComment.author_id === user.id;
+
+  if (!isAdmin && !isAuthor) {
+    return NextResponse.json({ error: "Not permitted" }, { status: 403 });
+  }
+
   console.log(
     "[comments/delete] Comment author:",
     existingComment.author_id,
     "Current user:",
     user.id
   );
+
+  if (!isAdmin && !existingComment.parent_id) {
+    const { data: otherReplies, error: replyCheckError } = await supabase
+      .from("post_comments")
+      .select("id, author_id")
+      .eq("parent_id", commentId)
+      .neq("author_id", user.id);
+    if (replyCheckError) {
+      return NextResponse.json(
+        { error: "Failed to verify comment replies", details: replyCheckError.message },
+        { status: 500 }
+      );
+    }
+    if (otherReplies && otherReplies.length > 0) {
+      return NextResponse.json(
+        { error: "Not permitted to delete comments with replies from other users" },
+        { status: 403 }
+      );
+    }
+  }
 
   const timestamp = new Date().toISOString();
   const { data, error } = await supabase
@@ -59,6 +91,9 @@ export async function DELETE(
       details: error.details,
       hint: error.hint,
     });
+    if (error.code === "42501") {
+      return NextResponse.json({ error: "Not permitted" }, { status: 403 });
+    }
     return NextResponse.json(
       { error: "Failed to delete comment", details: error.message },
       { status: 500 }
@@ -72,7 +107,7 @@ export async function DELETE(
     );
   }
 
-  if (!existingComment.parent_id) {
+  if (!existingComment.parent_id && isAdmin) {
     const { error: repliesError } = await supabase
       .from("post_comments")
       .update({ is_deleted: true, deleted_at: timestamp })
@@ -80,6 +115,9 @@ export async function DELETE(
 
     if (repliesError) {
       console.error("[comments/delete] Replies deletion error:", repliesError);
+      if (repliesError.code === "42501") {
+        return NextResponse.json({ error: "Not permitted" }, { status: 403 });
+      }
     }
   }
 
