@@ -1,0 +1,19 @@
+policyname,permissive,roles,cmd,qual,with_check
+Post comments: admin update,PERMISSIVE,{authenticated},UPDATE,"(EXISTS ( SELECT 1
+   FROM admin_users au
+  WHERE (au.user_id = auth.uid())))",((is_deleted = true) AND (deleted_by = auth.uid()) AND (deleted_at IS NOT NULL))
+Post comments: authenticated insert,PERMISSIVE,{authenticated},INSERT,null,(auth.uid() = author_id)
+Post comments: author update,PERMISSIVE,{authenticated},UPDATE,(auth.uid() = author_id),((auth.uid() = author_id) AND (is_deleted = true) AND (deleted_by = auth.uid()) AND (deleted_at IS NOT NULL))
+Post comments: post owner update,PERMISSIVE,{authenticated},UPDATE,"(EXISTS ( SELECT 1
+   FROM posts p
+  WHERE ((p.id = post_comments.post_id) AND (p.author_id = auth.uid()))))",((is_deleted = true) AND (deleted_by = auth.uid()) AND (deleted_at IS NOT NULL))
+Post comments: public read,PERMISSIVE,"{anon,authenticated}",SELECT,(is_deleted = false),null
+post_comments_admin_soft_delete,PERMISSIVE,{authenticated},UPDATE,"(EXISTS ( SELECT 1
+   FROM admin_users au
+  WHERE (au.user_id = auth.uid())))",((is_deleted = true) AND (deleted_by = auth.uid()) AND (deleted_at IS NOT NULL))
+post_comments_author_insert,PERMISSIVE,{authenticated},INSERT,null,(auth.uid() = author_id)
+post_comments_author_soft_delete,PERMISSIVE,{authenticated},UPDATE,(auth.uid() = author_id),((is_deleted = true) AND (deleted_by = auth.uid()) AND (deleted_at IS NOT NULL))
+post_comments_post_owner_soft_delete,PERMISSIVE,{authenticated},UPDATE,"(EXISTS ( SELECT 1
+   FROM posts p
+  WHERE ((p.id = post_comments.post_id) AND (p.author_id = auth.uid()))))",((is_deleted = true) AND (deleted_by = auth.uid()) AND (deleted_at IS NOT NULL))
+post_comments_public_read,PERMISSIVE,"{anon,authenticated}",SELECT,(is_deleted = false),null

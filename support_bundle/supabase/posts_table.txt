@@ -1,0 +1,29 @@
+-- Supabase Snippet Posts table columns and types.csv
+column_name,data_type
+id,uuid
+author_id,uuid
+author_role,USER-DEFINED
+author_tier,USER-DEFINED
+content,text
+is_admin_post,boolean
+is_pinned,boolean
+is_featured,boolean
+created_at,timestamp with time zone
+priority_rank,integer
+is_deleted,boolean
+deleted_at,timestamp with time zone
+
+-- Supabase Snippet Posts Table Columns.csv
+column_name,data_type
+id,uuid
+author_id,uuid
+author_role,USER-DEFINED
+author_tier,USER-DEFINED
+content,text
+is_admin_post,boolean
+is_pinned,boolean
+is_featured,boolean
+created_at,timestamp with time zone
+priority_rank,integer
+is_deleted,boolean
+deleted_at,timestamp with time zone

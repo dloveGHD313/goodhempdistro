@@ -1,3 +1,4 @@
+// SOURCE: app/api/comments/[commentId]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { applySupabaseCookies, createSupabaseRouteClient } from "@/lib/supabaseRoute";
 
