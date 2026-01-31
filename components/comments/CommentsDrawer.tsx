@@ -643,7 +643,7 @@ const nextHasText = Boolean(e.target.value.trim());
 setHasTextState((prev) => (prev === nextHasText ? prev : nextHasText));
 }}
 onKeyDown={(e) => {
-if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+if (e.key === "Enter" && !e.shiftKey) {
 e.preventDefault();
 handleSubmit();
 }
@@ -663,7 +663,7 @@ spellCheck={true}
 <div className="flex items-center justify-between gap-3 pr-16">
 <div className="text-xs text-muted">
 {canPost ? (
-<span>Tip: Press {navigator.platform.includes("Mac") ? "Cmd" : "Ctrl"}+Enter to post</span>
+<span>Tip: Press Enter to post • Shift+Enter for a new line</span>
 ) : (
 <span>You must be a member to comment.</span>
 )}
