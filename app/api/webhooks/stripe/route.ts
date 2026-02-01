@@ -543,9 +543,9 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
       }
     }
 
-    // Handle referral tracking for subscription
+    // Handle referral tracking for subscription (uses admin client for DB writes)
     if (planType && planName && affiliateCode) {
-      await handleReferralTracking(session.id, userId, planType, planName, affiliateCode, supabase);
+      await handleReferralTracking(session.id, userId, planType, planName, affiliateCode);
     }
 
     return;
@@ -880,19 +880,20 @@ async function handleSubscriptionChange(
 }
 
 /**
- * Handle referral tracking and payout creation
- * Captures reward amount based on package type
- * Creates pending payout ledger entry (idempotent by session_id)
+ * Handle referral tracking and ledger entry
+ * Captures reward amount based on package type; creates affiliate_ledger (available) for payout request.
+ * Uses admin client for DB writes (idempotent by session_id).
  */
 async function handleReferralTracking(
   sessionId: string,
   userId: string,
   packageType: string,
   packageName: string,
-  affiliateCode: string,
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>
+  affiliateCode: string
 ) {
   console.log(`💝 [handleReferralTracking] Tracking referral | session_id=${sessionId} | user_id=${userId} | package=${packageName} | affiliate=${affiliateCode}`);
+
+  const admin = getSupabaseAdminClient();
 
   try {
     // Calculate reward based on package
@@ -910,7 +911,7 @@ async function handleReferralTracking(
     const rewardCents = rewardMap[packageName.toUpperCase()] || 500;
 
     // Check if referral already exists for this session (idempotency)
-    const { data: existingReferral, error: lookupError } = await supabase
+    const { data: existingReferral, error: lookupError } = await admin
       .from("affiliate_referrals")
       .select("id")
       .eq("stripe_session_id", sessionId)
@@ -927,7 +928,7 @@ async function handleReferralTracking(
     }
 
     // Find affiliate by code
-    const { data: affiliate, error: affiliateError } = await supabase
+    const { data: affiliate, error: affiliateError } = await admin
       .from("affiliates")
       .select("id")
       .eq("affiliate_code", affiliateCode)
@@ -942,7 +943,7 @@ async function handleReferralTracking(
     console.log(`✅ [handleReferralTracking] Found affiliate | affiliate_id=${affiliate.id} | reward=${rewardCents}¢`);
 
     // Create affiliate_referrals record (idempotent via UNIQUE session_id)
-    const { data: referral, error: referralError } = await supabase
+    const { data: referral, error: referralError } = await admin
       .from("affiliate_referrals")
       .insert({
         affiliate_id: affiliate.id,
@@ -967,24 +968,23 @@ async function handleReferralTracking(
 
     console.log(`✅ [handleReferralTracking] Referral created | referral_id=${referral.id}`);
 
-    // Create affiliate_payouts record (pending payout)
-    const { data: payout, error: payoutError } = await supabase
-      .from("affiliate_payouts")
+    // Create affiliate_ledger entry (available for payout request)
+    const { error: ledgerError } = await admin
+      .from("affiliate_ledger")
       .insert({
         affiliate_id: affiliate.id,
         amount_cents: rewardCents,
-        status: "pending",
-        note: `Referral reward for session ${sessionId}`,
-      })
-      .select("id")
-      .single();
+        status: "available",
+        order_id: null,
+        metadata: { referral_id: referral.id, stripe_session_id: sessionId },
+      });
 
-    if (payoutError) {
-      console.error(`❌ [handleReferralTracking] Error inserting payout: ${payoutError.message}`);
+    if (ledgerError) {
+      console.error(`❌ [handleReferralTracking] Error inserting ledger: ${ledgerError.message}`);
       return;
     }
 
-    console.log(`✅ [handleReferralTracking] Payout created | payout_id=${payout.id} | amount=${rewardCents}¢ | status=pending`);
+    console.log(`✅ [handleReferralTracking] Ledger entry created | amount=${rewardCents}¢ | status=available`);
   } catch (error) {
     console.error(`❌ [handleReferralTracking] Error tracking referral: ${error}`);
     // Don't throw - this is a non-critical operation
