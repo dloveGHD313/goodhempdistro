@@ -1,10 +1,8 @@
 import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
-import { cookies, headers } from "next/headers";
+import { headers } from "next/headers";
 import Link from "next/link";
-import { createSupabaseServerClient } from "@/lib/supabase";
 import { getCategories } from "@/lib/categories";
-import { getSiteUrl } from "@/lib/stripe";
 import Footer from "@/components/Footer";
 import EditProductForm from "./EditProductForm";
 
@@ -55,14 +53,14 @@ function ErrorContent({ heading, detail }: ErrorContentProps) {
 
 async function fetchProductViaApi(
   productId: string,
-  cookieHeader: string,
-  baseUrl: string
+  cookieHeader: string
 ): Promise<
   | { status: 200; product: ProductRow }
   | { status: 401 | 403 | 404 | 500; error: string; code?: string }
 > {
-  const res = await fetch(`${baseUrl}/api/vendors/products/${productId}`, {
-    headers: { Cookie: cookieHeader },
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const res = await fetch(`${baseUrl.replace(/\/$/, "")}/api/vendors/products/${productId}`, {
+    headers: { cookie: cookieHeader },
     cache: "no-store",
   });
   const json = await res.json().catch(() => ({}));
@@ -101,19 +99,10 @@ export default async function EditProductPage({
     );
   }
 
-  const supabase = await createSupabaseServerClient();
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    redirect(`/login?redirect=${encodeURIComponent(`/vendors/products/${productId}/edit`)}`);
-  }
-
   const hdrs = await headers();
-  const cookieStore = await cookies();
-  const cookieHeader = cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join("; ");
-  const baseUrl = getSiteUrl({ headers: hdrs });
+  const cookieHeader = hdrs.get("cookie") ?? "";
 
-  const result = await fetchProductViaApi(productId, cookieHeader, baseUrl);
+  const result = await fetchProductViaApi(productId, cookieHeader);
 
   if (result.status === 401) {
     redirect(`/login?redirect=${encodeURIComponent(`/vendors/products/${productId}/edit`)}`);
