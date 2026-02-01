@@ -24,12 +24,12 @@ Baseline and phase verification. Update after each phase.
 - **Phase 1 — Products edit parity:** See `docs/qa-products-parity.md`
 - **Phase 2 — Orders:** See `docs/qa-commerce-orders.md`
 - **Phase 3 — Platform fees:** See `docs/qa-platform-fees.md`
-- **Phase 4 — Vendor Connect:** (docs per phase)
+- **Phase 4 — Vendor Connect:** Stripe Connect Express; `/vendors/payouts`; APIs create-account, onboard-link, status
 - **Phase 5 — Admin analytics:** See `docs/qa-admin-analytics.md`
-- **Phase 6 — Loyalty:** See `docs/qa-loyalty.md`
-- **Phase 7 — Affiliates:** See `docs/qa-affiliates.md`
-- **Phase 8 — Vendor referrals:** See `docs/qa-vendor-referrals.md`
-- **Phase 9 — Discovery/leads/reviews:** (as needed)
+- **Phase 6 — Loyalty:** See `docs/qa-loyalty.md`; `/account/loyalty`; existing consumer_loyalty + webhook
+- **Phase 7 — Affiliates:** (see Phase 7 spec; full implementation in follow-up)
+- **Phase 8 — Vendor referrals:** (see Phase 8 spec; full implementation in follow-up)
+- **Phase 9 — Discovery/leads/reviews:** As needed; existing discovery/reviews in place
 
 ## Hard rules (verify per phase)
 
