@@ -1,12 +1,11 @@
 import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase";
-import { require21Plus } from "@/lib/server/idVerification";
 
 type GateOk = { ok: true };
 type GateError = {
   ok: false;
   status: number;
-  code: "GATED_MARKET_REQUIRES_VERIFICATION" | "ID_VERIFICATION_REQUIRED";
+  code: "GATED_MARKET_REQUIRES_VERIFICATION";
   message: string;
   redirectTo?: string;
 };
@@ -26,41 +25,62 @@ export function isGatedProduct(product: GateProduct | null | undefined): boolean
   return product.market_category === "INTOXICATING";
 }
 
+const GATED_MESSAGE = "21+ verification is required to access gated products.";
+const GATED_REDIRECT = "/verify";
+
+/**
+ * Checks profiles.age_verified and profiles.id_verification_status === 'verified'.
+ * Admin bypass: admins get ok: true.
+ */
+export async function requireGatedAccess(
+  userId: string | null,
+  redirectTo = GATED_REDIRECT
+): Promise<GateOk | GateError> {
+  if (!userId) {
+    return {
+      ok: false,
+      status: 403,
+      code: "GATED_MARKET_REQUIRES_VERIFICATION",
+      message: GATED_MESSAGE,
+      redirectTo,
+    };
+  }
+  const supabase = await createSupabaseServerClient();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, age_verified, id_verification_status")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profile?.role === "admin") {
+    return { ok: true };
+  }
+
+  const verified =
+    profile?.age_verified === true &&
+    (profile?.id_verification_status === "verified" ||
+      profile?.id_verification_status === "approved");
+
+  if (verified) {
+    return { ok: true };
+  }
+
+  return {
+    ok: false,
+    status: 403,
+    code: "GATED_MARKET_REQUIRES_VERIFICATION",
+    message: GATED_MESSAGE,
+    redirectTo,
+  };
+}
+
 export async function requireMarketAccess(
   userId: string | null,
-  marketType: MarketType
+  marketType: MarketType,
+  redirectTo = GATED_REDIRECT
 ): Promise<GateOk | GateError> {
   if (marketType === "ungated") {
     return { ok: true };
   }
-  if (!userId) {
-    const gate = await require21Plus(null);
-    if (gate.ok) return { ok: true };
-    return {
-      ok: false,
-      status: gate.status,
-      code: gate.code,
-      message: gate.message,
-      redirectTo: gate.redirectTo,
-    };
-  }
-  // Admin bypass: admins can access gated products without verification
-  const supabase = await createSupabaseServerClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", userId)
-    .maybeSingle();
-  if (profile?.role === "admin") {
-    return { ok: true };
-  }
-  const gate = await require21Plus(userId);
-  if (gate.ok) return { ok: true };
-  return {
-    ok: false,
-    status: gate.status,
-    code: gate.code,
-    message: gate.message,
-    redirectTo: gate.redirectTo,
-  };
+  return requireGatedAccess(userId, redirectTo);
 }

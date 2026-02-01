@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
             ok: false,
             code: gate.code,
             message: gate.message,
-            redirectTo: gate.redirectTo || "/verify-age",
+            redirectTo: gate.redirectTo || "/verify",
           },
           { status: gate.status, headers: { "Cache-Control": "no-store" } }
         );

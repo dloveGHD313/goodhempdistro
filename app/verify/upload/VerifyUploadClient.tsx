@@ -8,12 +8,15 @@ type Props = {
   userId: string;
   existingVerificationId?: string | null;
   existingStatus?: "pending" | "approved" | "rejected" | "none" | null;
+  /** Base path for verify routes (e.g. /verify or /verify-age). Used for success redirect and links. */
+  basePath?: string;
 };
 
 export default function VerifyUploadClient({
   userId,
   existingVerificationId = null,
   existingStatus = null,
+  basePath = "/verify-age",
 }: Props) {
   const router = useRouter();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
@@ -92,7 +95,7 @@ export default function VerifyUploadClient({
         throw new Error("No files were uploaded. Please try again.");
       }
 
-      router.replace("/verify-age/status");
+      router.replace(`${basePath}/status`);
     } catch (err) {
       const raw = err instanceof Error ? err.message : "Upload failed.";
       const safeMessage = /timeout/i.test(raw)
@@ -154,7 +157,7 @@ export default function VerifyUploadClient({
         <button
           type="button"
           className="btn-secondary"
-          onClick={() => router.push("/verify-age/status")}
+          onClick={() => router.push(`${basePath}/status`)}
           disabled={submitting}
         >
           Check Status

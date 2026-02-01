@@ -32,13 +32,6 @@ export async function GET(
       .eq("id", id)
       .maybeSingle();
 
-    console.log("[vendors/products/GET] query result", {
-      productId: id,
-      hasProduct: !!product,
-      rowCount: product ? 1 : 0,
-      dbError: error?.message ?? null,
-    });
-
     if (error) {
       console.error("[vendors/products/GET]", { productId: id, error: error.message });
       return NextResponse.json({ error: "Failed to load product" }, { status: 500 });

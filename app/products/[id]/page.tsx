@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Metadata } from "next";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import BuyButton from "./BuyButton";
@@ -198,10 +197,46 @@ export default async function ProductDetailPage(props: Props) {
   }
 
   if (isGatedProduct(product)) {
-    const gate = await requireMarketAccess(user?.id ?? null, "gated");
+    const gate = await requireMarketAccess(user?.id ?? null, "gated", "/verify");
     if (!gate.ok) {
-      const redirectTarget = `/verify-age?redirect=${encodeURIComponent(`/products/${product.id}`)}`;
-      redirect(redirectTarget);
+      const categoryName = await getCategoryName(product.category_id);
+      const vendorName = await getVendorName(product.vendor_id);
+      const productName = product.name?.trim() || "Product";
+      const description =
+        product.description && product.description.trim().length > 0
+          ? product.description.trim()
+          : "Product details are coming soon.";
+      return (
+        <div className="min-h-screen text-white flex flex-col">
+          <main className="flex-1">
+            <section className="section-shell">
+              <Link href="/products" className="text-accent hover:text-accent/80 transition mb-6 inline-block">
+                ← Back to Products
+              </Link>
+              <div className="max-w-2xl mx-auto card-glass p-8 space-y-6 text-center">
+                <div className="text-6xl text-muted mb-3">🔒</div>
+                <h1 className="text-3xl font-bold text-accent">{productName}</h1>
+                <p className="text-muted">
+                  Category: {categoryName || "Uncategorized"}
+                  {vendorName ? ` · Vendor: ${vendorName}` : ""}
+                </p>
+                <p className="text-muted text-sm leading-relaxed max-w-lg mx-auto">
+                  {description.length > 200 ? `${description.slice(0, 200)}...` : description}
+                </p>
+                <div className="card-glass p-4 border border-yellow-500/40 text-yellow-200">
+                  <p className="text-sm mb-3">
+                    This product is in the gated (21+) market. Verify your age to view price, COA, and purchase.
+                  </p>
+                  <a href="/verify" className="btn-primary">
+                    Verify 21+ to Unlock
+                  </a>
+                </div>
+              </div>
+            </section>
+          </main>
+          <Footer />
+        </div>
+      );
     }
   }
 

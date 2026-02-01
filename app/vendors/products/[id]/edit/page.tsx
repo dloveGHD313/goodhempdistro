@@ -108,6 +108,9 @@ export default async function EditProductPage({
   const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host");
   const baseUrl = host ? `${proto}://${host}` : (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
   const cookieHeader = hdrs.get("cookie") ?? "";
+  const proto = hdrs.get("x-forwarded-proto") ?? hdrs.get("x-forwarded-protocol") ?? "https";
+  const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host");
+  const baseUrl = host ? `${proto}://${host}` : (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
 
   const result = await fetchProductViaApi(productId, baseUrl, cookieHeader);
 

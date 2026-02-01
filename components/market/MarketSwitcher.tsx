@@ -26,10 +26,11 @@ export default function MarketSwitcher() {
   const [savingPreference, setSavingPreference] = useState(false);
 
   const handleSelect = async (next: MarketMode) => {
-    setMode(next);
     if (next === "INTOXICATING" && !isVerified) {
       setShowModal(true);
+      return;
     }
+    setMode(next);
     setSavingPreference(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -53,7 +54,7 @@ export default function MarketSwitcher() {
   const handleStartVerification = async () => {
     setShowModal(false);
     await refreshVerification();
-    router.push("/verify-age");
+    router.push("/verify");
   };
 
   const handleStayInCbd = async () => {
