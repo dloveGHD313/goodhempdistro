@@ -9,11 +9,7 @@ export default async function VendorsDashboardLayout({
 }) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    redirect(`/login?redirect=${encodeURIComponent("/vendors/dashboard")}`);
-  }
-
-  const result = await requireVendorOnboarding(user.id);
+  const result = await requireVendorOnboarding(user?.id ?? null);
   if ("redirectTo" in result) {
     redirect(result.redirectTo);
   }

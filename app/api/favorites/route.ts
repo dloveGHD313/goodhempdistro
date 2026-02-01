@@ -24,13 +24,15 @@ async function ensureEntityIsVisible(
   if (entityType === "product") {
     const { data: product } = await supabase
       .from("products")
-      .select("id, vendor_id, status, active, is_gated")
+      .select("id, vendor_id, status, active, is_gated, market_category")
       .eq("id", entityId)
       .eq("status", "approved")
       .eq("active", true)
       .maybeSingle();
     if (!product?.vendor_id) return false;
-    if (!includeGated && product.is_gated) return false;
+    const isGated =
+      product.is_gated === true || product.market_category === "INTOXICATING";
+    if (!includeGated && isGated) return false;
     const { data: vendor } = await supabase
       .from("vendors")
       .select("id")

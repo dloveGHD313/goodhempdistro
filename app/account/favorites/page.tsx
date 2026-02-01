@@ -48,7 +48,7 @@ export default async function FavoritesPage() {
     grouped.product.length
       ? supabase
           .from("products")
-          .select("id, name, price_cents, is_gated")
+          .select("id, name, price_cents, is_gated, market_category")
           .in("id", grouped.product)
       : Promise.resolve({ data: [] }),
     grouped.service.length
@@ -66,8 +66,14 @@ export default async function FavoritesPage() {
   ]);
 
   const vendors = vendorsRes.data || [];
-  const products = (productsRes.data || []).filter((product: any) =>
-    includeGated ? true : product?.is_gated !== true
+  const productsRaw = productsRes.data || [];
+  const productsWithMode = productsRaw.map((p: { market_category?: string | null; is_gated?: boolean }) => ({
+    ...p,
+    market_mode:
+      p?.is_gated || p?.market_category === "INTOXICATING" ? ("gated" as const) : ("ungated" as const),
+  }));
+  const products = productsWithMode.filter((product: { market_mode: string }) =>
+    includeGated ? true : product?.market_mode !== "gated"
   );
   const services = servicesRes.data || [];
   const events = eventsRes.data || [];

@@ -9,11 +9,7 @@ export default async function ProductsLayout({
 }) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    redirect(`/login?redirect=${encodeURIComponent("/products")}`);
-  }
-
-  const result = await requireConsumerOnboarding(user.id);
+  const result = await requireConsumerOnboarding(user?.id ?? null);
   if ("redirectTo" in result) {
     redirect(result.redirectTo);
   }

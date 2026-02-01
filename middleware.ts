@@ -2,13 +2,12 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
- * Middleware for Supabase SSR session refresh and route protection
- * This runs on every request and refreshes the session if needed
+ * Slim middleware: Supabase session refresh + auth-only redirects for protected routes.
+ * No profiles/vendors queries, onboarding, or market gating.
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Do not redirect on prefetch/RSC requests (avoids false logout on navigation)
   if (request.headers.get("x-middleware-prefetch") || request.headers.get("purpose") === "prefetch") {
     return NextResponse.next();
   }
@@ -16,40 +15,38 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (pathname.startsWith("/api")) {
-    return NextResponse.next();
-  }
-  const publicRoutes = ["/", "/about", "/get-started", "/login", "/signup", "/newsfeed"];
-  const isPublicRoute = publicRoutes.some(
-    (route) => pathname === route || pathname.startsWith(`${route}/`)
-  );
-  if (isPublicRoute) {
-    return NextResponse.next();
-  }
-  if (
-    pathname.startsWith("/api/comments") ||
-    pathname.startsWith("/comments") ||
-    (pathname.startsWith("/api/posts/") && pathname.endsWith("/comments"))
-  ) {
+  // Auth-gated routes only: dashboard, account, checkout, vendors/*, driver/dashboard, admin/*
+  const isProtectedPage =
+    pathname === "/dashboard" ||
+    pathname.startsWith("/dashboard/") ||
+    pathname === "/account" ||
+    pathname.startsWith("/account/") ||
+    pathname === "/checkout" ||
+    pathname.startsWith("/checkout/") ||
+    pathname === "/vendors" ||
+    pathname.startsWith("/vendors/") ||
+    pathname === "/driver/dashboard" ||
+    pathname.startsWith("/driver/dashboard/") ||
+    pathname === "/admin" ||
+    pathname.startsWith("/admin/");
+
+  const isAdminApi = pathname.startsWith("/api/admin");
+
+  if (!isProtectedPage && !isAdminApi) {
     return NextResponse.next();
   }
 
-  const response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  });
-
-  // Only process Supabase auth for routes that need it
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    // If Supabase is not configured, skip auth middleware
-    return response;
+    return NextResponse.next();
   }
 
-  // Create Supabase client with cookie handling
+  const response = NextResponse.next({
+    request: { headers: request.headers },
+  });
+
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll() {
@@ -63,75 +60,15 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  // Use getSession for auth gating (getUser can return null in Edge even when logged in)
   const {
     data: { session },
-    error: sessionError,
   } = await supabase.auth.getSession();
   const user = session?.user ?? null;
 
-  // Debug logging only for vendor products paths (confirm behavior in Vercel logs)
-  if (pathname === "/vendors/products" || pathname.startsWith("/vendors/products/")) {
-    console.log("[middleware] vendors/products session?", {
-      hasCookieHeader: !!request.headers.get("cookie"),
-      hasSession: !!session,
-      userId: user?.id ?? null,
-      sessionError: sessionError?.message ?? null,
-      pathname,
-    });
-  }
-
-  // Protected routes - require authentication
-  const protectedRoutes = [
-    "/dashboard",
-    "/account",
-    "/checkout",
-    "/driver/dashboard",
-  ];
-  const isProtectedRoute = protectedRoutes.some((route) =>
-    pathname === route || pathname.startsWith(`${route}/`)
-  );
-
-  // Vendor tooling - require authentication
-  const isVendorRoute = pathname === "/vendors" || pathname.startsWith("/vendors/");
-
-  // Admin routes - require authentication (admin role checked at page level)
-  const isAdminRoute = pathname.startsWith("/admin");
-  const isAdminApiRoute = pathname.startsWith("/api/admin");
-
-  // Public auth routes - allow unauthenticated AND authenticated access
-  // These routes handle their own auth logic (e.g., reset-password needs session for recovery)
-  const publicAuthRoutes = ["/auth/callback", "/reset-password"];
-  const isPublicAuthRoute = publicAuthRoutes.some((route) => 
-    pathname === route || pathname.startsWith(`${route}/`)
-  );
-
-  // Allow public auth routes (callback, reset) - never redirect away from these
-  // Reset-password needs to work for both authenticated (recovery) and unauthenticated users
-  if (isPublicAuthRoute) {
-    return response;
-  }
-
-  // Vendor edit route: let page/API handle auth (handles 401 redirect) - avoids false logout from middleware
-  if (/^\/vendors\/products\/[^/]+\/edit$/.test(pathname)) {
-    return response;
-  }
-
-  // Guard admin pages and API routes for authenticated sessions.
-  if ((isAdminRoute || isAdminApiRoute) && !user) {
-    if (isAdminApiRoute) {
+  if (!user) {
+    if (isAdminApi) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    console.warn("[middleware] blocked", { path: pathname, reason: "admin_auth" });
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/login";
-    redirectUrl.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(redirectUrl);
-  }
-
-  // Redirect protected and vendor routes to login if not authenticated
-  if ((isProtectedRoute || isVendorRoute) && !user) {
-    console.warn("[middleware] blocked", { path: pathname, reason: "protected_auth" });
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("redirect", pathname);
@@ -143,14 +80,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     * - comments API and routes
-     */
-    "/((?!_next/static|_next/image|favicon.ico|api/comments|api/posts/[^/]+/comments|comments|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

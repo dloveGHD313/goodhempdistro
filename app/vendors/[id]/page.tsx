@@ -75,14 +75,19 @@ async function getVendorListings(vendorId: string, includeGated: boolean) {
 
   const { data: products } = await supabase
     .from("products")
-    .select("id, name, price_cents, category_id, is_gated")
+    .select("id, name, price_cents, category_id, is_gated, market_category")
     .eq("vendor_id", vendorId)
     .eq("status", "approved")
     .eq("active", true)
     .order("created_at", { ascending: false })
     .limit(6);
-  const filteredProducts = (products || []).filter((product) =>
-    includeGated ? true : product.is_gated !== true
+  const productsWithMode = (products || []).map((p) => ({
+    ...p,
+    market_mode:
+      p.is_gated || p.market_category === "INTOXICATING" ? "gated" : "ungated",
+  }));
+  const filteredProducts = productsWithMode.filter((product) =>
+    includeGated ? true : product.market_mode !== "gated"
   );
 
   const { data: services } = await supabase

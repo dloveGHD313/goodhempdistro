@@ -1,4 +1,5 @@
 import "server-only";
+import { createSupabaseServerClient } from "@/lib/supabase";
 import { require21Plus } from "@/lib/server/idVerification";
 
 type GateOk = { ok: true };
@@ -30,6 +31,27 @@ export async function requireMarketAccess(
   marketType: MarketType
 ): Promise<GateOk | GateError> {
   if (marketType === "ungated") {
+    return { ok: true };
+  }
+  if (!userId) {
+    const gate = await require21Plus(null);
+    if (gate.ok) return { ok: true };
+    return {
+      ok: false,
+      status: gate.status,
+      code: gate.code,
+      message: gate.message,
+      redirectTo: gate.redirectTo,
+    };
+  }
+  // Admin bypass: admins can access gated products without verification
+  const supabase = await createSupabaseServerClient();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .maybeSingle();
+  if (profile?.role === "admin") {
     return { ok: true };
   }
   const gate = await require21Plus(userId);
