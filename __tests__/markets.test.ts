@@ -81,3 +81,50 @@ describe("MARKET_DISPLAY_NAMES", () => {
     expect(labels).toContain("Recreational");
   });
 });
+
+/** UI guardrail: no renderable copy may contain legacy words. */
+const FORBIDDEN_UI_WORDS = ["Intoxicating", "Intoxicated", "Psychoactive"] as const;
+/** Allowed only when part of identifier (e.g. getIntoxicatingCutoffDate) or DB column/value. */
+const ALLOWED_PATTERNS = /getIntoxicating|isIntoxicating|intoxicating_policy|intoxicating_ack|value=["']intoxicating["']/;
+
+describe("UI must not render Intoxicating/Intoxicated/Psychoactive", () => {
+  it("no app or components .tsx file contains legacy words in user-facing copy", () => {
+    const fs = require("node:fs");
+    const path = require("node:path");
+    const root = path.join(process.cwd());
+    const dirs = [path.join(root, "app"), path.join(root, "components")];
+    const violations: { file: string; word: string; line: number }[] = [];
+
+    function scanDir(dir: string) {
+      if (!fs.existsSync(dir)) return;
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const e of entries) {
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) {
+          if (e.name !== "node_modules" && e.name !== "__tests__") scanDir(full);
+        } else if (e.name.endsWith(".tsx")) {
+          const content = fs.readFileSync(full, "utf8");
+          const lines = content.split("\n");
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const isAllowed = ALLOWED_PATTERNS.test(line);
+            if (isAllowed) continue;
+            for (const word of FORBIDDEN_UI_WORDS) {
+              if (line.includes(word)) {
+                violations.push({ file: full.replace(root, ""), word, line: i + 1 });
+              }
+            }
+          }
+        }
+      }
+    }
+    for (const d of dirs) scanDir(d);
+
+    expect(
+      violations,
+      violations.length
+        ? `UI must not render Intoxicating/Intoxicated/Psychoactive. Found: ${JSON.stringify(violations)}`
+        : undefined
+    ).toHaveLength(0);
+  });
+});

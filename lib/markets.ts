@@ -2,6 +2,12 @@
  * Single source of truth for market/category display and normalization.
  * All UI must show "Recreational" (never Intoxicating/Intoxicated/Psychoactive).
  * Internal value is RECREATIONAL; legacy INTOXICATING normalizes to RECREATIONAL.
+ *
+ * Normalization MUST be applied at all entry points:
+ * - URL query params (e.g. ?market=) — use normalizeMarket() when parsing.
+ * - API request params — use normalizeMarket() in server handlers.
+ * - Filter state from URL or persisted state — use normalizeMarket().
+ * - Vendor/admin form submits — use getMarketDisplayName() for labels; store RECREATIONAL.
  */
 
 export type MarketCategory =

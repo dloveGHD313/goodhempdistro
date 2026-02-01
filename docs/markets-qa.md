@@ -26,8 +26,12 @@
 - `/admin/id-verifications` allows approve/reject with notes.
 - Approve sets `profiles.age_verified=true`, `id_verification_status='verified'`, `id_verified_at=now()`.
 
+## Search / facets (Phase G)
+- No search indexing or facet system for market in this app; Phase G skipped.
+
 ## Regression checks
 - `/newsfeed` remains public.
 - Auth, checkout, onboarding, posts, moderation remain stable.
 - No redirect loops.
 - No emails leak into UI.
+- UI must not render "Intoxicating", "Intoxicated", or "Psychoactive" (guardrail test in __tests__/markets.test.ts).
