@@ -4,11 +4,31 @@ import { validateProductCompliance, requiresCOA } from "@/lib/compliance";
 import { isAdminEmail } from "@/lib/admin";
 import { requireAdminUsers } from "@/lib/auth/requireAdminUsers";
 
+/** Full select for product edit (may fail if optional columns missing in DB) */
+const PRODUCT_EDIT_SELECT_FULL =
+  "id, name, description, price_cents, category_id, active, product_type, coa_url, coa_object_path, delta8_disclaimer_ack, vendor_id, owner_user_id";
+
+/** Minimal select for product edit when full select fails (schema mismatch / optional columns absent) */
+const PRODUCT_EDIT_SELECT_MINIMAL =
+  "id, name, description, price_cents, category_id, active, product_type, coa_url, delta8_disclaimer_ack, vendor_id, owner_user_id";
+
+function isColumnOrSchemaError(error: { code?: string | null; message?: string | null } | null): boolean {
+  if (!error) return false;
+  const code = error.code ?? "";
+  const msg = (error.message ?? "").toLowerCase();
+  return (
+    code === "42703" ||
+    msg.includes("column") && msg.includes("does not exist") ||
+    msg.includes("undefined column")
+  );
+}
+
 /**
  * Get a single product (vendor owner or admin)
+ * Two-pass select: full first; on column/schema error, retry with minimal select and fill optional fields.
  */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -25,13 +45,44 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized", code: "SESSION_MISSING" }, { status: 401 });
     }
 
-    const isAdmin = isAdminEmail(user.email);
+    const { isAdmin: isAdminByTable } = await requireAdminUsers(req);
+    const isAdmin = isAdminByTable || isAdminEmail(user.email);
 
-    const { data: product, error } = await supabase
+    let product: Record<string, unknown> | null = null;
+    let error: { code?: string | null; message?: string | null } | null = null;
+
+    const { data: fullData, error: fullError } = await supabase
       .from("products")
-      .select("id, name, description, price_cents, category_id, active, product_type, coa_url, coa_object_path, delta8_disclaimer_ack, vendor_id, owner_user_id")
+      .select(PRODUCT_EDIT_SELECT_FULL)
       .eq("id", id)
       .maybeSingle();
+
+    if (fullError && isColumnOrSchemaError(fullError)) {
+      console.warn("[vendors/products/GET] full select failed (schema/column), retrying minimal", {
+        productId: id,
+        code: fullError.code,
+        message: fullError.message,
+      });
+      const { data: minimalData, error: minimalError } = await supabase
+        .from("products")
+        .select(PRODUCT_EDIT_SELECT_MINIMAL)
+        .eq("id", id)
+        .maybeSingle();
+
+      if (minimalError) {
+        console.error("[vendors/products/GET]", { productId: id, error: minimalError.message });
+        return NextResponse.json({ error: "Failed to load product" }, { status: 500 });
+      }
+      product = minimalData as Record<string, unknown> | null;
+      if (product) {
+        product.coa_object_path = null;
+        product.delta8_disclaimer_ack = product.delta8_disclaimer_ack ?? false;
+      }
+    } else if (fullError) {
+      error = fullError;
+    } else {
+      product = fullData as Record<string, unknown> | null;
+    }
 
     if (error) {
       console.error("[vendors/products/GET]", { productId: id, error: error.message });
@@ -88,7 +139,7 @@ export async function PUT(
     const { isAdmin: isAdminByTable } = await requireAdminUsers(req);
     const isAdmin = isAdminByTable || isAdminEmail(user.email);
 
-    // Verify vendor ownership of product (admin can update via admin routes; this is vendor route)
+    // Verify access: admin can update any product; vendor can update only own
     const { data: product } = await supabase
       .from("products")
       .select("vendor_id, category_id, vendors!inner(owner_user_id)")
@@ -98,10 +149,17 @@ export async function PUT(
     const vendorOwnerId = Array.isArray(product?.vendors)
       ? (product?.vendors as { owner_user_id: string }[])[0]?.owner_user_id
       : (product?.vendors as { owner_user_id: string } | undefined)?.owner_user_id;
-    if (!product || vendorOwnerId !== user.id) {
+    const isOwner = vendorOwnerId === user.id;
+    if (!product) {
       return NextResponse.json(
-        { error: "Product not found or access denied" },
+        { error: "Product not found", code: "NOT_FOUND" },
         { status: 404 }
+      );
+    }
+    if (!isAdmin && !isOwner) {
+      return NextResponse.json(
+        { error: "Product not found or access denied", code: "ACCESS_DENIED" },
+        { status: 403 }
       );
     }
 
@@ -281,17 +339,31 @@ export async function DELETE(
       );
     }
 
-    // Verify vendor ownership
+    const { isAdmin: isAdminByTable } = await requireAdminUsers(req);
+    const isAdmin = isAdminByTable || isAdminEmail(user.email);
+
+    // Verify access: admin can delete any product; vendor can delete only own
     const { data: product } = await supabase
       .from("products")
       .select("vendor_id, vendors!inner(owner_user_id)")
       .eq("id", id)
       .single();
 
-    if (!product || (product.vendors as any).owner_user_id !== user.id) {
+    const vendorOwnerId = Array.isArray(product?.vendors)
+      ? (product?.vendors as { owner_user_id: string }[])[0]?.owner_user_id
+      : (product?.vendors as { owner_user_id: string } | undefined)?.owner_user_id;
+    const isOwner = vendorOwnerId === user.id;
+
+    if (!product) {
       return NextResponse.json(
-        { error: "Product not found or access denied" },
+        { error: "Product not found", code: "NOT_FOUND" },
         { status: 404 }
+      );
+    }
+    if (!isAdmin && !isOwner) {
+      return NextResponse.json(
+        { error: "Product not found or access denied", code: "ACCESS_DENIED" },
+        { status: 403 }
       );
     }
 

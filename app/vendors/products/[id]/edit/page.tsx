@@ -104,6 +104,7 @@ export default async function EditProductPage({
   }
 
   const hdrs = await headers();
+  // Base URL: x-forwarded-proto (fallback https), x-forwarded-host (fallback host), then NEXT_PUBLIC_SITE_URL, then localhost (Vercel-safe)
   const proto = hdrs.get("x-forwarded-proto") ?? hdrs.get("x-forwarded-protocol") ?? "https";
   const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host");
   const baseUrl = host ? `${proto}://${host}` : (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
