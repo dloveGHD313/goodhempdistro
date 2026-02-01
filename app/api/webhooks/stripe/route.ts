@@ -13,6 +13,7 @@ import {
   getSpendMilestonesToAward,
   getSubscriptionBonusPoints,
 } from "@/lib/consumer-loyalty";
+import { applyPlatformFeesToOrder } from "@/lib/platformFees";
 
 // Lazy initialization - only create Stripe client when actually used
 // This allows the build to complete even if env vars are missing
@@ -587,6 +588,8 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     }
 
     console.log(`✅ [handleCheckoutSessionCompleted] Order updated successfully | order_id=${orderId}`);
+    const admin = getSupabaseAdminClient();
+    await applyPlatformFeesToOrder(admin, orderId);
     await awardPurchasePointsForOrder(orderId);
   }
 }
@@ -623,6 +626,9 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     }
 
     console.log(`✅ [handlePaymentIntentSucceeded] Order marked as paid | order_id=${order.id}`);
+    const admin = getSupabaseAdminClient();
+    await applyPlatformFeesToOrder(admin, order.id);
+    await awardPurchasePointsForOrder(order.id);
   } else {
     console.warn(`⚠️ [handlePaymentIntentSucceeded] No order found for intent=${paymentIntent.id}`);
   }
