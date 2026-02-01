@@ -7,6 +7,15 @@ import { NextResponse, type NextRequest } from "next/server";
  */
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Do not redirect on prefetch/RSC requests (avoids false logout on navigation)
+  if (request.headers.get("x-middleware-prefetch") || request.headers.get("purpose") === "prefetch") {
+    return NextResponse.next();
+  }
+  if (request.nextUrl.searchParams.has("__rsc")) {
+    return NextResponse.next();
+  }
+
   if (pathname.startsWith("/api")) {
     return NextResponse.next();
   }
@@ -100,6 +109,11 @@ export async function middleware(request: NextRequest) {
   // Allow public auth routes (callback, reset) - never redirect away from these
   // Reset-password needs to work for both authenticated (recovery) and unauthenticated users
   if (isPublicAuthRoute) {
+    return response;
+  }
+
+  // Vendor edit route: let page/API handle auth (handles 401 redirect) - avoids false logout from middleware
+  if (/^\/vendors\/products\/[^/]+\/edit$/.test(pathname)) {
     return response;
   }
 
