@@ -10,7 +10,10 @@ type Product = {
   description?: string;
   price_cents: number;
   status: string;
+  active?: boolean;
   submitted_at?: string | null;
+  reviewed_at?: string | null;
+  rejection_reason?: string | null;
   coa_url?: string;
   coa_object_path?: string | null;
   coa_review_url?: string | null;
@@ -39,6 +42,7 @@ type Props = {
 };
 
 const STATUS_TABS = [
+  { id: "all", label: "All" },
   { id: "pending_review", label: "Pending" },
   { id: "approved", label: "Approved" },
   { id: "rejected", label: "Rejected" },
@@ -77,6 +81,8 @@ export default function ProductsReviewClient({ initialProducts, initialCounts, i
   const [showRejectForm, setShowRejectForm] = useState<string | null>(null);
   const [activeStatus, setActiveStatus] = useState(initialStatus);
   const [listError, setListError] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const adjustCounts = (fromStatus: string, toStatus: string) => {
     const map: Record<string, keyof Props["initialCounts"]> = {
@@ -192,6 +198,44 @@ export default function ProductsReviewClient({ initialProducts, initialCounts, i
     }
   };
 
+  const handleDelete = async (productId: string) => {
+    const current = products.find((p) => p.id === productId);
+    if (!current) return;
+    setDeletingId(productId);
+    setDeleteConfirmId(null);
+    try {
+      const response = await fetch(`/api/vendors/products/${productId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data?.error || "Failed to delete product");
+        setDeletingId(null);
+        return;
+      }
+      setProducts(products.filter((p) => p.id !== productId));
+      const map: Record<string, keyof Props["initialCounts"]> = {
+        pending_review: "pending",
+        approved: "approved",
+        rejected: "rejected",
+        draft: "draft",
+      };
+      const fromKey = map[current.status];
+      setCounts((prev) => {
+        const next = { ...prev };
+        if (fromKey) next[fromKey] = Math.max(0, (next[fromKey] || 0) - 1);
+        next.total = Math.max(0, (next.total || 0) - 1);
+        return next;
+      });
+      router.refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "An unexpected error occurred");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const handleMarkPending = async (productId: string) => {
     const current = products.find((product) => product.id === productId);
     if (!current) return;
@@ -303,6 +347,15 @@ export default function ProductsReviewClient({ initialProducts, initialCounts, i
                     <span className={`px-2 py-1 rounded text-xs font-semibold ${statusMeta(product.status).className}`}>
                       {statusMeta(product.status).label}
                     </span>
+                    {product.active === true && (
+                      <span className="px-2 py-1 rounded text-xs font-semibold bg-green-600/30 text-green-300">Active</span>
+                    )}
+                    <Link
+                      href={`/admin/products/${product.id}`}
+                      className="text-sm text-accent hover:underline"
+                    >
+                      View / Edit →
+                    </Link>
                   </div>
                   {product.description && (
                     <p className="text-muted mb-2">{product.description}</p>
@@ -352,6 +405,12 @@ export default function ProductsReviewClient({ initialProducts, initialCounts, i
                 <div className="flex flex-col gap-2 ml-4">
                   {showRejectForm !== product.id ? (
                     <>
+                      <Link
+                        href={`/admin/products/${product.id}`}
+                        className="btn-secondary text-center whitespace-nowrap"
+                      >
+                        View / Edit
+                      </Link>
                       {product.status === "draft" && (
                         <button
                           onClick={() => handleMarkPending(product.id)}
@@ -377,6 +436,36 @@ export default function ProductsReviewClient({ initialProducts, initialCounts, i
                           className="btn-secondary disabled:opacity-50 whitespace-nowrap"
                         >
                           Reject
+                        </button>
+                      )}
+                      {deleteConfirmId === product.id ? (
+                        <>
+                          <p className="text-xs text-muted mb-1">Delete this product?</p>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleDelete(product.id)}
+                              disabled={deletingId === product.id}
+                              className="btn-secondary bg-red-600 hover:bg-red-700 disabled:opacity-50 text-sm"
+                            >
+                              {deletingId === product.id ? "Deleting..." : "Yes, delete"}
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirmId(null)}
+                              disabled={deletingId === product.id}
+                              className="btn-secondary text-sm"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirmId(product.id)}
+                          disabled={loading === product.id}
+                          className="btn-secondary text-red-400 hover:bg-red-900/30 disabled:opacity-50 whitespace-nowrap"
+                        >
+                          Delete
                         </button>
                       )}
                     </>

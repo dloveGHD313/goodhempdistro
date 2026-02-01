@@ -7,7 +7,7 @@ import ProductsReviewClient from "./ProductsReviewClient";
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const VALID_STATUSES = ["pending_review", "approved", "rejected", "draft"] as const;
+const VALID_STATUSES = ["pending_review", "approved", "rejected", "draft", "all"] as const;
 
 async function getProductsSummary() {
   try {
@@ -85,7 +85,7 @@ export default async function AdminProductsPage({
   const requestedStatus = searchParams?.status;
   const initialStatus = VALID_STATUSES.includes(requestedStatus as (typeof VALID_STATUSES)[number])
     ? (requestedStatus as (typeof VALID_STATUSES)[number])
-    : summary.suggestedDefaultStatus;
+    : (summary.suggestedDefaultStatus as (typeof VALID_STATUSES)[number]);
 
   const productsData = await getPendingProducts(initialStatus);
 

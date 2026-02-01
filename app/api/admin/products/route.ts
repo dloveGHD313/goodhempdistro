@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 
-const VALID_STATUSES = ["pending_review", "approved", "rejected", "draft"] as const;
+const VALID_STATUSES = ["pending_review", "approved", "rejected", "draft", "all"] as const;
 const DEFAULT_STATUS_ORDER = ["pending_review", "draft", "approved", "rejected"] as const;
 
 export async function GET(req: NextRequest) {
@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
       ? statusParam
       : "pending_review";
     const limit = Math.min(Number(searchParams.get("limit") || 50), 200);
+    const statusFilter = status === "all" ? null : status;
 
     const admin = createSupabaseAdminClient();
 
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
       return count || 0;
     };
 
-    logStage("fetch_list", { status, limit });
+    logStage("fetch_list", { status, limit, statusFilter: statusFilter ?? "all" });
     logStage("fetch_counts");
     const [approved, rejected, draft, pending, total] = await Promise.all([
       fetchCount("approved"),
@@ -80,12 +81,15 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const { data, error } = await admin
+    let query = admin
       .from("products")
-      .select("id, name, description, price_cents, status, submitted_at, vendor_id, owner_user_id, created_at")
-      .eq("status", status)
+      .select("id, name, description, price_cents, status, active, submitted_at, reviewed_at, rejection_reason, vendor_id, owner_user_id, created_at")
       .order("created_at", { ascending: false })
       .limit(limit);
+    if (statusFilter) {
+      query = query.eq("status", statusFilter);
+    }
+    const { data, error } = await query;
 
     if (error) {
       console.error(`[admin/products][${requestId}] list_error`, {

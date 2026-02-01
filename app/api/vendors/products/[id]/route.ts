@@ -4,9 +4,9 @@ import { validateProductCompliance, requiresCOA } from "@/lib/compliance";
 import { isAdminEmail } from "@/lib/admin";
 import { requireAdminUsers } from "@/lib/auth/requireAdminUsers";
 
-/** Full select for product edit (may fail if optional columns missing in DB) */
+/** Full select for product edit + admin detail (status, review fields) */
 const PRODUCT_EDIT_SELECT_FULL =
-  "id, name, description, price_cents, category_id, active, product_type, coa_url, coa_object_path, delta8_disclaimer_ack, vendor_id, owner_user_id";
+  "id, name, description, price_cents, category_id, active, product_type, coa_url, coa_object_path, delta8_disclaimer_ack, vendor_id, owner_user_id, status, submitted_at, reviewed_at, rejection_reason";
 
 /** Minimal select for product edit when full select fails (schema mismatch / optional columns absent) */
 const PRODUCT_EDIT_SELECT_MINIMAL =
@@ -77,6 +77,10 @@ export async function GET(
       if (product) {
         product.coa_object_path = null;
         product.delta8_disclaimer_ack = product.delta8_disclaimer_ack ?? false;
+        product.status = product.status ?? "draft";
+        product.submitted_at = null;
+        product.reviewed_at = null;
+        product.rejection_reason = null;
       }
     } else if (fullError) {
       error = fullError;
