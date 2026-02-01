@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { useMarketMode, type MarketMode } from "@/lib/marketMode";
+import { getMarketDisplayName } from "@/lib/markets";
 
 type Option = {
   value: MarketMode;
@@ -11,12 +12,16 @@ type Option = {
   description: string;
 };
 
-const OPTIONS: Option[] = [
-  { value: "CBD_WELLNESS", label: "CBD & Wellness", description: "Non-recreational essentials" },
-  { value: "INDUSTRIAL", label: "Industrial", description: "Hemp materials + supplies" },
-  { value: "SERVICES", label: "Services", description: "Professional hemp services" },
-  { value: "RECREATIONAL", label: "Recreational", description: "21+ verified products" },
-];
+function getMarketOptions(): Option[] {
+  return [
+    { value: "CBD_WELLNESS", label: getMarketDisplayName("CBD_WELLNESS"), description: "Non-recreational essentials" },
+    { value: "INDUSTRIAL", label: getMarketDisplayName("INDUSTRIAL"), description: "Hemp materials + supplies" },
+    { value: "SERVICES", label: getMarketDisplayName("SERVICES"), description: "Professional hemp services" },
+    { value: "RECREATIONAL", label: getMarketDisplayName("RECREATIONAL"), description: "21+ verified products" },
+  ];
+}
+
+const OPTIONS = getMarketOptions();
 
 export default function MarketSwitcher() {
   const router = useRouter();
