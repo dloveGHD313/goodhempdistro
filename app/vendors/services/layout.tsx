@@ -8,8 +8,12 @@ export default async function VendorsServicesLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const result = await requireVendorOnboarding(user?.id ?? null);
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
+  if (!user) {
+    redirect("/login?redirect=/vendors/services");
+  }
+  const result = await requireVendorOnboarding(user.id);
   if ("redirectTo" in result) {
     redirect(result.redirectTo);
   }

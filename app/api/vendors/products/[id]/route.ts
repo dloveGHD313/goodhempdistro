@@ -17,16 +17,10 @@ export async function GET(
     }
 
     const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
 
-    console.log("[vendors/products/GET]", {
-      productId: id,
-      hasUser: !!user,
-      userId: user?.id ?? null,
-      authError: userError?.message ?? null,
-    });
-
-    if (userError || !user) {
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized", code: "SESSION_MISSING" }, { status: 401 });
     }
 
@@ -81,12 +75,12 @@ export async function PUT(
   try {
     const { id } = await params;
     const supabase = await createSupabaseServerClient();
-    
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    
-    if (userError || !user) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
+
+    if (!user) {
       return NextResponse.json(
-        { error: "Unauthorized" },
+        { error: "Unauthorized", code: "SESSION_MISSING" },
         { status: 401 }
       );
     }
@@ -248,12 +242,12 @@ export async function DELETE(
   try {
     const { id } = await params;
     const supabase = await createSupabaseServerClient();
-    
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    
-    if (userError || !user) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
+
+    if (!user) {
       return NextResponse.json(
-        { error: "Unauthorized" },
+        { error: "Unauthorized", code: "SESSION_MISSING" },
         { status: 401 }
       );
     }
