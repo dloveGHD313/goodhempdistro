@@ -67,7 +67,7 @@ export async function GET(
     const owns = isOwner || viaVendor;
 
     if (!owns && !isAdmin) {
-      return NextResponse.json({ error: "Product not found or access denied", code: "ACCESS_DENIED" }, { status: 404 });
+      return NextResponse.json({ error: "Product not found or access denied", code: "ACCESS_DENIED" }, { status: 403 });
     }
 
     return NextResponse.json({ product });
