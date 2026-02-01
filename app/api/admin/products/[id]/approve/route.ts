@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { writeAdminActionLog } from "@/lib/adminActionLog";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -118,6 +119,15 @@ export async function POST(
     }
 
     logStage("approved", { productId: id, adminId: adminCheck.user.id });
+
+    await writeAdminActionLog(admin, {
+      actor_user_id: adminCheck.user.id,
+      actor_email: adminCheck.user.email ?? null,
+      action: "approve",
+      entity_id: id,
+      prev_status: "pending_review",
+      new_status: "approved",
+    });
 
     // Revalidate paths
     revalidatePath("/admin/products");

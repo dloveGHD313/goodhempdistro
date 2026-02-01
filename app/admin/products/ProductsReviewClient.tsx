@@ -83,6 +83,77 @@ export default function ProductsReviewClient({ initialProducts, initialCounts, i
   const [listError, setListError] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState<"approve" | "reject" | "set_active" | "set_inactive" | "delete" | null>(null);
+  const [bulkRejectReason, setBulkRejectReason] = useState("");
+  const [bulkLoading, setBulkLoading] = useState(false);
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === products.length) setSelected(new Set());
+    else setSelected(new Set(products.map((p) => p.id)));
+  };
+
+  const runBulk = async () => {
+    if (!bulkAction) return;
+    if (bulkAction === "reject" && bulkRejectReason.trim().length < 5) {
+      alert("Rejection reason must be at least 5 characters");
+      return;
+    }
+    const allowed: Record<string, string[]> = {
+      approve: ["pending_review"],
+      reject: ["pending_review"],
+      set_active: ["approved"],
+      set_inactive: ["approved"],
+      delete: ["draft", "pending_review", "approved", "rejected"],
+    };
+    const required = allowed[bulkAction] || [];
+    const selectedProducts = products.filter((p) => selected.has(p.id));
+    const invalid = selectedProducts.filter((p) => !required.includes(p.status));
+    if (invalid.length > 0) {
+      alert(`${invalid.length} selected product(s) have invalid status for "${bulkAction}". Allowed statuses: ${required.join(", ")}.`);
+      return;
+    }
+    setBulkLoading(true);
+    try {
+      const res = await fetch("/api/admin/products/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: bulkAction,
+          productIds: Array.from(selected),
+          reason: bulkAction === "reject" ? bulkRejectReason.trim() : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        alert(data?.error || "Bulk action failed");
+        if (data?.invalid?.length) alert(`${data.invalid.length} invalid: ${data.invalid.map((i: { error: string }) => i.error).join("; ")}`);
+        setBulkLoading(false);
+        return;
+      }
+      const failed = (data.results || []).filter((r: { status: string }) => r.status === "failed");
+      if (failed.length > 0) alert(`${failed.length} failed: ${failed.map((f: { error: string }) => f.error).join("; ")}`);
+      setProducts(products.filter((p) => !selected.has(p.id)));
+      setSelected(new Set());
+      setBulkAction(null);
+      setBulkRejectReason("");
+      await fetchList(activeStatus);
+      router.refresh();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Request failed");
+    } finally {
+      setBulkLoading(false);
+    }
+  };
 
   const adjustCounts = (fromStatus: string, toStatus: string) => {
     const map: Record<string, keyof Props["initialCounts"]> = {
@@ -331,6 +402,65 @@ export default function ProductsReviewClient({ initialProducts, initialCounts, i
         </div>
       )}
 
+      {selected.size > 0 && (
+        <div className="card-glass p-4 flex flex-wrap items-center gap-4">
+          <span className="font-medium">{selected.size} selected</span>
+          {!bulkAction ? (
+            <>
+              {(activeStatus === "pending_review" || activeStatus === "all") && (
+                <>
+                  <button type="button" onClick={() => setBulkAction("approve")} className="btn-primary text-sm">
+                    Approve selected
+                  </button>
+                  <button type="button" onClick={() => setBulkAction("reject")} className="btn-secondary text-sm">
+                    Reject selected
+                  </button>
+                </>
+              )}
+              {activeStatus === "approved" && (
+                <>
+                  <button type="button" onClick={() => setBulkAction("set_active")} className="btn-primary text-sm">
+                    Set Active
+                  </button>
+                  <button type="button" onClick={() => setBulkAction("set_inactive")} className="btn-secondary text-sm">
+                    Set Inactive
+                  </button>
+                </>
+              )}
+              <button type="button" onClick={() => setBulkAction("delete")} className="btn-secondary text-red-400 hover:bg-red-900/30 text-sm">
+                Delete selected
+              </button>
+              <button type="button" onClick={() => { setSelected(new Set()); setBulkAction(null); setBulkRejectReason(""); }} className="btn-secondary text-sm">
+                Clear selection
+              </button>
+            </>
+          ) : (
+            <>
+              {bulkAction === "reject" && (
+                <textarea
+                  value={bulkRejectReason}
+                  onChange={(e) => setBulkRejectReason(e.target.value)}
+                  placeholder="Rejection reason (required, min 5 chars)"
+                  rows={2}
+                  className="flex-1 min-w-[200px] px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-white"
+                />
+              )}
+              <button
+                type="button"
+                onClick={runBulk}
+                disabled={bulkLoading || (bulkAction === "reject" && bulkRejectReason.trim().length < 5)}
+                className="btn-primary text-sm disabled:opacity-50"
+              >
+                {bulkLoading ? "Processing..." : `Confirm ${bulkAction.replace("_", " ")}`}
+              </button>
+              <button type="button" onClick={() => { setBulkAction(null); setBulkRejectReason(""); }} disabled={bulkLoading} className="btn-secondary text-sm">
+                Cancel
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Products List */}
       {products.length === 0 ? (
         <div className="card-glass p-8 text-center">
@@ -338,9 +468,25 @@ export default function ProductsReviewClient({ initialProducts, initialCounts, i
         </div>
       ) : (
         <div className="space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <input
+              type="checkbox"
+              checked={products.length > 0 && selected.size === products.length}
+              onChange={toggleSelectAll}
+              className="accent-accent"
+            />
+            <span className="text-sm text-muted">Select all on page</span>
+          </div>
           {products.map((product) => (
             <div key={product.id} className="card-glass p-6">
               <div className="flex items-start justify-between">
+                <div className="flex items-start gap-3 flex-1">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(product.id)}
+                    onChange={() => toggleSelect(product.id)}
+                    className="mt-1 accent-accent"
+                  />
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="text-xl font-semibold">{product.name}</h3>
@@ -401,6 +547,7 @@ export default function ProductsReviewClient({ initialProducts, initialCounts, i
                       />
                     </div>
                   )}
+                </div>
                 </div>
                 <div className="flex flex-col gap-2 ml-4">
                   {showRejectForm !== product.id ? (

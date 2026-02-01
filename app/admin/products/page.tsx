@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
+import Link from "next/link";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import Footer from "@/components/Footer";
 import ProductsReviewClient from "./ProductsReviewClient";
@@ -97,7 +98,17 @@ export default async function AdminProductsPage({
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
         <section className="section-shell">
-          <h1 className="text-4xl font-bold mb-8 text-accent">Product Review Queue</h1>
+          <div className="flex items-center justify-between mb-8">
+            <h1 className="text-4xl font-bold text-accent">Product Review Queue</h1>
+            <div className="flex gap-3">
+              <Link href="/admin/products/queue" className="btn-secondary">
+                Product Queue (pending first)
+              </Link>
+              <Link href="/admin/audit" className="btn-secondary">
+                Audit Log
+              </Link>
+            </div>
+          </div>
           <ProductsReviewClient 
             initialProducts={productsData.products || []} 
             initialCounts={productsData.counts || summary.counts || { total: 0, pending: 0, approved: 0, draft: 0, rejected: 0 }} 

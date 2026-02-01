@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { writeAdminActionLog } from "@/lib/adminActionLog";
 import { revalidatePath } from "next/cache";
 
 const VALID_TARGET_STATUSES = ["pending_review"] as const;
@@ -116,6 +117,15 @@ export async function PATCH(
     }
 
     logStage("status_updated", { productId: id, status: updatedProduct?.status });
+
+    await writeAdminActionLog(admin, {
+      actor_user_id: adminCheck.user.id,
+      actor_email: adminCheck.user.email ?? null,
+      action: "status",
+      entity_id: id,
+      prev_status: "draft",
+      new_status: "pending_review",
+    });
 
     revalidatePath("/admin/products");
     revalidatePath("/vendors/products");

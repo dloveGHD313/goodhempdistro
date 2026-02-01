@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { validateProductCompliance, requiresCOA } from "@/lib/compliance";
 import { isAdminEmail } from "@/lib/admin";
 import { requireAdminUsers } from "@/lib/auth/requireAdminUsers";
+import { writeAdminActionLog } from "@/lib/adminActionLog";
 
 /** Full select for product edit + admin detail (status, review fields) */
 const PRODUCT_EDIT_SELECT_FULL =
@@ -349,7 +351,7 @@ export async function DELETE(
     // Verify access: admin can delete any product; vendor can delete only own
     const { data: product } = await supabase
       .from("products")
-      .select("vendor_id, vendors!inner(owner_user_id)")
+      .select("vendor_id, status, vendors!inner(owner_user_id)")
       .eq("id", id)
       .single();
 
@@ -382,6 +384,18 @@ export async function DELETE(
         { error: "Failed to delete product" },
         { status: 500 }
       );
+    }
+
+    if (isAdmin) {
+      const admin = getSupabaseAdminClient();
+      await writeAdminActionLog(admin, {
+        actor_user_id: user.id,
+        actor_email: user.email ?? null,
+        action: "delete",
+        entity_id: id,
+        prev_status: (product as { status?: string })?.status ?? null,
+        new_status: null,
+      });
     }
 
     return NextResponse.json({

@@ -36,6 +36,7 @@ export async function GET(req: NextRequest) {
       : "pending_review";
     const limit = Math.min(Number(searchParams.get("limit") || 50), 200);
     const statusFilter = status === "all" ? null : status;
+    const sortOldestFirst = searchParams.get("sort") === "oldest_first";
 
     const admin = createSupabaseAdminClient();
 
@@ -84,10 +85,14 @@ export async function GET(req: NextRequest) {
     let query = admin
       .from("products")
       .select("id, name, description, price_cents, status, active, submitted_at, reviewed_at, rejection_reason, vendor_id, owner_user_id, created_at")
-      .order("created_at", { ascending: false })
       .limit(limit);
     if (statusFilter) {
       query = query.eq("status", statusFilter);
+    }
+    if (sortOldestFirst) {
+      query = query.order("submitted_at", { ascending: true, nullsFirst: false });
+    } else {
+      query = query.order("created_at", { ascending: false });
     }
     const { data, error } = await query;
 
