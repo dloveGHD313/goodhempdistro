@@ -420,6 +420,9 @@ export default async function VendorDashboardPage() {
                 <Link href="/vendors/payouts" className="btn-secondary">
                   Payouts (Stripe Connect)
                 </Link>
+                <Link href="/vendors/referrals" className="btn-secondary">
+                  Referrals
+                </Link>
               </div>
             )}
           </div>

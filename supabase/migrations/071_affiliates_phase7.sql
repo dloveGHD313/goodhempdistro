@@ -1,6 +1,55 @@
 -- Phase 7: Affiliates — ledger, payouts, reward rules, Stripe Connect for payouts
--- Builds on existing affiliates + affiliate_referrals (004)
+-- Creates affiliates + affiliate_referrals if missing (from 004), then Phase 7 extensions.
 
+-- ========== Ensure base tables exist (idempotent; safe if 004 was not run) ==========
+CREATE TABLE IF NOT EXISTS public.affiliates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  affiliate_code TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_affiliates_user_id ON affiliates(user_id);
+CREATE INDEX IF NOT EXISTS idx_affiliates_code ON affiliates(affiliate_code);
+CREATE INDEX IF NOT EXISTS idx_affiliates_status ON affiliates(status);
+
+ALTER TABLE affiliates ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Affiliates: user can read own" ON affiliates;
+CREATE POLICY "Affiliates: user can read own" ON affiliates
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Affiliates: user can insert own" ON affiliates;
+CREATE POLICY "Affiliates: user can insert own" ON affiliates
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE TABLE IF NOT EXISTS public.affiliate_referrals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  affiliate_id UUID NOT NULL REFERENCES affiliates(id) ON DELETE CASCADE,
+  referred_user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  plan_type TEXT NOT NULL CHECK (plan_type IN ('vendor', 'consumer')),
+  reward_cents INT NOT NULL DEFAULT 0 CHECK (reward_cents >= 0),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid')),
+  stripe_session_id TEXT UNIQUE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_affiliate_referrals_affiliate_id ON affiliate_referrals(affiliate_id);
+CREATE INDEX IF NOT EXISTS idx_affiliate_referrals_referred_user_id ON affiliate_referrals(referred_user_id);
+CREATE INDEX IF NOT EXISTS idx_affiliate_referrals_status ON affiliate_referrals(status);
+CREATE INDEX IF NOT EXISTS idx_affiliate_referrals_session ON affiliate_referrals(stripe_session_id);
+
+ALTER TABLE affiliate_referrals ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Affiliate referrals: affiliate can read own" ON affiliate_referrals;
+CREATE POLICY "Affiliate referrals: affiliate can read own" ON affiliate_referrals
+  FOR SELECT USING (
+    affiliate_id IN (SELECT id FROM affiliates WHERE user_id = auth.uid())
+  );
+
+-- ========== Phase 7 extensions ==========
 -- affiliates: add Stripe Connect for payouts
 ALTER TABLE affiliates ADD COLUMN IF NOT EXISTS stripe_account_id TEXT NULL UNIQUE;
 ALTER TABLE affiliates ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();

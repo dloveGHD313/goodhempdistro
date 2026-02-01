@@ -15,6 +15,92 @@ import {
 } from "@/lib/consumer-loyalty";
 import { applyPlatformFeesToOrder } from "@/lib/platformFees";
 
+/** Award vendor referral first-sale reward when a referred vendor's first order is paid. */
+async function awardVendorReferralFirstSale(
+  admin: Awaited<ReturnType<typeof getSupabaseAdminClient>>,
+  orderId: string
+) {
+  try {
+    const { data: items } = await admin
+      .from("order_items")
+      .select("vendor_user_id")
+      .eq("order_id", orderId);
+    const vendorUserIds = [...new Set((items ?? []).map((i) => i.vendor_user_id).filter(Boolean))] as string[];
+    if (vendorUserIds.length === 0) return;
+
+    const { data: vendors } = await admin
+      .from("vendors")
+      .select("id")
+      .in("owner_user_id", vendorUserIds);
+    const vendorIds = (vendors ?? []).map((v) => v.id);
+    if (vendorIds.length === 0) return;
+
+    for (const referredVendorId of vendorIds) {
+      const { data: signupReferral } = await admin
+        .from("vendor_referrals")
+        .select("id, referrer_vendor_id")
+        .eq("referred_vendor_id", referredVendorId)
+        .eq("event_type", "signup")
+        .maybeSingle();
+      if (!signupReferral) continue;
+
+      const { data: existingFirstSale } = await admin
+        .from("vendor_referrals")
+        .select("id")
+        .eq("referred_vendor_id", referredVendorId)
+        .eq("event_type", "first_sale")
+        .maybeSingle();
+      if (existingFirstSale) continue;
+
+      const { data: vendor } = await admin.from("vendors").select("owner_user_id").eq("id", referredVendorId).single();
+      if (!vendor) continue;
+
+      const { data: orderIds } = await admin.from("order_items").select("order_id").eq("vendor_user_id", vendor.owner_user_id);
+      const ids = [...new Set((orderIds ?? []).map((r) => r.order_id))];
+      if (ids.length === 0) continue;
+      const { count } = await admin.from("orders").select("id", { count: "exact", head: true }).eq("status", "paid").in("id", ids);
+      const paidOrderCount = count ?? 0;
+      if (paidOrderCount !== 1) continue;
+
+      const { data: rule } = await admin
+        .from("vendor_referral_reward_rules")
+        .select("reward_cents")
+        .eq("event_type", "first_sale")
+        .eq("active", true)
+        .maybeSingle();
+      const rewardCents = rule?.reward_cents ?? 2000;
+
+      const { data: firstSale } = await admin
+        .from("vendor_referrals")
+        .insert({
+          referrer_vendor_id: signupReferral.referrer_vendor_id,
+          referred_vendor_id: referredVendorId,
+          event_type: "first_sale",
+          order_id: orderId,
+          reward_cents: rewardCents,
+          status: "pending",
+        })
+        .select("id")
+        .single();
+      if (!firstSale) continue;
+
+      await admin.from("vendor_referral_ledger").insert({
+        referrer_vendor_id: signupReferral.referrer_vendor_id,
+        amount_cents: rewardCents,
+        status: "available",
+        vendor_referral_id: firstSale.id,
+        order_id: orderId,
+        metadata: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      console.log(`✅ [vendor-referral] First sale reward | referrer=${signupReferral.referrer_vendor_id} referred=${referredVendorId} order=${orderId} reward=${rewardCents}¢`);
+    }
+  } catch (e) {
+    console.warn("[vendor-referral] first-sale award error:", e);
+  }
+}
+
 // Lazy initialization - only create Stripe client when actually used
 // This allows the build to complete even if env vars are missing
 function getStripeClient(): Stripe {
@@ -591,6 +677,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     const admin = getSupabaseAdminClient();
     await applyPlatformFeesToOrder(admin, orderId);
     await awardPurchasePointsForOrder(orderId);
+    await awardVendorReferralFirstSale(admin, orderId);
   }
 }
 
@@ -629,6 +716,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     const admin = getSupabaseAdminClient();
     await applyPlatformFeesToOrder(admin, order.id);
     await awardPurchasePointsForOrder(order.id);
+    await awardVendorReferralFirstSale(admin, order.id);
   } else {
     console.warn(`⚠️ [handlePaymentIntentSucceeded] No order found for intent=${paymentIntent.id}`);
   }

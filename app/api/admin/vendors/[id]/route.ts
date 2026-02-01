@@ -27,10 +27,10 @@ export async function PUT(
 
     const admin = getSupabaseAdminClient();
 
-    // Get application
+    // Get application (include referral_code for vendor referral attribution)
     const { data: application, error: appError } = await admin
       .from("vendor_applications")
-      .select("id, user_id, business_name, description, status")
+      .select("id, user_id, business_name, description, status, referral_code")
       .eq("id", id)
       .single();
 
@@ -68,6 +68,52 @@ export async function PUT(
       }
 
       console.log(`[admin/vendors] Vendor ${vendor.id} created or reused for user ${application.user_id} (status: ${vendor.status})`);
+
+      // Vendor referral: if application had referral_code, create signup referral + ledger
+      const referralCode = application.referral_code && /^[A-Za-z0-9\-]+$/.test(String(application.referral_code).trim())
+        ? String(application.referral_code).trim()
+        : null;
+      if (referralCode) {
+        const { data: referrer } = await admin
+          .from("vendor_referrers")
+          .select("id, vendor_id")
+          .eq("referral_code", referralCode)
+          .maybeSingle();
+        if (referrer && referrer.vendor_id !== vendor.id) {
+          const { data: rule } = await admin
+            .from("vendor_referral_reward_rules")
+            .select("reward_cents")
+            .eq("event_type", "signup")
+            .eq("active", true)
+            .maybeSingle();
+          const rewardCents = rule?.reward_cents ?? 1000;
+          const { data: referral } = await admin
+            .from("vendor_referrals")
+            .insert({
+              referrer_vendor_id: referrer.vendor_id,
+              referred_vendor_id: vendor.id,
+              event_type: "signup",
+              order_id: null,
+              reward_cents: rewardCents,
+              status: "pending",
+            })
+            .select("id")
+            .single();
+          if (referral) {
+            await admin.from("vendor_referral_ledger").insert({
+              referrer_vendor_id: referrer.vendor_id,
+              amount_cents: rewardCents,
+              status: "available",
+              vendor_referral_id: referral.id,
+              order_id: null,
+              metadata: null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
+            console.log(`[admin/vendors] Vendor referral signup created | referrer=${referrer.vendor_id} referred=${vendor.id} reward=${rewardCents}¢`);
+          }
+        }
+      }
 
       // Update profile role to vendor (if profile exists)
       const { error: profileError } = await admin

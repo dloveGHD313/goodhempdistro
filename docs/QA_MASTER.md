@@ -28,7 +28,7 @@ Baseline and phase verification. Update after each phase.
 - **Phase 5 — Admin analytics:** See `docs/qa-admin-analytics.md`
 - **Phase 6 — Loyalty:** See `docs/qa-loyalty.md`; `/account/loyalty`; existing consumer_loyalty + webhook
 - **Phase 7 — Affiliates:** See `docs/qa-affiliates-phase7.md`; migration 071; ledger + payouts + Connect; `/r/[code]`, `/affiliates/portal`, admin payout queue
-- **Phase 8 — Vendor referrals:** (see Phase 8 spec; full implementation in follow-up)
+- **Phase 8 — Vendor referrals:** See `docs/qa-vendor-referrals-phase8.md`; migration 072; referrers, signup + first_sale, ledger, payouts; `/vr/[code]`, `/vendors/referrals`, admin payout queue
 - **Phase 9 — Discovery/leads/reviews:** As needed; existing discovery/reviews in place
 
 ## Hard rules (verify per phase)

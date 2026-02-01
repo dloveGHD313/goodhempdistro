@@ -1,6 +1,6 @@
 -- =============================================================================
 -- GoodHempDistro — New migrations (paste into Supabase SQL Editor)
--- Run in order: 067, 068, 069, 071 (070 fix only if 067 used profiles.is_admin)
+-- Run in order: 067, 068, 069, 071, 072 (070 fix only if 067 used profiles.is_admin)
 -- =============================================================================
 
 -- ========== 067_orders_foundation ==========
@@ -128,3 +128,6 @@ CREATE POLICY "Affiliate payouts: admin can update" ON affiliate_payouts FOR UPD
 ALTER TABLE affiliate_ledger ADD COLUMN IF NOT EXISTS payout_id UUID REFERENCES affiliate_payouts(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_affiliate_ledger_payout_id ON affiliate_ledger(payout_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_affiliate_referrals_affiliate_referred_unique ON affiliate_referrals(affiliate_id, referred_user_id) WHERE referred_user_id IS NOT NULL;
+
+-- ========== 072_vendor_referrals_phase8 ==========
+-- Run full migration from supabase/migrations/072_vendor_referrals_phase8.sql (vendor_referrers, vendor_referrals, ledger, payouts, vendor_applications.referral_code)
