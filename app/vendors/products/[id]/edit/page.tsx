@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
+import { cookies, headers } from "next/headers";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getCategories } from "@/lib/categories";
-import { isAdminEmail } from "@/lib/admin";
+import { getSiteUrl } from "@/lib/stripe";
 import Footer from "@/components/Footer";
 import EditProductForm from "./EditProductForm";
 
@@ -21,67 +22,20 @@ type ProductRow = {
   coa_url?: string | null;
   coa_object_path?: string | null;
   delta8_disclaimer_ack?: boolean;
-  owner_user_id?: string;
-  vendor_id?: string;
 };
 
-type NotFoundReason = "SESSION_MISSING" | "ACCESS_DENIED" | "NOT_FOUND" | "INVALID_ID";
+type ErrorContentProps = {
+  heading: string;
+  detail: string;
+};
 
-async function getProductForEdit(
-  productId: string,
-  userId: string,
-  isAdmin: boolean
-): Promise<{ product: ProductRow } | { notFound: NotFoundReason }> {
-  const supabase = await createSupabaseServerClient();
-  const { data: product, error } = await supabase
-    .from("products")
-    .select("id, name, description, price_cents, category_id, active, product_type, coa_url, coa_object_path, delta8_disclaimer_ack, owner_user_id, vendor_id")
-    .eq("id", productId)
-    .maybeSingle();
-
-  if (error) {
-    console.error("[vendors/products/edit] fetch error", { productId, error: error.message });
-    return { notFound: "NOT_FOUND" };
-  }
-
-  if (!product) {
-    return { notFound: "NOT_FOUND" };
-  }
-
-  const isOwner = product.owner_user_id === userId;
-  let viaVendor = false;
-  if (!isOwner && product.vendor_id) {
-    const { data: v } = await supabase
-      .from("vendors")
-      .select("owner_user_id")
-      .eq("id", product.vendor_id)
-      .maybeSingle();
-    viaVendor = v?.owner_user_id === userId;
-  }
-  const owns = isOwner || viaVendor;
-
-  if (!owns && !isAdmin) {
-    return { notFound: "ACCESS_DENIED" };
-  }
-
-  return { product };
-}
-
-function NotFoundContent({ reason, productId }: { reason: NotFoundReason; productId?: string }) {
-  const messages: Record<NotFoundReason, string> = {
-    SESSION_MISSING: "Your session may have expired. Please sign in again.",
-    ACCESS_DENIED: "You do not have permission to edit this product. It may belong to another vendor.",
-    NOT_FOUND: "Product not found. It may have been deleted or the link could be invalid.",
-    INVALID_ID: "Invalid product link. Please use the Edit button from your products list.",
-  };
-  const detail = messages[reason];
-
+function ErrorContent({ heading, detail }: ErrorContentProps) {
   return (
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
         <section className="section-shell">
           <div className="max-w-2xl mx-auto surface-card p-8 text-center">
-            <h1 className="text-2xl font-semibold mb-2 text-accent">Product not found</h1>
+            <h1 className="text-2xl font-semibold mb-2 text-accent">{heading}</h1>
             <p className="text-muted mb-4">{detail}</p>
             <div className="flex gap-3 justify-center flex-wrap">
               <Link href="/vendors/products" className="btn-primary">
@@ -99,6 +53,35 @@ function NotFoundContent({ reason, productId }: { reason: NotFoundReason; produc
   );
 }
 
+async function fetchProductViaApi(
+  productId: string,
+  cookieHeader: string,
+  baseUrl: string
+): Promise<
+  | { status: 200; product: ProductRow }
+  | { status: 401 | 403 | 404 | 500; error: string; code?: string }
+> {
+  const res = await fetch(`${baseUrl}/api/vendors/products/${productId}`, {
+    headers: { Cookie: cookieHeader },
+    cache: "no-store",
+  });
+  const json = await res.json().catch(() => ({}));
+
+  if (res.status === 200) {
+    const product = json?.product;
+    if (!product) {
+      return { status: 404, error: "Product not found", code: "NOT_FOUND" };
+    }
+    return { status: 200, product: product as ProductRow };
+  }
+
+  return {
+    status: res.status as 401 | 403 | 404 | 500,
+    error: json?.error || "Failed to load product",
+    code: json?.code,
+  };
+}
+
 export default async function EditProductPage({
   params,
 }: {
@@ -110,7 +93,12 @@ export default async function EditProductPage({
   const productId = typeof rawId === "string" ? rawId : Array.isArray(rawId) ? rawId[0] : "";
 
   if (!productId) {
-    return <NotFoundContent reason="INVALID_ID" />;
+    return (
+      <ErrorContent
+        heading="Product not found"
+        detail="Invalid product link. Please use the Edit button from your products list."
+      />
+    );
   }
 
   const supabase = await createSupabaseServerClient();
@@ -120,11 +108,51 @@ export default async function EditProductPage({
     redirect(`/login?redirect=${encodeURIComponent(`/vendors/products/${productId}/edit`)}`);
   }
 
-  const isAdmin = isAdminEmail(user.email);
-  const result = await getProductForEdit(productId, user.id, isAdmin);
+  const hdrs = await headers();
+  const cookieStore = await cookies();
+  const cookieHeader = cookieStore.getAll().map((c) => `${c.name}=${c.value}`).join("; ");
+  const baseUrl = getSiteUrl({ headers: hdrs });
 
-  if ("notFound" in result) {
-    return <NotFoundContent reason={result.notFound} productId={productId} />;
+  const result = await fetchProductViaApi(productId, cookieHeader, baseUrl);
+
+  if (result.status === 401) {
+    redirect(`/login?redirect=${encodeURIComponent(`/vendors/products/${productId}/edit`)}`);
+  }
+
+  if (result.status === 403) {
+    return (
+      <ErrorContent
+        heading="Access denied"
+        detail="You do not have permission to edit this product. It may belong to another vendor."
+      />
+    );
+  }
+
+  if (result.status === 404) {
+    return (
+      <ErrorContent
+        heading="Product not found"
+        detail="It may have been deleted or the link could be invalid."
+      />
+    );
+  }
+
+  if (result.status === 500) {
+    return (
+      <ErrorContent
+        heading="Error loading product"
+        detail={result.error}
+      />
+    );
+  }
+
+  if (result.status !== 200 || !("product" in result)) {
+    return (
+      <ErrorContent
+        heading="Product not found"
+        detail="It may have been deleted or the link could be invalid."
+      />
+    );
   }
 
   const categories = await getCategories();
