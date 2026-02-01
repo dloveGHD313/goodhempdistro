@@ -66,11 +66,11 @@ export function validateProductCompliance(payload: ProductCompliancePayload): Co
     }
   }
 
-  // Intoxicating products are only allowed until cutoff date
+  // Recreational (intoxicating) products are only allowed until cutoff date
   if (payload.product_type === "intoxicating" && !isIntoxicatingAllowedNow()) {
     errors.push({
       field: "product_type",
-      message: `Intoxicating products are only allowed until ${getIntoxicatingCutoffDate()}. The cutoff date has passed.`,
+      message: `Recreational products are only allowed until ${getIntoxicatingCutoffDate()}. The cutoff date has passed.`,
     });
   }
 

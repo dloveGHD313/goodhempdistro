@@ -70,7 +70,11 @@ export default async function FavoritesPage() {
   const productsWithMode = productsRaw.map((p: { market_category?: string | null; is_gated?: boolean }) => ({
     ...p,
     market_mode:
-      p?.is_gated || p?.market_category === "INTOXICATING" ? ("gated" as const) : ("ungated" as const),
+      p?.is_gated ||
+      p?.market_category === "RECREATIONAL" ||
+      p?.market_category === "INTOXICATING"
+        ? ("gated" as const)
+        : ("ungated" as const),
   }));
   const products = productsWithMode.filter((product: { market_mode: string }) =>
     includeGated ? true : product?.market_mode !== "gated"

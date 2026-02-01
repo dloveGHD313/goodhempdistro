@@ -8,15 +8,15 @@
 - Product cards for ungated markets show price and details links.
 - Services listings render in `/services` and are browseable.
 
-## INTOXICATING (gated)
-- Switching to INTOXICATING shows verification modal.
+## RECREATIONAL (gated)
+- Switching to Recreational shows verification modal.
 - Unverified users can see locked cards (name + gated tag), no price, no detail links.
-- Product detail for INTOXICATING shows locked view with verification CTA.
-- Checkout for INTOXICATING returns 403 with code `GATED_MARKET_REQUIRES_VERIFICATION`.
+- Product detail for Recreational shows locked view with verification CTA.
+- Checkout for Recreational returns 403 with code `GATED_MARKET_REQUIRES_VERIFICATION`.
 
 ## Verified user flow
-- Verified user can browse INTOXICATING products.
-- INTOXICATING product details show price and Buy flow.
+- Verified user can browse Recreational products.
+- Recreational product details show price and Buy flow.
 - Checkout succeeds for gated items.
 
 ## Verification flow

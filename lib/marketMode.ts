@@ -2,8 +2,9 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { normalizeMarket, type MarketCategory } from "@/lib/markets";
 
-export type MarketMode = "CBD_WELLNESS" | "INDUSTRIAL" | "SERVICES" | "INTOXICATING";
+export type MarketMode = MarketCategory;
 
 type MarketModeContextValue = {
   mode: MarketMode;
@@ -16,13 +17,13 @@ type MarketModeContextValue = {
 const MarketModeContext = createContext<MarketModeContextValue | null>(null);
 
 const STORAGE_KEY = "ghd_market_mode";
-const VALID_MODES: MarketMode[] = ["CBD_WELLNESS", "INDUSTRIAL", "SERVICES", "INTOXICATING"];
+const VALID_MODES: MarketMode[] = ["CBD_WELLNESS", "INDUSTRIAL", "SERVICES", "RECREATIONAL"];
 
 const normalizeMode = (value: string | null | undefined): MarketMode | null => {
-  if (!value) return null;
-  if (VALID_MODES.includes(value as MarketMode)) return value as MarketMode;
+  const n = normalizeMarket(value);
+  if (n) return n;
   if (value === "CBD") return "CBD_WELLNESS";
-  if (value === "GATED") return "INTOXICATING";
+  if (value === "GATED") return "RECREATIONAL";
   return null;
 };
 

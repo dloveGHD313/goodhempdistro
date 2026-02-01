@@ -103,12 +103,12 @@ export default function ProductsList({ initialProducts, initialCategoryId }: Pro
       .catch(() => undefined);
   }, [initialProducts]);
 
-  const showVerificationNotice = mode === "INTOXICATING" && !isVerified;
+  const showVerificationNotice = mode === "RECREATIONAL" && !isVerified;
 
   const filteredProducts = useMemo(() => {
     let filtered = initialProducts.filter((product) => {
       const gated = product.is_gated === true;
-      if (mode === "INTOXICATING" && isVerified) {
+      if (mode === "RECREATIONAL" && isVerified) {
         return gated;
       }
       return !gated;
@@ -137,7 +137,7 @@ export default function ProductsList({ initialProducts, initialCategoryId }: Pro
       {showVerificationNotice && (
         <div className="card-glass p-4 mb-6 border border-yellow-500/40 text-yellow-200">
           <p className="text-sm">
-            The intoxicating market requires 21+ verification. Start verification to unlock gated
+            The recreational market requires 21+ verification. Start verification to unlock gated
             products.
           </p>
           <a href="/verify" className="btn-secondary mt-3 inline-flex">
@@ -178,8 +178,9 @@ export default function ProductsList({ initialProducts, initialCategoryId }: Pro
                 ? product.description.trim()
                 : "Product details coming soon.";
             const marketCategory = product.market_category || "CBD_WELLNESS";
-            const isIntoxicating = marketCategory === "INTOXICATING";
-            const marketMode = product.market_mode ?? (isIntoxicating ? "gated" : "ungated");
+            const isRecreational =
+              marketCategory === "RECREATIONAL" || marketCategory === "INTOXICATING";
+            const marketMode = product.market_mode ?? (isRecreational ? "gated" : "ungated");
             const isLocked = marketMode === "gated" && !isVerified;
             return (
               <div key={product.id} className="card-glass p-6 hover-lift h-full">
@@ -221,7 +222,7 @@ export default function ProductsList({ initialProducts, initialCategoryId }: Pro
               <div className="flex flex-wrap gap-2 mt-4 mb-4">
                 <span className="delivery-chip">🚚 {deliveryEta}</span>
                 <span className="compliance-chip">✅ Compliance Ready</span>
-                {isIntoxicating ? (
+                {isRecreational ? (
                   <span className="compliance-chip">
                     {isLocked ? "🔒 Gated" : "🔒 21+ Verified"}
                   </span>

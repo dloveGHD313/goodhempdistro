@@ -22,7 +22,10 @@ export function isGatedProduct(product: GateProduct | null | undefined): boolean
   if (!product) return false;
   if (product.market_mode === "gated") return true;
   if (product.is_gated === true) return true;
-  return product.market_category === "INTOXICATING";
+  return (
+    product.market_category === "RECREATIONAL" ||
+    product.market_category === "INTOXICATING"
+  );
 }
 
 const GATED_MESSAGE = "21+ verification is required to access gated products.";

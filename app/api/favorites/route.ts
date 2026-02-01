@@ -31,7 +31,9 @@ async function ensureEntityIsVisible(
       .maybeSingle();
     if (!product?.vendor_id) return false;
     const isGated =
-      product.is_gated === true || product.market_category === "INTOXICATING";
+      product.is_gated === true ||
+      product.market_category === "RECREATIONAL" ||
+      product.market_category === "INTOXICATING";
     if (!includeGated && isGated) return false;
     const { data: vendor } = await supabase
       .from("vendors")

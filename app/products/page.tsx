@@ -96,7 +96,9 @@ async function getProducts(
 
     const products = rawProducts.map((product) => {
       const marketMode: "gated" | "ungated" =
-        product.is_gated || product.market_category === "INTOXICATING"
+        product.is_gated ||
+        product.market_category === "RECREATIONAL" ||
+        product.market_category === "INTOXICATING"
           ? "gated"
           : "ungated";
       return {

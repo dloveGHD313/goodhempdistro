@@ -264,7 +264,7 @@ export async function POST(req: NextRequest) {
 
     if (!intoxicating_policy_ack) {
       return createErrorResponse(
-        `Intoxicating products policy acknowledgement is required. Intoxicating products are allowed only until ${getIntoxicatingCutoffDate()}.`,
+        `Recreational products policy acknowledgement is required. Recreational products are allowed only until ${getIntoxicatingCutoffDate()}.`,
         400,
         requestId,
         debugStatus,

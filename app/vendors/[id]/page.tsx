@@ -84,7 +84,11 @@ async function getVendorListings(vendorId: string, includeGated: boolean) {
   const productsWithMode = (products || []).map((p) => ({
     ...p,
     market_mode:
-      p.is_gated || p.market_category === "INTOXICATING" ? "gated" : "ungated",
+      p.is_gated ||
+      p.market_category === "RECREATIONAL" ||
+      p.market_category === "INTOXICATING"
+        ? "gated"
+        : "ungated",
   }));
   const filteredProducts = productsWithMode.filter((product) =>
     includeGated ? true : product.market_mode !== "gated"

@@ -26,10 +26,10 @@ export default async function VerifyAgePage() {
             <div className="space-y-3">
               <p className="text-xs uppercase tracking-[0.3em] text-muted">21+ Verification</p>
               <h1 className="text-3xl font-bold text-accent">
-                Required for smokable / intoxicating products
+                Required for smokable / recreational products
               </h1>
               <p className="text-muted">
-                Upload a government ID to unlock gated products in the intoxicating market.
+                Upload a government ID to unlock gated products in the recreational market.
               </p>
             </div>
 

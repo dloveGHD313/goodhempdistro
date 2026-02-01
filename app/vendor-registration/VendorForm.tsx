@@ -11,7 +11,7 @@ export default function VendorForm() {
   const [businessName, setBusinessName] = useState("");
   const [description, setDescription] = useState("");
   const [coaAttested, setCoaAttested] = useState(false);
-  const [intoxicatingAck, setIntoxicatingAck] = useState(false);
+  const [recreationalAck, setRecreationalAck] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -84,7 +84,7 @@ export default function VendorForm() {
           business_name: businessName,
           description,
           coa_attested: coaAttested,
-          intoxicating_policy_ack: intoxicatingAck,
+          intoxicating_policy_ack: recreationalAck,
         }),
       });
 
@@ -241,13 +241,13 @@ export default function VendorForm() {
           <label className="flex items-start gap-3 cursor-pointer">
             <input
               type="checkbox"
-              checked={intoxicatingAck}
-              onChange={(e) => setIntoxicatingAck(e.target.checked)}
+              checked={recreationalAck}
+              onChange={(e) => setRecreationalAck(e.target.checked)}
               required
               className="mt-1 w-4 h-4 accent-accent"
             />
             <span className="text-sm">
-              I acknowledge intoxicating products are allowed only until {getIntoxicatingCutoffDate()} <span className="text-red-400">*</span>
+              I acknowledge recreational products are allowed only until {getIntoxicatingCutoffDate()} <span className="text-red-400">*</span>
             </span>
           </label>
         </div>

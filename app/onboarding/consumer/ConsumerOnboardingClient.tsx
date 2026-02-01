@@ -19,7 +19,7 @@ type PurchaseIntent = "bulk" | "recurring" | "one-time";
 type Interest = "products" | "services" | "education" | "events";
 type ExperienceLevel = "new" | "experienced";
 type UseCase = "Business Supplies" | "Skincare" | "Wellness" | "General";
-type MarketPreference = "CBD_WELLNESS" | "INDUSTRIAL" | "SERVICES" | "INTOXICATING" | "BROWSING";
+type MarketPreference = "CBD_WELLNESS" | "INDUSTRIAL" | "SERVICES" | "RECREATIONAL" | "BROWSING";
 
 type InitialProfile = {
   role: string | null;
@@ -126,7 +126,7 @@ const INTERESTS: { value: Interest; label: string }[] = [
 const USE_CASES: { value: UseCase; label: string; description: string }[] = [
   { value: "Business Supplies", label: "Business supplies", description: "Paper, textiles, supplies" },
   { value: "Skincare", label: "Skincare / topicals", description: "Lotions, balms, topical care" },
-  { value: "Wellness", label: "Wellness", description: "Non-intoxicating wellness" },
+  { value: "Wellness", label: "Wellness", description: "Non-recreational wellness" },
   { value: "General", label: "I’m just browsing", description: "Show me a little of everything" },
 ];
 
@@ -143,9 +143,10 @@ const INTEREST_TAGS: { value: string; label: string }[] = [
 ];
 
 const MARKET_CHOICES: { value: MarketPreference; label: string; description: string }[] = [
-  { value: "CBD_WELLNESS", label: "CBD & Wellness", description: "Non-intoxicating CBD essentials" },
+  { value: "CBD_WELLNESS", label: "CBD & Wellness", description: "Non-recreational CBD essentials" },
   { value: "INDUSTRIAL", label: "Industrial", description: "Materials, fiber, and supplies" },
   { value: "SERVICES", label: "Services", description: "Legal, banking, labs, consulting" },
+  { value: "RECREATIONAL", label: "Recreational", description: "21+ verified products" },
   { value: "BROWSING", label: "Just browsing", description: "Show a little of everything" },
 ];
 

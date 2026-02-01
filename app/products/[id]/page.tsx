@@ -81,7 +81,11 @@ async function getProduct(id: string): Promise<ProductFetchResult> {
     product: {
       ...data,
       market_mode:
-        data.is_gated || data.market_category === "INTOXICATING" ? "gated" : "ungated",
+        data.is_gated ||
+        data.market_category === "RECREATIONAL" ||
+        data.market_category === "INTOXICATING"
+          ? "gated"
+          : "ungated",
       coa_public_url: coaPublicUrl,
     },
     supabaseErrorMessage: null,

@@ -79,7 +79,7 @@ export default function ComplianceClient({ initialVendors, initialProducts }: Pr
                 <tr>
                   <th className="pb-3 font-semibold text-muted">Business Name</th>
                   <th className="pb-3 font-semibold text-muted">COA Attested</th>
-                  <th className="pb-3 font-semibold text-muted">Intoxicating Ack</th>
+                  <th className="pb-3 font-semibold text-muted">Recreational Ack</th>
                   <th className="pb-3 font-semibold text-muted">Status</th>
                   <th className="pb-3 font-semibold text-muted">Created</th>
                 </tr>

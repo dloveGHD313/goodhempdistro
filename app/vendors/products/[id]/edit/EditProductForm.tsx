@@ -106,7 +106,7 @@ export default function EditProductForm({ productId, initialProduct, initialCate
     }
 
     if (productType === "intoxicating" && !isIntoxicatingAllowedNow()) {
-      setError(`Intoxicating products are only allowed until ${getIntoxicatingCutoffDate()}. The cutoff date has passed.`);
+      setError(`Recreational products are only allowed until ${getIntoxicatingCutoffDate()}. The cutoff date has passed.`);
       setSaving(false);
       return;
     }
@@ -254,15 +254,15 @@ export default function EditProductForm({ productId, initialProduct, initialCate
                     disabled={subscriptionChecked && !subscriptionActive && !isAdmin}
                     className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
                   >
-                    <option value="non_intoxicating">Non-Intoxicating</option>
+                    <option value="non_intoxicating">Non-Recreational</option>
                     <option value="intoxicating" disabled={!isIntoxicatingAllowedNow()}>
-                      Intoxicating {!isIntoxicatingAllowedNow() ? `(Not allowed after ${getIntoxicatingCutoffDate()})` : ""}
+                      Recreational {!isIntoxicatingAllowedNow() ? `(Not allowed after ${getIntoxicatingCutoffDate()})` : ""}
                     </option>
                     <option value="delta8">Delta-8</option>
                   </select>
                   {productType === "intoxicating" && !isIntoxicatingAllowedNow() && (
                     <p className="text-red-400 text-sm mt-2">
-                      Intoxicating products are only allowed until {getIntoxicatingCutoffDate()}
+                      Recreational products are only allowed until {getIntoxicatingCutoffDate()}
                     </p>
                   )}
                 </div>

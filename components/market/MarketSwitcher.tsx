@@ -12,10 +12,10 @@ type Option = {
 };
 
 const OPTIONS: Option[] = [
-  { value: "CBD_WELLNESS", label: "CBD & Wellness", description: "Non-intoxicating essentials" },
+  { value: "CBD_WELLNESS", label: "CBD & Wellness", description: "Non-recreational essentials" },
   { value: "INDUSTRIAL", label: "Industrial", description: "Hemp materials + supplies" },
   { value: "SERVICES", label: "Services", description: "Professional hemp services" },
-  { value: "INTOXICATING", label: "Intoxicating", description: "21+ verified products" },
+  { value: "RECREATIONAL", label: "Recreational", description: "21+ verified products" },
 ];
 
 export default function MarketSwitcher() {
@@ -26,7 +26,7 @@ export default function MarketSwitcher() {
   const [savingPreference, setSavingPreference] = useState(false);
 
   const handleSelect = async (next: MarketMode) => {
-    if (next === "INTOXICATING" && !isVerified) {
+    if (next === "RECREATIONAL" && !isVerified) {
       setShowModal(true);
       return;
     }
@@ -104,12 +104,12 @@ export default function MarketSwitcher() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
-          aria-label="Intoxicating market verification required"
+          aria-label="Recreational market verification required"
         >
           <div className="card-glass p-6 max-w-md w-full border border-[var(--border)]">
-            <h2 className="text-xl font-semibold text-accent mb-2">Intoxicating Market is 21+</h2>
+            <h2 className="text-xl font-semibold text-accent mb-2">Recreational Market is 21+</h2>
             <p className="text-sm text-muted mb-4">
-              The intoxicating market requires age verification and a government ID upload.
+              The recreational market requires age verification and a government ID upload.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <button type="button" className="btn-primary w-full" onClick={handleStartVerification}>

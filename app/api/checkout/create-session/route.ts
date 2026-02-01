@@ -66,7 +66,11 @@ export async function POST(req: NextRequest) {
     }
 
     const marketMode: "gated" | "ungated" =
-      product.is_gated || product.market_category === "INTOXICATING" ? "gated" : "ungated";
+      product.is_gated ||
+      product.market_category === "RECREATIONAL" ||
+      product.market_category === "INTOXICATING"
+        ? "gated"
+        : "ungated";
     const gatedProduct = { ...product, market_mode: marketMode };
 
     if (isGatedProduct(gatedProduct)) {
