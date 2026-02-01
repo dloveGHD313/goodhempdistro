@@ -165,6 +165,16 @@ export async function POST(req: NextRequest) {
           console.log(
             `[vendor-products] requestId=${requestId} AUTO-PROVISION SUCCESS: Created vendor ${autoVendor.id} for user ${user.id}`
           );
+
+          const { error: profileErr } = await admin
+            .from("profiles")
+            .update({ role: "vendor", updated_at: new Date().toISOString() })
+            .eq("id", user.id);
+          if (profileErr) {
+            console.warn("[vendor-products] Could not update profile role after auto-provision:", profileErr.message);
+          } else {
+            console.log(`[vendor-products] requestId=${requestId} Updated profile role to vendor for user ${user.id}`);
+          }
           
           // Retry product creation with newly created vendor
           // Fall through to product creation logic below with autoVendor
