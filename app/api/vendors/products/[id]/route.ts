@@ -19,8 +19,15 @@ export async function GET(
     const supabase = await createSupabaseServerClient();
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
+    console.log("[vendors/products/GET]", {
+      productId: id,
+      hasUser: !!user,
+      userId: user?.id ?? null,
+      authError: userError?.message ?? null,
+    });
+
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized", code: "SESSION_MISSING" }, { status: 401 });
     }
 
     const isAdmin = isAdminEmail(user.email);
@@ -31,13 +38,20 @@ export async function GET(
       .eq("id", id)
       .maybeSingle();
 
+    console.log("[vendors/products/GET] query result", {
+      productId: id,
+      hasProduct: !!product,
+      rowCount: product ? 1 : 0,
+      dbError: error?.message ?? null,
+    });
+
     if (error) {
       console.error("[vendors/products/GET]", { productId: id, error: error.message });
       return NextResponse.json({ error: "Failed to load product" }, { status: 500 });
     }
 
     if (!product) {
-      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+      return NextResponse.json({ error: "Product not found", code: "NOT_FOUND" }, { status: 404 });
     }
 
     const isOwner = product.owner_user_id === user.id;
@@ -53,7 +67,7 @@ export async function GET(
     const owns = isOwner || viaVendor;
 
     if (!owns && !isAdmin) {
-      return NextResponse.json({ error: "Product not found or access denied" }, { status: 404 });
+      return NextResponse.json({ error: "Product not found or access denied", code: "ACCESS_DENIED" }, { status: 404 });
     }
 
     return NextResponse.json({ product });
