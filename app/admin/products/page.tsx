@@ -107,6 +107,9 @@ export default async function AdminProductsPage({
               <Link href="/admin/audit" className="btn-secondary">
                 Audit Log
               </Link>
+              <Link href="/admin/analytics" className="btn-secondary">
+                Analytics
+              </Link>
             </div>
           </div>
           <ProductsReviewClient 

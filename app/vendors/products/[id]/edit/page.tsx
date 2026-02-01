@@ -20,6 +20,9 @@ type ProductRow = {
   coa_url?: string | null;
   coa_object_path?: string | null;
   delta8_disclaimer_ack?: boolean;
+  status?: string;
+  submitted_at?: string | null;
+  rejection_reason?: string | null;
 };
 
 type ErrorContentProps = {
