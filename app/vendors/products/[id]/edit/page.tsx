@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { createSupabaseBrowserClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
 import { getCategoriesClient, type Category } from "@/lib/categories";
 import { getDelta8WarningText, getIntoxicatingCutoffDate, isIntoxicatingAllowedNow } from "@/lib/compliance";
@@ -59,19 +58,21 @@ export default function EditProductPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        // Load categories
         const cats = await getCategoriesClient();
         setCategories(cats);
 
-        // Load product
-        const supabase = createSupabaseBrowserClient();
-        const { data, error: fetchError } = await supabase
-          .from("products")
-          .select("id, name, description, price_cents, category_id, active, product_type, coa_url, coa_object_path, delta8_disclaimer_ack")
-          .eq("id", productId)
-          .single();
-
-        if (fetchError || !data) {
+        const res = await fetch(`/api/vendors/products/${productId}`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        if (!res.ok) {
+          const json = await res.json().catch(() => ({}));
+          setError(json?.error || "Product not found");
+          setLoading(false);
+          return;
+        }
+        const { product: data } = await res.json();
+        if (!data) {
           setError("Product not found");
           setLoading(false);
           return;
@@ -224,10 +225,17 @@ export default function EditProductPage() {
         <main className="flex-1">
           <section className="section-shell">
             <div className="max-w-2xl mx-auto surface-card p-8 text-center">
-              <p className="text-muted mb-4">Product not found</p>
-              <Link href="/vendors/dashboard" className="btn-primary">
-                Back to Dashboard
-              </Link>
+              <p className="text-muted mb-4">
+                Product not found. It may have been deleted, you may not have access, or the link could be invalid.
+              </p>
+              <div className="flex gap-3 justify-center">
+                <Link href="/vendors/products" className="btn-primary">
+                  Back to Products
+                </Link>
+                <Link href="/vendors/dashboard" className="btn-secondary">
+                  Dashboard
+                </Link>
+              </div>
             </div>
           </section>
         </main>

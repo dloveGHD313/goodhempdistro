@@ -4,6 +4,66 @@ import { validateProductCompliance } from "@/lib/compliance";
 import { isAdminEmail } from "@/lib/admin";
 
 /**
+ * Get a single product (vendor owner or admin)
+ */
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    if (!id || typeof id !== "string") {
+      return NextResponse.json({ error: "Product ID required" }, { status: 400 });
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const isAdmin = isAdminEmail(user.email);
+
+    const { data: product, error } = await supabase
+      .from("products")
+      .select("id, name, description, price_cents, category_id, active, product_type, coa_url, coa_object_path, delta8_disclaimer_ack, vendor_id, owner_user_id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("[vendors/products/GET]", { productId: id, error: error.message });
+      return NextResponse.json({ error: "Failed to load product" }, { status: 500 });
+    }
+
+    if (!product) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    }
+
+    const isOwner = product.owner_user_id === user.id;
+    let viaVendor = false;
+    if (!isOwner && product.vendor_id) {
+      const { data: v } = await supabase
+        .from("vendors")
+        .select("owner_user_id")
+        .eq("id", product.vendor_id)
+        .maybeSingle();
+      viaVendor = v?.owner_user_id === user.id;
+    }
+    const owns = isOwner || viaVendor;
+
+    if (!owns && !isAdmin) {
+      return NextResponse.json({ error: "Product not found or access denied" }, { status: 404 });
+    }
+
+    return NextResponse.json({ product });
+  } catch (err) {
+    console.error("[vendors/products/GET] unexpected error:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+/**
  * Update or delete a product
  * Server-only route - requires vendor authentication and ownership
  */
