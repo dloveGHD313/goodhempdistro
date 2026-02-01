@@ -53,13 +53,17 @@ function ErrorContent({ heading, detail }: ErrorContentProps) {
 
 async function fetchProductViaApi(
   productId: string,
+  baseUrl: string,
   cookieHeader: string
 ): Promise<
   | { status: 200; product: ProductRow }
   | { status: 401 | 403 | 404 | 500; error: string; code?: string }
 > {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  const res = await fetch(`${baseUrl.replace(/\/$/, "")}/api/vendors/products/${productId}`, {
+  const url = baseUrl ? `${baseUrl.replace(/\/$/, "")}/api/vendors/products/${productId}` : "";
+  if (!url) {
+    return { status: 500, error: "Unable to determine site URL" };
+  }
+  const res = await fetch(url, {
     headers: { cookie: cookieHeader },
     cache: "no-store",
   });
@@ -101,8 +105,11 @@ export default async function EditProductPage({
 
   const hdrs = await headers();
   const cookieHeader = hdrs.get("cookie") ?? "";
+  const proto = hdrs.get("x-forwarded-proto") ?? hdrs.get("x-forwarded-protocol") ?? "https";
+  const host = hdrs.get("x-forwarded-host") ?? hdrs.get("host");
+  const baseUrl = host ? `${proto}://${host}` : (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000");
 
-  const result = await fetchProductViaApi(productId, cookieHeader);
+  const result = await fetchProductViaApi(productId, baseUrl, cookieHeader);
 
   if (result.status === 401) {
     redirect(`/login?redirect=${encodeURIComponent(`/vendors/products/${productId}/edit`)}`);
