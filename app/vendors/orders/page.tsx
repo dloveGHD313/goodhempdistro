@@ -3,70 +3,82 @@ import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
 
-// Force dynamic rendering since this page requires authentication
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-async function getUserOrders(userId: string) {
-  try {
-    const supabase = await createSupabaseServerClient();
-    
-    const { data: orders, error } = await supabase
-      .from("orders")
-      .select(`
+async function getVendorOrders(vendorId: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data: orders, error } = await supabase
+    .from("orders")
+    .select(`
+      id,
+      user_id,
+      status,
+      total_cents,
+      created_at,
+      paid_at,
+      order_items (
         id,
-        status,
-        total_cents,
-        created_at,
-        paid_at,
-        checkout_session_id,
-        order_items (
+        quantity,
+        unit_price_cents,
+        line_total_cents,
+        item_type,
+        product:products (
           id,
-          quantity,
-          unit_price_cents,
-          product:products (
-            id,
-            name
-          )
+          name
         )
-      `)
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
+      )
+    `)
+    .eq("vendor_id", vendorId)
+    .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Error fetching orders:", error);
-      return [];
-    }
-
-    return orders || [];
-  } catch (error) {
-    console.error("Error fetching orders:", error);
-    return [];
-  }
+  if (error) return [];
+  return orders || [];
 }
 
-export default async function OrdersPage() {
+export default async function VendorsOrdersPage() {
   const supabase = await createSupabaseServerClient();
   const { data: { session } } = await supabase.auth.getSession();
   const user = session?.user ?? null;
 
   if (!user) {
-    redirect("/login?redirect=/orders");
+    redirect("/login?redirect=/vendors/orders");
   }
 
-  const orders = await getUserOrders(user.id);
+  const { data: vendor } = await supabase
+    .from("vendors")
+    .select("id")
+    .eq("owner_user_id", user.id)
+    .maybeSingle();
+
+  if (!vendor) {
+    return (
+      <div className="min-h-screen text-white flex flex-col">
+        <main className="flex-1">
+          <section className="section-shell">
+            <div className="surface-card p-8 text-center">
+              <h1 className="text-xl font-semibold mb-2 text-accent">Vendor account required</h1>
+              <p className="text-muted mb-4">You need a vendor account to view orders.</p>
+              <Link href="/vendors/dashboard" className="btn-secondary">Dashboard</Link>
+            </div>
+          </section>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  const orders = await getVendorOrders(vendor.id);
 
   return (
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
         <section className="section-shell">
-          <h1 className="text-4xl font-bold mb-8 text-accent">My Orders</h1>
+          <h1 className="text-4xl font-bold mb-8 text-accent">Vendor Orders</h1>
 
           {orders.length === 0 ? (
             <div className="surface-card p-8 text-center">
               <p className="text-muted mb-4">No orders yet</p>
-              <Link href="/products" className="btn-primary inline-block">
-                Browse Products
-              </Link>
+              <Link href="/vendors/dashboard" className="btn-secondary">Dashboard</Link>
             </div>
           ) : (
             <div className="space-y-4">
@@ -87,8 +99,8 @@ export default async function OrdersPage() {
                           ${((order.total_cents || 0) / 100).toFixed(2)}
                         </p>
                         <span className={`text-xs px-2 py-1 rounded ${
-                          order.status === "paid" 
-                            ? "bg-green-900/30 text-green-400" 
+                          order.status === "paid"
+                            ? "bg-green-900/30 text-green-400"
                             : order.status === "pending"
                             ? "bg-yellow-900/30 text-yellow-400"
                             : "bg-gray-900/30 text-gray-400"
@@ -104,7 +116,7 @@ export default async function OrdersPage() {
                         <ul className="space-y-1 text-sm text-muted">
                           {items.map((item: any) => (
                             <li key={item.id}>
-                              {item.quantity}x {item.product?.name || "Product"} - ${((item.unit_price_cents || 0) / 100).toFixed(2)} each
+                              {item.quantity}x {item.product?.name || "Item"} - ${((item.unit_price_cents || 0) / 100).toFixed(2)} each
                             </li>
                           ))}
                         </ul>

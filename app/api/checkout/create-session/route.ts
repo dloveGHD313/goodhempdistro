@@ -10,10 +10,10 @@ import { isGatedProduct, requireMarketAccess } from "@/lib/server/marketGate";
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
-    
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    
-    if (userError || !user) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
+
+    if (!user) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401, headers: { "Cache-Control": "no-store" } }
@@ -44,10 +44,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Fetch product
+    // Fetch product and vendor owner for order_items
     const { data: product, error: productError } = await supabase
       .from("products")
-      .select("id, name, price_cents, vendor_id, active, status, is_gated, market_category")
+      .select("id, name, price_cents, vendor_id, active, status, is_gated, market_category, vendors(owner_user_id)")
       .eq("id", productId)
       .single();
 
@@ -96,7 +96,11 @@ export async function POST(req: NextRequest) {
     }
 
     const totalCents = product.price_cents * quantity;
+    const lineTotalCents = totalCents;
     const siteUrl = getSiteUrl(req);
+    const vendorOwnerId = Array.isArray(product.vendors)
+      ? (product.vendors as { owner_user_id: string }[])[0]?.owner_user_id
+      : (product.vendors as { owner_user_id: string } | undefined)?.owner_user_id ?? null;
 
     // Create pending order in Supabase
     const { data: order, error: orderError } = await supabase
@@ -106,35 +110,41 @@ export async function POST(req: NextRequest) {
         vendor_id: product.vendor_id,
         status: "pending",
         total_cents: totalCents,
+        currency: "usd",
       })
       .select("id")
       .single();
 
     if (orderError || !order) {
-      console.error("Error creating order:", orderError);
       return NextResponse.json(
         { error: "Failed to create order" },
         { status: 500, headers: { "Cache-Control": "no-store" } }
       );
     }
 
-    // Create order item
+    // Create order item (item_type, item_id, vendor_user_id, line_total_cents)
     const { error: itemError } = await supabase
       .from("order_items")
       .insert({
         order_id: order.id,
         product_id: product.id,
-        quantity: quantity,
+        item_type: "product",
+        item_id: product.id,
+        vendor_user_id: vendorOwnerId,
+        quantity,
         unit_price_cents: product.price_cents,
+        line_total_cents: lineTotalCents,
       });
 
     if (itemError) {
-      console.error("Error creating order item:", itemError);
-      // Continue anyway - order is created
+      return NextResponse.json(
+        { error: "Failed to create order item" },
+        { status: 500, headers: { "Cache-Control": "no-store" } }
+      );
     }
 
     // Create Stripe checkout session
-    const session = await stripe.checkout.sessions.create({
+    const stripeSession = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
       line_items: [
@@ -162,12 +172,12 @@ export async function POST(req: NextRequest) {
     // Update order with session ID
     await supabase
       .from("orders")
-      .update({ checkout_session_id: session.id })
+      .update({ checkout_session_id: stripeSession.id })
       .eq("id", order.id);
 
     return NextResponse.json({
-      sessionId: session.id,
-      url: session.url,
+      sessionId: stripeSession.id,
+      url: stripeSession.url,
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);

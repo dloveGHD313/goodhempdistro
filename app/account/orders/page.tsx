@@ -3,54 +3,44 @@ import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
 
-// Force dynamic rendering since this page requires authentication
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 async function getUserOrders(userId: string) {
-  try {
-    const supabase = await createSupabaseServerClient();
-    
-    const { data: orders, error } = await supabase
-      .from("orders")
-      .select(`
+  const supabase = await createSupabaseServerClient();
+  const { data: orders, error } = await supabase
+    .from("orders")
+    .select(`
+      id,
+      status,
+      total_cents,
+      created_at,
+      paid_at,
+      checkout_session_id,
+      order_items (
         id,
-        status,
-        total_cents,
-        created_at,
-        paid_at,
-        checkout_session_id,
-        order_items (
+        quantity,
+        unit_price_cents,
+        line_total_cents,
+        product:products (
           id,
-          quantity,
-          unit_price_cents,
-          product:products (
-            id,
-            name
-          )
+          name
         )
-      `)
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
+      )
+    `)
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Error fetching orders:", error);
-      return [];
-    }
-
-    return orders || [];
-  } catch (error) {
-    console.error("Error fetching orders:", error);
-    return [];
-  }
+  if (error) return [];
+  return orders || [];
 }
 
-export default async function OrdersPage() {
+export default async function AccountOrdersPage() {
   const supabase = await createSupabaseServerClient();
   const { data: { session } } = await supabase.auth.getSession();
   const user = session?.user ?? null;
 
   if (!user) {
-    redirect("/login?redirect=/orders");
+    redirect("/login?redirect=/account/orders");
   }
 
   const orders = await getUserOrders(user.id);
@@ -87,8 +77,8 @@ export default async function OrdersPage() {
                           ${((order.total_cents || 0) / 100).toFixed(2)}
                         </p>
                         <span className={`text-xs px-2 py-1 rounded ${
-                          order.status === "paid" 
-                            ? "bg-green-900/30 text-green-400" 
+                          order.status === "paid"
+                            ? "bg-green-900/30 text-green-400"
                             : order.status === "pending"
                             ? "bg-yellow-900/30 text-yellow-400"
                             : "bg-gray-900/30 text-gray-400"

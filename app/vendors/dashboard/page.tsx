@@ -414,6 +414,9 @@ export default async function VendorDashboardPage() {
                 <Link href="/vendors/events" className="btn-secondary">
                   Manage events
                 </Link>
+                <Link href="/vendors/orders" className="btn-secondary">
+                  View orders
+                </Link>
               </div>
             )}
           </div>
