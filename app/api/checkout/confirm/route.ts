@@ -62,8 +62,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, mode: session.mode }, { status: 200 });
     }
 
-    const subscriptionId = typeof session.subscription === "string" ? session.subscription : null;
+    const subscriptionId =
+      typeof session.subscription === "string"
+        ? session.subscription
+        : (session.subscription as { id?: string } | null)?.id ?? null;
     if (!subscriptionId) {
+      console.warn("[checkout/confirm] session.subscription missing or invalid", {
+        sessionId,
+        hasSubscription: !!session.subscription,
+        type: typeof session.subscription,
+      });
       return NextResponse.json({ error: "Subscription not found" }, { status: 404 });
     }
 
@@ -129,7 +137,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(
-      { ok: true, mode: session.mode, status: subscriptionStatus },
+      { ok: true, mode: session.mode, status: subscriptionStatus, planType },
       { status: 200 }
     );
   } catch (error) {

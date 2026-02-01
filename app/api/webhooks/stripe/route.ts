@@ -411,9 +411,16 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
 
   const supabase = await createSupabaseServerClient();
 
-  // Handle subscription checkout
-  if (session.mode === "subscription" && userId && planId) {
-    const subscriptionId = session.subscription as string;
+  // Handle subscription checkout (vendor sends plan_type/vendor_id, consumer may send plan_id)
+  const hasVendorOrConsumer = planType === "vendor" || planType === "consumer";
+  if (session.mode === "subscription" && userId && (planId || hasVendorOrConsumer)) {
+    const sub = session.subscription;
+    const subscriptionId =
+      typeof sub === "string" ? sub : (sub as { id?: string } | null)?.id ?? null;
+    if (!subscriptionId) {
+      console.warn(`[handleCheckoutSessionCompleted] No subscription ID in session | session=${session.id} mode=${session.mode}`);
+      return;
+    }
     const stripeClient = getStripeClient();
     const subscription = await stripeClient.subscriptions.retrieve(subscriptionId);
     const currentPeriodEnd = subscription.current_period_end

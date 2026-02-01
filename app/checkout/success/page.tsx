@@ -36,7 +36,7 @@ function CheckoutSuccessContent() {
     }
 
     let active = true;
-    async function confirmCheckout() {
+    async function confirmCheckout(retryCount = 0) {
       try {
         const response = await fetch("/api/checkout/confirm", {
           method: "POST",
@@ -45,17 +45,30 @@ function CheckoutSuccessContent() {
         });
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
+          if (payload?.error === "Subscription not found" && retryCount < 1) {
+            await new Promise((r) => setTimeout(r, 1500));
+            return confirmCheckout(retryCount + 1);
+          }
           throw new Error(payload?.error || "Failed to confirm checkout");
         }
         if (!active) return;
+        const data = await response.json();
         setStatus("success");
-        setMessage("You're all set! Redirecting you to the feed…");
-        setTimeout(() => router.push("/newsfeed"), 1600);
+        const isVendor = data?.planType === "vendor";
+        setMessage(isVendor ? "Subscription active! Redirecting to dashboard…" : "You're all set! Redirecting…");
+        setTimeout(
+          () => router.push(isVendor ? "/vendors/dashboard" : "/newsfeed"),
+          1600
+        );
       } catch (error) {
         if (!active) return;
         const errorMessage = error instanceof Error ? error.message : "Checkout confirmation failed.";
         setStatus("error");
-        setMessage(errorMessage);
+        setMessage(
+          errorMessage === "Subscription not found"
+            ? "Subscription is still processing. Please wait a moment and refresh, or go to your dashboard to check status."
+            : errorMessage
+        );
       }
     }
 
