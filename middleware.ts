@@ -25,7 +25,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  let response = NextResponse.next({
+  const response = NextResponse.next({
     request: {
       headers: request.headers,
     },
@@ -46,19 +46,31 @@ export async function middleware(request: NextRequest) {
       getAll() {
         return request.cookies.getAll();
       },
-      setAll(cookiesToSet: Array<{ name: string; value: string; options?: any }>) {
+      setAll(cookiesToSet: Array<{ name: string; value: string; options?: Record<string, unknown> }>) {
         cookiesToSet.forEach(({ name, value, options }) => {
-          request.cookies.set(name, value);
           response.cookies.set(name, value, options);
         });
       },
     },
   });
 
-  // Refresh session if expired
+  // Use getSession for auth gating (getUser can return null in Edge even when logged in)
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
+
+  // Debug logging only for vendor products paths (confirm behavior in Vercel logs)
+  if (pathname === "/vendors/products" || pathname.startsWith("/vendors/products/")) {
+    console.log("[middleware] vendors/products session?", {
+      hasCookieHeader: !!request.headers.get("cookie"),
+      hasSession: !!session,
+      userId: user?.id ?? null,
+      sessionError: sessionError?.message ?? null,
+      pathname,
+    });
+  }
 
   // Protected routes - require authentication
   const protectedRoutes = [
