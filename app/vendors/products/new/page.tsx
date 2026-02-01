@@ -6,7 +6,7 @@ import Link from "next/link";
 import Footer from "@/components/Footer";
 import { getCategoriesClient, organizeCategoriesHierarchically, type Category } from "@/lib/categories";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
-import { getDelta8WarningText, getIntoxicatingCutoffDate, isIntoxicatingAllowedNow } from "@/lib/compliance";
+import { getDelta8WarningText, getIntoxicatingCutoffDate, isIntoxicatingAllowedNow, requiresCOA } from "@/lib/compliance";
 import UploadField from "@/components/UploadField";
 
 export default function NewProductPage() {
@@ -73,50 +73,26 @@ export default function NewProductPage() {
     loadSubscriptionStatus();
   }, []);
 
-  // Check if selected category requires COA
+  // Phase 2: COA required by category (requiresCOA) — use loaded categories
   useEffect(() => {
-    async function checkCategoryCoa() {
-      if (!categoryId) {
-        setCategoryRequiresCoa(false);
-        return;
-      }
-
-      try {
-        const supabase = createSupabaseBrowserClient();
-        const { data: category } = await supabase
-          .from("categories")
-          .select("id, requires_coa, parent_id")
-          .eq("id", categoryId)
-          .maybeSingle();
-
-        if (category) {
-          let requiresCoa = category.requires_coa || false;
-          
-          // If parent exists, check parent too
-          if (category.parent_id && !requiresCoa) {
-            const { data: parent } = await supabase
-              .from("categories")
-              .select("requires_coa")
-              .eq("id", category.parent_id)
-              .maybeSingle();
-            
-            if (parent?.requires_coa) {
-              requiresCoa = true;
-            }
-          }
-          
-          setCategoryRequiresCoa(requiresCoa);
-        } else {
-          setCategoryRequiresCoa(false);
-        }
-      } catch (err) {
-        console.error("Error checking category COA requirement:", err);
-        setCategoryRequiresCoa(false);
+    if (!categoryId || categories.length === 0) {
+      setCategoryRequiresCoa(false);
+      return;
+    }
+    const category = categories.find((c) => c.id === categoryId);
+    if (!category) {
+      setCategoryRequiresCoa(true); // unknown → require COA for safety
+      return;
+    }
+    let needCoa = requiresCOA({ slug: category.slug, name: category.name });
+    if (needCoa && category.parent_id) {
+      const parent = categories.find((c) => c.id === category.parent_id);
+      if (parent && !requiresCOA({ slug: parent.slug, name: parent.name })) {
+        needCoa = false;
       }
     }
-    
-    checkCategoryCoa();
-  }, [categoryId]);
+    setCategoryRequiresCoa(needCoa);
+  }, [categoryId, categories]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -137,9 +113,17 @@ export default function NewProductPage() {
       return;
     }
 
-    try {
-      // COA is optional for drafts; validation happens on review if required
+    // Phase 2: Block submit when COA required and missing (vendors only; admin bypass)
+    if (!isAdmin && categoryRequiresCoa) {
+      const hasCoa = (useManualUrl && coaUrl.trim().length > 0) || (!useManualUrl && (coaObjectPath?.trim() ?? "").length > 0);
+      if (!hasCoa) {
+        setError("COA is required for this product category. Please add a full panel Certificate of Analysis.");
+        setLoading(false);
+        return;
+      }
+    }
 
+    try {
       if (productType === "intoxicating" && !isIntoxicatingAllowedNow()) {
         setError(`Recreational products are only allowed until ${getIntoxicatingCutoffDate()}. The cutoff date has passed.`);
         setLoading(false);
@@ -376,7 +360,7 @@ export default function NewProductPage() {
                       bucket="coas"
                       folderPrefix={draftProductId}
                       label="COA Document (Full Panel Required)"
-                      required
+                      required={categoryRequiresCoa && !isAdmin}
                       existingUrl={null}
                       onUploaded={(path) => setCoaObjectPath(path)}
                       helperText="Upload a PDF or image of your full panel COA (max 50MB)"

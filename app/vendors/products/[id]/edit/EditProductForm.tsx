@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Footer from "@/components/Footer";
 import type { Category } from "@/lib/categories";
-import { getDelta8WarningText, getIntoxicatingCutoffDate, isIntoxicatingAllowedNow } from "@/lib/compliance";
+import { getDelta8WarningText, getIntoxicatingCutoffDate, isIntoxicatingAllowedNow, requiresCOA } from "@/lib/compliance";
 import UploadField from "@/components/UploadField";
 
 type Product = {
@@ -59,6 +59,19 @@ export default function EditProductForm({ productId, initialProduct, initialCate
     storageCoaPath && process.env.NEXT_PUBLIC_SUPABASE_URL
       ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/coas/${storageCoaPath}`
       : null;
+
+  // Phase 2: COA required by category (requiresCOA) — use initialCategories
+  const categoryRequiresCoa = useMemo(() => {
+    if (!categoryId || !initialCategories.length) return false;
+    const category = initialCategories.find((c) => c.id === categoryId);
+    if (!category) return true;
+    let needCoa = requiresCOA({ slug: category.slug, name: category.name });
+    if (needCoa && category.parent_id) {
+      const parent = initialCategories.find((c) => c.id === category.parent_id);
+      if (parent && !requiresCOA({ slug: parent.slug, name: parent.name })) needCoa = false;
+    }
+    return needCoa;
+  }, [categoryId, initialCategories]);
 
   useEffect(() => {
     async function loadSubscriptionStatus() {
@@ -115,6 +128,16 @@ export default function EditProductForm({ productId, initialProduct, initialCate
       setError("Delta-8 disclaimer acknowledgement is required");
       setSaving(false);
       return;
+    }
+
+    // Phase 2: Block submit when COA required and missing (vendors only; admin bypass)
+    if (!isAdmin && categoryRequiresCoa) {
+      const hasCoa = (useManualUrl && (coaUrl?.trim() ?? "").length > 0) || (!useManualUrl && (coaObjectPath?.trim() ?? "").length > 0);
+      if (!hasCoa) {
+        setError("COA is required for this product category. Please add a full panel Certificate of Analysis.");
+        setSaving(false);
+        return;
+      }
     }
 
     try {
@@ -267,6 +290,11 @@ export default function EditProductForm({ productId, initialProduct, initialCate
                   )}
                 </div>
 
+                {categoryRequiresCoa && !isAdmin && (
+                  <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-4 text-yellow-300 text-sm">
+                    ⚠️ COA is required before approval for this category
+                  </div>
+                )}
                 <div>
                   <label className="flex items-center gap-2 mb-2">
                     <input
@@ -309,7 +337,7 @@ export default function EditProductForm({ productId, initialProduct, initialCate
                       bucket="coas"
                       folderPrefix={productId}
                       label="COA Document (Full Panel Required)"
-                      required
+                      required={categoryRequiresCoa && !isAdmin}
                       existingUrl={coaObjectUrl}
                       onUploaded={(path) => setCoaObjectPath(path)}
                       helperText="Upload a PDF or image of your full panel COA (max 50MB)"

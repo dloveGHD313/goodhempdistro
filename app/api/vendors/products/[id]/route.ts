@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
-import { validateProductCompliance } from "@/lib/compliance";
+import { validateProductCompliance, requiresCOA } from "@/lib/compliance";
 import { isAdminEmail } from "@/lib/admin";
+import { requireAdminUsers } from "@/lib/auth/requireAdminUsers";
 
 /**
  * Get a single product (vendor owner or admin)
@@ -84,16 +85,20 @@ export async function PUT(
         { status: 401 }
       );
     }
-    const isAdmin = isAdminEmail(user.email);
+    const { isAdmin: isAdminByTable } = await requireAdminUsers(req);
+    const isAdmin = isAdminByTable || isAdminEmail(user.email);
 
-    // Verify vendor ownership of product
+    // Verify vendor ownership of product (admin can update via admin routes; this is vendor route)
     const { data: product } = await supabase
       .from("products")
-      .select("vendor_id, vendors!inner(owner_user_id)")
+      .select("vendor_id, category_id, vendors!inner(owner_user_id)")
       .eq("id", id)
       .single();
 
-    if (!product || (product.vendors as any).owner_user_id !== user.id) {
+    const vendorOwnerId = Array.isArray(product?.vendors)
+      ? (product?.vendors as { owner_user_id: string }[])[0]?.owner_user_id
+      : (product?.vendors as { owner_user_id: string } | undefined)?.owner_user_id;
+    if (!product || vendorOwnerId !== user.id) {
       return NextResponse.json(
         { error: "Product not found or access denied" },
         { status: 404 }
@@ -159,7 +164,7 @@ export async function PUT(
     // Get current product to merge compliance fields for validation
     const { data: currentProduct } = await supabase
       .from("products")
-      .select("product_type, coa_url, coa_object_path, delta8_disclaimer_ack")
+      .select("product_type, coa_url, coa_object_path, delta8_disclaimer_ack, category_id")
       .eq("id", id)
       .single();
 
@@ -172,6 +177,30 @@ export async function PUT(
       );
     }
 
+    // Phase 2: COA required by category — admin bypass
+    const categoryIdForCoa = category_id !== undefined ? category_id : currentProduct?.category_id;
+    let effectiveRequiresCoa = !isAdmin;
+    if (effectiveRequiresCoa && categoryIdForCoa) {
+      const { data: category } = await supabase
+        .from("categories")
+        .select("id, name, slug, parent_id")
+        .eq("id", categoryIdForCoa)
+        .maybeSingle();
+      if (category) {
+        effectiveRequiresCoa = requiresCOA({ slug: category.slug, name: category.name });
+        if (category.parent_id && effectiveRequiresCoa) {
+          const { data: parent } = await supabase
+            .from("categories")
+            .select("slug, name")
+            .eq("id", category.parent_id)
+            .maybeSingle();
+          if (parent && !requiresCOA({ slug: parent.slug, name: parent.name })) {
+            effectiveRequiresCoa = false;
+          }
+        }
+      }
+    }
+
     const compliancePayload = {
       product_type: product_type !== undefined ? product_type : (currentProduct?.product_type || "non_intoxicating"),
       coa_url: coa_url !== undefined ? coa_url : currentProduct?.coa_url,
@@ -180,10 +209,10 @@ export async function PUT(
       delta8_disclaimer_ack: delta8_disclaimer_ack !== undefined ? delta8_disclaimer_ack : currentProduct?.delta8_disclaimer_ack,
     };
 
-    // Validate compliance
+    // Validate compliance (COA only when effectiveRequiresCoa; admin bypass)
     const complianceErrors = validateProductCompliance({
       ...compliancePayload,
-      category_requires_coa: true,
+      category_requires_coa: effectiveRequiresCoa,
     });
 
     if (complianceErrors.length > 0) {

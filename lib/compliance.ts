@@ -1,10 +1,34 @@
 /**
  * Compliance helpers for product types, COAs, and intoxicating product cutoff
+ * Phase 2: COA required for hemp-derived/consumable/topical/inhalable/wellness/recreational/industrial;
+ * COA NOT required only for: apparel, non-consumable home goods.
  */
 
 const INTOXICATING_ALLOWED_UNTIL = process.env.INTOXICATING_ALLOWED_UNTIL || "2026-11-01";
 
+/** Slugs/name fragments that do NOT require a COA (apparel, non-consumable home goods only) */
+const COA_EXCEPTION_PATTERNS: string[] = [
+  "textiles-apparel",
+  "clothing",
+  "fabric-yarn",
+  "accessories",
+  "apparel",
+  "hats",
+  "merch",
+  "home-goods",
+  "curtains",
+  "blinds",
+  "decor",
+  "home-decor",
+  "textiles",
+];
+
 export type ProductType = "non_intoxicating" | "intoxicating" | "delta8";
+
+export interface ProductCategoryInfo {
+  slug?: string | null;
+  name?: string | null;
+}
 
 export interface ProductCompliancePayload {
   product_type: ProductType;
@@ -17,6 +41,33 @@ export interface ProductCompliancePayload {
 export interface ComplianceErrors {
   field: string;
   message: string;
+}
+
+/**
+ * Single source of truth: does this product category/type require a full-panel COA?
+ * Returns true for hemp-derived, consumable, topical, inhalable, CBD/wellness, recreational, industrial.
+ * Returns false ONLY for: apparel (clothing, hats, merch), non-consumable home goods (curtains, blinds, decor).
+ * Use for UI validation, API validation, and server-side enforcement.
+ */
+export function requiresCOA(
+  productCategory: ProductCategoryInfo | null | undefined,
+  _productType?: string | null
+): boolean {
+  if (!productCategory) {
+    return true; // unknown category → require COA for safety
+  }
+  const slug = (productCategory.slug ?? "").trim().toLowerCase().replace(/\s+/g, "-");
+  const name = (productCategory.name ?? "").trim().toLowerCase().replace(/\s+/g, "-");
+  if (!slug && !name) {
+    return true;
+  }
+  const combined = [slug, name].filter(Boolean).join(" ");
+  for (const pattern of COA_EXCEPTION_PATTERNS) {
+    if (slug === pattern || name === pattern) return false;
+    if (slug.includes(pattern) || name.includes(pattern)) return false;
+    if (combined.includes(pattern)) return false;
+  }
+  return true;
 }
 
 /**

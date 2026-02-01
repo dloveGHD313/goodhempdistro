@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
-import { validateProductCompliance } from "@/lib/compliance";
+import { validateProductCompliance, requiresCOA } from "@/lib/compliance";
 import { isAdminEmail } from "@/lib/admin";
+import { requireAdminUsers } from "@/lib/auth/requireAdminUsers";
 import { getProductLimitStatus, getVendorEntitlements, getVendorPlanByPriceId } from "@/lib/pricing";
 
 /**
@@ -35,7 +36,8 @@ export async function POST(req: NextRequest) {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-    const isAdmin = isAdminEmail(user?.email);
+    const { isAdmin: isAdminByTable } = await requireAdminUsers(req);
+    const isAdmin = isAdminByTable || isAdminEmail(user?.email);
 
     logStage("auth_check", {
       userId: user?.id || null,
@@ -482,39 +484,37 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check if category requires COA
-    let categoryRequiresCoa = false;
+    // Phase 2: COA required by category (requiresCOA) — admin bypass
+    let categoryRequiresCoa = true;
     if (resolvedCategoryId) {
       const { data: category } = await supabase
         .from("categories")
-        .select("id, name, requires_coa, parent_id")
+        .select("id, name, slug, parent_id")
         .eq("id", resolvedCategoryId)
         .maybeSingle();
 
       if (category) {
-        // Check category itself or parent category for requires_coa
-        categoryRequiresCoa = category.requires_coa;
-        
-        // If parent exists, check parent too (parent's requires_coa applies to all children)
-        if (category.parent_id && !categoryRequiresCoa) {
+        categoryRequiresCoa = requiresCOA({ slug: category.slug, name: category.name });
+        // If child category, also check parent slug/name for exceptions (e.g. parent "Textiles & Apparel")
+        if (category.parent_id && categoryRequiresCoa) {
           const { data: parent } = await supabase
             .from("categories")
-            .select("requires_coa")
+            .select("slug, name")
             .eq("id", category.parent_id)
             .maybeSingle();
-          
-          if (parent?.requires_coa) {
-            categoryRequiresCoa = true;
+          if (parent && !requiresCOA({ slug: parent.slug, name: parent.name })) {
+            categoryRequiresCoa = false;
           }
         }
       }
     }
+    const effectiveRequiresCoa = !isAdmin && categoryRequiresCoa;
 
     console.log(
-      `[vendor-products] requestId=${requestId} Category COA requirement: category_id=${category_id}, requires_coa=${categoryRequiresCoa}`
+      `[vendor-products] requestId=${requestId} Category COA: category_id=${resolvedCategoryId}, requiresCOA=${categoryRequiresCoa}, isAdmin=${isAdmin}, effectiveRequiresCoa=${effectiveRequiresCoa}`
     );
 
-    // Validate compliance (COA only required if category requires it)
+    // Validate compliance (COA required when effectiveRequiresCoa; admin bypass)
     const coaUrlValue =
       typeof coa_url === "string" ? coa_url.trim() || null : null;
     const normalizeCoaObjectPath = (value: unknown, productId: string | null) => {
@@ -553,7 +553,7 @@ export async function POST(req: NextRequest) {
       coa_url: coaUrlValue,
       coa_object_path: normalizedCoaObjectPath,
       delta8_disclaimer_ack: delta8Ack,
-      category_requires_coa: true,
+      category_requires_coa: effectiveRequiresCoa,
     });
 
     if (complianceErrors.length > 0) {
