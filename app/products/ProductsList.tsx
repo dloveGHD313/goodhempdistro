@@ -106,17 +106,12 @@ export default function ProductsList({ initialProducts, initialCategoryId }: Pro
   const showVerificationNotice = mode === "INTOXICATING" && !isVerified;
 
   const filteredProducts = useMemo(() => {
-    if (mode === "INTOXICATING" && !isVerified) {
-      return [];
-    }
     let filtered = initialProducts.filter((product) => {
-      const category = product.market_category || "CBD_WELLNESS";
-      const marketMode =
-        product.market_mode ?? (category === "INTOXICATING" ? "gated" : "ungated");
-      if (mode !== "INTOXICATING" && marketMode === "gated") {
-        return false;
+      const gated = product.is_gated === true;
+      if (mode === "INTOXICATING" && isVerified) {
+        return gated;
       }
-      return category === mode;
+      return !gated;
     });
     if (selectedCategoryId) {
       filtered = filtered.filter((product) => product.category_id === selectedCategoryId);
@@ -145,7 +140,7 @@ export default function ProductsList({ initialProducts, initialCategoryId }: Pro
             The intoxicating market requires 21+ verification. Start verification to unlock gated
             products.
           </p>
-          <a href="/verify-age" className="btn-secondary mt-3 inline-flex">
+          <a href="/verify" className="btn-secondary mt-3 inline-flex">
             Start Verification
           </a>
         </div>

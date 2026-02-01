@@ -53,5 +53,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     );
   }
 
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({
+      age_verified: true,
+      id_verification_status: "verified",
+      id_verified_at: now,
+    })
+    .eq("id", verification.user_id);
+
+  if (profileError) {
+    console.error("[id-verifications] profile sync on approve failed", profileError);
+    // Verification record is updated; profile sync is best-effort
+  }
+
   return NextResponse.json({ ok: true });
 }
