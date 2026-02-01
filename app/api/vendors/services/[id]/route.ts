@@ -12,10 +12,10 @@ export async function PUT(
   try {
     const { id } = await params;
     const supabase = await createSupabaseServerClient();
-    
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    
-    if (userError || !user) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
+
+    if (!user) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -129,8 +129,6 @@ export async function PUT(
         { status: 500 }
       );
     }
-
-    console.log(`[vendor-services] Service updated: id=${updatedService.id}`);
 
     return NextResponse.json({
       success: true,

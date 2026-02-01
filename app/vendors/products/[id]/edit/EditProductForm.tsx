@@ -19,6 +19,9 @@ type Product = {
   coa_url?: string | null;
   coa_object_path?: string | null;
   delta8_disclaimer_ack?: boolean;
+  status?: string;
+  submitted_at?: string | null;
+  rejection_reason?: string | null;
 };
 
 type Props = {
@@ -43,6 +46,8 @@ export default function EditProductForm({ productId, initialProduct, initialCate
   const [delta8DisclaimerAck, setDelta8DisclaimerAck] = useState(initialProduct.delta8_disclaimer_ack || false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [subscriptionActive, setSubscriptionActive] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [subscriptionChecked, setSubscriptionChecked] = useState(false);
@@ -173,12 +178,44 @@ export default function EditProductForm({ productId, initialProduct, initialCate
     }
   };
 
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/vendors/products/${productId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data?.error || "Failed to delete product");
+        setDeleting(false);
+        return;
+      }
+      router.push("/vendors/products");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete");
+      setDeleting(false);
+    }
+  };
+
+  const status = initialProduct?.status ?? "draft";
+
   return (
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
         <section className="section-shell">
           <div className="max-w-2xl mx-auto">
             <h1 className="text-4xl font-bold mb-8 text-accent">Edit Product</h1>
+
+            {status === "approved" && (
+              <div className="surface-card p-4 mb-6 bg-yellow-900/30 border border-yellow-600 rounded-lg">
+                <p className="text-yellow-400">
+                  This product is approved. Changes may require re-approval.
+                </p>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-6 surface-card p-8">
               {error && (
@@ -379,10 +416,10 @@ export default function EditProductForm({ productId, initialProduct, initialCate
                 </div>
               </div>
 
-              <div className="flex gap-4">
+              <div className="flex flex-wrap gap-4 items-center">
                 <button
                   type="submit"
-                  disabled={saving || (subscriptionChecked && !subscriptionActive && !isAdmin)}
+                  disabled={saving || deleting || (subscriptionChecked && !subscriptionActive && !isAdmin)}
                   className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saving ? "Saving..." : "Save Product"}
@@ -390,6 +427,37 @@ export default function EditProductForm({ productId, initialProduct, initialCate
                 <Link href="/vendors/dashboard" className="btn-secondary">
                   Cancel
                 </Link>
+                <span className="flex-1" />
+                {!deleteConfirm ? (
+                  <button
+                    type="button"
+                    onClick={() => setDeleteConfirm(true)}
+                    disabled={saving || deleting}
+                    className="text-red-400 hover:text-red-300 border border-red-600 rounded-lg px-4 py-2 text-sm disabled:opacity-50"
+                  >
+                    Delete product
+                  </button>
+                ) : (
+                  <span className="flex gap-2 items-center text-sm">
+                    <span className="text-muted">Delete this product?</span>
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      disabled={deleting}
+                      className="bg-red-600 text-white rounded-lg px-3 py-1.5 text-sm disabled:opacity-50"
+                    >
+                      {deleting ? "Deleting..." : "Yes, delete"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteConfirm(false)}
+                      disabled={deleting}
+                      className="btn-secondary text-sm py-1.5"
+                    >
+                      Cancel
+                    </button>
+                  </span>
+                )}
               </div>
             </form>
           </div>
