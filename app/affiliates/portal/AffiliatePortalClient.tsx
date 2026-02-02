@@ -27,7 +27,11 @@ type ConnectStatus = {
   payouts_enabled: boolean;
 };
 
-export default function AffiliatePortalClient() {
+type AffiliatePortalClientProps = {
+  affiliateCode: string;
+};
+
+export default function AffiliatePortalClient({ affiliateCode }: AffiliatePortalClientProps) {
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [available_cents, setAvailableCents] = useState(0);
   const [total_earned_cents, setTotalEarnedCents] = useState(0);
@@ -38,6 +42,9 @@ export default function AffiliatePortalClient() {
   const [requesting, setRequesting] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
+  const referralLink = affiliateCode ? `${siteUrl}/?ref=${affiliateCode}` : "";
 
   const fetchAll = async () => {
     setLoading(true);
@@ -141,9 +148,33 @@ export default function AffiliatePortalClient() {
 
       <div className="grid gap-6 md:grid-cols-2">
         <div className="surface-card p-6">
+          <h2 className="text-xl font-bold mb-2">Overview</h2>
+          <p className="text-sm text-muted">
+            Track your referrals, earnings, and payouts in one place.
+          </p>
+          <div className="mt-4">
+            <label className="block text-sm text-muted mb-2">Your referral link</label>
+            <div className="flex flex-col gap-2">
+              <input
+                type="text"
+                readOnly
+                value={referralLink}
+                className="w-full px-3 py-2 bg-[var(--surface)]/70 border border-[var(--border)] rounded text-white"
+              />
+              <p className="text-xs text-muted">
+                Share this link to earn rewards on qualifying subscriptions.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="surface-card p-6">
           <h2 className="text-xl font-bold mb-2">Available balance</h2>
           <p className="text-3xl font-bold text-accent">${(available_cents / 100).toFixed(2)}</p>
           <p className="text-sm text-muted mt-1">Total earned: ${(total_earned_cents / 100).toFixed(2)}</p>
+        </div>
+        <div className="surface-card p-6">
+          <h2 className="text-xl font-bold mb-2">Basic stats</h2>
+          <p className="text-sm text-muted">Referral and conversion stats are coming next.</p>
         </div>
         <div className="surface-card p-6">
           <h2 className="text-xl font-bold mb-2">Request payout</h2>

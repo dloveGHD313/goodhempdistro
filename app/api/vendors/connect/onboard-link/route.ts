@@ -47,8 +47,14 @@ export async function POST(req: NextRequest) {
       url: accountLink.url,
     });
   } catch (e: unknown) {
-    console.error("Vendor Connect onboard-link failed", e);
     const err = e as { type?: string; code?: string; message?: string; requestId?: string; statusCode?: number };
+    console.error("[api/vendors/connect/onboard-link] Vendor Connect onboard-link failed", {
+      message: typeof err?.message === "string" ? err.message : "Unknown error",
+      type: typeof err?.type === "string" ? err.type : undefined,
+      code: typeof err?.code === "string" ? err.code : undefined,
+      requestId: typeof err?.requestId === "string" ? err.requestId : undefined,
+      statusCode: typeof err?.statusCode === "number" ? err.statusCode : undefined,
+    });
     const status = typeof err?.statusCode === "number" ? err.statusCode : 500;
     return NextResponse.json(
       {
