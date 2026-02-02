@@ -200,8 +200,8 @@ export default function Nav() {
       : null;
 
   const affiliateLink = {
-    label: "💰 Affiliate",
-    href: isAffiliate ? "/affiliates/portal" : "/affiliate",
+    label: isAffiliate ? "Affiliate Portal" : "💰 Affiliate",
+    href: isAffiliate ? "/affiliate/portal" : "/affiliate",
   };
   const businessLinks = [
     ...businessLinksBase
@@ -219,7 +219,7 @@ export default function Nav() {
       : []),
     ...(showBilling ? [{ label: "Billing", href: "/vendors/billing" }] : []),
     ...(isLoggedIn ? [consumerLink] : []),
-    ...(isAffiliate ? [{ label: "Affiliates", href: "/account/affiliates" }] : []),
+    ...(isAffiliate ? [{ label: "Affiliate Portal", href: "/affiliate/portal" }] : []),
     ...(isLoggedIn && !isAffiliate ? [{ label: "Become an Affiliate", href: "/affiliate" }] : []),
   ];
 

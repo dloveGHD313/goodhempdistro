@@ -4,6 +4,14 @@ import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { stripe, getSiteUrl, resolvePriceId } from "@/lib/stripe";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 
+const ROUTE_NAME = "stripe/checkout";
+const TRUNCATE = 300;
+
+function safeTruncate(s: string | undefined): string | undefined {
+  if (s == null || typeof s !== "string") return undefined;
+  return s.length <= TRUNCATE ? s : s.slice(0, TRUNCATE) + "...";
+}
+
 type CheckoutPayload = {
   priceId?: string;
   planKey?: string;
@@ -15,6 +23,12 @@ type CheckoutPayload = {
 };
 
 export async function POST(req: NextRequest) {
+  const requestId =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `req-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+
+  let userId: string | undefined;
   try {
     assertStripeLiveConfig();
     const supabase = await createSupabaseServerClient();
@@ -26,6 +40,7 @@ export async function POST(req: NextRequest) {
     if (userError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    userId = user.id;
 
     const body = (await req.json().catch(() => ({}))) as CheckoutPayload;
     let priceId: string;
@@ -146,10 +161,28 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ url: session.url });
-  } catch (error) {
-    console.error("Vendor checkout failed", error);
+  } catch (error: unknown) {
+    const err = error as {
+      type?: string;
+      code?: string;
+      message?: string;
+      requestId?: string;
+      statusCode?: number;
+    };
+    const msg = safeTruncate(
+      err?.message ?? (error instanceof Error ? error.message : String(error))
+    );
+    console.error("[stripe/checkout]", JSON.stringify({
+      requestId,
+      route: ROUTE_NAME,
+      userId: userId ?? null,
+      errorType: err?.type ?? null,
+      errorCode: err?.code ?? null,
+      message: msg ?? null,
+      stripeRequestId: err?.requestId ?? null,
+    }));
     return NextResponse.json(
-      { error: "Failed to create checkout session" },
+      { ok: false, requestId, error: "Failed to create checkout session" },
       { status: 500 }
     );
   }

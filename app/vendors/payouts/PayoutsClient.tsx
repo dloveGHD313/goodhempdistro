@@ -53,7 +53,8 @@ export default function PayoutsClient() {
         const res = await fetch("/api/vendors/connect/onboard-link", { method: "POST" });
         const linkData = await res.json();
         if (!res.ok || !linkData?.url) {
-          setError(linkData?.error || "Failed to get onboarding link");
+          const ref = linkData?.requestId ? ` Reference: ${linkData.requestId}` : "";
+          setError((linkData?.error || "Failed to get onboarding link") + ref);
           setConnecting(false);
           return;
         }
@@ -63,14 +64,16 @@ export default function PayoutsClient() {
       const createRes = await fetch("/api/vendors/connect/create-account", { method: "POST" });
       const createData = await createRes.json();
       if (!createRes.ok) {
-        setError(createData?.error || "Failed to create account");
+        const ref = createData?.requestId ? ` Reference: ${createData.requestId}` : "";
+        setError((createData?.error || "Failed to create account") + ref);
         setConnecting(false);
         return;
       }
       const linkRes = await fetch("/api/vendors/connect/onboard-link", { method: "POST" });
       const linkData = await linkRes.json();
       if (!linkRes.ok || !linkData?.url) {
-        setError(linkData?.error || "Failed to get onboarding link");
+        const ref = linkData?.requestId ? ` Reference: ${linkData.requestId}` : "";
+        setError((linkData?.error || "Failed to get onboarding link") + ref);
         setConnecting(false);
         return;
       }

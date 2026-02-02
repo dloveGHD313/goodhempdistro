@@ -3,15 +3,25 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 import { stripe, getSiteUrl } from "@/lib/stripe";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 
+const ROUTE_NAME = "vendors/connect/create-account";
+const TRUNCATE = 300;
+
+function safeTruncate(s: string | undefined): string | undefined {
+  if (s == null || typeof s !== "string") return undefined;
+  return s.length <= TRUNCATE ? s : s.slice(0, TRUNCATE) + "...";
+}
+
 /**
  * Create Stripe Connect Express account for vendor (if not exists).
- * Requires vendor session.
+ * Account Links onboarding does NOT require STRIPE_CONNECT_CLIENT_ID (only OAuth does).
  */
 export async function POST(req: NextRequest) {
+  const requestId =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `req-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+  let userId: string | undefined;
   try {
-    if (!process.env.STRIPE_CONNECT_CLIENT_ID?.trim()) {
-      throw new Error("STRIPE_CONNECT_CLIENT_ID is required for Stripe Connect.");
-    }
     assertStripeLiveConfig();
     const supabase = await createSupabaseServerClient();
     const { data: { session } } = await supabase.auth.getSession();
@@ -20,6 +30,7 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    userId = user.id;
 
     const { data: existing } = await supabase
       .from("vendor_connect_accounts")
@@ -71,19 +82,20 @@ export async function POST(req: NextRequest) {
       stripe_account_id: account.id,
     });
   } catch (e: unknown) {
-    console.error("Vendor Connect create-account failed", e);
     const err = e as { type?: string; code?: string; message?: string; requestId?: string; statusCode?: number };
+    const msg = safeTruncate(err?.message ?? (e instanceof Error ? e.message : String(e)));
+    console.error("[vendors/connect/create-account]", JSON.stringify({
+      requestId,
+      route: ROUTE_NAME,
+      userId: userId ?? null,
+      errorType: err?.type ?? null,
+      errorCode: err?.code ?? null,
+      message: msg ?? null,
+      stripeRequestId: err?.requestId ?? null,
+    }));
     const status = typeof err?.statusCode === "number" ? err.statusCode : 500;
     return NextResponse.json(
-      {
-        error: "Failed to create Connect account",
-        details: {
-          type: typeof err?.type === "string" ? err.type : undefined,
-          code: typeof err?.code === "string" ? err.code : undefined,
-          message: typeof err?.message === "string" ? err.message : undefined,
-          requestId: typeof err?.requestId === "string" ? err.requestId : undefined,
-        },
-      },
+      { ok: false, requestId, error: "Failed to create Connect account" },
       { status }
     );
   }

@@ -177,7 +177,8 @@ export default function PricingPage() {
       });
       const data = await response.json();
       if (!response.ok) {
-        alert(data.error || "Failed to create checkout session");
+        const ref = data.requestId ? ` Reference: ${data.requestId}` : "";
+        alert(`Checkout failed.${ref}`);
         return;
       }
       if (data.url) {

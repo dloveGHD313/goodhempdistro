@@ -51,10 +51,7 @@ export function assertStripeLiveConfig(): void {
     invalid.push(`${STRIPE_WEBHOOK_SECRET} must start with whsec_`);
   }
 
-  const connectClientId = process.env[STRIPE_CONNECT_CLIENT_ID]?.trim();
-  if (!connectClientId) {
-    missing.push(STRIPE_CONNECT_CLIENT_ID);
-  }
+  // STRIPE_CONNECT_CLIENT_ID is optional for Express account links; required only for OAuth Connect.
 
   if (missing.length > 0) {
     throw new Error(
