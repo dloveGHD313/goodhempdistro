@@ -2,21 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { stripe, getSiteUrl } from "@/lib/stripe";
+import { STRIPE_PRICES, type PlanKey } from "@/lib/stripe/prices";
 
-const resolveVendorPriceId = (planName: string | null) => {
+function resolveVendorPriceId(planName: string | null): string | null {
   if (!planName) return null;
   const normalized = planName.trim().toLowerCase();
+  let planKey: PlanKey | null = null;
   if (normalized.includes("starter") || normalized.includes("basic")) {
-    return process.env.STRIPE_VENDOR_STARTER_MONTHLY_PRICE_ID || null;
+    planKey = "VENDOR_STARTER";
+  } else if (normalized.includes("growth")) {
+    planKey = "VENDOR_GROWTH";
+  } else if (
+    normalized.includes("pro") ||
+    normalized.includes("enterprise") ||
+    normalized.includes("elite")
+  ) {
+    planKey = "VENDOR_PRO";
   }
-  if (normalized.includes("pro")) {
-    return process.env.STRIPE_VENDOR_PRO_MONTHLY_PRICE_ID || null;
-  }
-  if (normalized.includes("enterprise") || normalized.includes("elite")) {
-    return process.env.STRIPE_VENDOR_ENTERPRISE_MONTHLY_PRICE_ID || null;
-  }
-  return null;
-};
+  if (!planKey) return null;
+  return STRIPE_PRICES[planKey].MONTHLY;
+}
 
 export async function POST(req: NextRequest) {
   try {

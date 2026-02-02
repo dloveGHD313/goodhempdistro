@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
-import { stripe, getSiteUrl } from "@/lib/stripe";
+import { stripe, getSiteUrl, resolvePriceId } from "@/lib/stripe";
 import { validateEnvVars } from "@/lib/env-validator";
 
 type CheckoutPayload = {
   priceId?: string;
   planKey?: string;
+  billingInterval?: string;
   tier?: string;
   cadence?: string;
   productLimit?: number | null;
@@ -32,9 +33,19 @@ export async function POST(req: NextRequest) {
     }
 
     const body = (await req.json().catch(() => ({}))) as CheckoutPayload;
-    const priceId = typeof body.priceId === "string" ? body.priceId : null;
-    if (!priceId) {
-      return NextResponse.json({ error: "priceId is required" }, { status: 400 });
+    let priceId: string;
+    try {
+      priceId = resolvePriceId({
+        priceId: body.priceId,
+        planKey: body.planKey,
+        billingInterval: body.billingInterval,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Missing price selection";
+      return NextResponse.json(
+        { error: msg },
+        { status: 400 }
+      );
     }
 
     const admin = getSupabaseAdminClient();
