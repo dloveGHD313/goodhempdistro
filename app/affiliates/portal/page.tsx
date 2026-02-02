@@ -1,9 +1,4 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { unstable_noStore as noStore } from "next/cache";
-import { createSupabaseServerClient } from "@/lib/supabase";
-import Footer from "@/components/Footer";
-import AffiliatePortalClient from "./AffiliatePortalClient";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

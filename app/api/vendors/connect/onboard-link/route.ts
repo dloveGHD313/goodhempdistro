@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
       type: "account_onboarding",
     });
 
-    return NextResponse.json({
+    return json({
       ok: true,
       url: accountLink.url,
     });
