@@ -11,11 +11,27 @@ function safeTruncate(s: string | undefined): string | undefined {
   return s.length <= TRUNCATE ? s : s.slice(0, TRUNCATE) + "...";
 }
 
+function requestIdHeaders(requestId: string): Record<string, string> {
+  return { "X-Request-Id": requestId };
+}
+
+/** Safe user-facing reason for known Stripe errors; avoids leaking sensitive data. */
+function safeErrorReason(err: { type?: string; code?: string }): string | undefined {
+  const t = err?.type;
+  const c = err?.code;
+  if (t === "StripeInvalidRequestError" || t === "invalid_request_error") return "Invalid request to payment provider.";
+  if (t === "StripeAuthenticationError" || t === "authentication_error") return "Payment provider authentication failed.";
+  if (t === "StripeRateLimitError" || t === "rate_limit_error") return "Too many requests; try again shortly.";
+  if (t === "StripeAPIError" || t === "api_error") return "Payment provider temporarily unavailable.";
+  if (c === "account_invalid" || c === "account_already_exists") return "Account setup issue; contact support.";
+  return undefined;
+}
+
 /**
  * Create Stripe Connect Express account for vendor (if not exists).
  * Account Links onboarding does NOT require STRIPE_CONNECT_CLIENT_ID (only OAuth does).
  */
-export async function POST(req: NextRequest) {
+export async function POST(_req: NextRequest) {
   const requestId =
     typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
       ? crypto.randomUUID()
@@ -28,8 +44,10 @@ export async function POST(req: NextRequest) {
     const user = session?.user ?? null;
 
     if (!user) {
-      console.warn("[vendor-connect] unauthorized", { route, requestId });
-      return json({ error: "Unauthorized" }, 401);
+      return NextResponse.json(
+        { error: "Unauthorized", requestId },
+        { status: 401, headers: requestIdHeaders(requestId) }
+      );
     }
     userId = user.id;
 
@@ -40,7 +58,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (existing?.stripe_account_id) {
-      return json({
+      return NextResponse.json({
         ok: true,
         stripe_account_id: existing.stripe_account_id,
         already_exists: true,
@@ -72,19 +90,13 @@ export async function POST(req: NextRequest) {
       );
 
     if (insertError) {
-      console.error("[vendor-connect] save failed", {
-        route,
-        requestId,
-        userId: safeUserId,
-        stripeRequestId: undefined,
-        errorType: "supabase_error",
-        errorCode: insertError.code,
-        message: insertError.message,
-      });
-      return json({ error: "Failed to save Connect account" }, 500);
+      return NextResponse.json(
+        { ok: false, requestId, error: "Failed to save Connect account" },
+        { status: 500, headers: requestIdHeaders(requestId) }
+      );
     }
 
-    return json({
+    return NextResponse.json({
       ok: true,
       stripe_account_id: account.id,
     });
@@ -101,9 +113,15 @@ export async function POST(req: NextRequest) {
       stripeRequestId: err?.requestId ?? null,
     }));
     const status = typeof err?.statusCode === "number" ? err.statusCode : 500;
+    const errorReason = safeErrorReason(err);
     return NextResponse.json(
-      { ok: false, requestId, error: "Failed to create Connect account" },
-      { status }
+      {
+        ok: false,
+        requestId,
+        error: "Failed to create Connect account",
+        ...(errorReason && { errorReason }),
+      },
+      { status, headers: requestIdHeaders(requestId) }
     );
   }
 }

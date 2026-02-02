@@ -11,6 +11,22 @@ function safeTruncate(s: string | undefined): string | undefined {
   return s.length <= TRUNCATE ? s : s.slice(0, TRUNCATE) + "...";
 }
 
+function requestIdHeaders(requestId: string): Record<string, string> {
+  return { "X-Request-Id": requestId };
+}
+
+/** Safe user-facing reason for known Stripe errors; avoids leaking sensitive data. */
+function safeErrorReason(err: { type?: string; code?: string }): string | undefined {
+  const t = err?.type;
+  const c = err?.code;
+  if (t === "StripeInvalidRequestError" || t === "invalid_request_error") return "Invalid request to payment provider.";
+  if (t === "StripeAuthenticationError" || t === "authentication_error") return "Payment provider authentication failed.";
+  if (t === "StripeRateLimitError" || t === "rate_limit_error") return "Too many requests; try again shortly.";
+  if (t === "StripeAPIError" || t === "api_error") return "Payment provider temporarily unavailable.";
+  if (c === "account_invalid") return "Account setup issue; complete create-account first.";
+  return undefined;
+}
+
 /**
  * Create Stripe Connect account onboarding link for vendor.
  * Account Links do NOT require STRIPE_CONNECT_CLIENT_ID (only OAuth does).
@@ -28,10 +44,12 @@ export async function POST(req: NextRequest) {
     const user = session?.user ?? null;
 
     if (!user) {
-      console.warn("[vendor-connect] unauthorized", { route, requestId });
-      return json({ error: "Unauthorized" }, 401);
+      return NextResponse.json(
+        { error: "Unauthorized", requestId },
+        { status: 401, headers: requestIdHeaders(requestId) }
+      );
     }
-    safeUserId = user.id;
+    userId = user.id;
 
     const { data: row } = await supabase
       .from("vendor_connect_accounts")
@@ -40,16 +58,10 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (!row?.stripe_account_id) {
-      console.warn("[vendor-connect] missing account", {
-        route,
-        requestId,
-        userId: safeUserId,
-        stripeRequestId: undefined,
-        errorType: "invalid_request",
-        errorCode: undefined,
-        message: "No Connect account",
-      });
-      return json({ error: "No Connect account. Call create-account first." }, 400);
+      return NextResponse.json(
+        { error: "No Connect account. Call create-account first.", requestId },
+        { status: 400, headers: requestIdHeaders(requestId) }
+      );
     }
 
     const siteUrl = getSiteUrl(req);
@@ -60,7 +72,7 @@ export async function POST(req: NextRequest) {
       type: "account_onboarding",
     });
 
-    return json({
+    return NextResponse.json({
       ok: true,
       url: accountLink.url,
     });
@@ -77,9 +89,15 @@ export async function POST(req: NextRequest) {
       stripeRequestId: err?.requestId ?? null,
     }));
     const status = typeof err?.statusCode === "number" ? err.statusCode : 500;
+    const errorReason = safeErrorReason(err);
     return NextResponse.json(
-      { ok: false, requestId, error: "Failed to create onboarding link" },
-      { status }
+      {
+        ok: false,
+        requestId,
+        error: "Failed to create onboarding link",
+        ...(errorReason && { errorReason }),
+      },
+      { status, headers: requestIdHeaders(requestId) }
     );
   }
 }
