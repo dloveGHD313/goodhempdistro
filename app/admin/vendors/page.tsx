@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
@@ -231,7 +232,12 @@ export default async function AdminVendorsPage() {
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
         <section className="section-shell">
-          <h1 className="text-4xl font-bold mb-8 text-accent">Vendor Applications</h1>
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+            <h1 className="text-4xl font-bold text-accent">Vendor Applications</h1>
+            <Link href="/admin/vendor-referrals/payouts" className="btn-secondary">
+              Vendor referral payouts
+            </Link>
+          </div>
           
           {/* Diagnostics Panel (Admin Only) */}
           <details className="mb-6 surface-card p-4 border border-blue-600/30 rounded-lg bg-blue-900/10">

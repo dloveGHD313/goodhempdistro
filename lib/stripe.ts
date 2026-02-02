@@ -1,31 +1,56 @@
 import Stripe from "stripe";
-import { validateEnvVars } from "./env-validator";
+import { getStripeServer } from "./stripe/server";
+import {
+  STRIPE_PRICES,
+  type PlanKey,
+  type BillingInterval,
+} from "./stripe/prices";
 
-// Lazy initialization - only create Stripe client when actually used
-// This allows the build to complete even if env vars are missing
-let stripeInstance: Stripe | null = null;
+const allowedPriceIds = new Set<string>(
+  Object.values(STRIPE_PRICES).flatMap((p) => [p.MONTHLY, p.ANNUAL])
+);
 
-function getStripeClient(): Stripe {
-  if (stripeInstance) {
-    return stripeInstance;
+export function resolvePriceId(input: {
+  priceId?: string;
+  planKey?: string;
+  billingInterval?: string;
+}): string {
+  if (input.priceId) {
+    if (!allowedPriceIds.has(input.priceId)) {
+      console.warn("[stripe] Invalid priceId attempted", {
+        priceIdPrefix: input.priceId?.slice(0, 12),
+      });
+      throw new Error("Invalid priceId");
+    }
+    return input.priceId;
   }
-
-  // Validate required Stripe environment variables
-  if (!validateEnvVars(["STRIPE_SECRET_KEY"], "Stripe Client")) {
-    throw new Error("STRIPE_SECRET_KEY is not set in environment variables");
+  if (input.planKey && input.billingInterval) {
+    const planKey = input.planKey as PlanKey;
+    const interval = input.billingInterval.toUpperCase() as BillingInterval;
+    const plan = STRIPE_PRICES[planKey];
+    if (!plan) {
+      console.warn("[stripe] Invalid planKey attempted", { planKey });
+      throw new Error("Invalid planKey");
+    }
+    const priceId = plan[interval];
+    if (!priceId) {
+      console.warn("[stripe] Invalid billingInterval attempted", {
+        planKey,
+        billingInterval: interval,
+      });
+      throw new Error("Invalid billingInterval");
+    }
+    return priceId;
   }
-
-  stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: "2025-02-24.acacia",
-    typescript: true,
-  });
-
-  return stripeInstance;
+  throw new Error("Missing price selection");
 }
+
+// Canonical Stripe server client — use getStripeServer() from @/lib/stripe/server in new code
+export { getStripeServer } from "./stripe/server";
 
 export const stripe = new Proxy({} as Stripe, {
   get(_target, prop) {
-    const client = getStripeClient();
+    const client = getStripeServer();
     const value = (client as any)[prop];
     return typeof value === "function" ? value.bind(client) : value;
   },
@@ -113,6 +138,7 @@ export async function createCheckoutSession(params: {
 
 /**
  * Create a subscription checkout session
+ * priceId must be in STRIPE_PRICES allowlist (validated server-side).
  */
 export async function createSubscriptionSession(params: {
   priceId: string;
@@ -122,13 +148,14 @@ export async function createSubscriptionSession(params: {
   affiliateCode?: string;
 }) {
   const {
-    priceId,
+    priceId: rawPriceId,
     userId,
     successPath = "/dashboard",
     cancelPath = "/pricing",
     affiliateCode = "",
   } = params;
 
+  const priceId = resolvePriceId({ priceId: rawPriceId });
   const siteUrl = getSiteUrl();
 
   const session = await stripe.checkout.sessions.create({

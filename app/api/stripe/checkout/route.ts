@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
-import { stripe, getSiteUrl } from "@/lib/stripe";
-import { validateEnvVars } from "@/lib/env-validator";
+import { stripe, getSiteUrl, resolvePriceId } from "@/lib/stripe";
+import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 
 type CheckoutPayload = {
   priceId?: string;
   planKey?: string;
+  billingInterval?: string;
   tier?: string;
   cadence?: string;
   productLimit?: number | null;
@@ -15,12 +16,7 @@ type CheckoutPayload = {
 
 export async function POST(req: NextRequest) {
   try {
-    if (!validateEnvVars(["STRIPE_SECRET_KEY"], "stripe/checkout")) {
-      return NextResponse.json(
-        { error: "Stripe configuration is missing" },
-        { status: 500 }
-      );
-    }
+    assertStripeLiveConfig();
     const supabase = await createSupabaseServerClient();
     const {
       data: { user },
@@ -32,20 +28,64 @@ export async function POST(req: NextRequest) {
     }
 
     const body = (await req.json().catch(() => ({}))) as CheckoutPayload;
-    const priceId = typeof body.priceId === "string" ? body.priceId : null;
-    if (!priceId) {
-      return NextResponse.json({ error: "priceId is required" }, { status: 400 });
+    let priceId: string;
+    try {
+      priceId = resolvePriceId({
+        priceId: body.priceId,
+        planKey: body.planKey,
+        billingInterval: body.billingInterval,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Missing price selection";
+      return NextResponse.json(
+        { error: msg },
+        { status: 400 }
+      );
     }
 
     const admin = getSupabaseAdminClient();
-    const { data: vendor } = await admin
-      .from("vendors")
-      .select("id, owner_user_id, business_name, stripe_customer_id")
-      .eq("owner_user_id", user.id)
-      .maybeSingle();
+    let vendor = (
+      await admin
+        .from("vendors")
+        .select("id, owner_user_id, business_name, stripe_customer_id")
+        .eq("owner_user_id", user.id)
+        .maybeSingle()
+    ).data;
 
     if (!vendor) {
-      return NextResponse.json({ error: "Vendor account required" }, { status: 404 });
+      const { data: application } = await admin
+        .from("vendor_applications")
+        .select("business_name")
+        .eq("user_id", user.id)
+        .eq("status", "approved")
+        .maybeSingle();
+      const businessName =
+        (application?.business_name?.trim()) || user.email || "Vendor";
+      const { data: inserted, error: insertErr } = await admin
+        .from("vendors")
+        .insert({
+          owner_user_id: user.id,
+          business_name: businessName,
+          status: "active",
+        })
+        .select("id, owner_user_id, business_name, stripe_customer_id")
+        .single();
+      if (insertErr) {
+        const { data: existing } = await admin
+          .from("vendors")
+          .select("id, owner_user_id, business_name, stripe_customer_id")
+          .eq("owner_user_id", user.id)
+          .maybeSingle();
+        vendor = existing ?? null;
+      } else {
+        vendor = inserted ?? null;
+      }
+      if (!vendor) {
+        return NextResponse.json(
+          { error: "Failed to provision vendor for checkout" },
+          { status: 500 }
+        );
+      }
     }
 
     let stripeCustomerId = vendor.stripe_customer_id || null;
@@ -72,8 +112,8 @@ export async function POST(req: NextRequest) {
       payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
       allow_promotion_codes: true,
-      success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/pricing?canceled=1`,
+      success_url: `${siteUrl}/vendors/dashboard?checkout=success`,
+      cancel_url: `${siteUrl}/pricing?tab=vendor`,
       client_reference_id: user.id,
       metadata: {
         plan_key: body.planKey || "",
@@ -107,8 +147,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error("[stripe/checkout]", message);
+    console.error("Vendor checkout failed", error);
     return NextResponse.json(
       { error: "Failed to create checkout session" },
       { status: 500 }

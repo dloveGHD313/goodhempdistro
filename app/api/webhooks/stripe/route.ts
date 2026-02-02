@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
-import { validateEnvVars } from "@/lib/env-validator";
+import { getStripeServer } from "@/lib/stripe/server";
+import { assertStripeLiveSecret, assertStripeWebhookSecret } from "@/lib/stripe/liveGuard";
+import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 import { getVendorPlanByPriceId } from "@/lib/pricing";
 import { getConsumerPlanByKey, getConsumerPlanByPriceId } from "@/lib/consumer-plans";
+import { getInternalPlanFromStripePriceId } from "@/lib/stripe/planMapping";
 import {
   BONUS_POINTS_PER_100_SPENT,
   HIGH_SPEND_MULTIPLIER,
@@ -15,21 +18,94 @@ import {
 } from "@/lib/consumer-loyalty";
 import { applyPlatformFeesToOrder } from "@/lib/platformFees";
 
-// Lazy initialization - only create Stripe client when actually used
-// This allows the build to complete even if env vars are missing
-function getStripeClient(): Stripe {
-  if (!validateEnvVars(["STRIPE_SECRET_KEY"], "Stripe Webhook")) {
-    throw new Error("Missing required Stripe environment variables: STRIPE_SECRET_KEY");
+/** Award vendor referral first-sale reward when a referred vendor's first order is paid. */
+async function awardVendorReferralFirstSale(
+  admin: Awaited<ReturnType<typeof getSupabaseAdminClient>>,
+  orderId: string
+) {
+  try {
+    const { data: items } = await admin
+      .from("order_items")
+      .select("vendor_user_id")
+      .eq("order_id", orderId);
+    const vendorUserIds = [...new Set((items ?? []).map((i) => i.vendor_user_id).filter(Boolean))] as string[];
+    if (vendorUserIds.length === 0) return;
+
+    const { data: vendors } = await admin
+      .from("vendors")
+      .select("id")
+      .in("owner_user_id", vendorUserIds);
+    const vendorIds = (vendors ?? []).map((v) => v.id);
+    if (vendorIds.length === 0) return;
+
+    for (const referredVendorId of vendorIds) {
+      const { data: signupReferral } = await admin
+        .from("vendor_referrals")
+        .select("id, referrer_vendor_id")
+        .eq("referred_vendor_id", referredVendorId)
+        .eq("event_type", "signup")
+        .maybeSingle();
+      if (!signupReferral) continue;
+
+      const { data: existingFirstSale } = await admin
+        .from("vendor_referrals")
+        .select("id")
+        .eq("referred_vendor_id", referredVendorId)
+        .eq("event_type", "first_sale")
+        .maybeSingle();
+      if (existingFirstSale) continue;
+
+      const { data: vendor } = await admin.from("vendors").select("owner_user_id").eq("id", referredVendorId).single();
+      if (!vendor) continue;
+
+      const { data: orderIds } = await admin.from("order_items").select("order_id").eq("vendor_user_id", vendor.owner_user_id);
+      const ids = [...new Set((orderIds ?? []).map((r) => r.order_id))];
+      if (ids.length === 0) continue;
+      const { count } = await admin.from("orders").select("id", { count: "exact", head: true }).eq("status", "paid").in("id", ids);
+      const paidOrderCount = count ?? 0;
+      if (paidOrderCount !== 1) continue;
+
+      const { data: rule } = await admin
+        .from("vendor_referral_reward_rules")
+        .select("reward_cents")
+        .eq("event_type", "first_sale")
+        .eq("active", true)
+        .maybeSingle();
+      const rewardCents = rule?.reward_cents ?? 2000;
+
+      const { data: firstSale } = await admin
+        .from("vendor_referrals")
+        .insert({
+          referrer_vendor_id: signupReferral.referrer_vendor_id,
+          referred_vendor_id: referredVendorId,
+          event_type: "first_sale",
+          order_id: orderId,
+          reward_cents: rewardCents,
+          status: "pending",
+        })
+        .select("id")
+        .single();
+      if (!firstSale) continue;
+
+      await admin.from("vendor_referral_ledger").insert({
+        referrer_vendor_id: signupReferral.referrer_vendor_id,
+        amount_cents: rewardCents,
+        status: "available",
+        vendor_referral_id: firstSale.id,
+        order_id: orderId,
+        metadata: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      console.log(`✅ [vendor-referral] First sale reward | referrer=${signupReferral.referrer_vendor_id} referred=${referredVendorId} order=${orderId} reward=${rewardCents}¢`);
+    }
+  } catch (e) {
+    console.warn("[vendor-referral] first-sale award error:", e);
   }
-  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: "2025-02-24.acacia",
-  });
 }
 
 function getWebhookSecret(): string {
-  if (!validateEnvVars(["STRIPE_WEBHOOK_SECRET"], "Stripe Webhook")) {
-    throw new Error("Missing required Stripe environment variables: STRIPE_WEBHOOK_SECRET");
-  }
+  assertStripeWebhookSecret();
   return process.env.STRIPE_WEBHOOK_SECRET!;
 }
 
@@ -48,10 +124,10 @@ export async function POST(req: NextRequest) {
   let event: Stripe.Event | null = null;
 
   try {
-    // Initialize clients (will throw if env vars missing)
-    const stripe = getStripeClient();
+    assertStripeLiveConfig();
+    const stripe = getStripeServer();
     const webhookSecret = getWebhookSecret();
-    
+
     // Verify webhook signature
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err: unknown) {
@@ -63,7 +139,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  console.log("✅ Webhook verified:", { type: event.type, id: event.id });
+  // LIVE MODE ONLY: reject test-mode events
+  if (event.livemode !== true) {
+    console.error("❌ Webhook rejected: event is not live (livemode=false). Test-mode events are not allowed.");
+    return NextResponse.json(
+      { error: "Webhook rejected: live mode only" },
+      { status: 400 }
+    );
+  }
+
+  console.log("✅ Webhook verified (live):", { type: event.type, id: event.id });
 
   try {
     // Handle the event
@@ -91,7 +176,7 @@ export async function POST(req: NextRequest) {
         const invoice = event.data.object as Stripe.Invoice;
         console.log(`💥 Processing invoice.payment_failed | subscription=${invoice.subscription || "N/A"} | invoice=${invoice.id}`);
         if (invoice.subscription) {
-          const stripeClient = getStripeClient();
+          const stripeClient = getStripeServer();
           const subscription = await stripeClient.subscriptions.retrieve(
             invoice.subscription as string
           );
@@ -422,18 +507,28 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
       console.warn(`[handleCheckoutSessionCompleted] No subscription ID in session | session=${session.id} mode=${session.mode}`);
       return;
     }
-    const stripeClient = getStripeClient();
+    const stripeClient = getStripeServer();
     const subscription = await stripeClient.subscriptions.retrieve(subscriptionId);
     const currentPeriodEnd = subscription.current_period_end
       ? new Date(subscription.current_period_end * 1000).toISOString()
       : null;
     const subscriptionStatus = subscription.status;
     const subscriptionPriceId = subscription.items.data[0]?.price.id || null;
-    const subscriptionPlanKey = subscriptionPriceId
-      ? getVendorPlanByPriceId(subscriptionPriceId)?.planKey || null
-      : null;
+    let subscriptionPlanKey: string | null = null;
+    if (subscriptionPriceId) {
+      const internal = getInternalPlanFromStripePriceId(subscriptionPriceId);
+      subscriptionPlanKey =
+        internal?.kind === "vendor"
+          ? internal.planKey
+          : getVendorPlanByPriceId(subscriptionPriceId)?.planKey ?? null;
+      if (!internal && planType === "vendor") {
+        console.warn("[webhook] Unknown vendor subscription priceId", {
+          priceIdPrefix: subscriptionPriceId.slice(0, 12),
+        });
+      }
+    }
     const cancelAtPeriodEnd = subscription.cancel_at_period_end || false;
-    
+
     // Create subscription record from checkout
     const { error: subError } = await supabase
       .from("subscriptions")
@@ -506,11 +601,19 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
         stripeCustomerId: session.customer as string,
       });
       if (resolvedUserId) {
-        const resolvedPlanKey =
-          consumerPlanKey ||
-          (subscriptionPriceId
-            ? getConsumerPlanByPriceId(subscriptionPriceId)?.planKey || null
-            : null);
+        let resolvedPlanKey: string | null = consumerPlanKey || null;
+        if (!resolvedPlanKey && subscriptionPriceId) {
+          const internal = getInternalPlanFromStripePriceId(subscriptionPriceId);
+          resolvedPlanKey =
+            internal?.kind === "consumer"
+              ? internal.planKey
+              : getConsumerPlanByPriceId(subscriptionPriceId)?.planKey ?? null;
+          if (!internal && planType === "consumer") {
+            console.warn("[webhook] Unknown consumer subscription priceId", {
+              priceIdPrefix: subscriptionPriceId.slice(0, 12),
+            });
+          }
+        }
         await admin
           .from("consumer_subscriptions")
           .upsert(
@@ -543,9 +646,9 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
       }
     }
 
-    // Handle referral tracking for subscription
+    // Handle referral tracking for subscription (uses admin client for DB writes)
     if (planType && planName && affiliateCode) {
-      await handleReferralTracking(session.id, userId, planType, planName, affiliateCode, supabase);
+      await handleReferralTracking(session.id, userId, planType, planName, affiliateCode);
     }
 
     return;
@@ -591,6 +694,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     const admin = getSupabaseAdminClient();
     await applyPlatformFeesToOrder(admin, orderId);
     await awardPurchasePointsForOrder(orderId);
+    await awardVendorReferralFirstSale(admin, orderId);
   }
 }
 
@@ -629,6 +733,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     const admin = getSupabaseAdminClient();
     await applyPlatformFeesToOrder(admin, order.id);
     await awardPurchasePointsForOrder(order.id);
+    await awardVendorReferralFirstSale(admin, order.id);
   } else {
     console.warn(`⚠️ [handlePaymentIntentSucceeded] No order found for intent=${paymentIntent.id}`);
   }
@@ -784,9 +889,19 @@ async function handleSubscriptionChange(
   if (planType === "vendor") {
     const admin = getSupabaseAdminClient();
     const subscriptionPriceId = subscription.items.data[0]?.price.id || null;
-    const subscriptionPlanKey = subscriptionPriceId
-      ? getVendorPlanByPriceId(subscriptionPriceId)?.planKey || null
-      : null;
+    let subscriptionPlanKey: string | null = null;
+    if (subscriptionPriceId) {
+      const internal = getInternalPlanFromStripePriceId(subscriptionPriceId);
+      subscriptionPlanKey =
+        internal?.kind === "vendor"
+          ? internal.planKey
+          : getVendorPlanByPriceId(subscriptionPriceId)?.planKey ?? null;
+      if (!internal) {
+        console.warn("[webhook] Unknown vendor subscription priceId", {
+          priceIdPrefix: subscriptionPriceId.slice(0, 12),
+        });
+      }
+    }
     const resolvedVendorId = await resolveVendorId({
       vendorId,
       userId,
@@ -827,11 +942,19 @@ async function handleSubscriptionChange(
       stripeCustomerId: subscription.customer as string,
     });
     if (resolvedUserId) {
-      const resolvedPlanKey =
-        consumerPlanKey ||
-        (subscriptionPriceId
-          ? getConsumerPlanByPriceId(subscriptionPriceId)?.planKey || null
-          : null);
+      let resolvedPlanKey: string | null = consumerPlanKey || null;
+      if (!resolvedPlanKey && subscriptionPriceId) {
+        const internal = getInternalPlanFromStripePriceId(subscriptionPriceId);
+        resolvedPlanKey =
+          internal?.kind === "consumer"
+            ? internal.planKey
+            : getConsumerPlanByPriceId(subscriptionPriceId)?.planKey ?? null;
+        if (!internal) {
+          console.warn("[webhook] Unknown consumer subscription priceId", {
+            priceIdPrefix: subscriptionPriceId.slice(0, 12),
+          });
+        }
+      }
       await admin
         .from("consumer_subscriptions")
         .upsert(
@@ -880,19 +1003,20 @@ async function handleSubscriptionChange(
 }
 
 /**
- * Handle referral tracking and payout creation
- * Captures reward amount based on package type
- * Creates pending payout ledger entry (idempotent by session_id)
+ * Handle referral tracking and ledger entry
+ * Captures reward amount based on package type; creates affiliate_ledger (available) for payout request.
+ * Uses admin client for DB writes (idempotent by session_id).
  */
 async function handleReferralTracking(
   sessionId: string,
   userId: string,
   packageType: string,
   packageName: string,
-  affiliateCode: string,
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>
+  affiliateCode: string
 ) {
   console.log(`💝 [handleReferralTracking] Tracking referral | session_id=${sessionId} | user_id=${userId} | package=${packageName} | affiliate=${affiliateCode}`);
+
+  const admin = getSupabaseAdminClient();
 
   try {
     // Calculate reward based on package
@@ -910,7 +1034,7 @@ async function handleReferralTracking(
     const rewardCents = rewardMap[packageName.toUpperCase()] || 500;
 
     // Check if referral already exists for this session (idempotency)
-    const { data: existingReferral, error: lookupError } = await supabase
+    const { data: existingReferral, error: lookupError } = await admin
       .from("affiliate_referrals")
       .select("id")
       .eq("stripe_session_id", sessionId)
@@ -927,7 +1051,7 @@ async function handleReferralTracking(
     }
 
     // Find affiliate by code
-    const { data: affiliate, error: affiliateError } = await supabase
+    const { data: affiliate, error: affiliateError } = await admin
       .from("affiliates")
       .select("id")
       .eq("affiliate_code", affiliateCode)
@@ -942,7 +1066,7 @@ async function handleReferralTracking(
     console.log(`✅ [handleReferralTracking] Found affiliate | affiliate_id=${affiliate.id} | reward=${rewardCents}¢`);
 
     // Create affiliate_referrals record (idempotent via UNIQUE session_id)
-    const { data: referral, error: referralError } = await supabase
+    const { data: referral, error: referralError } = await admin
       .from("affiliate_referrals")
       .insert({
         affiliate_id: affiliate.id,
@@ -967,24 +1091,23 @@ async function handleReferralTracking(
 
     console.log(`✅ [handleReferralTracking] Referral created | referral_id=${referral.id}`);
 
-    // Create affiliate_payouts record (pending payout)
-    const { data: payout, error: payoutError } = await supabase
-      .from("affiliate_payouts")
+    // Create affiliate_ledger entry (available for payout request)
+    const { error: ledgerError } = await admin
+      .from("affiliate_ledger")
       .insert({
         affiliate_id: affiliate.id,
         amount_cents: rewardCents,
-        status: "pending",
-        note: `Referral reward for session ${sessionId}`,
-      })
-      .select("id")
-      .single();
+        status: "available",
+        order_id: null,
+        metadata: { referral_id: referral.id, stripe_session_id: sessionId },
+      });
 
-    if (payoutError) {
-      console.error(`❌ [handleReferralTracking] Error inserting payout: ${payoutError.message}`);
+    if (ledgerError) {
+      console.error(`❌ [handleReferralTracking] Error inserting ledger: ${ledgerError.message}`);
       return;
     }
 
-    console.log(`✅ [handleReferralTracking] Payout created | payout_id=${payout.id} | amount=${rewardCents}¢ | status=pending`);
+    console.log(`✅ [handleReferralTracking] Ledger entry created | amount=${rewardCents}¢ | status=available`);
   } catch (error) {
     console.error(`❌ [handleReferralTracking] Error tracking referral: ${error}`);
     // Don't throw - this is a non-critical operation

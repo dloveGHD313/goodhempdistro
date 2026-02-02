@@ -2,21 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { stripe, getSiteUrl } from "@/lib/stripe";
+import { STRIPE_PRICES, type PlanKey } from "@/lib/stripe/prices";
 
-const resolveVendorPriceId = (planName: string | null) => {
+function resolveVendorPriceId(planName: string | null): string | null {
   if (!planName) return null;
   const normalized = planName.trim().toLowerCase();
+  let planKey: PlanKey | null = null;
   if (normalized.includes("starter") || normalized.includes("basic")) {
-    return process.env.STRIPE_VENDOR_STARTER_MONTHLY_PRICE_ID || null;
+    planKey = "VENDOR_STARTER";
+  } else if (normalized.includes("growth")) {
+    planKey = "VENDOR_GROWTH";
+  } else if (
+    normalized.includes("pro") ||
+    normalized.includes("enterprise") ||
+    normalized.includes("elite")
+  ) {
+    planKey = "VENDOR_PRO";
   }
-  if (normalized.includes("pro")) {
-    return process.env.STRIPE_VENDOR_PRO_MONTHLY_PRICE_ID || null;
-  }
-  if (normalized.includes("enterprise") || normalized.includes("elite")) {
-    return process.env.STRIPE_VENDOR_ENTERPRISE_MONTHLY_PRICE_ID || null;
-  }
-  return null;
-};
+  if (!planKey) return null;
+  return STRIPE_PRICES[planKey].MONTHLY;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -83,8 +88,8 @@ export async function POST(req: NextRequest) {
           quantity: 1,
         },
       ],
-      success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/pricing?canceled=1`,
+      success_url: `${siteUrl}/vendors/dashboard?checkout=success`,
+      cancel_url: `${siteUrl}/pricing?tab=vendor`,
       client_reference_id: user.id,
       metadata: {
         plan_type: "vendor",
@@ -106,8 +111,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error("[stripe/vendor/checkout]", message);
+    console.error("Vendor checkout failed", error);
     return NextResponse.json(
       { error: "Failed to create vendor checkout session" },
       { status: 500 }

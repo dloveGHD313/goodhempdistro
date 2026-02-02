@@ -1,3 +1,12 @@
+import { STRIPE_PRICES } from "@/lib/stripe/prices";
+
+/** Map internal consumer tier to STRIPE_PRICES key (Option B: keep existing keys). */
+const CONSUMER_TIER_TO_STRIPE = {
+  Starter: "CONSUMER_BASIC",
+  Plus: "CONSUMER_PLUS",
+  VIP: "CONSUMER_PREMIUM",
+} as const;
+
 export type ConsumerPlanConfig = {
   planKey: string;
   tier: "Starter" | "Plus" | "VIP";
@@ -151,7 +160,9 @@ export function getConsumerPlanConfigs() {
   const missingEnv: string[] = [];
 
   for (const plan of CONSUMER_PLAN_ENVS) {
-    const priceId = process.env[plan.envKey];
+    const stripeKey = CONSUMER_TIER_TO_STRIPE[plan.tier];
+    const interval = plan.cadence === "monthly" ? "MONTHLY" : "ANNUAL";
+    const priceId = STRIPE_PRICES[stripeKey][interval];
     if (!priceId) {
       missingEnv.push(plan.envKey);
       continue;

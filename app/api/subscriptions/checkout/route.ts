@@ -1,10 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { stripe, getSiteUrl } from "@/lib/stripe";
+import { STRIPE_PRICES, type PlanKey, type BillingInterval } from "@/lib/stripe/prices";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { getConsumerPlanByKey } from "@/lib/consumer-plans";
 import { REFERRAL_SIGNUP_BONUS_POINTS } from "@/lib/consumer-loyalty";
+
+const CONSUMER_PLANKEY_TO_STRIPE: Record<
+  string,
+  { planKey: PlanKey; interval: BillingInterval }
+> = {
+  consumer_starter_monthly: { planKey: "CONSUMER_BASIC", interval: "MONTHLY" },
+  consumer_starter_annual: { planKey: "CONSUMER_BASIC", interval: "ANNUAL" },
+  consumer_plus_monthly: { planKey: "CONSUMER_PLUS", interval: "MONTHLY" },
+  consumer_plus_annual: { planKey: "CONSUMER_PLUS", interval: "ANNUAL" },
+  consumer_vip_monthly: { planKey: "CONSUMER_PREMIUM", interval: "MONTHLY" },
+  consumer_vip_annual: { planKey: "CONSUMER_PREMIUM", interval: "ANNUAL" },
+};
 
 /**
  * Create Stripe subscription checkout session
@@ -95,8 +108,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const stripeMapping = CONSUMER_PLANKEY_TO_STRIPE[planKey];
+    if (!stripeMapping) {
+      return NextResponse.json(
+        { error: "Plan not available for checkout" },
+        { status: 400 }
+      );
+    }
+
     const siteUrl = getSiteUrl(req);
-    const priceId = plan.priceId;
+    const pk: PlanKey = stripeMapping.planKey;
+    const bi: BillingInterval = stripeMapping.interval;
+    const priceId = STRIPE_PRICES[pk][bi];
 
     // Create Stripe checkout session for subscription
     const sessionConfig: Stripe.Checkout.SessionCreateParams = {
@@ -109,7 +132,7 @@ export async function POST(req: NextRequest) {
       metadata: {
         plan_type: "consumer",
         consumer_plan_key: plan.planKey,
-        price_id: plan.priceId,
+        price_id: priceId,
         user_id: user.id,
         affiliate_code: affiliateCode || "",
       },
@@ -117,7 +140,7 @@ export async function POST(req: NextRequest) {
         metadata: {
           plan_type: "consumer",
           consumer_plan_key: plan.planKey,
-          price_id: plan.priceId,
+          price_id: priceId,
           user_id: user.id,
         },
       },

@@ -53,17 +53,17 @@ CREATE POLICY "Order items: user can insert for own order" ON order_items
     EXISTS (SELECT 1 FROM orders WHERE orders.id = order_items.order_id AND orders.user_id = auth.uid())
   );
 
--- RLS: admin can read all orders (via profile is_admin or role)
+-- RLS: admin can read all orders (via admin_users table)
 DROP POLICY IF EXISTS "Orders: admin can read all" ON orders;
 CREATE POLICY "Orders: admin can read all" ON orders
   FOR SELECT USING (
-    EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND (profiles.is_admin = true OR profiles.role = 'admin'))
+    EXISTS (SELECT 1 FROM public.admin_users au WHERE au.user_id = auth.uid())
   );
 
 DROP POLICY IF EXISTS "Order items: admin can read all" ON order_items;
 CREATE POLICY "Order items: admin can read all" ON order_items
   FOR SELECT USING (
-    EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND (profiles.is_admin = true OR profiles.role = 'admin'))
+    EXISTS (SELECT 1 FROM public.admin_users au WHERE au.user_id = auth.uid())
   );
 
 COMMENT ON TABLE orders IS 'Marketplace orders; Stripe checkout_session_id links to Stripe session';

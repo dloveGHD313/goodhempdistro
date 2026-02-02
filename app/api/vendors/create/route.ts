@@ -208,6 +208,7 @@ export async function POST(req: NextRequest) {
       description?: string;
       coa_attested?: boolean;
       intoxicating_policy_ack?: boolean;
+      vr_code?: string;
     };
     
     try {
@@ -232,7 +233,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { business_name, description, coa_attested, intoxicating_policy_ack } = body;
+    const { business_name, description, coa_attested, intoxicating_policy_ack, vr_code } = body;
     
     // Update debug info with payload lengths (not full text)
     if (debugEnabled) {
@@ -363,13 +364,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Create vendor application - CRITICAL: Always use user.id from authenticated session
-    // Never accept user_id from client payload
+    // Never accept user_id from client payload. Optional vr_code for vendor referral attribution.
+    const referralCode = typeof vr_code === "string" && /^[A-Za-z0-9\-]+$/.test(vr_code.trim()) ? vr_code.trim() : null;
     const { data: application, error: applicationError } = await supabase
       .from("vendor_applications")
       .insert({
         user_id: user.id, // Server-side enforced - always from authenticated session
         business_name: business_name.trim(),
         status: "pending",
+        ...(referralCode ? { referral_code: referralCode } : {}),
       })
       .select("id, user_id, status")
       .single();

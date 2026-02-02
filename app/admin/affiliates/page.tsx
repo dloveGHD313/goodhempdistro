@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
 import Footer from "@/components/Footer";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 async function getAffiliatesData() {
   const admin = getSupabaseAdminClient();
@@ -43,7 +44,12 @@ export default async function AdminAffiliatesPage() {
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
         <section className="section-shell">
-          <h1 className="text-4xl font-bold mb-8 text-accent">Affiliate Management</h1>
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+            <h1 className="text-4xl font-bold text-accent">Affiliate Management</h1>
+            <Link href="/admin/affiliates/payouts" className="btn-secondary">
+              Payout queue
+            </Link>
+          </div>
 
           <div className="grid gap-6 md:grid-cols-3 mb-8">
             <div className="card-glass p-6">

@@ -49,17 +49,27 @@ export default function PayoutsClient() {
     setConnecting(true);
     setError(null);
     try {
-      let res = await fetch("/api/vendors/connect/create-account", { method: "POST" });
-      const createData = await res.json();
-      if (!res.ok) {
+      if (status?.stripe_account_id) {
+        const res = await fetch("/api/vendors/connect/onboard-link", { method: "POST" });
+        const linkData = await res.json();
+        if (!res.ok || !linkData?.url) {
+          setError(linkData?.error || "Failed to get onboarding link");
+          setConnecting(false);
+          return;
+        }
+        window.location.href = linkData.url;
+        return;
+      }
+      const createRes = await fetch("/api/vendors/connect/create-account", { method: "POST" });
+      const createData = await createRes.json();
+      if (!createRes.ok) {
         setError(createData?.error || "Failed to create account");
         setConnecting(false);
         return;
       }
-
-      res = await fetch("/api/vendors/connect/onboard-link", { method: "POST" });
-      const linkData = await res.json();
-      if (!res.ok || !linkData?.url) {
+      const linkRes = await fetch("/api/vendors/connect/onboard-link", { method: "POST" });
+      const linkData = await linkRes.json();
+      if (!linkRes.ok || !linkData?.url) {
         setError(linkData?.error || "Failed to get onboarding link");
         setConnecting(false);
         return;

@@ -18,6 +18,9 @@ Baseline and phase verification. Update after each phase.
 | Admin products | `/admin/products` | Admin gate. |
 | Admin product queue | `/admin/products/queue` | Pending first. |
 | Admin audit | `/admin/audit` | Audit log. |
+| Discover | `/discover` | Recommendations (vendors, products, services, events). |
+| Reviews | Product/vendor/event/service detail pages | ReviewSection + RatingBadge on lists. |
+| Service leads | `/vendors/services/inquiries`, `/admin/inquiries` | Inquiries. |
 
 ## Phase checklists
 
@@ -27,9 +30,13 @@ Baseline and phase verification. Update after each phase.
 - **Phase 4 — Vendor Connect:** Stripe Connect Express; `/vendors/payouts`; APIs create-account, onboard-link, status
 - **Phase 5 — Admin analytics:** See `docs/qa-admin-analytics.md`
 - **Phase 6 — Loyalty:** See `docs/qa-loyalty.md`; `/account/loyalty`; existing consumer_loyalty + webhook
-- **Phase 7 — Affiliates:** (see Phase 7 spec; full implementation in follow-up)
-- **Phase 8 — Vendor referrals:** (see Phase 8 spec; full implementation in follow-up)
-- **Phase 9 — Discovery/leads/reviews:** As needed; existing discovery/reviews in place
+- **Phase 7 — Affiliates:** See `docs/qa-affiliates-phase7.md`; migration 071; ledger + payouts + Connect; `/r/[code]`, `/affiliates/portal`, admin payout queue
+- **Phase 8 — Vendor referrals:** See `docs/qa-vendor-referrals-phase8.md`; migration 072; referrers, signup + first_sale, ledger, payouts; `/vr/[code]`, `/vendors/referrals`, admin payout queue
+- **Phase 9 — Discovery/leads/reviews/ops:** See `docs/qa-phase9-discovery-leads-reviews.md`; existing discover, reviews, inquiries, admin ops (no new migration)
+
+## Stripe LIVE MODE
+
+- **LIVE VERIFIED:** Stripe runs 100% live (no test keys, no sandbox). See `docs/STRIPE_LIVE_MODE.md`. Keys must be `sk_live_` / `whsec_`; webhook rejects `livemode === false` events.
 
 ## Hard rules (verify per phase)
 

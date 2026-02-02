@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getIntoxicatingCutoffDate } from "@/lib/compliance";
+import { getVendorReferralCode, captureVendorReferralCode } from "@/lib/vendorReferral";
 
 export default function VendorForm() {
   const router = useRouter();
@@ -85,6 +86,7 @@ export default function VendorForm() {
           description,
           coa_attested: coaAttested,
           intoxicating_policy_ack: recreationalAck,
+          ...(getVendorReferralCode() ? { vr_code: getVendorReferralCode() } : {}),
         }),
       });
 
