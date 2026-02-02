@@ -5,6 +5,18 @@ import { stripe, getSiteUrl, resolvePriceId } from "@/lib/stripe";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 import { getVendorPlanByPriceId } from "@/lib/pricing";
 
+const ROUTE_NAME = "stripe/checkout";
+const TRUNCATE = 300;
+
+function safeTruncate(s: string | undefined): string | undefined {
+  if (s == null || typeof s !== "string") return undefined;
+  return s.length <= TRUNCATE ? s : s.slice(0, TRUNCATE) + "...";
+}
+
+function requestIdHeaders(requestId: string): Record<string, string> {
+  return { "X-Request-Id": requestId };
+}
+
 type CheckoutPayload = {
   priceId?: string;
   planKey?: string;
@@ -16,16 +28,12 @@ type CheckoutPayload = {
 };
 
 export async function POST(req: NextRequest) {
-  const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID();
-  const route = "/api/stripe/checkout";
-  const responseHeaders = { "X-Request-Id": requestId };
-  let safeUserId: string | null = null;
-  const json = (payload: Record<string, unknown>, status = 200) =>
-    NextResponse.json(
-      { ...payload, requestId },
-      { status, headers: responseHeaders }
-    );
+  const requestId =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `req-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 
+  let userId: string | undefined;
   try {
     assertStripeLiveConfig();
     const supabase = await createSupabaseServerClient();
@@ -35,10 +43,12 @@ export async function POST(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      console.warn("[stripe-checkout] unauthorized", { route, requestId });
-      return json({ error: "Unauthorized" }, 401);
+      return NextResponse.json(
+        { error: "Unauthorized", requestId },
+        { status: 401, headers: requestIdHeaders(requestId) }
+      );
     }
-    safeUserId = user.id;
+    userId = user.id;
 
     const body = (await req.json().catch(() => ({}))) as CheckoutPayload;
     let priceId: string;
@@ -50,30 +60,18 @@ export async function POST(req: NextRequest) {
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Missing price selection";
-      console.warn("[stripe-checkout] invalid price selection", {
-        route,
-        requestId,
-        userId: safeUserId,
-        stripeRequestId: undefined,
-        errorType: "invalid_request",
-        errorCode: undefined,
-        message: msg.slice(0, 300),
-      });
-      return json({ error: msg }, 400);
+      return NextResponse.json(
+        { error: msg, requestId },
+        { status: 400, headers: requestIdHeaders(requestId) }
+      );
     }
 
     const vendorPlan = getVendorPlanByPriceId(priceId);
     if (!vendorPlan) {
-      console.warn("[stripe-checkout] non-vendor price rejected", {
-        route,
-        requestId,
-        userId: safeUserId,
-        stripeRequestId: undefined,
-        errorType: "invalid_request",
-        errorCode: undefined,
-        message: "PriceId not mapped to a vendor plan",
-      });
-      return json({ error: "Invalid vendor price selection" }, 400);
+      return NextResponse.json(
+        { error: "Invalid vendor price selection", requestId },
+        { status: 400, headers: requestIdHeaders(requestId) }
+      );
     }
 
     const admin = getSupabaseAdminClient();
@@ -114,16 +112,10 @@ export async function POST(req: NextRequest) {
         vendor = inserted ?? null;
       }
       if (!vendor) {
-        console.error("[stripe-checkout] vendor provision failed", {
-          route,
-          requestId,
-          userId: safeUserId,
-          stripeRequestId: undefined,
-          errorType: "supabase_error",
-          errorCode: insertErr?.code,
-          message: insertErr?.message?.slice(0, 300) ?? "Vendor provision failed",
-        });
-        return json({ error: "Failed to provision vendor for checkout" }, 500);
+        return NextResponse.json(
+          { ok: false, requestId, error: "Failed to provision vendor for checkout" },
+          { status: 500, headers: requestIdHeaders(requestId) }
+        );
       }
     }
 
@@ -184,8 +176,8 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return json({ url: session.url });
-  } catch (error) {
+    return NextResponse.json({ url: session.url });
+  } catch (error: unknown) {
     const err = error as {
       type?: string;
       code?: string;
@@ -193,28 +185,21 @@ export async function POST(req: NextRequest) {
       requestId?: string;
       statusCode?: number;
     };
-    const errorMessage =
-      typeof err?.message === "string" ? err.message.slice(0, 300) : "Unknown error";
-    const errorType = typeof err?.type === "string" ? err.type : undefined;
-    const errorCode = typeof err?.code === "string" ? err.code : undefined;
-    const stripeRequestId =
-      typeof err?.requestId === "string" ? err.requestId : undefined;
-    console.error("[stripe-checkout] vendor checkout failed", {
-      route,
+    const msg = safeTruncate(
+      err?.message ?? (error instanceof Error ? error.message : String(error))
+    );
+    console.error("[stripe/checkout]", JSON.stringify({
       requestId,
-      userId: safeUserId,
-      stripeRequestId,
-      errorType,
-      errorCode,
-      message: errorMessage,
-    });
-    return json(
-      {
-        error: "Failed to create checkout session",
-        diagnosticReason: errorType || errorCode,
-        stripeRequestId,
-      },
-      500
+      route: ROUTE_NAME,
+      userId: userId ?? null,
+      errorType: err?.type ?? null,
+      errorCode: err?.code ?? null,
+      message: msg ?? null,
+      stripeRequestId: err?.requestId ?? null,
+    }));
+    return NextResponse.json(
+      { ok: false, requestId, error: "Failed to create checkout session" },
+      { status: 500, headers: requestIdHeaders(requestId) }
     );
   }
 }

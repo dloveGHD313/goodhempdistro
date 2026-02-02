@@ -3,21 +3,40 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 import { stripe, getSiteUrl } from "@/lib/stripe";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 
+const ROUTE_NAME = "vendors/connect/onboard-link";
+const TRUNCATE = 300;
+
+function safeTruncate(s: string | undefined): string | undefined {
+  if (s == null || typeof s !== "string") return undefined;
+  return s.length <= TRUNCATE ? s : s.slice(0, TRUNCATE) + "...";
+}
+
+function requestIdHeaders(requestId: string): Record<string, string> {
+  return { "X-Request-Id": requestId };
+}
+
+/** Safe user-facing reason for known Stripe errors; avoids leaking sensitive data. */
+function safeErrorReason(err: { type?: string; code?: string }): string | undefined {
+  const t = err?.type;
+  const c = err?.code;
+  if (t === "StripeInvalidRequestError" || t === "invalid_request_error") return "Invalid request to payment provider.";
+  if (t === "StripeAuthenticationError" || t === "authentication_error") return "Payment provider authentication failed.";
+  if (t === "StripeRateLimitError" || t === "rate_limit_error") return "Too many requests; try again shortly.";
+  if (t === "StripeAPIError" || t === "api_error") return "Payment provider temporarily unavailable.";
+  if (c === "account_invalid") return "Account setup issue; complete create-account first.";
+  return undefined;
+}
+
 /**
  * Create Stripe Connect account onboarding link for vendor.
- * Requires vendor session and existing Connect account (create-account first).
+ * Account Links do NOT require STRIPE_CONNECT_CLIENT_ID (only OAuth does).
  */
 export async function POST(req: NextRequest) {
-  const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID();
-  const route = "/api/vendors/connect/onboard-link";
-  const responseHeaders = { "X-Request-Id": requestId };
-  let safeUserId: string | null = null;
-  const json = (payload: Record<string, unknown>, status = 200) =>
-    NextResponse.json(
-      { ...payload, requestId },
-      { status, headers: responseHeaders }
-    );
-
+  const requestId =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `req-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+  let userId: string | undefined;
   try {
     assertStripeLiveConfig();
     const supabase = await createSupabaseServerClient();
@@ -25,10 +44,12 @@ export async function POST(req: NextRequest) {
     const user = session?.user ?? null;
 
     if (!user) {
-      console.warn("[vendor-connect] unauthorized", { route, requestId });
-      return json({ error: "Unauthorized" }, 401);
+      return NextResponse.json(
+        { error: "Unauthorized", requestId },
+        { status: 401, headers: requestIdHeaders(requestId) }
+      );
     }
-    safeUserId = user.id;
+    userId = user.id;
 
     const { data: row } = await supabase
       .from("vendor_connect_accounts")
@@ -37,16 +58,10 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (!row?.stripe_account_id) {
-      console.warn("[vendor-connect] missing account", {
-        route,
-        requestId,
-        userId: safeUserId,
-        stripeRequestId: undefined,
-        errorType: "invalid_request",
-        errorCode: undefined,
-        message: "No Connect account",
-      });
-      return json({ error: "No Connect account. Call create-account first." }, 400);
+      return NextResponse.json(
+        { error: "No Connect account. Call create-account first.", requestId },
+        { status: 400, headers: requestIdHeaders(requestId) }
+      );
     }
 
     const siteUrl = getSiteUrl(req);
@@ -63,28 +78,26 @@ export async function POST(req: NextRequest) {
     });
   } catch (e: unknown) {
     const err = e as { type?: string; code?: string; message?: string; requestId?: string; statusCode?: number };
-    const errorMessage =
-      typeof err?.message === "string" ? err.message.slice(0, 300) : "Unknown error";
-    const errorType = typeof err?.type === "string" ? err.type : undefined;
-    const errorCode = typeof err?.code === "string" ? err.code : undefined;
-    const stripeRequestId =
-      typeof err?.requestId === "string" ? err.requestId : undefined;
-    console.error("[vendor-connect] onboard-link failed", {
-      route,
+    const msg = safeTruncate(err?.message ?? (e instanceof Error ? e.message : String(e)));
+    console.error("[vendors/connect/onboard-link]", JSON.stringify({
       requestId,
-      userId: safeUserId,
-      stripeRequestId,
-      errorType,
-      errorCode,
-      message: errorMessage,
-    });
-    return json(
+      route: ROUTE_NAME,
+      userId: userId ?? null,
+      errorType: err?.type ?? null,
+      errorCode: err?.code ?? null,
+      message: msg ?? null,
+      stripeRequestId: err?.requestId ?? null,
+    }));
+    const status = typeof err?.statusCode === "number" ? err.statusCode : 500;
+    const errorReason = safeErrorReason(err);
+    return NextResponse.json(
       {
+        ok: false,
+        requestId,
         error: "Failed to create onboarding link",
-        diagnosticReason: errorType || errorCode,
-        stripeRequestId,
+        ...(errorReason && { errorReason }),
       },
-      500
+      { status, headers: requestIdHeaders(requestId) }
     );
   }
 }

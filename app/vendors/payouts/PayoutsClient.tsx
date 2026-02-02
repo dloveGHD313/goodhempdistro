@@ -53,8 +53,9 @@ export default function PayoutsClient() {
         const res = await fetch("/api/vendors/connect/onboard-link", { method: "POST" });
         const linkData = await res.json();
         if (!res.ok || !linkData?.url) {
-          const requestId = res.headers.get("x-request-id") || linkData?.requestId;
-          setError(`Onboarding failed. Reference: ${requestId ?? "unknown"}`);
+          const ref = linkData?.requestId ? ` Reference: ${linkData.requestId}` : "";
+          const reason = linkData?.errorReason ? ` ${linkData.errorReason}` : "";
+          setError((linkData?.error || "Failed to get onboarding link") + reason + ref);
           setConnecting(false);
           return;
         }
@@ -64,16 +65,18 @@ export default function PayoutsClient() {
       const createRes = await fetch("/api/vendors/connect/create-account", { method: "POST" });
       const createData = await createRes.json();
       if (!createRes.ok) {
-        const requestId = createRes.headers.get("x-request-id") || createData?.requestId;
-        setError(`Onboarding failed. Reference: ${requestId ?? "unknown"}`);
+        const ref = createData?.requestId ? ` Reference: ${createData.requestId}` : "";
+        const reason = createData?.errorReason ? ` ${createData.errorReason}` : "";
+        setError((createData?.error || "Failed to create account") + reason + ref);
         setConnecting(false);
         return;
       }
       const linkRes = await fetch("/api/vendors/connect/onboard-link", { method: "POST" });
       const linkData = await linkRes.json();
       if (!linkRes.ok || !linkData?.url) {
-        const requestId = linkRes.headers.get("x-request-id") || linkData?.requestId;
-        setError(`Onboarding failed. Reference: ${requestId ?? "unknown"}`);
+        const ref = linkData?.requestId ? ` Reference: ${linkData.requestId}` : "";
+        const reason = linkData?.errorReason ? ` ${linkData.errorReason}` : "";
+        setError((linkData?.error || "Failed to get onboarding link") + reason + ref);
         setConnecting(false);
         return;
       }
