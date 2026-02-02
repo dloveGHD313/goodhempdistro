@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe, getSiteUrl } from "@/lib/stripe";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { isGatedProduct, requireMarketAccess } from "@/lib/server/marketGate";
+import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 
 /**
  * Create Stripe checkout session for product purchase
@@ -9,6 +10,7 @@ import { isGatedProduct, requireMarketAccess } from "@/lib/server/marketGate";
  */
 export async function POST(req: NextRequest) {
   try {
+    assertStripeLiveConfig();
     const supabase = await createSupabaseServerClient();
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user ?? null;

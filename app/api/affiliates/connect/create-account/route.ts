@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { stripe } from "@/lib/stripe";
+import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 
 /**
  * Create Stripe Connect Express account for affiliate (if not exists).
@@ -8,6 +9,7 @@ import { stripe } from "@/lib/stripe";
  */
 export async function POST(req: NextRequest) {
   try {
+    assertStripeLiveConfig();
     const supabase = await createSupabaseServerClient();
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user ?? null;

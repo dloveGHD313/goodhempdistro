@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { assertStripeLiveSecret } from "./stripe/liveGuard";
+import { getStripeServer } from "./stripe/server";
 import {
   STRIPE_PRICES,
   type PlanKey,
@@ -45,29 +45,12 @@ export function resolvePriceId(input: {
   throw new Error("Missing price selection");
 }
 
-// Lazy initialization - only create Stripe client when actually used
-// This allows the build to complete even if env vars are missing
-let stripeInstance: Stripe | null = null;
-
-function getStripeClient(): Stripe {
-  if (stripeInstance) {
-    return stripeInstance;
-  }
-
-  // LIVE MODE ONLY: fail if test key or missing
-  assertStripeLiveSecret();
-
-  stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: "2025-02-24.acacia",
-    typescript: true,
-  });
-
-  return stripeInstance;
-}
+// Canonical Stripe server client — use getStripeServer() from @/lib/stripe/server in new code
+export { getStripeServer } from "./stripe/server";
 
 export const stripe = new Proxy({} as Stripe, {
   get(_target, prop) {
-    const client = getStripeClient();
+    const client = getStripeServer();
     const value = (client as any)[prop];
     return typeof value === "function" ? value.bind(client) : value;
   },

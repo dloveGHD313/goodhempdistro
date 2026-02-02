@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { stripe, getSiteUrl, resolvePriceId } from "@/lib/stripe";
-import { assertStripeLiveSecret } from "@/lib/stripe/liveGuard";
+import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 
 type CheckoutPayload = {
   priceId?: string;
@@ -16,7 +16,7 @@ type CheckoutPayload = {
 
 export async function POST(req: NextRequest) {
   try {
-    assertStripeLiveSecret();
+    assertStripeLiveConfig();
     const supabase = await createSupabaseServerClient();
     const {
       data: { user },

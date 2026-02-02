@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { getStripeServer } from "@/lib/stripe/server";
 import { assertStripeLiveSecret, assertStripeWebhookSecret } from "@/lib/stripe/liveGuard";
+import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 import { getVendorPlanByPriceId } from "@/lib/pricing";
 import { getConsumerPlanByKey, getConsumerPlanByPriceId } from "@/lib/consumer-plans";
 import { getInternalPlanFromStripePriceId } from "@/lib/stripe/planMapping";
@@ -102,14 +104,6 @@ async function awardVendorReferralFirstSale(
   }
 }
 
-// LIVE MODE ONLY: Stripe client and webhook secret must be live
-function getStripeClient(): Stripe {
-  assertStripeLiveSecret();
-  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: "2025-02-24.acacia",
-  });
-}
-
 function getWebhookSecret(): string {
   assertStripeWebhookSecret();
   return process.env.STRIPE_WEBHOOK_SECRET!;
@@ -130,8 +124,8 @@ export async function POST(req: NextRequest) {
   let event: Stripe.Event | null = null;
 
   try {
-    // LIVE MODE ONLY: Stripe client and webhook secret must be live
-    const stripe = getStripeClient();
+    assertStripeLiveConfig();
+    const stripe = getStripeServer();
     const webhookSecret = getWebhookSecret();
 
     // Verify webhook signature
@@ -182,7 +176,7 @@ export async function POST(req: NextRequest) {
         const invoice = event.data.object as Stripe.Invoice;
         console.log(`💥 Processing invoice.payment_failed | subscription=${invoice.subscription || "N/A"} | invoice=${invoice.id}`);
         if (invoice.subscription) {
-          const stripeClient = getStripeClient();
+          const stripeClient = getStripeServer();
           const subscription = await stripeClient.subscriptions.retrieve(
             invoice.subscription as string
           );
@@ -513,7 +507,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
       console.warn(`[handleCheckoutSessionCompleted] No subscription ID in session | session=${session.id} mode=${session.mode}`);
       return;
     }
-    const stripeClient = getStripeClient();
+    const stripeClient = getStripeServer();
     const subscription = await stripeClient.subscriptions.retrieve(subscriptionId);
     const currentPeriodEnd = subscription.current_period_end
       ? new Date(subscription.current_period_end * 1000).toISOString()
