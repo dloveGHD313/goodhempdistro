@@ -192,14 +192,14 @@ export default function AffiliatePortalClient({ affiliateCode }: Props) {
               <input
                 type="text"
                 readOnly
-                value={referralLink}
+                value={referralUrl ? (referralUrl.startsWith("http") ? referralUrl : `${typeof window !== "undefined" ? window.location.origin : ""}${referralUrl}`) : ""}
                 className="w-full px-3 py-2 bg-[var(--surface)]/70 border border-[var(--border)] rounded text-white"
               />
               <button
                 type="button"
-                onClick={handleCopy}
+                onClick={copyReferralLink}
                 className="btn-secondary w-fit text-sm"
-                disabled={!referralLink}
+                disabled={!referralUrl}
               >
                 {copied ? "Copied" : "Copy referral link"}
               </button>
