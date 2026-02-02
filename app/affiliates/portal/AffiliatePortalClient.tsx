@@ -55,6 +55,9 @@ export default function AffiliatePortalClient({ affiliateCode }: AffiliatePortal
     }
   };
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
+  const referralLink = affiliateCode ? `${siteUrl}/?ref=${affiliateCode}` : "";
+
   const fetchAll = async () => {
     setLoading(true);
     setError(null);
