@@ -34,6 +34,10 @@ Baseline and phase verification. Update after each phase.
 - **Phase 8 — Vendor referrals:** See `docs/qa-vendor-referrals-phase8.md`; migration 072; referrers, signup + first_sale, ledger, payouts; `/vr/[code]`, `/vendors/referrals`, admin payout queue
 - **Phase 9 — Discovery/leads/reviews/ops:** See `docs/qa-phase9-discovery-leads-reviews.md`; existing discover, reviews, inquiries, admin ops (no new migration)
 
+## Stripe LIVE MODE
+
+- **LIVE VERIFIED:** Stripe runs 100% live (no test keys, no sandbox). See `docs/STRIPE_LIVE_MODE.md`. Keys must be `sk_live_` / `whsec_`; webhook rejects `livemode === false` events.
+
 ## Hard rules (verify per phase)
 
 - SSR auth: `getSession()` (not `getUser()`) in API routes.

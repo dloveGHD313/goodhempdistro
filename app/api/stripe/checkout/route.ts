@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { stripe, getSiteUrl, resolvePriceId } from "@/lib/stripe";
-import { validateEnvVars } from "@/lib/env-validator";
+import { assertStripeLiveSecret } from "@/lib/stripe/liveGuard";
 
 type CheckoutPayload = {
   priceId?: string;
@@ -16,12 +16,7 @@ type CheckoutPayload = {
 
 export async function POST(req: NextRequest) {
   try {
-    if (!validateEnvVars(["STRIPE_SECRET_KEY"], "stripe/checkout")) {
-      return NextResponse.json(
-        { error: "Stripe configuration is missing" },
-        { status: 500 }
-      );
-    }
+    assertStripeLiveSecret();
     const supabase = await createSupabaseServerClient();
     const {
       data: { user },

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
-import { validateEnvVars } from "@/lib/env-validator";
+import { assertStripeLiveSecret, assertStripeWebhookSecret } from "@/lib/stripe/liveGuard";
 import { getVendorPlanByPriceId } from "@/lib/pricing";
 import { getConsumerPlanByKey, getConsumerPlanByPriceId } from "@/lib/consumer-plans";
 import { getInternalPlanFromStripePriceId } from "@/lib/stripe/planMapping";
@@ -102,21 +102,16 @@ async function awardVendorReferralFirstSale(
   }
 }
 
-// Lazy initialization - only create Stripe client when actually used
-// This allows the build to complete even if env vars are missing
+// LIVE MODE ONLY: Stripe client and webhook secret must be live
 function getStripeClient(): Stripe {
-  if (!validateEnvVars(["STRIPE_SECRET_KEY"], "Stripe Webhook")) {
-    throw new Error("Missing required Stripe environment variables: STRIPE_SECRET_KEY");
-  }
+  assertStripeLiveSecret();
   return new Stripe(process.env.STRIPE_SECRET_KEY!, {
     apiVersion: "2025-02-24.acacia",
   });
 }
 
 function getWebhookSecret(): string {
-  if (!validateEnvVars(["STRIPE_WEBHOOK_SECRET"], "Stripe Webhook")) {
-    throw new Error("Missing required Stripe environment variables: STRIPE_WEBHOOK_SECRET");
-  }
+  assertStripeWebhookSecret();
   return process.env.STRIPE_WEBHOOK_SECRET!;
 }
 
@@ -135,10 +130,10 @@ export async function POST(req: NextRequest) {
   let event: Stripe.Event | null = null;
 
   try {
-    // Initialize clients (will throw if env vars missing)
+    // LIVE MODE ONLY: Stripe client and webhook secret must be live
     const stripe = getStripeClient();
     const webhookSecret = getWebhookSecret();
-    
+
     // Verify webhook signature
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err: unknown) {
@@ -150,7 +145,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  console.log("✅ Webhook verified:", { type: event.type, id: event.id });
+  // LIVE MODE ONLY: reject test-mode events
+  if (event.livemode !== true) {
+    console.error("❌ Webhook rejected: event is not live (livemode=false). Test-mode events are not allowed.");
+    return NextResponse.json(
+      { error: "Webhook rejected: live mode only" },
+      { status: 400 }
+    );
+  }
+
+  console.log("✅ Webhook verified (live):", { type: event.type, id: event.id });
 
   try {
     // Handle the event

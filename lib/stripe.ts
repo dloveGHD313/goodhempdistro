@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { validateEnvVars } from "./env-validator";
+import { assertStripeLiveSecret } from "./stripe/liveGuard";
 import {
   STRIPE_PRICES,
   type PlanKey,
@@ -54,10 +54,8 @@ function getStripeClient(): Stripe {
     return stripeInstance;
   }
 
-  // Validate required Stripe environment variables
-  if (!validateEnvVars(["STRIPE_SECRET_KEY"], "Stripe Client")) {
-    throw new Error("STRIPE_SECRET_KEY is not set in environment variables");
-  }
+  // LIVE MODE ONLY: fail if test key or missing
+  assertStripeLiveSecret();
 
   stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY!, {
     apiVersion: "2025-02-24.acacia",
