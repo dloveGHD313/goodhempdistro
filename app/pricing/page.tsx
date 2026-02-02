@@ -177,8 +177,8 @@ export default function PricingPage() {
       });
       const data = await response.json();
       if (!response.ok) {
-        const requestId = response.headers.get("x-request-id") || data?.requestId;
-        alert(`Checkout failed. Reference: ${requestId ?? "unknown"}`);
+        const ref = data.requestId ? ` Reference: ${data.requestId}` : "";
+        alert(`Checkout failed.${ref}`);
         return;
       }
       if (data.url) {
