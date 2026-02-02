@@ -23,7 +23,7 @@ const businessLinksBase = [
   { label: "🏪 Vendors", href: "/vendors" },
   { label: "🛠️ Services", href: "/services" },
   { label: "🏢 Wholesale", href: "/wholesale" },
-  { label: "💰 Affiliate", href: "/affiliate" },
+  { label: "💰 Affiliate Portal", href: "/affiliate/portal" },
   { label: "🤝 Vendor Registration", href: "/vendor-registration" },
 ];
 
@@ -190,7 +190,7 @@ export default function Nav() {
       : driverStatus.hasAccess
         ? { label: "Driver Portal", href: "/driver/dashboard" }
         : isAffiliate
-          ? { label: "Affiliate", href: "/affiliate" }
+          ? { label: "Affiliate Portal", href: "/affiliate/portal" }
           : { label: "Go to Feed", href: "/newsfeed" }
     : { label: "Join Free", href: "/get-started" };
 
@@ -200,12 +200,12 @@ export default function Nav() {
       : null;
 
   const affiliateLink = {
-    label: "💰 Affiliate",
+    label: "💰 Affiliate Portal",
     href: isAffiliate ? "/affiliate/portal" : "/affiliate",
   };
   const businessLinks = [
     ...businessLinksBase
-      .filter((link) => link.label !== "💰 Affiliate")
+      .filter((link) => link.label !== "💰 Affiliate Portal")
       .concat(affiliateLink)
       .filter((link) => link.href !== vendorLink.href),
     ...vendorLinks,
@@ -219,7 +219,7 @@ export default function Nav() {
       : []),
     ...(showBilling ? [{ label: "Billing", href: "/vendors/billing" }] : []),
     ...(isLoggedIn ? [consumerLink] : []),
-    ...(isAffiliate ? [{ label: "Affiliates", href: "/account/affiliates" }] : []),
+    ...(isAffiliate ? [{ label: "Affiliate Portal", href: "/account/affiliates" }] : []),
     ...(isLoggedIn && !isAffiliate ? [{ label: "Become an Affiliate", href: "/affiliate" }] : []),
   ];
 

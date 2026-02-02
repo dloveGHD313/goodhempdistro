@@ -42,6 +42,18 @@ export default function AffiliatePortalClient({ affiliateCode }: AffiliatePortal
   const [requesting, setRequesting] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
+  const referralLink = affiliateCode ? `${siteUrl}/?ref=${affiliateCode}` : "";
+  const handleCopy = () => {
+    if (!referralLink) return;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(referralLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
   const referralLink = affiliateCode ? `${siteUrl}/?ref=${affiliateCode}` : "";
@@ -161,6 +173,14 @@ export default function AffiliatePortalClient({ affiliateCode }: AffiliatePortal
                 value={referralLink}
                 className="w-full px-3 py-2 bg-[var(--surface)]/70 border border-[var(--border)] rounded text-white"
               />
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="btn-secondary w-fit text-sm"
+                disabled={!referralLink}
+              >
+                {copied ? "Copied" : "Copy referral link"}
+              </button>
               <p className="text-xs text-muted">
                 Share this link to earn rewards on qualifying subscriptions.
               </p>
