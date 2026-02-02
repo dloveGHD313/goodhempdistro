@@ -80,6 +80,12 @@ export default async function AccountPage() {
     .order("created_at", { ascending: false })
     .limit(5);
 
+  const { data: affiliate } = await supabase
+    .from("affiliates")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
   return (
     <main className="min-h-screen bg-gray-900 text-white">
       <div className="container mx-auto px-4 py-16 space-y-8">
@@ -130,6 +136,21 @@ export default async function AccountPage() {
         </section>
 
         <ProfileBasicsClient userId={user.id} />
+
+        {!affiliate && (
+          <section className="bg-gray-800 border border-gray-700 rounded-lg p-6 space-y-4">
+            <h2 className="text-xl font-semibold">Affiliate Program</h2>
+            <p className="text-gray-300">
+              Earn by referring customers. Get your unique link and start sharing.
+            </p>
+            <Link
+              href="/affiliate"
+              className="inline-block bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg transition"
+            >
+              Become an Affiliate
+            </Link>
+          </section>
+        )}
 
         <section className="bg-gray-800 border border-gray-700 rounded-lg p-6 space-y-4">
           <h2 className="text-xl font-semibold">Recent Posts</h2>

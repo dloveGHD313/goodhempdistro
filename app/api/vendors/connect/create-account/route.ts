@@ -9,6 +9,9 @@ import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
  */
 export async function POST(req: NextRequest) {
   try {
+    if (!process.env.STRIPE_CONNECT_CLIENT_ID?.trim()) {
+      throw new Error("STRIPE_CONNECT_CLIENT_ID is required for Stripe Connect.");
+    }
     assertStripeLiveConfig();
     const supabase = await createSupabaseServerClient();
     const { data: { session } } = await supabase.auth.getSession();
@@ -68,6 +71,7 @@ export async function POST(req: NextRequest) {
       stripe_account_id: account.id,
     });
   } catch (e) {
+    console.error("Vendor Connect create-account failed", e);
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json(
       { error: "Failed to create Connect account" },

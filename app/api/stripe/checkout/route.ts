@@ -78,8 +78,8 @@ export async function POST(req: NextRequest) {
       payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
       allow_promotion_codes: true,
-      success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/pricing?canceled=1`,
+      success_url: `${siteUrl}/vendors/dashboard?checkout=success`,
+      cancel_url: `${siteUrl}/pricing?tab=vendor`,
       client_reference_id: user.id,
       metadata: {
         plan_key: body.planKey || "",
@@ -113,8 +113,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error("[stripe/checkout]", message);
+    console.error("Vendor checkout failed", error);
     return NextResponse.json(
       { error: "Failed to create checkout session" },
       { status: 500 }

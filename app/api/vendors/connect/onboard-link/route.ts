@@ -9,6 +9,9 @@ import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
  */
 export async function POST(req: NextRequest) {
   try {
+    if (!process.env.STRIPE_CONNECT_CLIENT_ID?.trim()) {
+      throw new Error("STRIPE_CONNECT_CLIENT_ID is required for Stripe Connect.");
+    }
     assertStripeLiveConfig();
     const supabase = await createSupabaseServerClient();
     const { data: { session } } = await supabase.auth.getSession();
@@ -44,7 +47,7 @@ export async function POST(req: NextRequest) {
       url: accountLink.url,
     });
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    console.error("Vendor Connect onboard-link failed", e);
     return NextResponse.json(
       { error: "Failed to create onboarding link" },
       { status: 500 }

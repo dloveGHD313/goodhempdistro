@@ -212,6 +212,8 @@ export default function Nav() {
       : []),
     ...(showBilling ? [{ label: "Billing", href: "/vendors/billing" }] : []),
     ...(isLoggedIn ? [consumerLink] : []),
+    ...(isAffiliate ? [{ label: "Affiliates", href: "/account/affiliates" }] : []),
+    ...(isLoggedIn && !isAffiliate ? [{ label: "Become an Affiliate", href: "/affiliate" }] : []),
   ];
 
   return (
