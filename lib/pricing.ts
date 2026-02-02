@@ -1,3 +1,12 @@
+import { STRIPE_PRICES } from "@/lib/stripe/prices";
+
+/** Map internal vendor tier to STRIPE_PRICES key (Option B: keep existing keys). */
+const VENDOR_TIER_TO_STRIPE = {
+  Starter: "VENDOR_STARTER",
+  Pro: "VENDOR_GROWTH",
+  Enterprise: "VENDOR_PRO",
+} as const;
+
 export type VendorPlanConfig = {
   key: string;
   planKey: string;
@@ -202,7 +211,9 @@ export function getVendorPlanConfigs() {
   const missingEnv: string[] = [];
 
   for (const plan of VENDOR_PLAN_ENVS) {
-    const priceId = process.env[plan.envKey];
+    const stripeKey = VENDOR_TIER_TO_STRIPE[plan.tier];
+    const interval = plan.interval === "month" ? "MONTHLY" : "ANNUAL";
+    const priceId = STRIPE_PRICES[stripeKey][interval];
     if (!priceId) {
       missingEnv.push(plan.envKey);
       continue;

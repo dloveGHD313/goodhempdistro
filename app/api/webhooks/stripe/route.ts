@@ -5,6 +5,7 @@ import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { validateEnvVars } from "@/lib/env-validator";
 import { getVendorPlanByPriceId } from "@/lib/pricing";
 import { getConsumerPlanByKey, getConsumerPlanByPriceId } from "@/lib/consumer-plans";
+import { getInternalPlanFromStripePriceId } from "@/lib/stripe/planMapping";
 import {
   BONUS_POINTS_PER_100_SPENT,
   HIGH_SPEND_MULTIPLIER,
@@ -515,11 +516,21 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
       : null;
     const subscriptionStatus = subscription.status;
     const subscriptionPriceId = subscription.items.data[0]?.price.id || null;
-    const subscriptionPlanKey = subscriptionPriceId
-      ? getVendorPlanByPriceId(subscriptionPriceId)?.planKey || null
-      : null;
+    let subscriptionPlanKey: string | null = null;
+    if (subscriptionPriceId) {
+      const internal = getInternalPlanFromStripePriceId(subscriptionPriceId);
+      subscriptionPlanKey =
+        internal?.kind === "vendor"
+          ? internal.planKey
+          : getVendorPlanByPriceId(subscriptionPriceId)?.planKey ?? null;
+      if (!internal && planType === "vendor") {
+        console.warn("[webhook] Unknown vendor subscription priceId", {
+          priceIdPrefix: subscriptionPriceId.slice(0, 12),
+        });
+      }
+    }
     const cancelAtPeriodEnd = subscription.cancel_at_period_end || false;
-    
+
     // Create subscription record from checkout
     const { error: subError } = await supabase
       .from("subscriptions")
@@ -592,11 +603,19 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
         stripeCustomerId: session.customer as string,
       });
       if (resolvedUserId) {
-        const resolvedPlanKey =
-          consumerPlanKey ||
-          (subscriptionPriceId
-            ? getConsumerPlanByPriceId(subscriptionPriceId)?.planKey || null
-            : null);
+        let resolvedPlanKey: string | null = consumerPlanKey || null;
+        if (!resolvedPlanKey && subscriptionPriceId) {
+          const internal = getInternalPlanFromStripePriceId(subscriptionPriceId);
+          resolvedPlanKey =
+            internal?.kind === "consumer"
+              ? internal.planKey
+              : getConsumerPlanByPriceId(subscriptionPriceId)?.planKey ?? null;
+          if (!internal && planType === "consumer") {
+            console.warn("[webhook] Unknown consumer subscription priceId", {
+              priceIdPrefix: subscriptionPriceId.slice(0, 12),
+            });
+          }
+        }
         await admin
           .from("consumer_subscriptions")
           .upsert(
@@ -872,9 +891,19 @@ async function handleSubscriptionChange(
   if (planType === "vendor") {
     const admin = getSupabaseAdminClient();
     const subscriptionPriceId = subscription.items.data[0]?.price.id || null;
-    const subscriptionPlanKey = subscriptionPriceId
-      ? getVendorPlanByPriceId(subscriptionPriceId)?.planKey || null
-      : null;
+    let subscriptionPlanKey: string | null = null;
+    if (subscriptionPriceId) {
+      const internal = getInternalPlanFromStripePriceId(subscriptionPriceId);
+      subscriptionPlanKey =
+        internal?.kind === "vendor"
+          ? internal.planKey
+          : getVendorPlanByPriceId(subscriptionPriceId)?.planKey ?? null;
+      if (!internal) {
+        console.warn("[webhook] Unknown vendor subscription priceId", {
+          priceIdPrefix: subscriptionPriceId.slice(0, 12),
+        });
+      }
+    }
     const resolvedVendorId = await resolveVendorId({
       vendorId,
       userId,
@@ -915,11 +944,19 @@ async function handleSubscriptionChange(
       stripeCustomerId: subscription.customer as string,
     });
     if (resolvedUserId) {
-      const resolvedPlanKey =
-        consumerPlanKey ||
-        (subscriptionPriceId
-          ? getConsumerPlanByPriceId(subscriptionPriceId)?.planKey || null
-          : null);
+      let resolvedPlanKey: string | null = consumerPlanKey || null;
+      if (!resolvedPlanKey && subscriptionPriceId) {
+        const internal = getInternalPlanFromStripePriceId(subscriptionPriceId);
+        resolvedPlanKey =
+          internal?.kind === "consumer"
+            ? internal.planKey
+            : getConsumerPlanByPriceId(subscriptionPriceId)?.planKey ?? null;
+        if (!internal) {
+          console.warn("[webhook] Unknown consumer subscription priceId", {
+            priceIdPrefix: subscriptionPriceId.slice(0, 12),
+          });
+        }
+      }
       await admin
         .from("consumer_subscriptions")
         .upsert(
