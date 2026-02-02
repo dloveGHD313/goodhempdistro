@@ -53,7 +53,8 @@ export default function PayoutsClient() {
         const res = await fetch("/api/vendors/connect/onboard-link", { method: "POST" });
         const linkData = await res.json();
         if (!res.ok || !linkData?.url) {
-          setError(linkData?.error || "Failed to get onboarding link");
+          const requestId = res.headers.get("x-request-id") || linkData?.requestId;
+          setError(`Onboarding failed. Reference: ${requestId ?? "unknown"}`);
           setConnecting(false);
           return;
         }
@@ -63,20 +64,22 @@ export default function PayoutsClient() {
       const createRes = await fetch("/api/vendors/connect/create-account", { method: "POST" });
       const createData = await createRes.json();
       if (!createRes.ok) {
-        setError(createData?.error || "Failed to create account");
+        const requestId = createRes.headers.get("x-request-id") || createData?.requestId;
+        setError(`Onboarding failed. Reference: ${requestId ?? "unknown"}`);
         setConnecting(false);
         return;
       }
       const linkRes = await fetch("/api/vendors/connect/onboard-link", { method: "POST" });
       const linkData = await linkRes.json();
       if (!linkRes.ok || !linkData?.url) {
-        setError(linkData?.error || "Failed to get onboarding link");
+        const requestId = linkRes.headers.get("x-request-id") || linkData?.requestId;
+        setError(`Onboarding failed. Reference: ${requestId ?? "unknown"}`);
         setConnecting(false);
         return;
       }
       window.location.href = linkData.url;
     } catch {
-      setError("Something went wrong");
+      setError("Onboarding failed. Reference: unknown");
       setConnecting(false);
     }
   };
