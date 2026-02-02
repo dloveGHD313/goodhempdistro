@@ -1,54 +1,34 @@
-# Vercel Environment Variables (Required)
+# Vercel Environment Variables (Required for LIVE)
 
-**Do not commit real values.** Use Vercel → Project → Settings → Environment Variables. For local dev, copy variable **names** into `.env.local` and fill from Vercel or dashboards.
+Documentation of **required** environment variable **names** and descriptions only. Do not commit or log secret values.
 
-## Required (public)
+---
 
-| Variable | Purpose | Expected prefix / format |
-|----------|---------|---------------------------|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL | `https://<project>.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key | `eyJ...` |
-| `NEXT_PUBLIC_SITE_URL` | Site URL for redirects, Stripe success/cancel, Connect | e.g. `https://goodhempdistro.com` |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe publishable key (LIVE) | `pk_live_...` |
+## Required LIVE variables
 
-## Required (server-only)
+| Variable | Description |
+|----------|-------------|
+| **STRIPE_SECRET_KEY** | Stripe API secret key (LIVE). Used for checkout, webhooks, and Connect. |
+| **NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY** | Stripe publishable key (LIVE). Used by client for Stripe.js / Checkout. |
+| **STRIPE_WEBHOOK_SECRET** | Stripe webhook signing secret (LIVE). Used to verify webhook signatures. |
+| **STRIPE_CONNECT_CLIENT_ID** | Stripe Connect OAuth client ID (LIVE, starts with `ca_`). Required for Connect. |
+| **NEXT_PUBLIC_SITE_URL** | Canonical site URL. Used for redirects, Stripe success/cancel URLs, and Connect return/refresh URLs. |
+| **SUPABASE_SERVICE_ROLE_KEY** | Supabase service role key. Used for admin client, RLS bypass, and server-only operations. |
+| **NEXT_PUBLIC_SUPABASE_ANON_KEY** | Supabase anonymous (public) key. Used by the Supabase client in the browser. |
+| **NEXT_PUBLIC_SUPABASE_URL** | Supabase project URL. Used by the Supabase client and server. |
 
-| Variable | Purpose | Expected prefix / format |
-|----------|---------|---------------------------|
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role (admin client, RLS bypass, webhooks) | `eyJ...` |
-| `STRIPE_SECRET_KEY` | Stripe API (checkout, webhook, Connect) | `sk_live_...` |
-| `STRIPE_WEBHOOK_SECRET` | Webhook signature verification | `whsec_...` |
-| `STRIPE_CONNECT_CLIENT_ID` | Connect (vendor/affiliate onboarding) | `ca_...` (live) |
+---
 
-## Optional
+## Rules (DO NOT DEVIATE)
 
-| Variable | Purpose |
-|----------|---------|
-| `SUPABASE_URL` | Server-side Supabase URL (fallback if not using `NEXT_PUBLIC_SUPABASE_URL`) |
-| `ADMIN_EMAILS` | Comma-separated admin emails (requireAdmin allowlist) |
-| `ADMIN_EMAIL_DOMAIN` | Admin domain (requireAdmin) |
-| `DEBUG_KEY` | Debug gate for vendor registration / diag |
-| `INTOXICATING_ALLOWED_UNTIL` | Compliance cutoff (e.g. `2026-11-01`) |
-| `OPENAI_API_KEY` | Mascot chat (if Mascot enabled) |
-| `OPENAI_MODEL` | e.g. `gpt-4o-mini` |
-| `OPENAI_SEARCH_MODEL` | e.g. `gpt-4o-mini-search-preview` |
-| `MASCOT_AI_ENABLED` | Server flag for Mascot |
-| `NEXT_PUBLIC_MASCOT_ENABLED` | Client flag for Mascot |
+- **Stripe TEST keys must NOT be used.** Use only LIVE keys (`sk_live_`, `pk_live_`, `whsec_` from a live webhook, `ca_` for Connect).
+- **All Stripe IDs referenced in the application are LIVE-mode IDs.** No test-mode product, price, or account IDs.
+- **`.env.local` is required for local development.** Copy variable names from this document (or `.env.example`); fill values locally only. Never commit `.env.local` or any file containing secret values.
+- **Vercel Environment Variables must match LIVE values exactly.** Set these in Vercel → Project → Settings → Environment Variables for Production (and Preview if needed).
 
-## Stripe price/product IDs (optional overrides)
+---
 
-If the app uses env-based price/product IDs (see `lib/pricing.ts`, `lib/consumer-plans.ts`), set:
+## Where to set values
 
-- `STRIPE_CONSUMER_STARTER_MONTHLY_PRICE_ID`, `STRIPE_CONSUMER_STARTER_ANNUAL_PRICE_ID`
-- `STRIPE_CONSUMER_PLUS_MONTHLY_PRICE_ID`, `STRIPE_CONSUMER_PLUS_ANNUAL_PRICE_ID`
-- `STRIPE_CONSUMER_VIP_MONTHLY_PRICE_ID`, `STRIPE_CONSUMER_VIP_ANNUAL_PRICE_ID`
-- `STRIPE_VENDOR_STARTER_MONTHLY_PRICE_ID`, `STRIPE_VENDOR_STARTER_ANNUAL_PRICE_ID`
-- `STRIPE_VENDOR_PRO_MONTHLY_PRICE_ID`, `STRIPE_VENDOR_PRO_ANNUAL_PRICE_ID`
-- `STRIPE_VENDOR_ENTERPRISE_MONTHLY_PRICE_ID`, `STRIPE_VENDOR_ENTERPRISE_ANNUAL_PRICE_ID`
-- `STRIPE_VENDOR_*_PRODUCT_ID` (same tiers)
-
-## Filling local `.env.local`
-
-1. Copy `.env.example` to `.env.local`.
-2. In Vercel: Project → Settings → Environment Variables → copy **names** (not values).
-3. Paste real values only in local `.env.local`; never commit `.env.local`.
+- **Vercel:** Project → Settings → Environment Variables. Add each variable by name; paste the value. Do not commit values into the repository.
+- **Local:** Create `.env.local` with the same variable names; paste values from Vercel or from Stripe/Supabase dashboards. `.env.local` is gitignored.
