@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
       payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
       allow_promotion_codes: true,
-      success_url: `${siteUrl}/vendors/dashboard?checkout=success`,
+      success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/pricing?tab=vendor`,
       client_reference_id: user.id,
       metadata: {
@@ -147,7 +147,20 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    console.error("Vendor checkout failed", error);
+    const err = error as {
+      type?: string;
+      code?: string;
+      message?: string;
+      requestId?: string;
+      statusCode?: number;
+    };
+    console.error("[api/stripe/checkout] vendor checkout failed", {
+      message: typeof err?.message === "string" ? err.message : "Unknown error",
+      type: typeof err?.type === "string" ? err.type : undefined,
+      code: typeof err?.code === "string" ? err.code : undefined,
+      requestId: typeof err?.requestId === "string" ? err.requestId : undefined,
+      statusCode: typeof err?.statusCode === "number" ? err.statusCode : undefined,
+    });
     return NextResponse.json(
       { error: "Failed to create checkout session" },
       { status: 500 }

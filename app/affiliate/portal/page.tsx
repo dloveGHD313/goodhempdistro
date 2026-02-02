@@ -3,7 +3,7 @@ import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
-import AffiliatePortalClient from "./AffiliatePortalClient";
+import AffiliatePortalClient from "@/app/affiliates/portal/AffiliatePortalClient";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -16,7 +16,7 @@ export default async function AffiliatePortalPage() {
   const user = session?.user ?? null;
 
   if (!user) {
-    redirect("/login?redirect=/affiliates/portal");
+    redirect("/login?redirect=/affiliate/portal");
   }
 
   const { data: affiliate } = await supabase

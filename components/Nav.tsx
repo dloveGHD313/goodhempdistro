@@ -201,7 +201,7 @@ export default function Nav() {
 
   const affiliateLink = {
     label: "💰 Affiliate",
-    href: isAffiliate ? "/affiliates/portal" : "/affiliate",
+    href: isAffiliate ? "/affiliate/portal" : "/affiliate",
   };
   const businessLinks = [
     ...businessLinksBase
