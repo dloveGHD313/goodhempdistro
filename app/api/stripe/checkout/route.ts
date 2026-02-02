@@ -13,6 +13,10 @@ function safeTruncate(s: string | undefined): string | undefined {
   return s.length <= TRUNCATE ? s : s.slice(0, TRUNCATE) + "...";
 }
 
+function requestIdHeaders(requestId: string): Record<string, string> {
+  return { "X-Request-Id": requestId };
+}
+
 type CheckoutPayload = {
   priceId?: string;
   planKey?: string;
@@ -39,8 +43,10 @@ export async function POST(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      console.warn("[stripe-checkout] unauthorized", { route, requestId });
-      return json({ error: "Unauthorized" }, 401);
+      return NextResponse.json(
+        { error: "Unauthorized", requestId },
+        { status: 401, headers: requestIdHeaders(requestId) }
+      );
     }
     userId = user.id;
 
@@ -54,30 +60,18 @@ export async function POST(req: NextRequest) {
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Missing price selection";
-      console.warn("[stripe-checkout] invalid price selection", {
-        route,
-        requestId,
-        userId: safeUserId,
-        stripeRequestId: undefined,
-        errorType: "invalid_request",
-        errorCode: undefined,
-        message: msg.slice(0, 300),
-      });
-      return json({ error: msg }, 400);
+      return NextResponse.json(
+        { error: msg, requestId },
+        { status: 400, headers: requestIdHeaders(requestId) }
+      );
     }
 
     const vendorPlan = getVendorPlanByPriceId(priceId);
     if (!vendorPlan) {
-      console.warn("[stripe-checkout] non-vendor price rejected", {
-        route,
-        requestId,
-        userId: safeUserId,
-        stripeRequestId: undefined,
-        errorType: "invalid_request",
-        errorCode: undefined,
-        message: "PriceId not mapped to a vendor plan",
-      });
-      return json({ error: "Invalid vendor price selection" }, 400);
+      return NextResponse.json(
+        { error: "Invalid vendor price selection", requestId },
+        { status: 400, headers: requestIdHeaders(requestId) }
+      );
     }
 
     const admin = getSupabaseAdminClient();
@@ -118,16 +112,10 @@ export async function POST(req: NextRequest) {
         vendor = inserted ?? null;
       }
       if (!vendor) {
-        console.error("[stripe-checkout] vendor provision failed", {
-          route,
-          requestId,
-          userId: safeUserId,
-          stripeRequestId: undefined,
-          errorType: "supabase_error",
-          errorCode: insertErr?.code,
-          message: insertErr?.message?.slice(0, 300) ?? "Vendor provision failed",
-        });
-        return json({ error: "Failed to provision vendor for checkout" }, 500);
+        return NextResponse.json(
+          { ok: false, requestId, error: "Failed to provision vendor for checkout" },
+          { status: 500, headers: requestIdHeaders(requestId) }
+        );
       }
     }
 
@@ -211,7 +199,7 @@ export async function POST(req: NextRequest) {
     }));
     return NextResponse.json(
       { ok: false, requestId, error: "Failed to create checkout session" },
-      { status: 500 }
+      { status: 500, headers: requestIdHeaders(requestId) }
     );
   }
 }
