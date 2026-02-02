@@ -199,8 +199,15 @@ export default function Nav() {
       ? { label: "Go to Feed", href: "/newsfeed" }
       : null;
 
+  const affiliateLink = {
+    label: "💰 Affiliate",
+    href: isAffiliate ? "/affiliates/portal" : "/affiliate",
+  };
   const businessLinks = [
-    ...businessLinksBase.filter((link) => link.href !== vendorLink.href),
+    ...businessLinksBase
+      .filter((link) => link.label !== "💰 Affiliate")
+      .concat(affiliateLink)
+      .filter((link) => link.href !== vendorLink.href),
     ...vendorLinks,
   ];
 

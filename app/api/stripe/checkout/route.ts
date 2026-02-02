@@ -44,14 +44,48 @@ export async function POST(req: NextRequest) {
     }
 
     const admin = getSupabaseAdminClient();
-    const { data: vendor } = await admin
-      .from("vendors")
-      .select("id, owner_user_id, business_name, stripe_customer_id")
-      .eq("owner_user_id", user.id)
-      .maybeSingle();
+    let vendor = (
+      await admin
+        .from("vendors")
+        .select("id, owner_user_id, business_name, stripe_customer_id")
+        .eq("owner_user_id", user.id)
+        .maybeSingle()
+    ).data;
 
     if (!vendor) {
-      return NextResponse.json({ error: "Vendor account required" }, { status: 404 });
+      const { data: application } = await admin
+        .from("vendor_applications")
+        .select("business_name")
+        .eq("user_id", user.id)
+        .eq("status", "approved")
+        .maybeSingle();
+      const businessName =
+        (application?.business_name?.trim()) || user.email || "Vendor";
+      const { data: inserted, error: insertErr } = await admin
+        .from("vendors")
+        .insert({
+          owner_user_id: user.id,
+          business_name: businessName,
+          status: "active",
+        })
+        .select("id, owner_user_id, business_name, stripe_customer_id")
+        .single();
+      if (insertErr) {
+        const { data: existing } = await admin
+          .from("vendors")
+          .select("id, owner_user_id, business_name, stripe_customer_id")
+          .eq("owner_user_id", user.id)
+          .maybeSingle();
+        vendor = existing ?? null;
+      } else {
+        vendor = inserted ?? null;
+      }
+      if (!vendor) {
+        return NextResponse.json(
+          { error: "Failed to provision vendor for checkout" },
+          { status: 500 }
+        );
+      }
     }
 
     let stripeCustomerId = vendor.stripe_customer_id || null;

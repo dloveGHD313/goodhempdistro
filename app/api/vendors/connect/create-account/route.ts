@@ -70,12 +70,21 @@ export async function POST(req: NextRequest) {
       ok: true,
       stripe_account_id: account.id,
     });
-  } catch (e) {
+  } catch (e: unknown) {
     console.error("Vendor Connect create-account failed", e);
-    const msg = e instanceof Error ? e.message : String(e);
+    const err = e as { type?: string; code?: string; message?: string; requestId?: string; statusCode?: number };
+    const status = typeof err?.statusCode === "number" ? err.statusCode : 500;
     return NextResponse.json(
-      { error: "Failed to create Connect account" },
-      { status: 500 }
+      {
+        error: "Failed to create Connect account",
+        details: {
+          type: typeof err?.type === "string" ? err.type : undefined,
+          code: typeof err?.code === "string" ? err.code : undefined,
+          message: typeof err?.message === "string" ? err.message : undefined,
+          requestId: typeof err?.requestId === "string" ? err.requestId : undefined,
+        },
+      },
+      { status }
     );
   }
 }
