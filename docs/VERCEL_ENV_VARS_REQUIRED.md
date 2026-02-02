@@ -21,10 +21,18 @@ Documentation of **required** environment variable **names** and descriptions on
 
 ## Rules (DO NOT DEVIATE)
 
-- **Stripe TEST keys must NOT be used.** Use only LIVE keys (`sk_live_`, `pk_live_`, `whsec_` from a live webhook, `ca_` for Connect).
+- **Stripe TEST keys must NOT be used.** Use only LIVE keys (`sk_live_`, `pk_live_`, `whsec_` from a live webhook).
 - **All Stripe IDs referenced in the application are LIVE-mode IDs.** No test-mode product, price, or account IDs.
 - **`.env.local` is required for local development.** Copy variable names from this document (or `.env.example`); fill values locally only. Never commit `.env.local` or any file containing secret values.
 - **Vercel Environment Variables must match LIVE values exactly.** Set these in Vercel → Project → Settings → Environment Variables for Production (and Preview if needed).
+
+---
+
+## Optional (OAuth-only)
+
+| Variable | Description |
+|----------|-------------|
+| **STRIPE_CONNECT_CLIENT_ID** | Stripe Connect OAuth client ID (LIVE, starts with `ca_`). Required only for OAuth-based Connect flows. |
 
 ---
 

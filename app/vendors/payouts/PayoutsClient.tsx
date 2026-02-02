@@ -79,7 +79,7 @@ export default function PayoutsClient() {
       }
       window.location.href = linkData.url;
     } catch {
-      setError("Something went wrong");
+      setError("Onboarding failed. Reference: unknown");
       setConnecting(false);
     }
   };

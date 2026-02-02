@@ -34,8 +34,8 @@ export async function POST(req: NextRequest) {
     const siteUrl = getSiteUrl(req);
     const accountLink = await stripe.accountLinks.create({
       account: affiliate.stripe_account_id,
-      refresh_url: `${siteUrl}/affiliates/portal?refresh=1`,
-      return_url: `${siteUrl}/affiliates/portal?success=1`,
+      refresh_url: `${siteUrl}/affiliate/portal?refresh=1`,
+      return_url: `${siteUrl}/affiliate/portal?success=1`,
       type: "account_onboarding",
     });
 

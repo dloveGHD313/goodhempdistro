@@ -7,7 +7,6 @@
 const STRIPE_SECRET_KEY = "STRIPE_SECRET_KEY";
 const NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY";
 const STRIPE_WEBHOOK_SECRET = "STRIPE_WEBHOOK_SECRET";
-const STRIPE_CONNECT_CLIENT_ID = "STRIPE_CONNECT_CLIENT_ID";
 
 function isProduction(): boolean {
   const vercelEnv = process.env.VERCEL_ENV;
@@ -20,7 +19,6 @@ function isProduction(): boolean {
  * - STRIPE_SECRET_KEY starts with sk_live_
  * - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY starts with pk_live_
  * - STRIPE_WEBHOOK_SECRET set (starts with whsec_)
- * - STRIPE_CONNECT_CLIENT_ID set (for Connect; ca_... for live)
  * Throws with a SAFE message (no secret values).
  */
 export function assertStripeLiveConfig(): void {

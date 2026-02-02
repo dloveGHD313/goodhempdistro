@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { stripe, getSiteUrl, resolvePriceId } from "@/lib/stripe";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
+import { getVendorPlanByPriceId } from "@/lib/pricing";
 
 const ROUTE_NAME = "stripe/checkout";
 const TRUNCATE = 300;
@@ -38,7 +39,8 @@ export async function POST(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      console.warn("[stripe-checkout] unauthorized", { route, requestId });
+      return json({ error: "Unauthorized" }, 401);
     }
     userId = user.id;
 
@@ -52,10 +54,30 @@ export async function POST(req: NextRequest) {
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Missing price selection";
-      return NextResponse.json(
-        { error: msg },
-        { status: 400 }
-      );
+      console.warn("[stripe-checkout] invalid price selection", {
+        route,
+        requestId,
+        userId: safeUserId,
+        stripeRequestId: undefined,
+        errorType: "invalid_request",
+        errorCode: undefined,
+        message: msg.slice(0, 300),
+      });
+      return json({ error: msg }, 400);
+    }
+
+    const vendorPlan = getVendorPlanByPriceId(priceId);
+    if (!vendorPlan) {
+      console.warn("[stripe-checkout] non-vendor price rejected", {
+        route,
+        requestId,
+        userId: safeUserId,
+        stripeRequestId: undefined,
+        errorType: "invalid_request",
+        errorCode: undefined,
+        message: "PriceId not mapped to a vendor plan",
+      });
+      return json({ error: "Invalid vendor price selection" }, 400);
     }
 
     const admin = getSupabaseAdminClient();
@@ -96,10 +118,16 @@ export async function POST(req: NextRequest) {
         vendor = inserted ?? null;
       }
       if (!vendor) {
-        return NextResponse.json(
-          { error: "Failed to provision vendor for checkout" },
-          { status: 500 }
-        );
+        console.error("[stripe-checkout] vendor provision failed", {
+          route,
+          requestId,
+          userId: safeUserId,
+          stripeRequestId: undefined,
+          errorType: "supabase_error",
+          errorCode: insertErr?.code,
+          message: insertErr?.message?.slice(0, 300) ?? "Vendor provision failed",
+        });
+        return json({ error: "Failed to provision vendor for checkout" }, 500);
       }
     }
 
@@ -127,7 +155,7 @@ export async function POST(req: NextRequest) {
       payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
       allow_promotion_codes: true,
-      success_url: `${siteUrl}/vendors/dashboard?checkout=success`,
+      success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/pricing?tab=vendor`,
       client_reference_id: user.id,
       metadata: {

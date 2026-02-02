@@ -28,8 +28,10 @@ export async function POST(req: NextRequest) {
     const user = session?.user ?? null;
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      console.warn("[vendor-connect] unauthorized", { route, requestId });
+      return json({ error: "Unauthorized" }, 401);
     }
+    safeUserId = user.id;
 
     const { data: row } = await supabase
       .from("vendor_connect_accounts")
@@ -38,10 +40,16 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (!row?.stripe_account_id) {
-      return NextResponse.json(
-        { error: "No Connect account. Call create-account first." },
-        { status: 400 }
-      );
+      console.warn("[vendor-connect] missing account", {
+        route,
+        requestId,
+        userId: safeUserId,
+        stripeRequestId: undefined,
+        errorType: "invalid_request",
+        errorCode: undefined,
+        message: "No Connect account",
+      });
+      return json({ error: "No Connect account. Call create-account first." }, 400);
     }
 
     const siteUrl = getSiteUrl(req);
@@ -52,7 +60,7 @@ export async function POST(req: NextRequest) {
       type: "account_onboarding",
     });
 
-    return NextResponse.json({
+    return json({
       ok: true,
       url: accountLink.url,
     });

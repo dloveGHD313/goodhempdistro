@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
-import { stripe, getSiteUrl } from "@/lib/stripe";
+import { stripe } from "@/lib/stripe";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 
 const ROUTE_NAME = "vendors/connect/create-account";
@@ -28,7 +28,8 @@ export async function POST(req: NextRequest) {
     const user = session?.user ?? null;
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      console.warn("[vendor-connect] unauthorized", { route, requestId });
+      return json({ error: "Unauthorized" }, 401);
     }
     userId = user.id;
 
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (existing?.stripe_account_id) {
-      return NextResponse.json({
+      return json({
         ok: true,
         stripe_account_id: existing.stripe_account_id,
         already_exists: true,
@@ -71,13 +72,19 @@ export async function POST(req: NextRequest) {
       );
 
     if (insertError) {
-      return NextResponse.json(
-        { error: "Failed to save Connect account" },
-        { status: 500 }
-      );
+      console.error("[vendor-connect] save failed", {
+        route,
+        requestId,
+        userId: safeUserId,
+        stripeRequestId: undefined,
+        errorType: "supabase_error",
+        errorCode: insertError.code,
+        message: insertError.message,
+      });
+      return json({ error: "Failed to save Connect account" }, 500);
     }
 
-    return NextResponse.json({
+    return json({
       ok: true,
       stripe_account_id: account.id,
     });
