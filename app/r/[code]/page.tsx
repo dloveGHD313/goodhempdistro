@@ -9,20 +9,25 @@ export default async function ReferralRedirectPage({
   searchParams,
 }: {
   params: Promise<{ code: string }>;
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+  searchParams?: Record<string, string | string[] | undefined>;
 }) {
   const { code } = await params;
   const safe = /^[A-Za-z0-9\-]+$/.test(code) ? encodeURIComponent(code) : "";
   if (!safe) {
     redirect("/");
   }
-  const query = await searchParams;
-  const merged = new URLSearchParams();
-  merged.set("ref", safe);
-  for (const [key, value] of Object.entries(query)) {
-    if (key === "ref" || value === undefined) continue;
-    const v = Array.isArray(value) ? value[0] : value;
-    if (v) merged.set(key, v);
+  const query = new URLSearchParams();
+  if (searchParams) {
+    for (const [key, value] of Object.entries(searchParams)) {
+      if (Array.isArray(value)) {
+        value.forEach((entry) => {
+          if (entry) query.append(key, entry);
+        });
+      } else if (typeof value === "string" && value.length > 0) {
+        query.append(key, value);
+      }
+    }
   }
-  redirect(`/?${merged.toString()}`);
+  query.set("ref", safe);
+  redirect(`/?${query.toString()}`);
 }

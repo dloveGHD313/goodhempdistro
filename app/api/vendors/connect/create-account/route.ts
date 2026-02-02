@@ -58,7 +58,7 @@ export async function POST(_req: NextRequest) {
       .maybeSingle();
 
     if (existing?.stripe_account_id) {
-      return NextResponse.json({
+      return json({
         ok: true,
         stripe_account_id: existing.stripe_account_id,
         already_exists: true,
@@ -96,7 +96,7 @@ export async function POST(_req: NextRequest) {
       );
     }
 
-    return NextResponse.json({
+    return json({
       ok: true,
       stripe_account_id: account.id,
     });
