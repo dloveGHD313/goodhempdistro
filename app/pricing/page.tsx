@@ -186,7 +186,7 @@ export default function PricingPage() {
       }
     } catch (error) {
       console.error("Error starting vendor checkout:", error);
-      alert("Checkout failed. Reference: unknown");
+      alert("Failed to create checkout session. Reference: unknown");
     }
   };
 

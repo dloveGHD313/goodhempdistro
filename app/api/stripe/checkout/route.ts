@@ -66,25 +66,59 @@ export async function POST(req: NextRequest) {
         { status: 400, headers: requestIdHeaders(requestId) }
       );
     }
-    const { invalidEnv } = getVendorPlanConfigs();
+    const { invalidEnv, missingEnv } = getVendorPlanConfigs();
     if (invalidEnv.length > 0) {
       console.warn("[stripe/checkout] invalid vendor price env (not price_ prefix)", { requestId, invalidEnvKeys: invalidEnv });
       return NextResponse.json(
-        { ok: false, requestId, error: "Vendor pricing is misconfigured" },
+        {
+          error: "Vendor pricing is misconfigured",
+          requestId,
+          details: {
+            productType: "vendor",
+            planKey: planKey ?? null,
+            cadence: cadence ?? null,
+            missingEnvKeys: missingEnv,
+            invalidEnvKeys: invalidEnv,
+            resolvedPriceIdPrefix: "invalid" as const,
+          },
+        },
         { status: 500, headers: requestIdHeaders(requestId) }
       );
     }
     const priceId = resolveVendorPriceId(planKey, cadence);
+    const resolvedPriceIdPrefix = !priceId ? "missing" : priceId.startsWith("price_") ? "price_" : "invalid";
     if (!priceId || !priceId.startsWith("price_")) {
       return NextResponse.json(
-        { error: "Invalid vendor price selection", requestId },
+        {
+          error: "Invalid vendor price selection",
+          requestId,
+          details: {
+            productType: "vendor",
+            planKey: planKey ?? null,
+            cadence: cadence ?? null,
+            missingEnvKeys: missingEnv,
+            invalidEnvKeys: invalidEnv,
+            resolvedPriceIdPrefix,
+          },
+        },
         { status: 400, headers: requestIdHeaders(requestId) }
       );
     }
     const vendorPlan = getVendorPlanByPriceId(priceId);
     if (!vendorPlan) {
       return NextResponse.json(
-        { error: "Invalid vendor price selection", requestId },
+        {
+          error: "Invalid vendor price selection",
+          requestId,
+          details: {
+            productType: "vendor",
+            planKey: planKey ?? null,
+            cadence: cadence ?? null,
+            missingEnvKeys: missingEnv,
+            invalidEnvKeys: invalidEnv,
+            resolvedPriceIdPrefix: "price_" as const,
+          },
+        },
         { status: 400, headers: requestIdHeaders(requestId) }
       );
     }
@@ -127,8 +161,20 @@ export async function POST(req: NextRequest) {
         vendor = inserted ?? null;
       }
       if (!vendor) {
+        const { missingEnv: mEnv, invalidEnv: iEnv } = getVendorPlanConfigs();
         return NextResponse.json(
-          { ok: false, requestId, error: "Failed to provision vendor for checkout" },
+          {
+            error: "Failed to provision vendor for checkout",
+            requestId,
+            details: {
+              productType: "vendor",
+              planKey: body.planKey ?? null,
+              cadence: cadence ?? null,
+              missingEnvKeys: mEnv,
+              invalidEnvKeys: iEnv,
+              resolvedPriceIdPrefix: "price_" as const,
+            },
+          },
           { status: 500, headers: requestIdHeaders(requestId) }
         );
       }
@@ -191,7 +237,22 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ url: session.url });
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profile?.role === "consumer") {
+      await admin
+        .from("profiles")
+        .update({ role: "vendor_pending" })
+        .eq("id", user.id);
+    }
+
+    return NextResponse.json(
+      { url: session.url, requestId },
+      { status: 200, headers: requestIdHeaders(requestId) }
+    );
   } catch (error: unknown) {
     const err = error as {
       type?: string;
@@ -213,7 +274,7 @@ export async function POST(req: NextRequest) {
       stripeRequestId: err?.requestId ?? null,
     }));
     return NextResponse.json(
-      { ok: false, requestId, error: "Failed to create checkout session" },
+      { error: "Failed to create checkout session", requestId },
       { status: 500, headers: requestIdHeaders(requestId) }
     );
   }

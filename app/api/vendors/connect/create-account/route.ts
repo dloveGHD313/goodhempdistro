@@ -58,13 +58,6 @@ export async function POST(_req: NextRequest) {
       .maybeSingle();
 
     if (existing?.stripe_account_id) {
-<<<<<<< HEAD
-      return json({
-        ok: true,
-        stripe_account_id: existing.stripe_account_id,
-        already_exists: true,
-      });
-=======
       return NextResponse.json(
         {
           ok: true,
@@ -74,7 +67,6 @@ export async function POST(_req: NextRequest) {
         },
         { status: 200, headers: requestIdHeaders(requestId) }
       );
->>>>>>> 1cf9fe5 (fix: resolve vendor connect build error and finalize Stripe flow)
     }
 
     const account = await stripe.accounts.create({
