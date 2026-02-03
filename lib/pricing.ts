@@ -223,7 +223,8 @@ export function getVendorPlanConfigs(): {
       missingEnv.push(plan.envKey);
       continue;
     }
-    if (!raw.startsWith("price_")) {
+    const trimmed = raw.trim();
+    if (!trimmed.startsWith("price_") || trimmed.startsWith("prod_")) {
       invalidEnv.push(plan.envKey);
       continue;
     }
@@ -256,14 +257,25 @@ export function getVendorPlanConfigs(): {
   };
 }
 
-/** Resolve vendor price ID from planKey and billing interval (month/year). Returns null if not found. */
+/** Env preflight for vendor PRICE IDs only. Returns key NAMES only (no values). */
+export function getVendorPriceEnvStatus(): { missingEnv: string[]; invalidEnv: string[] } {
+  const { missingEnv, invalidEnv } = getVendorPlanConfigs();
+  return { missingEnv, invalidEnv };
+}
+
+/** Resolve vendor price ID from planKey and billing interval (month/year). Returns null if not found or invalid.
+ * STRICT: only returns non-empty string when value starts with price_. Rejects prod_ and any other prefix. */
 export function resolveVendorPriceId(planKey: string, billingInterval: string): string | null {
   const { plans } = getVendorPlanConfigs();
   const interval = billingInterval?.toLowerCase() === "annual" || billingInterval?.toLowerCase() === "year" ? "year" : "month";
   const match = plans.find(
     (p) => p.planKey === planKey && (interval === "year" ? p.interval === "year" : p.interval === "month")
   );
-  return match?.priceId ?? null;
+  const id = match?.priceId ?? null;
+  if (!id || typeof id !== "string" || !id.startsWith("price_") || id.startsWith("prod_")) {
+    return null;
+  }
+  return id;
 }
 
 export function getVendorPlanByPriceId(priceId: string) {
