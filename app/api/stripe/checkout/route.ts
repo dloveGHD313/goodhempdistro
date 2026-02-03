@@ -52,73 +52,70 @@ export async function POST(req: NextRequest) {
     userId = user.id;
 
     const body = (await req.json().catch(() => ({}))) as CheckoutPayload;
+    const productType = body.productType;
+    const planKey = body.planKey;
+    const cadence = body.cadence ?? body.billingInterval;
+    const billingInterval = body.billingInterval ?? null;
+    console.info("[stripe/checkout]", JSON.stringify({
+      requestId,
+      step: "start",
+      productType: productType ?? null,
+      planKey: planKey ?? null,
+      cadence: cadence ?? null,
+      billingInterval,
+    }));
     if (body.productType !== "vendor") {
       return NextResponse.json(
         { error: "Vendor checkout requires productType: vendor", requestId },
         { status: 400, headers: requestIdHeaders(requestId) }
       );
     }
-    const cadence = body.cadence ?? body.billingInterval;
-    const planKey = body.planKey;
     if (!planKey || !cadence) {
       return NextResponse.json(
         { error: "Vendor checkout requires planKey and cadence", requestId },
         { status: 400, headers: requestIdHeaders(requestId) }
       );
     }
+    console.info("[stripe/checkout]", JSON.stringify({ requestId, step: "parsed", planKey, cadence }));
+
     const { invalidEnv, missingEnv } = getVendorPlanConfigs();
-    if (invalidEnv.length > 0) {
-      console.warn("[stripe/checkout] invalid vendor price env (not price_ prefix)", { requestId, invalidEnvKeys: invalidEnv });
+    if (missingEnv.length > 0 || invalidEnv.length > 0) {
+      console.warn("[stripe/checkout]", JSON.stringify({
+        requestId,
+        step: "env_fail",
+        missingEnv,
+        invalidEnv,
+      }));
       return NextResponse.json(
         {
-          error: "Vendor pricing is misconfigured",
+          error: "Vendor billing not configured",
           requestId,
-          details: {
-            productType: "vendor",
-            planKey: planKey ?? null,
-            cadence: cadence ?? null,
-            missingEnvKeys: missingEnv,
-            invalidEnvKeys: invalidEnv,
-            resolvedPriceIdPrefix: "invalid" as const,
-          },
+          missingEnv,
+          invalidEnv,
         },
         { status: 500, headers: requestIdHeaders(requestId) }
       );
     }
     const priceId = resolveVendorPriceId(planKey, cadence);
-    const resolvedPriceIdPrefix = !priceId ? "missing" : priceId.startsWith("price_") ? "price_" : "invalid";
+    const priceIdSuffix = priceId ? priceId.slice(-6) : null;
+    console.info("[stripe/checkout]", JSON.stringify({
+      requestId,
+      step: "vendor_price_resolved",
+      planKey,
+      cadence,
+      priceIdSuffix,
+    }));
     if (!priceId || !priceId.startsWith("price_")) {
+      console.info("[stripe/checkout]", JSON.stringify({ requestId, step: "vendor_price_missing", planKey, cadence }));
       return NextResponse.json(
-        {
-          error: "Invalid vendor price selection",
-          requestId,
-          details: {
-            productType: "vendor",
-            planKey: planKey ?? null,
-            cadence: cadence ?? null,
-            missingEnvKeys: missingEnv,
-            invalidEnvKeys: invalidEnv,
-            resolvedPriceIdPrefix,
-          },
-        },
+        { error: "Invalid vendor plan selection", requestId },
         { status: 400, headers: requestIdHeaders(requestId) }
       );
     }
     const vendorPlan = getVendorPlanByPriceId(priceId);
     if (!vendorPlan) {
       return NextResponse.json(
-        {
-          error: "Invalid vendor price selection",
-          requestId,
-          details: {
-            productType: "vendor",
-            planKey: planKey ?? null,
-            cadence: cadence ?? null,
-            missingEnvKeys: missingEnv,
-            invalidEnvKeys: invalidEnv,
-            resolvedPriceIdPrefix: "price_" as const,
-          },
-        },
+        { error: "Invalid vendor plan selection", requestId },
         { status: 400, headers: requestIdHeaders(requestId) }
       );
     }
@@ -166,14 +163,8 @@ export async function POST(req: NextRequest) {
           {
             error: "Failed to provision vendor for checkout",
             requestId,
-            details: {
-              productType: "vendor",
-              planKey: body.planKey ?? null,
-              cadence: cadence ?? null,
-              missingEnvKeys: mEnv,
-              invalidEnvKeys: iEnv,
-              resolvedPriceIdPrefix: "price_" as const,
-            },
+            missingEnv: mEnv,
+            invalidEnv: iEnv,
           },
           { status: 500, headers: requestIdHeaders(requestId) }
         );
@@ -198,6 +189,11 @@ export async function POST(req: NextRequest) {
     }
 
     const siteUrl = getSiteUrl(req);
+    console.info("[stripe/checkout]", JSON.stringify({
+      requestId,
+      step: "stripe_create_session_call",
+      priceIdSuffix: priceId.slice(-6),
+    }));
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: stripeCustomerId,
@@ -236,6 +232,11 @@ export async function POST(req: NextRequest) {
         },
       },
     });
+    console.info("[stripe/checkout]", JSON.stringify({
+      requestId,
+      step: "stripe_create_session_ok",
+      sessionIdSuffix: session.id.slice(-6),
+    }));
 
     const { data: profile } = await admin
       .from("profiles")
@@ -255,6 +256,7 @@ export async function POST(req: NextRequest) {
     );
   } catch (error: unknown) {
     const err = error as {
+      name?: string;
       type?: string;
       code?: string;
       message?: string;
@@ -267,14 +269,29 @@ export async function POST(req: NextRequest) {
     console.error("[stripe/checkout]", JSON.stringify({
       requestId,
       route: ROUTE_NAME,
-      userId: userId ?? null,
+      errName: err?.name ?? (error instanceof Error ? error.name : null),
       errorType: err?.type ?? null,
       errorCode: err?.code ?? null,
+      statusCode: err?.statusCode ?? null,
       message: msg ?? null,
       stripeRequestId: err?.requestId ?? null,
     }));
+    const isStripeError = Boolean(err?.type ?? err?.code ?? err?.requestId);
+    const rawMessage = error instanceof Error ? error.message : String(error);
+    const isConfigError = typeof rawMessage === "string" && rawMessage.includes("Stripe production config");
+    const errorReason = isStripeError
+      ? "Stripe rejected request"
+      : isConfigError
+        ? "Stripe config missing or invalid"
+        : "Server error";
+    const payload: { error: string; requestId: string; errorReason?: string; stripeRequestId?: string } = {
+      error: "Failed to create checkout session",
+      requestId,
+      errorReason,
+    };
+    if (err?.requestId) payload.stripeRequestId = err.requestId;
     return NextResponse.json(
-      { error: "Failed to create checkout session", requestId },
+      payload,
       { status: 500, headers: requestIdHeaders(requestId) }
     );
   }
