@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { stripe, getSiteUrl } from "@/lib/stripe";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
-import { getVendorPlanConfigs, getVendorPlanByPriceId, resolveVendorPriceId } from "@/lib/pricing";
+import { getVendorPriceEnvStatus, getVendorPlanByPriceId, getVendorPlanConfigs, resolveVendorPriceId } from "@/lib/pricing";
 
 const ROUTE_NAME = "stripe/checkout";
 const TRUNCATE = 300;
@@ -158,7 +158,7 @@ export async function POST(req: NextRequest) {
         vendor = inserted ?? null;
       }
       if (!vendor) {
-        const { missingEnv: mEnv, invalidEnv: iEnv } = getVendorPlanConfigs();
+        const { missingEnv: mEnv, invalidEnv: iEnv } = getVendorPriceEnvStatus();
         return NextResponse.json(
           {
             error: "Failed to provision vendor for checkout",

@@ -29,7 +29,6 @@ export async function GET(req: NextRequest) {
         { status: 401, headers: requestIdHeaders(requestId) }
       );
     }
-    safeUserId = user.id;
 
     const { data: row } = await supabase
       .from("vendor_connect_accounts")

@@ -30,16 +30,7 @@ if (!isProd) {
   }
 }
 
-export const STRIPE_PRODUCTS = {
-  CONSUMER_BASIC: "prod_TtzumpIUrvB9AI",
-  CONSUMER_PLUS: "prod_TtzxUhhELAktPM",
-  CONSUMER_PREMIUM: "prod_TtzyXpCFxwfegg",
-
-  VENDOR_STARTER: "prod_TtztSi1Bx6qJHO",
-  VENDOR_GROWTH: "prod_TtzraQFuMqM22r",
-  VENDOR_PRO: "prod_Ttzm5L3fBC7eF3",
-} as const;
-
+/** Stripe Checkout uses PRICE IDs only. Product IDs (prod_*) are not used for checkout. */
 export const STRIPE_PRICES = {
   CONSUMER_BASIC: {
     MONTHLY: "price_1SwBuhEKpXx4yA1Rfr2dSaOm",
