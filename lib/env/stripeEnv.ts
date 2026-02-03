@@ -49,6 +49,8 @@ export function assertStripeLiveConfig(): void {
     invalid.push(`${STRIPE_WEBHOOK_SECRET} must start with whsec_`);
   }
 
+  // STRIPE_CONNECT_CLIENT_ID is optional for Express account links; required only for OAuth Connect.
+
   if (missing.length > 0) {
     throw new Error(
       `Stripe production config missing: ${missing.join(", ")}. Set in Vercel → Environment Variables. Do not commit real values.`

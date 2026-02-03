@@ -3,11 +3,15 @@ import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
-import AffiliatePortalClient from "@/app/affiliates/portal/AffiliatePortalClient";
+import AffiliatePortalClient from "../../affiliates/portal/AffiliatePortalClient";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+/**
+ * Canonical affiliate portal URL: /affiliate/portal (singular).
+ * Auth-gated; fetches affiliate_code and renders AffiliatePortalClient.
+ */
 export default async function AffiliatePortalPage() {
   noStore();
 

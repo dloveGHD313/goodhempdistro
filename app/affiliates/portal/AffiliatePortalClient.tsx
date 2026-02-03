@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 
 type LedgerEntry = {
@@ -27,11 +27,9 @@ type ConnectStatus = {
   payouts_enabled: boolean;
 };
 
-type AffiliatePortalClientProps = {
-  affiliateCode: string;
-};
+type Props = { affiliateCode: string | null };
 
-export default function AffiliatePortalClient({ affiliateCode }: AffiliatePortalClientProps) {
+export default function AffiliatePortalClient({ affiliateCode }: Props) {
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [available_cents, setAvailableCents] = useState(0);
   const [total_earned_cents, setTotalEarnedCents] = useState(0);
@@ -44,16 +42,24 @@ export default function AffiliatePortalClient({ affiliateCode }: AffiliatePortal
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
-  const referralLink = affiliateCode ? `${siteUrl}/?ref=${affiliateCode}` : "";
-  const handleCopy = () => {
-    if (!referralLink) return;
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(referralLink);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
+  const referralUrl =
+    typeof window !== "undefined" && affiliateCode
+      ? `${window.location.origin}/r/${affiliateCode}`
+      : affiliateCode
+        ? `/r/${affiliateCode}`
+        : "";
+
+  const copyReferralLink = useCallback(() => {
+    if (!referralUrl) return;
+    const url = referralUrl.startsWith("http") ? referralUrl : `${typeof window !== "undefined" ? window.location.origin : ""}${referralUrl}`;
+    navigator.clipboard.writeText(url).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      },
+      () => setError("Could not copy")
+    );
+  }, [referralUrl]);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -155,6 +161,25 @@ export default function AffiliatePortalClient({ affiliateCode }: AffiliatePortal
         </div>
       )}
 
+      {affiliateCode && (
+        <div className="surface-card p-6">
+          <h2 className="text-xl font-bold mb-2">Referral link</h2>
+          <p className="text-sm text-muted mb-2">Share this link to earn when others sign up or purchase.</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="flex-1 min-w-0 truncate px-3 py-2 bg-[var(--surface)]/70 border border-[var(--border)] rounded text-sm">
+              {typeof window !== "undefined" ? window.location.origin : ""}/r/{affiliateCode}
+            </code>
+            <button
+              type="button"
+              onClick={copyReferralLink}
+              className="btn-secondary whitespace-nowrap"
+            >
+              {copied ? "Copied!" : "Copy"}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-6 md:grid-cols-2">
         <div className="surface-card p-6">
           <h2 className="text-xl font-bold mb-2">Overview</h2>
@@ -167,14 +192,14 @@ export default function AffiliatePortalClient({ affiliateCode }: AffiliatePortal
               <input
                 type="text"
                 readOnly
-                value={referralLink}
+                value={referralUrl ? (referralUrl.startsWith("http") ? referralUrl : `${typeof window !== "undefined" ? window.location.origin : ""}${referralUrl}`) : ""}
                 className="w-full px-3 py-2 bg-[var(--surface)]/70 border border-[var(--border)] rounded text-white"
               />
               <button
                 type="button"
-                onClick={handleCopy}
+                onClick={copyReferralLink}
                 className="btn-secondary w-fit text-sm"
-                disabled={!referralLink}
+                disabled={!referralUrl}
               >
                 {copied ? "Copied" : "Copy referral link"}
               </button>
@@ -294,7 +319,9 @@ export default function AffiliatePortalClient({ affiliateCode }: AffiliatePortal
       <div className="surface-card p-6">
         <h2 className="text-xl font-bold mb-4">Earnings (ledger)</h2>
         {entries.length === 0 ? (
-          <p className="text-muted">No ledger entries yet.</p>
+          <p className="text-muted">
+            No earnings yet. Share your referral link to start earning. When referrals convert, entries will appear here.
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left">

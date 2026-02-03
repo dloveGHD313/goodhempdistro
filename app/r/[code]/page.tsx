@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 /**
  * Short referral link: /r/[code] -> /?ref=code
- * Preserves affiliate attribution; client can capture ref from query via lib/referral.
+ * Preserves affiliate attribution; merges ref with any existing querystring.
  */
 export default async function ReferralRedirectPage({
   params,
