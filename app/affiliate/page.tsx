@@ -117,7 +117,7 @@ export default function AffiliatePage() {
                 Share this link with friends so they can join the Good Hemp community.
               </p>
               <p className="text-sm text-muted mt-2">
-                <a href="/affiliates/portal" className="text-accent hover:underline">Earnings & payouts →</a>
+                <a href="/affiliate/portal" className="text-accent hover:underline">Earnings & payouts →</a>
               </p>
             </div>
           </div>

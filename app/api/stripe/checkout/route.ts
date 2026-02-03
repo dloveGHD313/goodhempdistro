@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { stripe, getSiteUrl, resolvePriceId } from "@/lib/stripe";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
+import { getVendorPlanByPriceId } from "@/lib/pricing";
 
 type CheckoutPayload = {
   priceId?: string;
@@ -15,6 +16,16 @@ type CheckoutPayload = {
 };
 
 export async function POST(req: NextRequest) {
+  const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID();
+  const route = "/api/stripe/checkout";
+  const responseHeaders = { "X-Request-Id": requestId };
+  let safeUserId: string | null = null;
+  const json = (payload: Record<string, unknown>, status = 200) =>
+    NextResponse.json(
+      { ...payload, requestId },
+      { status, headers: responseHeaders }
+    );
+
   try {
     assertStripeLiveConfig();
     const supabase = await createSupabaseServerClient();
@@ -24,8 +35,10 @@ export async function POST(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      console.warn("[stripe-checkout] unauthorized", { route, requestId });
+      return json({ error: "Unauthorized" }, 401);
     }
+    safeUserId = user.id;
 
     const body = (await req.json().catch(() => ({}))) as CheckoutPayload;
     let priceId: string;
@@ -37,10 +50,30 @@ export async function POST(req: NextRequest) {
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Missing price selection";
-      return NextResponse.json(
-        { error: msg },
-        { status: 400 }
-      );
+      console.warn("[stripe-checkout] invalid price selection", {
+        route,
+        requestId,
+        userId: safeUserId,
+        stripeRequestId: undefined,
+        errorType: "invalid_request",
+        errorCode: undefined,
+        message: msg.slice(0, 300),
+      });
+      return json({ error: msg }, 400);
+    }
+
+    const vendorPlan = getVendorPlanByPriceId(priceId);
+    if (!vendorPlan) {
+      console.warn("[stripe-checkout] non-vendor price rejected", {
+        route,
+        requestId,
+        userId: safeUserId,
+        stripeRequestId: undefined,
+        errorType: "invalid_request",
+        errorCode: undefined,
+        message: "PriceId not mapped to a vendor plan",
+      });
+      return json({ error: "Invalid vendor price selection" }, 400);
     }
 
     const admin = getSupabaseAdminClient();
@@ -81,10 +114,16 @@ export async function POST(req: NextRequest) {
         vendor = inserted ?? null;
       }
       if (!vendor) {
-        return NextResponse.json(
-          { error: "Failed to provision vendor for checkout" },
-          { status: 500 }
-        );
+        console.error("[stripe-checkout] vendor provision failed", {
+          route,
+          requestId,
+          userId: safeUserId,
+          stripeRequestId: undefined,
+          errorType: "supabase_error",
+          errorCode: insertErr?.code,
+          message: insertErr?.message?.slice(0, 300) ?? "Vendor provision failed",
+        });
+        return json({ error: "Failed to provision vendor for checkout" }, 500);
       }
     }
 
@@ -112,7 +151,7 @@ export async function POST(req: NextRequest) {
       payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
       allow_promotion_codes: true,
-      success_url: `${siteUrl}/vendors/dashboard?checkout=success`,
+      success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/pricing?tab=vendor`,
       client_reference_id: user.id,
       metadata: {
@@ -145,12 +184,37 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ url: session.url });
+    return json({ url: session.url });
   } catch (error) {
-    console.error("Vendor checkout failed", error);
-    return NextResponse.json(
-      { error: "Failed to create checkout session" },
-      { status: 500 }
+    const err = error as {
+      type?: string;
+      code?: string;
+      message?: string;
+      requestId?: string;
+      statusCode?: number;
+    };
+    const errorMessage =
+      typeof err?.message === "string" ? err.message.slice(0, 300) : "Unknown error";
+    const errorType = typeof err?.type === "string" ? err.type : undefined;
+    const errorCode = typeof err?.code === "string" ? err.code : undefined;
+    const stripeRequestId =
+      typeof err?.requestId === "string" ? err.requestId : undefined;
+    console.error("[stripe-checkout] vendor checkout failed", {
+      route,
+      requestId,
+      userId: safeUserId,
+      stripeRequestId,
+      errorType,
+      errorCode,
+      message: errorMessage,
+    });
+    return json(
+      {
+        error: "Failed to create checkout session",
+        diagnosticReason: errorType || errorCode,
+        stripeRequestId,
+      },
+      500
     );
   }
 }
