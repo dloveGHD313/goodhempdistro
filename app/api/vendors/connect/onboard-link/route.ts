@@ -59,8 +59,8 @@ export async function POST(req: NextRequest) {
 
     if (!row?.stripe_account_id) {
       return NextResponse.json(
-        { error: "No Connect account. Call create-account first.", requestId },
-        { status: 400, headers: requestIdHeaders(requestId) }
+        { error: "No Stripe account yet. Call create-account first.", requestId },
+        { status: 409, headers: requestIdHeaders(requestId) }
       );
     }
 
@@ -72,10 +72,10 @@ export async function POST(req: NextRequest) {
       type: "account_onboarding",
     });
 
-    return json({
-      ok: true,
-      url: accountLink.url,
-    });
+    return NextResponse.json(
+      { ok: true, url: accountLink.url, requestId },
+      { status: 200, headers: requestIdHeaders(requestId) }
+    );
   } catch (e: unknown) {
     const err = e as { type?: string; code?: string; message?: string; requestId?: string; statusCode?: number };
     const msg = safeTruncate(err?.message ?? (e instanceof Error ? e.message : String(e)));

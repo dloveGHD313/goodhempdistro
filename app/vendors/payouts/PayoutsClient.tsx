@@ -45,38 +45,30 @@ export default function PayoutsClient() {
     fetchStatus();
   }, []);
 
+  const getRequestId = (res: Response, data: { requestId?: string }): string => {
+    const fromHeader = res.headers.get("X-Request-Id");
+    return (fromHeader ?? data?.requestId) ? ` Reference: ${fromHeader ?? data?.requestId}` : "";
+  };
+
   const handleConnect = async () => {
     setConnecting(true);
     setError(null);
     try {
-      if (status?.stripe_account_id) {
-        const res = await fetch("/api/vendors/connect/onboard-link", { method: "POST" });
-        const linkData = await res.json();
-        if (!res.ok || !linkData?.url) {
-          const ref = linkData?.requestId ? ` Reference: ${linkData.requestId}` : "";
-          const reason = linkData?.errorReason ? ` ${linkData.errorReason}` : "";
-          setError((linkData?.error || "Failed to get onboarding link") + reason + ref);
-          setConnecting(false);
-          return;
-        }
-        window.location.href = linkData.url;
-        return;
-      }
       const createRes = await fetch("/api/vendors/connect/create-account", { method: "POST" });
       const createData = await createRes.json();
+      const createRef = getRequestId(createRes, createData);
       if (!createRes.ok) {
-        const ref = createData?.requestId ? ` Reference: ${createData.requestId}` : "";
         const reason = createData?.errorReason ? ` ${createData.errorReason}` : "";
-        setError((createData?.error || "Failed to create account") + reason + ref);
+        setError((createData?.error || "Failed to create account") + reason + createRef);
         setConnecting(false);
         return;
       }
       const linkRes = await fetch("/api/vendors/connect/onboard-link", { method: "POST" });
       const linkData = await linkRes.json();
+      const linkRef = getRequestId(linkRes, linkData);
       if (!linkRes.ok || !linkData?.url) {
-        const ref = linkData?.requestId ? ` Reference: ${linkData.requestId}` : "";
         const reason = linkData?.errorReason ? ` ${linkData.errorReason}` : "";
-        setError((linkData?.error || "Failed to get onboarding link") + reason + ref);
+        setError((linkData?.error || "Failed to get onboarding link") + reason + linkRef);
         setConnecting(false);
         return;
       }

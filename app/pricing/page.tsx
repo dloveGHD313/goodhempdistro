@@ -169,7 +169,7 @@ export default function PricingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          priceId: plan.priceId,
+          productType: "vendor",
           planKey: plan.planKey,
           tier: plan.tier,
           cadence: plan.billingCycle,

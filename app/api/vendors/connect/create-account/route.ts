@@ -58,11 +58,23 @@ export async function POST(_req: NextRequest) {
       .maybeSingle();
 
     if (existing?.stripe_account_id) {
+<<<<<<< HEAD
       return json({
         ok: true,
         stripe_account_id: existing.stripe_account_id,
         already_exists: true,
       });
+=======
+      return NextResponse.json(
+        {
+          ok: true,
+          stripe_account_id: existing.stripe_account_id,
+          already_exists: true,
+          requestId,
+        },
+        { status: 200, headers: requestIdHeaders(requestId) }
+      );
+>>>>>>> 1cf9fe5 (fix: resolve vendor connect build error and finalize Stripe flow)
     }
 
     const account = await stripe.accounts.create({
@@ -96,10 +108,10 @@ export async function POST(_req: NextRequest) {
       );
     }
 
-    return json({
-      ok: true,
-      stripe_account_id: account.id,
-    });
+    return NextResponse.json(
+      { ok: true, stripe_account_id: account.id, requestId },
+      { status: 200, headers: requestIdHeaders(requestId) }
+    );
   } catch (e: unknown) {
     const err = e as { type?: string; code?: string; message?: string; requestId?: string; statusCode?: number };
     const msg = safeTruncate(err?.message ?? (e instanceof Error ? e.message : String(e)));
