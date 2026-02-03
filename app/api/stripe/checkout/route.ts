@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
-import { stripe, getSiteUrl, resolvePriceId } from "@/lib/stripe";
+import { stripe, getSiteUrl } from "@/lib/stripe";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
-import { getVendorPlanByPriceId } from "@/lib/pricing";
+import { getVendorPlanConfigs, getVendorPlanByPriceId, resolveVendorPriceId } from "@/lib/pricing";
 
 const ROUTE_NAME = "stripe/checkout";
 const TRUNCATE = 300;
@@ -18,6 +18,7 @@ function requestIdHeaders(requestId: string): Record<string, string> {
 }
 
 type CheckoutPayload = {
+  productType?: string;
   priceId?: string;
   planKey?: string;
   billingInterval?: string;
@@ -51,21 +52,35 @@ export async function POST(req: NextRequest) {
     userId = user.id;
 
     const body = (await req.json().catch(() => ({}))) as CheckoutPayload;
-    let priceId: string;
-    try {
-      priceId = resolvePriceId({
-        priceId: body.priceId,
-        planKey: body.planKey,
-        billingInterval: body.billingInterval,
-      });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Missing price selection";
+    if (body.productType !== "vendor") {
       return NextResponse.json(
-        { error: msg, requestId },
+        { error: "Vendor checkout requires productType: vendor", requestId },
         { status: 400, headers: requestIdHeaders(requestId) }
       );
     }
-
+    const cadence = body.cadence ?? body.billingInterval;
+    const planKey = body.planKey;
+    if (!planKey || !cadence) {
+      return NextResponse.json(
+        { error: "Vendor checkout requires planKey and cadence", requestId },
+        { status: 400, headers: requestIdHeaders(requestId) }
+      );
+    }
+    const { invalidEnv } = getVendorPlanConfigs();
+    if (invalidEnv.length > 0) {
+      console.warn("[stripe/checkout] invalid vendor price env (not price_ prefix)", { requestId, invalidEnvKeys: invalidEnv });
+      return NextResponse.json(
+        { ok: false, requestId, error: "Vendor pricing is misconfigured" },
+        { status: 500, headers: requestIdHeaders(requestId) }
+      );
+    }
+    const priceId = resolveVendorPriceId(planKey, cadence);
+    if (!priceId || !priceId.startsWith("price_")) {
+      return NextResponse.json(
+        { error: "Invalid vendor price selection", requestId },
+        { status: 400, headers: requestIdHeaders(requestId) }
+      );
+    }
     const vendorPlan = getVendorPlanByPriceId(priceId);
     if (!vendorPlan) {
       return NextResponse.json(
