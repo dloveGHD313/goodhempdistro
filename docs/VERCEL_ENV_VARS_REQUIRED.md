@@ -16,6 +16,12 @@ Documentation of **required** environment variable **names** and descriptions on
 | **SUPABASE_SERVICE_ROLE_KEY** | Supabase service role key. Used for admin client, RLS bypass, and server-only operations. |
 | **NEXT_PUBLIC_SUPABASE_ANON_KEY** | Supabase anonymous (public) key. Used by the Supabase client in the browser. |
 | **NEXT_PUBLIC_SUPABASE_URL** | Supabase project URL. Used by the Supabase client and server. |
+| **STRIPE_VENDOR_STARTER_MONTHLY_PRICE_ID** | Vendor Starter monthly price ID (LIVE). Used for vendor subscription checkout. |
+| **STRIPE_VENDOR_STARTER_ANNUAL_PRICE_ID** | Vendor Starter annual price ID (LIVE). Used for vendor subscription checkout. |
+| **STRIPE_VENDOR_PRO_MONTHLY_PRICE_ID** | Vendor Pro monthly price ID (LIVE). Used for vendor subscription checkout. |
+| **STRIPE_VENDOR_PRO_ANNUAL_PRICE_ID** | Vendor Pro annual price ID (LIVE). Used for vendor subscription checkout. |
+| **STRIPE_VENDOR_ENTERPRISE_MONTHLY_PRICE_ID** | Vendor Enterprise monthly price ID (LIVE). Used for vendor subscription checkout. |
+| **STRIPE_VENDOR_ENTERPRISE_ANNUAL_PRICE_ID** | Vendor Enterprise annual price ID (LIVE). Used for vendor subscription checkout. |
 
 ---
 
