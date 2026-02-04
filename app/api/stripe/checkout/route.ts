@@ -18,13 +18,12 @@ function requestIdHeaders(requestId: string): Record<string, string> {
 }
 
 function isStripeMissingCustomerError(err: unknown): boolean {
-  const e = err as { code?: string; type?: string; message?: string };
+  const e = err as { code?: string; param?: string; message?: string };
   const code = e?.code;
-  const type = e?.type;
+  const param = e?.param;
   const msg = typeof e?.message === "string" ? e.message : "";
   return (
-    code === "resource_missing" ||
-    type === "StripeInvalidRequestError" ||
+    (code === "resource_missing" && param === "customer") ||
     msg.includes("No such customer")
   );
 }
