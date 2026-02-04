@@ -100,6 +100,12 @@ export async function requireVendorOnboarding(userId: string | null): Promise<Ga
     return { allow: true };
   }
 
+  // Vendor dashboard requires profile.role === "vendor" (upgraded after Stripe payment)
+  if (profile?.role !== "vendor") {
+    logDev("redirect: vendor registration (role not vendor)", { userId, role: profile?.role ?? null });
+    return { redirectTo: "/vendor-registration" };
+  }
+
   const vendor = await loadVendor(supabase, userId);
   if (!vendor || vendor.owner_user_id !== userId) {
     logDev("redirect: vendor registration", { userId });

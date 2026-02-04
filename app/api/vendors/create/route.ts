@@ -427,6 +427,35 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Create or upsert vendor record at application time (DO NOT update profiles.role)
+    const { error: vendorUpsertError } = await supabase
+      .from("vendors")
+      .upsert(
+        {
+          owner_user_id: user.id,
+          business_name: business_name.trim(),
+          status: "pending",
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "owner_user_id" }
+      );
+
+    if (vendorUpsertError) {
+      console.error("[vendors/create] Error upserting vendor record:", {
+        request_id: requestId,
+        code: vendorUpsertError.code,
+        message: vendorUpsertError.message,
+        userId: user.id,
+      });
+      return createErrorResponse(
+        "Failed to create vendor record. Please try again or contact support.",
+        500,
+        requestId,
+        debugStatus,
+        debugStatus.enabled ? { ...debugInfo, vendor_error: vendorUpsertError.message } : undefined
+      );
+    }
+
     // Revalidate relevant paths for immediate UI update
     const { revalidatePath } = await import("next/cache");
     revalidatePath("/vendor-registration");

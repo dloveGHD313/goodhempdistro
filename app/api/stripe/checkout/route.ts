@@ -198,7 +198,12 @@ export async function POST(req: NextRequest) {
 
     if (stripeCustomerId) {
       try {
-        await stripe.customers.retrieve(stripeCustomerId);
+        const retrieved = await stripe.customers.retrieve(stripeCustomerId);
+        const deleted = (retrieved as { deleted?: boolean }).deleted === true;
+        if (deleted) {
+          oldCustomerSuffixForLog = stripeCustomerId.slice(-8);
+          stripeCustomerId = null;
+        }
       } catch (retrieveErr: unknown) {
         if (isStripeMissingCustomerError(retrieveErr)) {
           oldCustomerSuffixForLog = stripeCustomerId.slice(-8);
