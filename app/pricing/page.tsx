@@ -175,10 +175,23 @@ export default function PricingPage() {
           cadence: plan.billingCycle,
         }),
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
+        const reason = data.errorReason ?? "error";
+        const message = data.error ?? "Checkout failed.";
         const ref = data.requestId ? ` Reference: ${data.requestId}` : "";
-        alert(`Checkout failed.${ref}`);
+        const userMessage =
+          message.includes("Billing") || message.includes("billing")
+            ? `Billing system unavailable. Please try again.${ref}`
+            : `${message}${ref}`;
+        console.error("[pricing] Vendor checkout failed", {
+          status: response.status,
+          errorReason: reason,
+          error: message,
+          requestId: data.requestId,
+          payload: data,
+        });
+        alert(userMessage);
         return;
       }
       if (data.url) {
