@@ -20,10 +20,12 @@ async function getIntegrityData() {
 
   if (appsError) {
     console.error("[admin/vendors/integrity] Error fetching applications:", appsError);
-    return { 
-      missingVendors: [], 
+    return {
+      missingVendors: [],
       counts: { approvedApplications: 0, activeVendors: 0, missing: 0 },
-      error: appsError.message 
+      roleVendorMismatch: [],
+      activeWithoutSubscription: [],
+      error: appsError.message,
     };
   }
 
@@ -65,6 +67,47 @@ async function getIntegrityData() {
     .select("*", { count: "exact", head: true })
     .eq("status", "active");
 
+  // Role/vendor integrity (no auto-fix): profile.role === "vendor" => vendor.status === "active"; vendor.status === "active" => stripe_subscription_id exists
+  const roleVendorMismatch: Array<{ user_id: string; profile_role: string; vendor_status: string | null; has_vendor: boolean }> = [];
+  const { data: vendorRoleProfiles } = await admin
+    .from("profiles")
+    .select("id, role")
+    .eq("role", "vendor");
+  if (vendorRoleProfiles?.length) {
+    for (const p of vendorRoleProfiles) {
+      const { data: v } = await admin
+        .from("vendors")
+        .select("id, status")
+        .eq("owner_user_id", p.id)
+        .maybeSingle();
+      if (!v || v.status !== "active") {
+        roleVendorMismatch.push({
+          user_id: p.id,
+          profile_role: p.role ?? "vendor",
+          vendor_status: v?.status ?? null,
+          has_vendor: !!v,
+        });
+      }
+    }
+  }
+
+  const activeWithoutSubscription: Array<{ vendor_id: string; business_name: string; status: string }> = [];
+  const { data: activeVendors } = await admin
+    .from("vendors")
+    .select("id, business_name, status, stripe_subscription_id")
+    .eq("status", "active");
+  if (activeVendors?.length) {
+    for (const v of activeVendors) {
+      if (!v.stripe_subscription_id?.trim()) {
+        activeWithoutSubscription.push({
+          vendor_id: v.id,
+          business_name: v.business_name ?? "",
+          status: v.status ?? "active",
+        });
+      }
+    }
+  }
+
   return {
     missingVendors,
     counts: {
@@ -72,6 +115,8 @@ async function getIntegrityData() {
       activeVendors: totalVendors || 0,
       missing: missingVendors.length,
     },
+    roleVendorMismatch,
+    activeWithoutSubscription,
   };
 }
 

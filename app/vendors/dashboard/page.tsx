@@ -31,7 +31,7 @@ async function getVendorData(userId: string) {
     const { data: vendor } = await supabase
       .from("vendors")
       .select(
-        "id, owner_user_id, business_name, status, vendor_type, created_at, is_active, is_approved, vendor_onboarding_completed, terms_accepted_at, compliance_acknowledged_at, subscription_status, subscription_plan_key, subscription_price_id, stripe_customer_id, stripe_subscription_id, subscription_current_period_end, subscription_cancel_at_period_end"
+        "id, owner_user_id, business_name, description, status, vendor_type, created_at, is_active, is_approved, vendor_onboarding_completed, terms_accepted_at, compliance_acknowledged_at, subscription_status, subscription_plan_key, subscription_price_id, stripe_customer_id, stripe_subscription_id, subscription_current_period_end, subscription_cancel_at_period_end"
       )
       .eq("owner_user_id", userId)
       .maybeSingle();
@@ -220,6 +220,15 @@ export default async function VendorDashboardPage() {
             </div>
           )}
 
+          {isSubscribed && (!vendor.vendor_type?.trim() || !vendor.description?.trim()) && (
+            <div className="mb-6 rounded-xl border border-blue-600/50 bg-blue-900/20 p-4 text-sm">
+              <span className="text-muted">Complete your vendor profile so buyers can find you.</span>{" "}
+              <Link href="/vendors/dashboard/profile" className="text-accent font-medium hover:underline">
+                Complete vendor profile
+              </Link>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="surface-card p-6">
               <div className="text-sm text-muted">Onboarding</div>
@@ -337,17 +346,28 @@ export default async function VendorDashboardPage() {
                   Manage
                 </Link>
               </div>
-              <div className="grid grid-cols-2 gap-3 text-sm text-muted">
-                <div>Drafts: <span className="text-white">{productCounts.draft}</span></div>
-                <div>Pending: <span className="text-white">{productCounts.pending_review}</span></div>
-                <div>Approved: <span className="text-white">{productCounts.approved}</span></div>
-                <div>Rejected: <span className="text-white">{productCounts.rejected}</span></div>
-              </div>
-              <div className="mt-4">
-                <Link href="/vendors/products/new" className="btn-primary">
-                  Create new product
-                </Link>
-              </div>
+              {productTotal === 0 ? (
+                <div className="py-4 text-center">
+                  <p className="text-muted mb-4">No products yet. Add your first product to get started.</p>
+                  <Link href="/vendors/products/new" className="btn-primary">
+                    Add your first product
+                  </Link>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-3 text-sm text-muted">
+                    <div>Drafts: <span className="text-white">{productCounts.draft}</span></div>
+                    <div>Pending: <span className="text-white">{productCounts.pending_review}</span></div>
+                    <div>Approved: <span className="text-white">{productCounts.approved}</span></div>
+                    <div>Rejected: <span className="text-white">{productCounts.rejected}</span></div>
+                  </div>
+                  <div className="mt-4">
+                    <Link href="/vendors/products/new" className="btn-primary">
+                      Create new product
+                    </Link>
+                  </div>
+                </>
+              )}
             </div>
             <div className="surface-card p-6">
               <div className="flex items-center justify-between mb-4">

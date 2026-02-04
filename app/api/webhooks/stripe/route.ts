@@ -588,13 +588,18 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
           .update(vendorUpdate)
           .eq("id", resolvedVendorId);
         if (vendorUpdateErr) {
-          console.error("❌ [handleCheckoutSessionCompleted] vendor update failed", { vendorId: resolvedVendorId, error: vendorUpdateErr.message });
+          console.error("❌ [handleCheckoutSessionCompleted] vendor activation failed", JSON.stringify({
+            requestId: reqId,
+            vendorIdSuffix: resolvedVendorId.slice(-8),
+            userId: userId ?? null,
+            error: vendorUpdateErr.message,
+          }));
           throw vendorUpdateErr;
         }
         console.log("✅ [vendor-subscription] updated via checkout", {
-          vendorId: resolvedVendorId,
+          vendorIdSuffix: resolvedVendorId.slice(-8),
           status: subscriptionStatus,
-          subscriptionId,
+          subscriptionIdSuffix: subscriptionId?.slice(-8) ?? null,
         });
         if (process.env.NODE_ENV !== "production") {
           console.log(
@@ -936,13 +941,18 @@ async function handleSubscriptionChange(
         .update(vendorUpdate)
         .eq("id", resolvedVendorId);
       if (vendorUpdateErr) {
-        console.error("❌ [vendor-subscription] vendor update failed (webhook)", { vendorId: resolvedVendorId, error: vendorUpdateErr.message });
+        console.error("❌ [vendor-subscription] vendor activation failed (webhook)", JSON.stringify({
+          eventId: subscription.id,
+          vendorIdSuffix: resolvedVendorId.slice(-8),
+          userId: userId ?? null,
+          error: vendorUpdateErr.message,
+        }));
         throw vendorUpdateErr;
       }
       console.log("✅ [vendor-subscription] updated via webhook", {
-        vendorId: resolvedVendorId,
+        vendorIdSuffix: resolvedVendorId.slice(-8),
         status,
-        subscriptionId: subscription.id,
+        subscriptionIdSuffix: subscription.id.slice(-8),
       });
       if (status === "active" && userId) {
         const { data: profile } = await admin
@@ -957,10 +967,12 @@ async function handleSubscriptionChange(
             .update({ role: "vendor" })
             .eq("id", userId);
           if (roleErr) {
-            console.error("❌ [vendor-subscription] failed to set profile role to vendor (webhook)", {
+            console.error("❌ [vendor-subscription] role upgrade failed (webhook)", JSON.stringify({
+              eventId: subscription.id,
+              vendorIdSuffix: resolvedVendorId.slice(-8),
               userId,
               error: roleErr.message,
-            });
+            }));
             throw roleErr;
           }
         } else {

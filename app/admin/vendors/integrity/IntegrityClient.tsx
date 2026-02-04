@@ -11,6 +11,19 @@ type MissingVendor = {
   created_at: string;
 };
 
+type RoleVendorMismatch = {
+  user_id: string;
+  profile_role: string;
+  vendor_status: string | null;
+  has_vendor: boolean;
+};
+
+type ActiveWithoutSubscription = {
+  vendor_id: string;
+  business_name: string;
+  status: string;
+};
+
 type Props = {
   initialData: {
     missingVendors: MissingVendor[];
@@ -19,6 +32,8 @@ type Props = {
       activeVendors: number;
       missing: number;
     };
+    roleVendorMismatch?: RoleVendorMismatch[];
+    activeWithoutSubscription?: ActiveWithoutSubscription[];
     error?: string;
   };
 };
@@ -172,6 +187,42 @@ export default function IntegrityClient({ initialData }: Props) {
           </div>
         </>
       )}
+
+      {/* Role / Vendor integrity (read-only; no auto-fix) */}
+      <div className="card-glass p-6">
+        <h2 className="text-xl font-semibold mb-2">Role &amp; Vendor Status</h2>
+        <p className="text-sm text-muted mb-4">
+          Checks: profile.role === &quot;vendor&quot; ⇒ vendor.status === &quot;active&quot;; vendor.status === &quot;active&quot; ⇒ stripe_subscription_id exists. No auto-fix.
+        </p>
+        {((data as { roleVendorMismatch?: RoleVendorMismatch[] }).roleVendorMismatch?.length ?? 0) > 0 && (
+          <div className="mb-4 p-4 bg-amber-900/20 border border-amber-600/50 rounded-lg">
+            <h3 className="font-semibold text-amber-400 mb-2">Profile role vendor but vendor not active</h3>
+            <ul className="list-disc list-inside text-sm space-y-1">
+              {(data as { roleVendorMismatch?: RoleVendorMismatch[] }).roleVendorMismatch!.map((r) => (
+                <li key={r.user_id}>
+                  user_id: {r.user_id.slice(0, 8)}… — vendor: {r.has_vendor ? r.vendor_status ?? "null" : "missing"}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {((data as { activeWithoutSubscription?: ActiveWithoutSubscription[] }).activeWithoutSubscription?.length ?? 0) > 0 && (
+          <div className="p-4 bg-amber-900/20 border border-amber-600/50 rounded-lg">
+            <h3 className="font-semibold text-amber-400 mb-2">Vendor status active but no Stripe subscription ID</h3>
+            <ul className="list-disc list-inside text-sm space-y-1">
+              {(data as { activeWithoutSubscription?: ActiveWithoutSubscription[] }).activeWithoutSubscription!.map((v) => (
+                <li key={v.vendor_id}>
+                  {v.business_name || v.vendor_id.slice(0, 8)}… (vendor_id: {v.vendor_id.slice(0, 8)}…)
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {(data as { roleVendorMismatch?: RoleVendorMismatch[] }).roleVendorMismatch?.length === 0 &&
+          (data as { activeWithoutSubscription?: ActiveWithoutSubscription[] }).activeWithoutSubscription?.length === 0 && (
+          <p className="text-muted text-sm">No role/vendor or subscription mismatches.</p>
+        )}
+      </div>
 
       {/* Navigation */}
       <div className="flex gap-4">

@@ -47,6 +47,22 @@ End-to-end flow for vendor subscription checkout on Good Hemp Distro.
    - `payment_intent.succeeded` / `payment_intent.payment_failed`
 5. Set `STRIPE_WEBHOOK_SECRET` to the signing secret from the webhook.
 
+## Stripe webhook endpoint (single)
+
+There is **one** Stripe webhook endpoint used for all Stripe events:
+
+- **URL:** `POST /api/webhooks/stripe` (also re-exported at `POST /api/stripe/webhook`)
+- **File:** `app/api/webhooks/stripe/route.ts`
+
+**Structured log filters for vendor activation:**
+
+- `[stripe/checkout] recovered_missing_customer` — checkout recovered from a missing/deleted Stripe customer (includes `requestId`, `oldCustomerSuffix`, `newCustomerSuffix`; no full IDs).
+- `[handleCheckoutSessionCompleted] vendor activation failed` — vendor update failed in checkout.session.completed (includes `requestId`, `vendorIdSuffix`, `userId`, `error`).
+- `[vendor-subscription] vendor activation failed (webhook)` — vendor update failed in subscription webhook (includes `eventId`, `vendorIdSuffix`, `userId`, `error`).
+- `[vendor-subscription] role upgrade failed (webhook)` — profile role update failed after vendor activation (includes `eventId`, `vendorIdSuffix`, `userId`, `error`).
+
+Never log full Stripe customer IDs or secrets; use suffixes only (e.g. last 8 characters).
+
 ## Webhook events (vendor-relevant)
 
 | Event | Use |
