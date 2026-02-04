@@ -77,6 +77,18 @@ async function getProduct(id: string): Promise<ProductFetchResult> {
     ? supabase.storage.from("coas").getPublicUrl(storageCoaPath).data.publicUrl
     : data.coa_url || null;
 
+  // Hide product if vendor is suspended (4.3.B)
+  if (data.vendor_id) {
+    const { data: vendor } = await supabase
+      .from("vendors")
+      .select("status")
+      .eq("id", data.vendor_id)
+      .maybeSingle();
+    if (vendor?.status !== "active") {
+      return { product: null, supabaseErrorMessage: "vendor_suspended" };
+    }
+  }
+
   return {
     product: {
       ...data,
