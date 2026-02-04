@@ -272,7 +272,7 @@ export function resolveVendorPriceId(planKey: string, billingInterval: string): 
     (p) => p.planKey === planKey && (interval === "year" ? p.interval === "year" : p.interval === "month")
   );
   const id = match?.priceId ?? null;
-  if (!id || typeof id !== "string" || !id.startsWith("price_") || id.startsWith("prod_")) {
+  if (!id || typeof id !== "string" || !id.startsWith("price_")) {
     return null;
   }
   return id;
