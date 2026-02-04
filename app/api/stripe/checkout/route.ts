@@ -17,6 +17,18 @@ function requestIdHeaders(requestId: string): Record<string, string> {
   return { "X-Request-Id": requestId };
 }
 
+function isStripeMissingCustomerError(err: unknown): boolean {
+  const e = err as { code?: string; type?: string; message?: string };
+  const code = e?.code;
+  const type = e?.type;
+  const msg = typeof e?.message === "string" ? e.message : "";
+  return (
+    code === "resource_missing" ||
+    type === "StripeInvalidRequestError" ||
+    msg.includes("No such customer")
+  );
+}
+
 type CheckoutPayload = {
   productType?: string;
   priceId?: string;
@@ -181,12 +193,29 @@ export async function POST(req: NextRequest) {
     }
 
     let stripeCustomerId = vendor.stripe_customer_id || null;
+    const hadStoredCustomerId = Boolean(vendor.stripe_customer_id);
+    let oldCustomerSuffixForLog: string | null = null;
+
+    if (stripeCustomerId) {
+      try {
+        await stripe.customers.retrieve(stripeCustomerId);
+      } catch (retrieveErr: unknown) {
+        if (isStripeMissingCustomerError(retrieveErr)) {
+          oldCustomerSuffixForLog = stripeCustomerId.slice(-8);
+          stripeCustomerId = null;
+        } else {
+          throw retrieveErr;
+        }
+      }
+    }
+
     if (!stripeCustomerId) {
       const customer = await stripe.customers.create({
         email: user.email || undefined,
         name: vendor.business_name || undefined,
         metadata: {
           user_id: user.id,
+          plan_type: "vendor",
           vendor_id: vendor.id,
         },
       });
@@ -195,6 +224,13 @@ export async function POST(req: NextRequest) {
         .from("vendors")
         .update({ stripe_customer_id: stripeCustomerId })
         .eq("id", vendor.id);
+      if (hadStoredCustomerId && oldCustomerSuffixForLog) {
+        console.warn("[stripe/checkout] recovered_missing_customer", JSON.stringify({
+          requestId,
+          oldCustomerSuffix: oldCustomerSuffixForLog,
+          newCustomerSuffix: customer.id.slice(-8),
+        }));
+      }
     }
 
     const siteUrl = getSiteUrl(req);
