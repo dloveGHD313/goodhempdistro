@@ -570,19 +570,27 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
         stripeCustomerId: session.customer as string,
       });
       if (resolvedVendorId) {
-        await admin
+        const vendorUpdate: Record<string, unknown> = {
+          stripe_customer_id: session.customer as string,
+          stripe_subscription_id: subscriptionId,
+          subscription_status: subscriptionStatus,
+          subscription_price_id: priceId || subscriptionPriceId || null,
+          subscription_plan_key: subscriptionPlanKey,
+          subscription_current_period_end: currentPeriodEnd,
+          subscription_cancel_at_period_end: cancelAtPeriodEnd,
+          subscription_updated_at: new Date().toISOString(),
+        };
+        if (subscriptionStatus === "active") {
+          vendorUpdate.status = "active";
+        }
+        const { error: vendorUpdateErr } = await admin
           .from("vendors")
-          .update({
-            stripe_customer_id: session.customer as string,
-            stripe_subscription_id: subscriptionId,
-            subscription_status: subscriptionStatus,
-            subscription_price_id: priceId || subscriptionPriceId || null,
-            subscription_plan_key: subscriptionPlanKey,
-            subscription_current_period_end: currentPeriodEnd,
-            subscription_cancel_at_period_end: cancelAtPeriodEnd,
-            subscription_updated_at: new Date().toISOString(),
-          })
+          .update(vendorUpdate)
           .eq("id", resolvedVendorId);
+        if (vendorUpdateErr) {
+          console.error("❌ [handleCheckoutSessionCompleted] vendor update failed", { vendorId: resolvedVendorId, error: vendorUpdateErr.message });
+          throw vendorUpdateErr;
+        }
         console.log("✅ [vendor-subscription] updated via checkout", {
           vendorId: resolvedVendorId,
           status: subscriptionStatus,
@@ -910,19 +918,27 @@ async function handleSubscriptionChange(
       stripeCustomerId: subscription.customer as string,
     });
     if (resolvedVendorId) {
-      await admin
+      const vendorUpdate: Record<string, unknown> = {
+        stripe_subscription_id: subscription.id,
+        stripe_customer_id: subscription.customer as string,
+        subscription_status: status,
+        subscription_price_id: subscriptionPriceId,
+        subscription_plan_key: subscriptionPlanKey,
+        subscription_current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+        subscription_cancel_at_period_end: subscription.cancel_at_period_end,
+        subscription_updated_at: new Date().toISOString(),
+      };
+      if (status === "active") {
+        vendorUpdate.status = "active";
+      }
+      const { error: vendorUpdateErr } = await admin
         .from("vendors")
-        .update({
-          stripe_subscription_id: subscription.id,
-          stripe_customer_id: subscription.customer as string,
-          subscription_status: status,
-          subscription_price_id: subscriptionPriceId,
-          subscription_plan_key: subscriptionPlanKey,
-          subscription_current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-          subscription_cancel_at_period_end: subscription.cancel_at_period_end,
-          subscription_updated_at: new Date().toISOString(),
-        })
+        .update(vendorUpdate)
         .eq("id", resolvedVendorId);
+      if (vendorUpdateErr) {
+        console.error("❌ [vendor-subscription] vendor update failed (webhook)", { vendorId: resolvedVendorId, error: vendorUpdateErr.message });
+        throw vendorUpdateErr;
+      }
       console.log("✅ [vendor-subscription] updated via webhook", {
         vendorId: resolvedVendorId,
         status,
@@ -945,6 +961,7 @@ async function handleSubscriptionChange(
               userId,
               error: roleErr.message,
             });
+            throw roleErr;
           }
         } else {
           console.log("[vendor-subscription] role update skipped (not consumer/vendor_pending)", {

@@ -69,6 +69,8 @@ export async function PUT(
 
       console.log(`[admin/vendors] Vendor ${vendor.id} created or reused for user ${application.user_id} (status: ${vendor.status})`);
 
+      // Do NOT update profiles.role here — role stays consumer until Stripe payment succeeds (webhook upgrades).
+
       // Vendor referral: if application had referral_code, create signup referral + ledger
       const referralCode = application.referral_code && /^[A-Za-z0-9\-]+$/.test(String(application.referral_code).trim())
         ? String(application.referral_code).trim()
@@ -115,21 +117,6 @@ export async function PUT(
         }
       }
 
-      // Update profile role to vendor (if profile exists)
-      const { error: profileError } = await admin
-        .from("profiles")
-        .update({
-          role: "vendor",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", application.user_id);
-
-      if (profileError) {
-        // Profile might not exist - log but don't fail (trigger should create it)
-        console.warn(`[admin/vendors] Could not update profile role for user ${application.user_id}:`, profileError.message);
-      } else {
-        console.log(`[admin/vendors] Updated profile role to 'vendor' for user ${application.user_id}`);
-      }
     } else if (status === "rejected") {
       // On reject, do NOT create vendors row
       // Only update application status
