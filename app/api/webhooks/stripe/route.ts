@@ -934,7 +934,8 @@ async function handleSubscriptionChange(
           .select("role")
           .eq("id", userId)
           .maybeSingle();
-        if (profile?.role !== "admin") {
+        const canPromoteToVendor = profile?.role === "consumer" || profile?.role === "vendor_pending";
+        if (canPromoteToVendor) {
           const { error: roleErr } = await admin
             .from("profiles")
             .update({ role: "vendor" })
@@ -945,6 +946,11 @@ async function handleSubscriptionChange(
               error: roleErr.message,
             });
           }
+        } else {
+          console.log("[vendor-subscription] role update skipped (not consumer/vendor_pending)", {
+            userId,
+            currentRole: profile?.role ?? null,
+          });
         }
       }
       if (process.env.NODE_ENV !== "production") {
