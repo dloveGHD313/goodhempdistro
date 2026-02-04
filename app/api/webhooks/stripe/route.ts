@@ -929,15 +929,22 @@ async function handleSubscriptionChange(
         subscriptionId: subscription.id,
       });
       if (status === "active" && userId) {
-        const { error: roleErr } = await admin
+        const { data: profile } = await admin
           .from("profiles")
-          .update({ role: "vendor" })
-          .eq("id", userId);
-        if (roleErr) {
-          console.error("❌ [vendor-subscription] failed to set profile role to vendor (webhook)", {
-            userId,
-            error: roleErr.message,
-          });
+          .select("role")
+          .eq("id", userId)
+          .maybeSingle();
+        if (profile?.role !== "admin") {
+          const { error: roleErr } = await admin
+            .from("profiles")
+            .update({ role: "vendor" })
+            .eq("id", userId);
+          if (roleErr) {
+            console.error("❌ [vendor-subscription] failed to set profile role to vendor (webhook)", {
+              userId,
+              error: roleErr.message,
+            });
+          }
         }
       }
       if (process.env.NODE_ENV !== "production") {
