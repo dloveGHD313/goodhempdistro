@@ -148,15 +148,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  console.log("✅ Webhook verified (live):", { type: event.type, id: event.id });
+  const correlationId = `wh-${event.id}-${Date.now().toString(36)}`;
+  console.log("✅ Webhook verified (live):", { type: event.type, id: event.id, correlationId });
 
   try {
     // Handle the event
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        console.log(`📦 Processing checkout.session.completed | order_id=${session.metadata?.order_id || "N/A"} | mode=${session.mode} | session=${session.id}`);
-        await handleCheckoutSessionCompleted(session);
+        console.log(`📦 [${correlationId}] checkout.session.completed | order_id=${session.metadata?.order_id || "N/A"} | mode=${session.mode} | session=${session.id}`);
+        await handleCheckoutSessionCompleted(session, correlationId);
         break;
       }
 
@@ -482,7 +483,7 @@ async function awardPurchasePointsForOrder(orderId: string) {
   }
 }
 
-async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
+async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, correlationId?: string) {
   const orderId = session.metadata?.order_id;
   const planType = session.metadata?.plan_type; // 'vendor' or 'consumer'
   const planName = session.metadata?.plan_name;
@@ -492,8 +493,9 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   const consumerPlanKey = session.metadata?.consumer_plan_key;
   const userId = session.client_reference_id || session.metadata?.user_id;
   const affiliateCode = session.metadata?.affiliate_code;
+  const reqId = correlationId ?? `evt-${session.id}`;
 
-  console.log(`💰 [handleCheckoutSessionCompleted] order_id=${orderId} | mode=${session.mode} | session=${session.id} | user_id=${userId} | plan=${planName} | affiliate=${affiliateCode}`);
+  console.log(`💰 [handleCheckoutSessionCompleted] ${reqId} | order_id=${orderId} | mode=${session.mode} | session=${session.id} | user_id=${userId} | plan=${planName} | affiliate=${affiliateCode}`);
 
   const supabase = await createSupabaseServerClient();
 
@@ -926,6 +928,18 @@ async function handleSubscriptionChange(
         status,
         subscriptionId: subscription.id,
       });
+      if (status === "active" && userId) {
+        const { error: roleErr } = await admin
+          .from("profiles")
+          .update({ role: "vendor" })
+          .eq("id", userId);
+        if (roleErr) {
+          console.error("❌ [vendor-subscription] failed to set profile role to vendor (webhook)", {
+            userId,
+            error: roleErr.message,
+          });
+        }
+      }
       if (process.env.NODE_ENV !== "production") {
         console.log(
           `[vendor-subscription] vendorId=${resolvedVendorId} status=${status} source=webhook`
