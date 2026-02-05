@@ -1,5 +1,9 @@
 import { createSupabaseServerClient } from "@/lib/supabase";
 
+function isFiniteNonNegative(n: unknown): n is number {
+  return typeof n === "number" && Number.isFinite(n) && n >= 0;
+}
+
 export type DeliveryPricingRow = {
   id: string;
   is_active: boolean;
@@ -91,14 +95,18 @@ export type DeliveryFees = {
 
 /**
  * Compute all delivery amounts from distance and active pricing.
+ * Returns null for invalid distance (NaN, Infinity, negative) or missing pricing.
  */
 export async function computeDeliveryFees(distanceMiles: number): Promise<DeliveryFees | null> {
   const pricing = await getActiveDeliveryPricing();
-  if (!pricing || distanceMiles < 0) return null;
+  if (!pricing) return null;
+  if (!isFiniteNonNegative(distanceMiles)) return null;
 
   const customerFee = computeCustomerDeliveryFee(pricing, distanceMiles);
   const driverEstimate = computeDriverDeliveryEstimate(pricing, distanceMiles);
   const margin = computeDeliveryMargin(customerFee, driverEstimate);
+
+  if (![customerFee, driverEstimate, margin].every(Number.isFinite)) return null;
 
   return {
     distanceMiles,

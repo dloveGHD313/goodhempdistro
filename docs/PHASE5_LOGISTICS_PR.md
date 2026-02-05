@@ -63,6 +63,7 @@
 - When using coords: require all 4 present and `validateLatLng` for both pairs; compute haversine; require `Number.isFinite(distanceMiles)` and ≥ 0 else 400 "Distance unavailable for delivery".
 - After `computeDeliveryFees`: require `Number.isFinite(deliveryFeeCustomer)` and ≥ 0 else 500 "Delivery fee unavailable".
 - Stripe line item: only add "Delivery fee" when `Number.isFinite(deliveryFeeCustomer)` and `deliveryFeeCustomer > 0`.
+- **Bugbot: computeDeliveryFees NaN/Infinity guard** — In `lib/server/deliveryPricing.ts`, `computeDeliveryFees` now rejects non-finite/negative `distanceMiles` via `isFiniteNonNegative()` and returns null; added finite checks on computed outputs (customerFee, driverEstimate, margin) so no corrupted DeliveryFees object is ever returned.
 
 **Fix #2 + #3 — Atomic driver approve + no orphan drivers**  
 - **Migration:** `supabase/migrations/074_phase5_driver_approve_atomic.sql`
