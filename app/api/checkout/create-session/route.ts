@@ -3,6 +3,10 @@ import { stripe, getSiteUrl } from "@/lib/stripe";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { isGatedProduct, requireMarketAccess } from "@/lib/server/marketGate";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
+import {
+  computeDeliveryFees,
+  haversineMiles,
+} from "@/lib/server/deliveryPricing";
 
 /**
  * Create Stripe checkout session for product purchase
@@ -25,6 +29,15 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const productId = typeof body?.product_id === "string" ? body.product_id : null;
     const rawQuantity = body?.quantity;
+    const deliverySelected = body?.delivery_selected === true;
+    const deliveryDistanceMiles =
+      typeof body?.delivery_distance_miles === "number" && Number.isFinite(body.delivery_distance_miles)
+        ? body.delivery_distance_miles
+        : null;
+    const vendorLat = typeof body?.vendor_lat === "number" ? body.vendor_lat : null;
+    const vendorLng = typeof body?.vendor_lng === "number" ? body.vendor_lng : null;
+    const customerLat = typeof body?.customer_lat === "number" ? body.customer_lat : null;
+    const customerLng = typeof body?.customer_lng === "number" ? body.customer_lng : null;
     const parsedQuantity = typeof rawQuantity === "number"
       ? Math.floor(rawQuantity)
       : typeof rawQuantity === "string"
@@ -107,23 +120,56 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const totalCents = product.price_cents * quantity;
-    const lineTotalCents = totalCents;
+    let totalCents = product.price_cents * quantity;
+    const lineTotalCents = product.price_cents * quantity;
     const siteUrl = getSiteUrl(req);
     const vendorOwnerId = Array.isArray(product.vendors)
       ? (product.vendors as { owner_user_id: string }[])[0]?.owner_user_id
       : (product.vendors as { owner_user_id: string } | undefined)?.owner_user_id ?? null;
 
+    let deliveryFees: Awaited<ReturnType<typeof computeDeliveryFees>> = null;
+    if (deliverySelected) {
+      let distanceMiles: number | null = deliveryDistanceMiles;
+      if (distanceMiles == null && vendorLat != null && vendorLng != null && customerLat != null && customerLng != null) {
+        distanceMiles = haversineMiles(vendorLat, vendorLng, customerLat, customerLng);
+      }
+      if (distanceMiles == null || distanceMiles < 0) {
+        return NextResponse.json(
+          { error: "Distance unavailable for delivery" },
+          { status: 400, headers: { "Cache-Control": "no-store" } }
+        );
+      }
+      deliveryFees = await computeDeliveryFees(distanceMiles);
+      if (!deliveryFees) {
+        return NextResponse.json(
+          { error: "Delivery pricing not available" },
+          { status: 400, headers: { "Cache-Control": "no-store" } }
+        );
+      }
+      totalCents += Math.round(deliveryFees.deliveryFeeCustomer * 100);
+    }
+
+    const orderPayload: Record<string, unknown> = {
+      user_id: user.id,
+      vendor_id: product.vendor_id,
+      status: "pending",
+      total_cents: totalCents,
+      currency: "usd",
+      delivery_selected: deliverySelected,
+      delivery_status: deliverySelected ? "unassigned" : null,
+    };
+    if (deliveryFees) {
+      orderPayload.delivery_distance_miles = deliveryFees.distanceMiles;
+      orderPayload.delivery_fee_customer = deliveryFees.deliveryFeeCustomer;
+      orderPayload.delivery_fee_driver_estimate = deliveryFees.deliveryFeeDriverEstimate;
+      orderPayload.delivery_margin = deliveryFees.deliveryMargin;
+      orderPayload.delivery_pricing_version = deliveryFees.pricingVersion;
+    }
+
     // Create pending order in Supabase
     const { data: order, error: orderError } = await supabase
       .from("orders")
-      .insert({
-        user_id: user.id,
-        vendor_id: product.vendor_id,
-        status: "pending",
-        total_cents: totalCents,
-        currency: "usd",
-      })
+      .insert(orderPayload)
       .select("id")
       .single();
 
@@ -155,22 +201,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const lineItems: { price_data: { currency: string; product_data: { name: string }; unit_amount: number }; quantity: number }[] = [
+      {
+        price_data: {
+          currency: "usd",
+          product_data: { name: product.name },
+          unit_amount: product.price_cents,
+        },
+        quantity,
+      },
+    ];
+    if (deliveryFees && deliveryFees.deliveryFeeCustomer > 0) {
+      lineItems.push({
+        price_data: {
+          currency: "usd",
+          product_data: { name: "Delivery fee" },
+          unit_amount: Math.round(deliveryFees.deliveryFeeCustomer * 100),
+        },
+        quantity: 1,
+      });
+    }
+
     // Create Stripe checkout session
     const stripeSession = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: product.name,
-            },
-            unit_amount: product.price_cents,
-          },
-          quantity: quantity,
-        },
-      ],
+      line_items: lineItems,
       success_url: `${siteUrl}/orders/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/orders/cancel`,
       client_reference_id: user.id,
