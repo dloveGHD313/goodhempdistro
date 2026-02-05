@@ -2,25 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { stripe, getSiteUrl } from "@/lib/stripe";
-import { STRIPE_PRICES, type PlanKey } from "@/lib/stripe/prices";
+import { resolveVendorPriceId } from "@/lib/pricing";
 
-function resolveVendorPriceId(planName: string | null): string | null {
+/** Map legacy planName to internal planKey (monthly). Growth -> Pro for backwards compat. */
+function planNameToPlanKey(planName: string | null): string | null {
   if (!planName) return null;
-  const normalized = planName.trim().toLowerCase();
-  let planKey: PlanKey | null = null;
-  if (normalized.includes("starter") || normalized.includes("basic")) {
-    planKey = "VENDOR_STARTER";
-  } else if (normalized.includes("growth")) {
-    planKey = "VENDOR_GROWTH";
-  } else if (
-    normalized.includes("pro") ||
-    normalized.includes("enterprise") ||
-    normalized.includes("elite")
-  ) {
-    planKey = "VENDOR_PRO";
-  }
-  if (!planKey) return null;
-  return STRIPE_PRICES[planKey].MONTHLY;
+  const n = planName.trim().toLowerCase();
+  if (n.includes("starter") || n.includes("basic")) return "vendor_starter_monthly";
+  if (n.includes("growth")) return "vendor_pro_monthly";
+  if (n.includes("enterprise") || n.includes("elite")) return "vendor_enterprise_monthly";
+  if (n.includes("pro")) return "vendor_pro_monthly";
+  return null;
 }
 
 export async function POST(req: NextRequest) {
@@ -37,11 +29,12 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}));
     const planName = typeof body?.planName === "string" ? body.planName : null;
-    const priceId = resolveVendorPriceId(planName);
+    const planKey = planNameToPlanKey(planName);
+    const priceId = planKey ? resolveVendorPriceId(planKey, "monthly") : null;
 
     if (!priceId) {
       return NextResponse.json(
-        { error: "Vendor plan is not configured" },
+        { error: "Vendor plan is not configured or invalid" },
         { status: 400 }
       );
     }

@@ -5,6 +5,15 @@ import { stripe, getSiteUrl } from "@/lib/stripe";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 import { getVendorPriceEnvStatus, getVendorPlanByPriceId, resolveVendorPriceId } from "@/lib/pricing";
 
+const VENDOR_PLAN_KEYS = [
+  "vendor_starter_monthly",
+  "vendor_starter_annual",
+  "vendor_pro_monthly",
+  "vendor_pro_annual",
+  "vendor_enterprise_monthly",
+  "vendor_enterprise_annual",
+] as const;
+
 const ROUTE_NAME = "stripe/checkout";
 const TRUNCATE = 300;
 
@@ -84,6 +93,14 @@ export async function POST(req: NextRequest) {
     if (!planKey || !cadence) {
       return NextResponse.json(
         { error: "Vendor checkout requires planKey and cadence", requestId },
+        { status: 400, headers: requestIdHeaders(requestId) }
+      );
+    }
+    const normalizedCadence = (cadence as string).toLowerCase();
+    const validInterval = normalizedCadence === "annual" || normalizedCadence === "year" || normalizedCadence === "monthly" || normalizedCadence === "month";
+    if (!VENDOR_PLAN_KEYS.includes(planKey as (typeof VENDOR_PLAN_KEYS)[number]) || !validInterval) {
+      return NextResponse.json(
+        { error: "Invalid vendor plan or billing interval", requestId },
         { status: 400, headers: requestIdHeaders(requestId) }
       );
     }
