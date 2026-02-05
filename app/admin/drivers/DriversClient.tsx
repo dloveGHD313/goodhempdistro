@@ -20,9 +20,11 @@ type Application = {
 
 type Driver = {
   id: string;
-  user_id: string;
+  user_id: string | null;
   status: string;
   created_at: string;
+  applicant_email?: string | null;
+  applicant_name?: string | null;
 };
 
 type OnDemandApplication = {
@@ -327,7 +329,13 @@ export default function DriversClient({
               <tbody>
                 {drivers.map((driver) => (
                   <tr key={driver.id} className="border-b border-[var(--border)]/60">
-                    <td className="py-3 text-muted font-mono text-sm">{driver.user_id.slice(0, 8)}...</td>
+                    <td className="py-3 text-muted font-mono text-sm">
+                      {driver.user_id
+                        ? `${driver.user_id.slice(0, 8)}…`
+                        : driver.applicant_email
+                          ? `${driver.applicant_email} (no account)`
+                          : "—"}
+                    </td>
                     <td className="py-3">
                       <span className={`px-2 py-1 rounded text-xs font-semibold ${
                         driver.status === "approved"
