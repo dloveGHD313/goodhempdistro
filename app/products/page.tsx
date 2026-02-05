@@ -40,13 +40,11 @@ async function getProducts(
     if (vendorId) {
       const { data: vendor } = await supabase
         .from("vendors")
-        .select("id, business_name")
+        .select("id, business_name, status")
         .eq("id", vendorId)
-        .eq("is_active", true)
-        .eq("is_approved", true)
         .maybeSingle();
 
-      if (!vendor) {
+      if (!vendor || vendor.status !== "active") {
         return { products: [], vendorName: null };
       }
       vendorName = vendor.business_name;
@@ -95,10 +93,8 @@ async function getProducts(
       }
     }
 
-    // Hide products from suspended (or non-active) vendors (4.3.B)
-    const visibleProducts = vendorId
-      ? rawProducts
-      : rawProducts.filter((p) => p.vendor_id && activeVendorIds.has(p.vendor_id));
+    // Always filter to active vendors only (even when vendorId provided) so /products?vendorId=XYZ shows nothing if XYZ is suspended
+    const visibleProducts = rawProducts.filter((p) => p.vendor_id && activeVendorIds.has(p.vendor_id));
 
     const products = visibleProducts.map((product) => {
       const marketMode: "gated" | "ungated" =

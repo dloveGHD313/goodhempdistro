@@ -580,7 +580,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
           subscription_cancel_at_period_end: cancelAtPeriodEnd,
           subscription_updated_at: new Date().toISOString(),
         };
-        if (subscriptionStatus === "active") {
+        if (subscriptionStatus === "active" || subscriptionStatus === "trialing") {
           vendorUpdate.status = "active";
         }
         const { error: vendorUpdateErr } = await admin
@@ -933,7 +933,7 @@ async function handleSubscriptionChange(
         subscription_cancel_at_period_end: subscription.cancel_at_period_end,
         subscription_updated_at: new Date().toISOString(),
       };
-      if (status === "active") {
+      if (status === "active" || status === "trialing") {
         vendorUpdate.status = "active";
       }
       const { error: vendorUpdateErr } = await admin
@@ -954,7 +954,7 @@ async function handleSubscriptionChange(
         status,
         subscriptionIdSuffix: subscription.id.slice(-8),
       });
-      if (status === "active" && userId) {
+      if ((status === "active" || status === "trialing") && userId) {
         const { data: profile } = await admin
           .from("profiles")
           .select("role")
