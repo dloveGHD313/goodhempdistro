@@ -19,6 +19,31 @@ CREATE TABLE IF NOT EXISTS public.logistics_applications (
   rejection_reason TEXT
 );
 
+-- Ensure Phase 5 columns exist when table was created earlier (e.g. without type)
+ALTER TABLE public.logistics_applications ADD COLUMN IF NOT EXISTS type TEXT DEFAULT 'on_demand_driver';
+ALTER TABLE public.logistics_applications ADD COLUMN IF NOT EXISTS full_name TEXT;
+ALTER TABLE public.logistics_applications ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE public.logistics_applications ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE public.logistics_applications ADD COLUMN IF NOT EXISTS service_area TEXT;
+ALTER TABLE public.logistics_applications ADD COLUMN IF NOT EXISTS vehicle_type TEXT;
+ALTER TABLE public.logistics_applications ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE public.logistics_applications ADD COLUMN IF NOT EXISTS reviewed_by UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+ALTER TABLE public.logistics_applications ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
+ALTER TABLE public.logistics_applications ADD COLUMN IF NOT EXISTS rejection_reason TEXT;
+UPDATE public.logistics_applications SET type = 'on_demand_driver' WHERE type IS NULL;
+ALTER TABLE public.logistics_applications ALTER COLUMN type SET NOT NULL;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'logistics_applications_type_check'
+    AND conrelid = 'public.logistics_applications'::regclass
+  ) THEN
+    ALTER TABLE public.logistics_applications ADD CONSTRAINT logistics_applications_type_check
+      CHECK (type IN ('provider_listing', 'on_demand_driver'));
+  END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_logistics_applications_type_status ON public.logistics_applications(type, status);
 CREATE INDEX IF NOT EXISTS idx_logistics_applications_created_at ON public.logistics_applications(created_at DESC);
 
