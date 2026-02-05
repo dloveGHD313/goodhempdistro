@@ -19,21 +19,11 @@ export async function POST(
   const rejection_reason = typeof body.rejection_reason === "string" ? body.rejection_reason.trim() : null;
 
   const admin = getSupabaseAdminClient();
-  const { data: app, error: appError } = await admin
-    .from("logistics_applications")
-    .select("id, status")
-    .eq("id", id)
-    .eq("type", "on_demand_driver")
-    .maybeSingle();
 
-  if (appError || !app) {
-    return NextResponse.json({ error: "Application not found" }, { status: 404 });
-  }
-  if (app.status !== "pending") {
-    return NextResponse.json({ error: "Application already reviewed" }, { status: 400 });
-  }
-
-  const { error: updateErr } = await admin
+  // Update only while status is still 'pending' to avoid race with approve RPC:
+  // if approve runs first (FOR UPDATE, insert driver, set approved), this update
+  // matches zero rows and we return 400 instead of overwriting to rejected.
+  const { data: updated, error: updateErr } = await admin
     .from("logistics_applications")
     .update({
       status: "rejected",
@@ -41,10 +31,19 @@ export async function POST(
       reviewed_at: new Date().toISOString(),
       rejection_reason: rejection_reason || null,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("type", "on_demand_driver")
+    .eq("status", "pending")
+    .select("id");
 
   if (updateErr) {
     return NextResponse.json({ error: "Failed to reject" }, { status: 500 });
+  }
+  if (!updated?.length) {
+    return NextResponse.json(
+      { error: "Application not found or already reviewed" },
+      { status: 400 }
+    );
   }
 
   return NextResponse.json({ success: true });
