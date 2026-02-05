@@ -293,6 +293,9 @@ export default function Nav() {
               <Link href="/admin/categories" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
                 📁 Categories
               </Link>
+              <Link href="/admin/drivers" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                🚗 Drivers
+              </Link>
             </div>
           </div>
         )}

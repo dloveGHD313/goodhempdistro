@@ -19,9 +19,17 @@ async function getDriversData() {
     .select("*")
     .order("created_at", { ascending: false });
 
+  const { data: onDemandData, error: onDemandErr } = await admin
+    .from("logistics_applications")
+    .select("id, full_name, email, phone, service_area, vehicle_type, notes, status, created_at, reviewed_at, rejection_reason")
+    .eq("type", "on_demand_driver")
+    .order("created_at", { ascending: false });
+  const onDemandApplications = onDemandErr ? [] : (onDemandData || []);
+
   return {
     applications: applications || [],
     drivers: drivers || [],
+    onDemandApplications,
   };
 }
 
@@ -35,14 +43,18 @@ export default async function AdminDriversPage() {
     redirect("/");
   }
 
-  const { applications, drivers } = await getDriversData();
+  const { applications, drivers, onDemandApplications } = await getDriversData();
 
   return (
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
         <section className="section-shell">
           <h1 className="text-4xl font-bold mb-8 text-accent">Driver Management</h1>
-          <DriversClient initialApplications={applications} initialDrivers={drivers} />
+          <DriversClient
+            initialApplications={applications}
+            initialDrivers={drivers}
+            initialOnDemandApplications={onDemandApplications}
+          />
         </section>
       </main>
       <Footer />
