@@ -8,6 +8,24 @@ import {
   haversineMiles,
 } from "@/lib/server/deliveryPricing";
 
+/** Returns number only if value is finite (rejects NaN/Infinity). */
+function parseFiniteNumber(value: unknown): number | null {
+  if (typeof value !== "number") return null;
+  return Number.isFinite(value) ? value : null;
+}
+
+/** Validates lat in [-90, 90] and lng in [-180, 180]; rejects NaN/Infinity. */
+function validateLatLng(lat: number, lng: number): boolean {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  );
+}
+
 /**
  * Create Stripe checkout session for product purchase
  * Server-only route - requires authentication
@@ -30,14 +48,15 @@ export async function POST(req: NextRequest) {
     const productId = typeof body?.product_id === "string" ? body.product_id : null;
     const rawQuantity = body?.quantity;
     const deliverySelected = body?.delivery_selected === true;
+    const deliveryDistanceMilesRaw = parseFiniteNumber(body?.delivery_distance_miles);
     const deliveryDistanceMiles =
-      typeof body?.delivery_distance_miles === "number" && Number.isFinite(body.delivery_distance_miles)
-        ? body.delivery_distance_miles
+      deliveryDistanceMilesRaw != null && deliveryDistanceMilesRaw >= 0
+        ? deliveryDistanceMilesRaw
         : null;
-    const vendorLat = typeof body?.vendor_lat === "number" ? body.vendor_lat : null;
-    const vendorLng = typeof body?.vendor_lng === "number" ? body.vendor_lng : null;
-    const customerLat = typeof body?.customer_lat === "number" ? body.customer_lat : null;
-    const customerLng = typeof body?.customer_lng === "number" ? body.customer_lng : null;
+    const vendorLat = parseFiniteNumber(body?.vendor_lat);
+    const vendorLng = parseFiniteNumber(body?.vendor_lng);
+    const customerLat = parseFiniteNumber(body?.customer_lat);
+    const customerLng = parseFiniteNumber(body?.customer_lng);
     const parsedQuantity = typeof rawQuantity === "number"
       ? Math.floor(rawQuantity)
       : typeof rawQuantity === "string"
@@ -130,10 +149,37 @@ export async function POST(req: NextRequest) {
     let deliveryFees: Awaited<ReturnType<typeof computeDeliveryFees>> = null;
     if (deliverySelected) {
       let distanceMiles: number | null = deliveryDistanceMiles;
-      if (distanceMiles == null && vendorLat != null && vendorLng != null && customerLat != null && customerLng != null) {
-        distanceMiles = haversineMiles(vendorLat, vendorLng, customerLat, customerLng);
+      if (distanceMiles == null) {
+        const allCoordsPresent =
+          vendorLat != null &&
+          vendorLng != null &&
+          customerLat != null &&
+          customerLng != null;
+        const vendorValid =
+          vendorLat != null &&
+          vendorLng != null &&
+          validateLatLng(vendorLat, vendorLng);
+        const customerValid =
+          customerLat != null &&
+          customerLng != null &&
+          validateLatLng(customerLat, customerLng);
+        if (allCoordsPresent && vendorValid && customerValid) {
+          const computed = haversineMiles(
+            vendorLat!,
+            vendorLng!,
+            customerLat!,
+            customerLng!
+          );
+          if (Number.isFinite(computed) && computed >= 0) {
+            distanceMiles = computed;
+          }
+        }
       }
-      if (distanceMiles == null || distanceMiles < 0) {
+      if (
+        distanceMiles == null ||
+        !Number.isFinite(distanceMiles) ||
+        distanceMiles < 0
+      ) {
         return NextResponse.json(
           { error: "Distance unavailable for delivery" },
           { status: 400, headers: { "Cache-Control": "no-store" } }
@@ -144,6 +190,15 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(
           { error: "Delivery pricing not available" },
           { status: 400, headers: { "Cache-Control": "no-store" } }
+        );
+      }
+      if (
+        !Number.isFinite(deliveryFees.deliveryFeeCustomer) ||
+        deliveryFees.deliveryFeeCustomer < 0
+      ) {
+        return NextResponse.json(
+          { error: "Delivery fee unavailable" },
+          { status: 500, headers: { "Cache-Control": "no-store" } }
         );
       }
       totalCents += Math.round(deliveryFees.deliveryFeeCustomer * 100);
@@ -211,7 +266,11 @@ export async function POST(req: NextRequest) {
         quantity,
       },
     ];
-    if (deliveryFees && deliveryFees.deliveryFeeCustomer > 0) {
+    if (
+      deliveryFees &&
+      Number.isFinite(deliveryFees.deliveryFeeCustomer) &&
+      deliveryFees.deliveryFeeCustomer > 0
+    ) {
       lineItems.push({
         price_data: {
           currency: "usd",

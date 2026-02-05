@@ -46,6 +46,62 @@
 4. **Checkout with delivery:** POST /api/checkout/create-session with body `{ product_id, quantity, delivery_selected: true, delivery_distance_miles: 5 }` (or vendor_lat, vendor_lng, customer_lat, customer_lng). Order should have delivery_* fields; Stripe session includes "Delivery fee" line item.
 5. **Vendor onboarding / vendor checkout:** No changes; Phase 3/4 flows and webhooks unchanged.
 
+## Bugbot fixes (Phase 5) — PR #60
+
+### Discovery (files touched)
+- **Delivery fee + distance:** `app/api/checkout/create-session/route.ts`, `lib/server/deliveryPricing.ts` (haversineMiles, computeDeliveryFees). No prior coordinate validation helpers.
+- **Admin approve:** `app/api/admin/drivers/applications/[id]/approve/route.ts`, `app/api/admin/drivers/applications/[id]/reject/route.ts`. Drivers schema: `supabase/migrations/005_compliance_logistics.sql` (drivers table), `073_phase5_logistics_delivery.sql` (profile_id, nullable user_id, service_radius_miles, is_active). `logistics_applications`: 073 (type, full_name, email, phone, status, reviewed_by, reviewed_at, rejection_reason).
+- **RPC:** Repo uses SECURITY DEFINER RPCs (e.g. `011_admin_list_vendor_applications_rpc.sql`). Admin gating via `admin_users` + `requireAdminUsers` in API.
+
+### Changes made
+
+**Fix #1 — NaN/Infinity coordinate validation (checkout)**  
+- **File:** `app/api/checkout/create-session/route.ts`
+- Added `parseFiniteNumber(value): number | null` (returns number only if `Number.isFinite`).
+- Added `validateLatLng(lat, lng): boolean` (lat ∈ [-90, 90], lng ∈ [-180, 180], finite).
+- `delivery_distance_miles`: accept only if `Number.isFinite` and ≥ 0; else ignore and fall back to coords or 400.
+- When using coords: require all 4 present and `validateLatLng` for both pairs; compute haversine; require `Number.isFinite(distanceMiles)` and ≥ 0 else 400 "Distance unavailable for delivery".
+- After `computeDeliveryFees`: require `Number.isFinite(deliveryFeeCustomer)` and ≥ 0 else 500 "Delivery fee unavailable".
+- Stripe line item: only add "Delivery fee" when `Number.isFinite(deliveryFeeCustomer)` and `deliveryFeeCustomer > 0`.
+
+**Fix #2 + #3 — Atomic driver approve + no orphan drivers**  
+- **Migration:** `supabase/migrations/074_phase5_driver_approve_atomic.sql`
+  - `drivers`: added `application_id` (UUID, FK to logistics_applications), `applicant_email`, `applicant_name`, `applicant_phone`.
+  - Unique index on `application_id` (WHERE application_id IS NOT NULL).
+  - Index on `lower(applicant_email)` (WHERE applicant_email IS NOT NULL).
+  - New RPC `admin_approve_driver_application(p_application_id uuid, p_admin_user_id uuid)` (SECURITY DEFINER):
+    - Verifies caller in `admin_users`.
+    - Locks application row (FOR UPDATE), validates status = 'pending'.
+    - Inserts driver with `application_id`, `applicant_email`, `applicant_name`, `applicant_phone`, `profile_id`/`user_id` if profile found by email.
+    - Updates application to approved, reviewed_by, reviewed_at.
+    - Returns driver id.
+- **File:** `app/api/admin/drivers/applications/[id]/approve/route.ts`
+  - Calls RPC only; no application-update-then-driver-insert in app code.
+  - On RPC error: 400 for "already reviewed" / P0001 / 23505 (duplicate), 403 for "not admin", 500 otherwise. Never returns success unless driver is created.
+  - Response: `{ success: true, driverIdSuffix?: "<last-8-chars>" }` (no full UUID in body).
+
+**Verification script**  
+- `scripts/phase5-checkout-delivery-validate.mjs` — prints curl examples for NaN/Infinity coords (expect 400), valid distance (expect 200 + delivery line item), valid coords (expect 200).
+
+### Migration 074 — How to run
+1. Apply `073_phase5_logistics_delivery.sql` if not already applied.
+2. In Supabase SQL Editor (or CLI): run `supabase/migrations/074_phase5_driver_approve_atomic.sql`.
+3. No other manual steps.
+
+### How to test (bugbot fixes)
+1. **Checkout create-session**
+   - `delivery_selected: true` with NaN or Infinity in any of vendor_lat/vendor_lng/customer_lat/customer_lng → expect **400** "Distance unavailable for delivery", no Stripe session.
+   - `delivery_selected: true` with valid coords (all four, in range) → expect **200**, Stripe session with "Delivery fee" line item when fee > 0.
+   - `delivery_selected: true` with valid `delivery_distance_miles` (finite, ≥ 0) → expect **200**, session with delivery line item.
+2. **Admin approve**
+   - Approve a pending on-demand application → expect **200** `{ success: true, driverIdSuffix?: "..." }`; driver row exists with `application_id` and applicant_* filled; application status = approved.
+   - Approve the same application again → expect **400** "Application already approved (driver already exists)", not success.
+
+### Build
+- `npm ci` and `npm run build` pass.
+
+---
+
 ## Known limitations
 - Plan filtering for intent=logistics_provider (limit to higher tiers on pricing/checkout) not implemented in this PR.
 - Order payload visibility (strip delivery_margin for non-admin) not enforced in existing order APIs; recommend adding when order detail API is used.
