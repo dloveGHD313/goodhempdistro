@@ -90,14 +90,23 @@ export async function POST(req: NextRequest) {
         { status: 400, headers: requestIdHeaders(requestId) }
       );
     }
-    if (!planKey || !cadence) {
+    if (!planKey || cadence == null) {
       return NextResponse.json(
         { error: "Vendor checkout requires planKey and cadence", requestId },
         { status: 400, headers: requestIdHeaders(requestId) }
       );
     }
-    const normalizedCadence = (cadence as string).toLowerCase();
-    const validInterval = normalizedCadence === "annual" || normalizedCadence === "year" || normalizedCadence === "monthly" || normalizedCadence === "month";
+    if (typeof cadence !== "string") {
+      return NextResponse.json(
+        { error: "Invalid cadence type", requestId },
+        { status: 400, headers: requestIdHeaders(requestId) }
+      );
+    }
+    const normalizedCadence = cadence.toLowerCase();
+    const validInterval =
+      normalizedCadence === "annual" ||
+      normalizedCadence === "year" ||
+      normalizedCadence === "monthly";
     if (!VENDOR_PLAN_KEYS.includes(planKey as (typeof VENDOR_PLAN_KEYS)[number]) || !validInterval) {
       return NextResponse.json(
         { error: "Invalid vendor plan or billing interval", requestId },

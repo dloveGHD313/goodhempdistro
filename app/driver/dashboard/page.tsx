@@ -129,7 +129,7 @@ export default function DriverDashboardPage() {
               <p className="text-muted mb-4">
                 Your application was not approved. If you believe this is an error, please contact support.
               </p>
-              <Link href="/driver-apply" className="btn-secondary">Reapply</Link>
+              <Link href="/logistics/apply" className="btn-secondary">Reapply</Link>
             </div>
           )}
 
@@ -137,7 +137,7 @@ export default function DriverDashboardPage() {
             <div className="card-glass p-6 mb-8">
               <h2 className="text-2xl font-bold mb-4">No Application Found</h2>
               <p className="text-muted mb-4">You haven't submitted a driver application yet.</p>
-              <Link href="/driver-apply" className="btn-primary">Apply Now</Link>
+              <Link href="/logistics/apply" className="btn-primary">Apply Now</Link>
             </div>
           )}
 
