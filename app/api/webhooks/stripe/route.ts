@@ -18,6 +18,9 @@ import {
 } from "@/lib/consumer-loyalty";
 import { applyPlatformFeesToOrder } from "@/lib/platformFees";
 
+/** Subscription statuses that grant vendor access (vendor.status = active, profile.role = vendor). */
+const VENDOR_ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing"]);
+
 /** Award vendor referral first-sale reward when a referred vendor's first order is paid. */
 async function awardVendorReferralFirstSale(
   admin: Awaited<ReturnType<typeof getSupabaseAdminClient>>,
@@ -580,7 +583,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
           subscription_cancel_at_period_end: cancelAtPeriodEnd,
           subscription_updated_at: new Date().toISOString(),
         };
-        if (subscriptionStatus === "active") {
+        if (VENDOR_ACTIVE_SUBSCRIPTION_STATUSES.has(subscriptionStatus)) {
           vendorUpdate.status = "active";
         }
         const { error: vendorUpdateErr } = await admin
@@ -588,13 +591,18 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
           .update(vendorUpdate)
           .eq("id", resolvedVendorId);
         if (vendorUpdateErr) {
-          console.error("❌ [handleCheckoutSessionCompleted] vendor update failed", { vendorId: resolvedVendorId, error: vendorUpdateErr.message });
+          console.error("❌ [handleCheckoutSessionCompleted] vendor activation failed", JSON.stringify({
+            requestId: reqId,
+            vendorIdSuffix: resolvedVendorId.slice(-8),
+            userId: userId ?? null,
+            error: vendorUpdateErr.message,
+          }));
           throw vendorUpdateErr;
         }
         console.log("✅ [vendor-subscription] updated via checkout", {
-          vendorId: resolvedVendorId,
+          vendorIdSuffix: resolvedVendorId.slice(-8),
           status: subscriptionStatus,
-          subscriptionId,
+          subscriptionIdSuffix: subscriptionId?.slice(-8) ?? null,
         });
         if (process.env.NODE_ENV !== "production") {
           console.log(
@@ -928,7 +936,7 @@ async function handleSubscriptionChange(
         subscription_cancel_at_period_end: subscription.cancel_at_period_end,
         subscription_updated_at: new Date().toISOString(),
       };
-      if (status === "active") {
+      if (VENDOR_ACTIVE_SUBSCRIPTION_STATUSES.has(status)) {
         vendorUpdate.status = "active";
       }
       const { error: vendorUpdateErr } = await admin
@@ -936,15 +944,20 @@ async function handleSubscriptionChange(
         .update(vendorUpdate)
         .eq("id", resolvedVendorId);
       if (vendorUpdateErr) {
-        console.error("❌ [vendor-subscription] vendor update failed (webhook)", { vendorId: resolvedVendorId, error: vendorUpdateErr.message });
+        console.error("❌ [vendor-subscription] vendor activation failed (webhook)", JSON.stringify({
+          eventId: subscription.id,
+          vendorIdSuffix: resolvedVendorId.slice(-8),
+          userId: userId ?? null,
+          error: vendorUpdateErr.message,
+        }));
         throw vendorUpdateErr;
       }
       console.log("✅ [vendor-subscription] updated via webhook", {
-        vendorId: resolvedVendorId,
+        vendorIdSuffix: resolvedVendorId.slice(-8),
         status,
-        subscriptionId: subscription.id,
+        subscriptionIdSuffix: subscription.id.slice(-8),
       });
-      if (status === "active" && userId) {
+      if (VENDOR_ACTIVE_SUBSCRIPTION_STATUSES.has(status) && userId) {
         const { data: profile } = await admin
           .from("profiles")
           .select("role")
@@ -957,10 +970,12 @@ async function handleSubscriptionChange(
             .update({ role: "vendor" })
             .eq("id", userId);
           if (roleErr) {
-            console.error("❌ [vendor-subscription] failed to set profile role to vendor (webhook)", {
+            console.error("❌ [vendor-subscription] role upgrade failed (webhook)", JSON.stringify({
+              eventId: subscription.id,
+              vendorIdSuffix: resolvedVendorId.slice(-8),
               userId,
               error: roleErr.message,
-            });
+            }));
             throw roleErr;
           }
         } else {

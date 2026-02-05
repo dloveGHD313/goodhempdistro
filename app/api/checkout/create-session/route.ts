@@ -46,10 +46,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Fetch product and vendor owner for order_items
+    // Fetch product and vendor (status) for order_items — suspended vendors cannot accept orders (4.3.B)
     const { data: product, error: productError } = await supabase
       .from("products")
-      .select("id, name, price_cents, vendor_id, active, status, is_gated, market_category, vendors(owner_user_id)")
+      .select("id, name, price_cents, vendor_id, active, status, is_gated, market_category, vendors(owner_user_id, status)")
       .eq("id", productId)
       .single();
 
@@ -61,6 +61,16 @@ export async function POST(req: NextRequest) {
     }
 
     if (!product.active || product.status !== "approved") {
+      return NextResponse.json(
+        { error: "Product is not available" },
+        { status: 400, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    const vendorRow = Array.isArray(product.vendors)
+      ? (product.vendors as { owner_user_id: string; status?: string }[])[0]
+      : (product.vendors as { owner_user_id: string; status?: string } | undefined);
+    if (vendorRow?.status !== "active") {
       return NextResponse.json(
         { error: "Product is not available" },
         { status: 400, headers: { "Cache-Control": "no-store" } }

@@ -21,12 +21,27 @@ function LoadingState() {
   );
 }
 
+function FinishingSetupState() {
+  return (
+    <div className="card-glass p-6 text-center">
+      <h1 className="text-2xl font-semibold text-accent mb-2">Finishing setup…</h1>
+      <p className="text-muted mb-4">Your vendor account is activating. Redirecting to dashboard shortly.</p>
+      <div className="inline-flex items-center gap-2 text-sm text-muted">
+        <span className="typing-dot" />
+        <span className="typing-dot" />
+        <span className="typing-dot" />
+      </div>
+    </div>
+  );
+}
+
 function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const sessionId = searchParams?.get("session_id");
-  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "finishing_setup" | "success" | "error">("loading");
   const [message, setMessage] = useState<string | null>(null);
+  const [isVendorCheckout, setIsVendorCheckout] = useState(false);
 
   useEffect(() => {
     if (!sessionId) {
@@ -36,6 +51,9 @@ function CheckoutSuccessContent() {
     }
 
     let active = true;
+    const maxRoleRetries = 3;
+    const roleRetryDelayMs = 2000;
+
     async function confirmCheckout(retryCount = 0) {
       try {
         const response = await fetch("/api/checkout/confirm", {
@@ -53,13 +71,40 @@ function CheckoutSuccessContent() {
         }
         if (!active) return;
         const data = await response.json();
-        setStatus("success");
         const isVendor = data?.planType === "vendor";
-        setMessage(isVendor ? "Subscription active! Redirecting to dashboard…" : "You're all set! Redirecting…");
-        setTimeout(
-          () => router.push(isVendor ? "/vendors/dashboard" : "/newsfeed"),
-          1600
-        );
+        setIsVendorCheckout(isVendor);
+        setMessage(isVendor ? "Vendor account activated." : "You're all set!");
+        setStatus("success");
+
+        if (isVendor) {
+          (async function waitForRoleThenRedirect() {
+            for (let i = 0; i < maxRoleRetries && active; i++) {
+              await new Promise((r) => setTimeout(r, i === 0 ? 800 : roleRetryDelayMs));
+              if (!active) return;
+              try {
+                const profileRes = await fetch("/api/profile");
+                if (profileRes.ok) {
+                  const profileData = await profileRes.json();
+                  if (profileData?.role === "vendor") {
+                    router.push("/vendors/dashboard");
+                    return;
+                  }
+                }
+              } catch {
+                // ignore
+              }
+              if (i < maxRoleRetries - 1 && active) {
+                setStatus("finishing_setup");
+              }
+            }
+            if (active) {
+              setStatus("finishing_setup");
+              setTimeout(() => router.push("/vendors/dashboard"), 1500);
+            }
+          })();
+        } else {
+          setTimeout(() => router.push("/newsfeed"), 1600);
+        }
       } catch (error) {
         if (!active) return;
         const errorMessage = error instanceof Error ? error.message : "Checkout confirmation failed.";
@@ -94,10 +139,14 @@ function CheckoutSuccessContent() {
     return <LoadingState />;
   }
 
+  if (status === "finishing_setup") {
+    return <FinishingSetupState />;
+  }
+
   return (
     <div className="card-glass p-6 text-center">
       <h1 className="text-2xl font-semibold text-accent mb-2">
-        {status === "success" ? "Checkout confirmed" : "Checkout needs attention"}
+        {status === "success" && isVendorCheckout ? "Vendor account activated" : status === "success" ? "Checkout confirmed" : status === "error" ? "Checkout needs attention" : "Checkout confirmed"}
       </h1>
       <p className="text-muted mb-4">{message}</p>
       <div className="flex flex-wrap items-center justify-center gap-3">
