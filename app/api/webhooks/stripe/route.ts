@@ -18,6 +18,9 @@ import {
 } from "@/lib/consumer-loyalty";
 import { applyPlatformFeesToOrder } from "@/lib/platformFees";
 
+/** Subscription statuses that grant vendor access (vendor.status = active, profile.role = vendor). */
+const VENDOR_ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing"]);
+
 /** Award vendor referral first-sale reward when a referred vendor's first order is paid. */
 async function awardVendorReferralFirstSale(
   admin: Awaited<ReturnType<typeof getSupabaseAdminClient>>,
@@ -580,7 +583,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
           subscription_cancel_at_period_end: cancelAtPeriodEnd,
           subscription_updated_at: new Date().toISOString(),
         };
-        if (subscriptionStatus === "active" || subscriptionStatus === "trialing") {
+        if (VENDOR_ACTIVE_SUBSCRIPTION_STATUSES.has(subscriptionStatus)) {
           vendorUpdate.status = "active";
         }
         const { error: vendorUpdateErr } = await admin
@@ -933,7 +936,7 @@ async function handleSubscriptionChange(
         subscription_cancel_at_period_end: subscription.cancel_at_period_end,
         subscription_updated_at: new Date().toISOString(),
       };
-      if (status === "active" || status === "trialing") {
+      if (VENDOR_ACTIVE_SUBSCRIPTION_STATUSES.has(status)) {
         vendorUpdate.status = "active";
       }
       const { error: vendorUpdateErr } = await admin
@@ -954,7 +957,7 @@ async function handleSubscriptionChange(
         status,
         subscriptionIdSuffix: subscription.id.slice(-8),
       });
-      if ((status === "active" || status === "trialing") && userId) {
+      if (VENDOR_ACTIVE_SUBSCRIPTION_STATUSES.has(status) && userId) {
         const { data: profile } = await admin
           .from("profiles")
           .select("role")

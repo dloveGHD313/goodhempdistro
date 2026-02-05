@@ -70,19 +70,24 @@ async function getProducts(
     }
 
     const rawProducts = data || [];
-    const vendorIds = Array.from(
-      new Set(rawProducts.map((product) => product.vendor_id).filter(Boolean))
-    ) as string[];
+    // Exclude products without vendor_id consistently (vendorless products not visible on list)
+    const withVendor = rawProducts.filter((p) => p.vendor_id != null && String(p.vendor_id).trim() !== "");
+    const vendorIds = Array.from(new Set(withVendor.map((p) => p.vendor_id).filter(Boolean))) as string[];
 
     let vendorMap: Record<string, string> = {};
     const activeVendorIds = new Set<string>();
+    let vendorStatusLookupOk = true;
     if (vendorIds.length > 0) {
       const { data: vendors, error: vendorError } = await supabase
         .from("vendors")
         .select("id, business_name, status")
         .in("id", vendorIds);
       if (vendorError) {
-        console.error("[products] Error fetching vendor names:", vendorError);
+        vendorStatusLookupOk = false;
+        console.warn("[products] Vendor status lookup failed; skipping active-vendor filter", {
+          code: vendorError.code,
+          message: vendorError.message?.slice(0, 100),
+        });
       } else {
         (vendors || []).forEach((v) => {
           if (v?.id && v?.status === "active") {
@@ -93,8 +98,10 @@ async function getProducts(
       }
     }
 
-    // Always filter to active vendors only (even when vendorId provided) so /products?vendorId=XYZ shows nothing if XYZ is suspended
-    const visibleProducts = rawProducts.filter((p) => p.vendor_id && activeVendorIds.has(p.vendor_id));
+    // Only apply active-vendor filter when lookup succeeded; otherwise avoid silently hiding all products
+    const visibleProducts = vendorStatusLookupOk
+      ? withVendor.filter((p) => p.vendor_id && activeVendorIds.has(p.vendor_id))
+      : withVendor;
 
     const products = visibleProducts.map((product) => {
       const marketMode: "gated" | "ungated" =
