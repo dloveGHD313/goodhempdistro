@@ -104,7 +104,7 @@ export default function DriversClient({
         return;
       }
 
-      setApplications(applications.map(app => 
+      setApplications(prev => prev.map(app =>
         app.id === id ? { ...app, status } : app
       ));
 
@@ -133,7 +133,7 @@ export default function DriversClient({
         return;
       }
 
-      setOnDemandApplications(onDemandApplications.map(app =>
+      setOnDemandApplications(prev => prev.map(app =>
         app.id === id ? { ...app, status: action === "approve" ? "approved" : "rejected" } : app
       ));
 
