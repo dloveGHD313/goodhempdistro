@@ -8,7 +8,13 @@ import {
   computeDeliveryFees,
   haversineMiles,
 } from "@/lib/server/deliveryPricing";
-import { isDeliveryAllowedInState } from "@/lib/server/deliveryStateRules";
+import {
+  getHempStateRule,
+  isDeliveryAllowedForCategory,
+  isSaleAllowedForCategory,
+} from "@/lib/server/hempStateRules";
+
+type FulfillmentMethod = "pickup" | "delivery" | "shipping";
 
 /** Returns number only if value is finite (rejects NaN/Infinity). */
 function parseFiniteNumber(value: unknown): number | null {
