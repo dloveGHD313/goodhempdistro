@@ -48,13 +48,11 @@ export async function POST(req: NextRequest) {
     const quantity = Number.isFinite(parsedQuantity) ? parsedQuantity : 1;
 
     const fulfillmentMethod: "pickup" | "delivery" | "shipping" =
-      body?.fulfillment_method === "delivery" || body?.fulfillment_method === "shipping"
+      body?.fulfillment_method === "delivery" ||
+      body?.fulfillment_method === "shipping" ||
+      body?.fulfillment_method === "pickup"
         ? body.fulfillment_method
-        : body?.fulfillment_method === "pickup"
-          ? "pickup"
-          : body?.delivery_selected === true
-            ? "delivery"
-            : "pickup";
+        : "pickup";
 
     const customerState = typeof body?.customer_state === "string"
       ? body.customer_state.trim().toUpperCase()

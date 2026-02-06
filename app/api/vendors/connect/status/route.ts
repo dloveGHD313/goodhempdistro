@@ -9,7 +9,7 @@ import { stripe } from "@/lib/stripe";
 export async function GET(req: NextRequest) {
   const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID();
   const route = "/api/vendors/connect/status";
-  const responseHeaders = { "X-Request-Id": requestId };
+  const responseHeaders = { "X-Request-Id": requestId, "Cache-Control": "no-store" };
   let safeUserId: string | null = null;
   const json = (payload: Record<string, unknown>, status = 200) =>
     NextResponse.json(
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 
     if (!user) {
       console.warn("[vendor-connect] unauthorized", { route, requestId });
-      return json({ error: "Unauthorized" }, 401);
+      return json({ ok: false, code: "UNAUTHORIZED", error: "Unauthorized" }, 401);
     }
     safeUserId = user.id;
 
@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
     const chargesEnabled = account.charges_enabled ?? false;
     const payoutsEnabled = account.payouts_enabled ?? false;
 
-    await supabase
+    const { error: updateError } = await supabase
       .from("vendor_connect_accounts")
       .update({
         charges_enabled: chargesEnabled,
@@ -56,6 +56,19 @@ export async function GET(req: NextRequest) {
         updated_at: new Date().toISOString(),
       })
       .eq("user_id", user.id);
+
+    if (updateError) {
+      console.error("[vendor-connect] status update failed", {
+        route,
+        requestId,
+        userId: safeUserId,
+        stripeRequestId: undefined,
+        errorType: "supabase_error",
+        errorCode: updateError.code,
+        message: updateError.message?.slice(0, 300),
+      });
+      return json({ ok: false, code: "CONNECT_STATUS_UPDATE_FAILED", error: "Failed to persist Connect status" }, 500);
+    }
 
     return json({
       ok: true,
@@ -83,6 +96,8 @@ export async function GET(req: NextRequest) {
     });
     return json(
       {
+        ok: false,
+        code: "CONNECT_STATUS_FAILED",
         error: "Failed to get Connect status",
         diagnosticReason: errorType || errorCode,
         stripeRequestId,

@@ -10,7 +10,7 @@ import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 export async function POST(req: NextRequest) {
   const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID();
   const route = "/api/vendors/connect/onboard-link";
-  const responseHeaders = { "X-Request-Id": requestId };
+  const responseHeaders = { "X-Request-Id": requestId, "Cache-Control": "no-store" };
   let safeUserId: string | null = null;
   const json = (payload: Record<string, unknown>, status = 200) =>
     NextResponse.json(
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
     if (!user) {
       console.warn("[vendor-connect] unauthorized", { route, requestId });
-      return json({ error: "Unauthorized" }, 401);
+      return json({ ok: false, code: "UNAUTHORIZED", error: "Unauthorized" }, 401);
     }
     safeUserId = user.id;
 
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
         errorCode: undefined,
         message: "No Connect account",
       });
-      return json({ error: "No Connect account. Call create-account first." }, 409);
+      return json({ ok: false, code: "CONNECT_ACCOUNT_MISSING", error: "No Connect account. Call create-account first." }, 409);
     }
 
     const siteUrl = getSiteUrl(req);
@@ -80,6 +80,8 @@ export async function POST(req: NextRequest) {
     });
     return json(
       {
+        ok: false,
+        code: "ONBOARDING_LINK_CREATE_FAILED",
         error: "Failed to create onboarding link",
         diagnosticReason: errorType || errorCode,
         stripeRequestId,

@@ -18,7 +18,7 @@ type CheckoutPayload = {
 export async function POST(req: NextRequest) {
   const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID();
   const route = "/api/stripe/checkout";
-  const responseHeaders = { "X-Request-Id": requestId };
+  const responseHeaders = { "X-Request-Id": requestId, "Cache-Control": "no-store" };
   let safeUserId: string | null = null;
   const json = (payload: Record<string, unknown>, status = 200) =>
     NextResponse.json(
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
     if (userError || !user) {
       console.warn("[stripe-checkout] unauthorized", { route, requestId });
-      return json({ error: "Unauthorized" }, 401);
+      return json({ ok: false, code: "UNAUTHORIZED", error: "Unauthorized" }, 401);
     }
     safeUserId = user.id;
 
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
         errorCode: undefined,
         message: msg.slice(0, 300),
       });
-      return json({ error: msg }, 400);
+      return json({ ok: false, code: "INVALID_PRICE_SELECTION", error: msg }, 400);
     }
 
     const vendorPlan = getVendorPlanByPriceId(priceId);
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
         errorCode: undefined,
         message: "PriceId not mapped to a vendor plan",
       });
-      return json({ error: "Invalid vendor price selection" }, 400);
+      return json({ ok: false, code: "INVALID_VENDOR_PRICE", error: "Invalid vendor price selection" }, 400);
     }
 
     const admin = getSupabaseAdminClient();
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
           errorCode: insertErr?.code,
           message: insertErr?.message?.slice(0, 300) ?? "Vendor provision failed",
         });
-        return json({ error: "Failed to provision vendor for checkout" }, 500);
+        return json({ ok: false, code: "VENDOR_PROVISION_FAILED", error: "Failed to provision vendor for checkout" }, 500);
       }
     }
 
@@ -184,7 +184,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return json({ url: session.url });
+    return json({ ok: true, url: session.url });
   } catch (error) {
     const err = error as {
       type?: string;
@@ -210,6 +210,8 @@ export async function POST(req: NextRequest) {
     });
     return json(
       {
+        ok: false,
+        code: "CHECKOUT_SESSION_CREATE_FAILED",
         error: "Failed to create checkout session",
         diagnosticReason: errorType || errorCode,
         stripeRequestId,

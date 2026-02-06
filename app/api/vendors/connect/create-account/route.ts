@@ -10,7 +10,7 @@ import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 export async function POST(req: NextRequest) {
   const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID();
   const route = "/api/vendors/connect/create-account";
-  const responseHeaders = { "X-Request-Id": requestId };
+  const responseHeaders = { "X-Request-Id": requestId, "Cache-Control": "no-store" };
   let safeUserId: string | null = null;
   const json = (payload: Record<string, unknown>, status = 200) =>
     NextResponse.json(
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 
     if (!user) {
       console.warn("[vendor-connect] unauthorized", { route, requestId });
-      return json({ error: "Unauthorized" }, 401);
+      return json({ ok: false, code: "UNAUTHORIZED", error: "Unauthorized" }, 401);
     }
     safeUserId = user.id;
 
@@ -76,9 +76,9 @@ export async function POST(req: NextRequest) {
         stripeRequestId: undefined,
         errorType: "supabase_error",
         errorCode: insertError.code,
-        message: insertError.message,
+        message: insertError.message?.slice(0, 300),
       });
-      return json({ error: "Failed to save Connect account" }, 500);
+      return json({ ok: false, code: "CONNECT_ACCOUNT_SAVE_FAILED", error: "Failed to save Connect account" }, 500);
     }
 
     return json({
@@ -104,6 +104,8 @@ export async function POST(req: NextRequest) {
     });
     return json(
       {
+        ok: false,
+        code: "CONNECT_ACCOUNT_CREATE_FAILED",
         error: "Failed to create Connect account",
         diagnosticReason: errorType || errorCode,
         stripeRequestId,
