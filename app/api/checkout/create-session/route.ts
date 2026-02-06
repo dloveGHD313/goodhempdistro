@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe, getSiteUrl } from "@/lib/stripe";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { isGatedProduct, requireMarketAccess } from "@/lib/server/marketGate";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 import {
@@ -12,6 +13,8 @@ import {
   isDeliveryAllowedForCategory,
   isSaleAllowedForCategory,
 } from "@/lib/server/hempStateRules";
+
+type FulfillmentMethod = "pickup" | "delivery" | "shipping";
 
 /** Returns number only if value is finite (rejects NaN/Infinity). */
 function parseFiniteNumber(value: unknown): number | null {
@@ -55,6 +58,13 @@ export async function POST(req: NextRequest) {
     const deliverySelected = body?.delivery_selected === true;
     const customerStateRaw = typeof body?.customer_state === "string" ? body.customer_state.trim().toUpperCase().slice(0, 2) : null;
     const customerState = customerStateRaw && customerStateRaw.length === 2 ? customerStateRaw : null;
+    const rawFulfillment = typeof body?.fulfillment_method === "string" ? body.fulfillment_method.trim().toLowerCase() : null;
+    const fulfillmentMethod: FulfillmentMethod =
+      rawFulfillment === "delivery" || rawFulfillment === "pickup" || rawFulfillment === "shipping"
+        ? rawFulfillment
+        : deliverySelected
+          ? "delivery"
+          : "pickup";
     const deliveryDistanceMilesRaw = parseFiniteNumber(body?.delivery_distance_miles);
     const deliveryDistanceMiles =
       deliveryDistanceMilesRaw != null && deliveryDistanceMilesRaw >= 0
@@ -265,6 +275,7 @@ export async function POST(req: NextRequest) {
       total_cents: totalCents,
       currency: "usd",
       delivery_selected: deliverySelected,
+      fulfillment_method: fulfillmentMethod,
       delivery_status: deliverySelected ? "unassigned" : null,
     };
     if (deliveryFees) {
@@ -287,6 +298,27 @@ export async function POST(req: NextRequest) {
         { error: "Failed to create order" },
         { status: 500, headers: { "Cache-Control": "no-store" } }
       );
+    }
+
+    // Notify vendor (admin client; order_notifications has no anon insert policy)
+    const vendorId = product.vendor_id;
+    if (vendorId) {
+      const notifyMsg =
+        fulfillmentMethod === "delivery"
+          ? "New Delivery Order"
+          : fulfillmentMethod === "shipping"
+            ? "New Shipping Order"
+            : "New Pickup Order";
+      try {
+        const admin = getSupabaseAdminClient();
+        await admin.from("order_notifications").insert({
+          vendor_id: vendorId,
+          order_id: order.id,
+          message: notifyMsg,
+        });
+      } catch (notifyErr) {
+        console.warn("[checkout/create-session] vendor notification insert failed", notifyErr);
+      }
     }
 
     // Create order item (item_type, item_id, vendor_user_id, line_total_cents)
