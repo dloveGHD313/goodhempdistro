@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/lib/supabase";
+import { requirePaidAI } from "@/lib/requirePaidAI";
 import { classifyIntent } from "@/server/mascot/intents";
 import { checkSafety } from "@/server/mascot/safety";
 import { quickRepliesByContext, type MascotContext, type MascotMood } from "@/components/mascot/config";
@@ -312,6 +314,39 @@ export async function POST(req: NextRequest) {
         results: { type: "none", items: [] },
         suggestions,
       };
+    }
+
+    let allowFullAI = false;
+    try {
+      const supabase = await createSupabaseServerClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user ?? null;
+      if (user) {
+        allowFullAI = await requirePaidAI(user.id, user.email ?? null);
+      }
+      if (!allowFullAI) {
+        if (intent === "general_help") {
+          return response({
+            reply: user
+              ? "Full AI assistance is available on a paid plan. Use the suggestions below to navigate the site, or upgrade for full AI."
+              : "Sign in for full AI assistance, or use the suggestions below to navigate.",
+            mood: "BLOCKED",
+            results: { type: "none", items: [] },
+            suggestions,
+          });
+        }
+        return response({ ...basePayload });
+      }
+    } catch {
+      if (intent === "general_help") {
+        return response({
+          reply: "Sign in for full AI assistance, or use the suggestions below to navigate.",
+          mood: "CHILL",
+          results: { type: "none", items: [] },
+          suggestions,
+        });
+      }
+      return response({ ...basePayload });
     }
 
     const openaiModel = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
