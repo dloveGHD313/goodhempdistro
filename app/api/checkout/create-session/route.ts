@@ -7,6 +7,7 @@ import {
   computeDeliveryFees,
   haversineMiles,
 } from "@/lib/server/deliveryPricing";
+import { isDeliveryAllowedInState } from "@/lib/server/deliveryStateRules";
 
 /** Returns number only if value is finite (rejects NaN/Infinity). */
 function parseFiniteNumber(value: unknown): number | null {
@@ -48,6 +49,7 @@ export async function POST(req: NextRequest) {
     const productId = typeof body?.product_id === "string" ? body.product_id : null;
     const rawQuantity = body?.quantity;
     const deliverySelected = body?.delivery_selected === true;
+    const customerStateRaw = typeof body?.customer_state === "string" ? body.customer_state.trim().toUpperCase().slice(0, 2) : null;
     const deliveryDistanceMilesRaw = parseFiniteNumber(body?.delivery_distance_miles);
     const deliveryDistanceMiles =
       deliveryDistanceMilesRaw != null && deliveryDistanceMilesRaw >= 0
@@ -148,6 +150,19 @@ export async function POST(req: NextRequest) {
 
     let deliveryFees: Awaited<ReturnType<typeof computeDeliveryFees>> = null;
     if (deliverySelected) {
+      if (!customerStateRaw || customerStateRaw.length !== 2) {
+        return NextResponse.json(
+          { error: "Delivery requires a valid delivery state (2-letter state code)" },
+          { status: 400, headers: { "Cache-Control": "no-store" } }
+        );
+      }
+      const deliveryAllowed = await isDeliveryAllowedInState(customerStateRaw);
+      if (!deliveryAllowed) {
+        return NextResponse.json(
+          { error: "Delivery is not available in your state due to local regulations." },
+          { status: 400, headers: { "Cache-Control": "no-store" } }
+        );
+      }
       let distanceMiles: number | null = deliveryDistanceMiles;
       if (distanceMiles == null) {
         const allCoordsPresent =
