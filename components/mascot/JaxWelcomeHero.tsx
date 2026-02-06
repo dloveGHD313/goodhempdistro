@@ -19,8 +19,9 @@ export default function JaxWelcomeHero({ selectedCount }: Props) {
       : "Nice. I'll tailor your experience around that.";
 
   return (
-    <div
+    <section
       className="mx-auto w-full max-w-md flex flex-col items-center justify-center gap-3 flex-shrink-0 mb-8 motion-heavy animate-fade-in opacity-0"
+      aria-label="JAX mascot greeting"
       style={{ animationDelay: "0s" }}
     >
       <div
@@ -41,6 +42,6 @@ export default function JaxWelcomeHero({ selectedCount }: Props) {
           {dialogue}
         </p>
       </div>
-    </div>
+    </section>
   );
 }

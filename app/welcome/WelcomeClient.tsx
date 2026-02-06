@@ -79,9 +79,9 @@ export default function WelcomeClient() {
 
   return (
     <div className="max-w-2xl w-full mx-auto flex flex-col">
-      <section className="flex-shrink-0" aria-label="JAX mascot greeting">
+      <div className="flex-shrink-0">
         <JaxWelcomeHero selectedCount={selectedIntents.length} />
-      </section>
+      </div>
 
       <div
         className="animate-fade-in opacity-0 flex-shrink-0 mt-6"
