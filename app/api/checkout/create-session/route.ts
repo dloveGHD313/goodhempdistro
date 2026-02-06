@@ -7,6 +7,11 @@ import {
   computeDeliveryFees,
   haversineMiles,
 } from "@/lib/server/deliveryPricing";
+import {
+  getHempStateRule,
+  isDeliveryAllowedForCategory,
+  isSaleAllowedForCategory,
+} from "@/lib/server/hempStateRules";
 
 /** Returns number only if value is finite (rejects NaN/Infinity). */
 function parseFiniteNumber(value: unknown): number | null {
@@ -48,6 +53,8 @@ export async function POST(req: NextRequest) {
     const productId = typeof body?.product_id === "string" ? body.product_id : null;
     const rawQuantity = body?.quantity;
     const deliverySelected = body?.delivery_selected === true;
+    const customerStateRaw = typeof body?.customer_state === "string" ? body.customer_state.trim().toUpperCase().slice(0, 2) : null;
+    const customerState = customerStateRaw && customerStateRaw.length === 2 ? customerStateRaw : null;
     const deliveryDistanceMilesRaw = parseFiniteNumber(body?.delivery_distance_miles);
     const deliveryDistanceMiles =
       deliveryDistanceMilesRaw != null && deliveryDistanceMilesRaw >= 0
@@ -81,7 +88,7 @@ export async function POST(req: NextRequest) {
     // Fetch product and vendor (status) for order_items — suspended vendors cannot accept orders (4.3.B)
     const { data: product, error: productError } = await supabase
       .from("products")
-      .select("id, name, price_cents, vendor_id, active, status, is_gated, market_category, vendors(owner_user_id, status)")
+      .select("id, name, price_cents, vendor_id, active, status, is_gated, market_category, product_type, is_intoxicating, is_delta8, vendors(owner_user_id, status)")
       .eq("id", productId)
       .single();
 
@@ -97,6 +104,53 @@ export async function POST(req: NextRequest) {
         { error: "Product is not available" },
         { status: 400, headers: { "Cache-Control": "no-store" } }
       );
+    }
+
+    // Delta-8 not allowed on platform
+    const isDelta8 = product.is_delta8 === true || product.product_type === "delta8";
+    if (isDelta8) {
+      return NextResponse.json(
+        { error: "This product category is not available for purchase" },
+        { status: 400, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    const isIntoxicating = product.is_intoxicating === true || product.product_type === "intoxicating";
+
+    // State rules: delivery requires customer_state; default-safe (no rule => delivery not allowed)
+    if (deliverySelected) {
+      if (!customerState) {
+        return NextResponse.json(
+          {
+            error: "Delivery requires your state. Please provide customer_state (2-letter code).",
+            code: "STATE_REQUIRED",
+            available_fulfillment: ["pickup", "shipping"],
+          },
+          { status: 400, headers: { "Cache-Control": "no-store" } }
+        );
+      }
+      const stateRule = await getHempStateRule(customerState);
+      if (!isDeliveryAllowedForCategory(stateRule, isIntoxicating)) {
+        return NextResponse.json(
+          {
+            error: "Delivery is not available in your state due to local regulations. Choose pickup or shipping.",
+            code: "DELIVERY_NOT_ALLOWED",
+            available_fulfillment: ["pickup", "shipping"],
+          },
+          { status: 400, headers: { "Cache-Control": "no-store" } }
+        );
+      }
+    } else if (customerState) {
+      const stateRule = await getHempStateRule(customerState);
+      if (!isSaleAllowedForCategory(stateRule, isIntoxicating)) {
+        return NextResponse.json(
+          {
+            error: "This product cannot be sold in your state. Please remove it from your order.",
+            code: "SALE_NOT_ALLOWED",
+          },
+          { status: 400, headers: { "Cache-Control": "no-store" } }
+        );
+      }
     }
 
     const vendorRow = Array.isArray(product.vendors)

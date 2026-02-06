@@ -43,7 +43,12 @@ export default function SignupForm() {
       });
 
       if (signUpError) {
-        setError(signUpError.message);
+        const correlationId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `ref-${Date.now()}`;
+        console.warn("[signup] auth error", { code: signUpError.name, message: signUpError.message.slice(0, 200), correlationId });
+        const friendlyMessage = signUpError.message?.includes("Database") || signUpError.message?.includes("saving new user")
+          ? `Something went wrong creating your account. Please try again or contact support. Reference: ${correlationId}`
+          : signUpError.message;
+        setError(friendlyMessage);
         setLoading(false);
         return;
       }
@@ -63,7 +68,9 @@ export default function SignupForm() {
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An unexpected error occurred");
+      const correlationId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `ref-${Date.now()}`;
+      console.warn("[signup] exception", err, { correlationId });
+      setError(`Something went wrong. Please try again or contact support. Reference: ${correlationId}`);
       setLoading(false);
     }
   };
