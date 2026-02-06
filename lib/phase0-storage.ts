@@ -34,9 +34,6 @@ export function setWelcomeInStorage(answers: WelcomeAnswers): void {
       ...answers,
       completedAt: answers.completedAt ?? new Date().toISOString(),
     }));
-    if (answers.intent) {
-      localStorage.setItem(WELCOME_INTENT_KEY, answers.intent);
-    }
   } catch {
     // ignore
   }
