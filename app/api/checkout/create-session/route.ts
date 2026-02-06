@@ -3,12 +3,30 @@ import { stripe, getSiteUrl } from "@/lib/stripe";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { isGatedProduct, requireMarketAccess } from "@/lib/server/marketGate";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
+import {
+  isDeliveryAllowedForCategory,
+  isSaleAllowedForCategory,
+  type HempStateRule,
+} from "@/lib/server/hempStateRules";
 
 /**
  * Create Stripe checkout session for product purchase
  * Server-only route - requires authentication
  */
 export async function POST(req: NextRequest) {
+  const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID();
+  const noStoreHeaders = { "Cache-Control": "no-store", "X-Request-Id": requestId };
+  const error = (
+    status: number,
+    code: string,
+    message: string,
+    extra?: Record<string, unknown>
+  ) =>
+    NextResponse.json(
+      { code, message, ref: requestId, ...(extra || {}) },
+      { status, headers: noStoreHeaders }
+    );
+
   try {
     assertStripeLiveConfig();
     const supabase = await createSupabaseServerClient();
@@ -16,10 +34,7 @@ export async function POST(req: NextRequest) {
     const user = session?.user ?? null;
 
     if (!user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401, headers: { "Cache-Control": "no-store" } }
-      );
+      return error(401, "UNAUTHORIZED", "Unauthorized");
     }
 
     const body = await req.json().catch(() => ({}));
@@ -32,39 +47,40 @@ export async function POST(req: NextRequest) {
         : 1;
     const quantity = Number.isFinite(parsedQuantity) ? parsedQuantity : 1;
 
+    const fulfillmentMethod: "pickup" | "delivery" | "shipping" =
+      body?.fulfillment_method === "delivery" || body?.fulfillment_method === "shipping"
+        ? body.fulfillment_method
+        : body?.fulfillment_method === "pickup"
+          ? "pickup"
+          : body?.delivery_selected === true
+            ? "delivery"
+            : "pickup";
+
+    const customerState = typeof body?.customer_state === "string"
+      ? body.customer_state.trim().toUpperCase()
+      : "";
+
     if (!productId) {
-      return NextResponse.json(
-        { error: "product_id is required" },
-        { status: 400, headers: { "Cache-Control": "no-store" } }
-      );
+      return error(400, "INVALID_REQUEST", "product_id is required");
     }
 
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > 50) {
-      return NextResponse.json(
-        { error: "Quantity must be between 1 and 50" },
-        { status: 400, headers: { "Cache-Control": "no-store" } }
-      );
+      return error(400, "INVALID_QUANTITY", "Quantity must be between 1 and 50");
     }
 
     // Fetch product and vendor owner for order_items
     const { data: product, error: productError } = await supabase
       .from("products")
-      .select("id, name, price_cents, vendor_id, active, status, is_gated, market_category, vendors(owner_user_id)")
+      .select("id, name, price_cents, vendor_id, active, status, is_gated, market_category, product_type, vendors(owner_user_id)")
       .eq("id", productId)
       .single();
 
     if (productError || !product) {
-      return NextResponse.json(
-        { error: "Product not found" },
-        { status: 404, headers: { "Cache-Control": "no-store" } }
-      );
+      return error(404, "PRODUCT_NOT_FOUND", "Product not found");
     }
 
     if (!product.active || product.status !== "approved") {
-      return NextResponse.json(
-        { error: "Product is not available" },
-        { status: 400, headers: { "Cache-Control": "no-store" } }
-      );
+      return error(400, "PRODUCT_UNAVAILABLE", "Product is not available");
     }
 
     const marketMode: "gated" | "ungated" =
@@ -80,21 +96,56 @@ export async function POST(req: NextRequest) {
       if (!gate.ok) {
         return NextResponse.json(
           {
-            ok: false,
             code: gate.code,
             message: gate.message,
+            ref: requestId,
             redirectTo: gate.redirectTo || "/verify",
           },
-          { status: gate.status, headers: { "Cache-Control": "no-store" } }
+          { status: gate.status, headers: noStoreHeaders }
         );
       }
     }
 
     if (!product.price_cents || product.price_cents <= 0) {
-      return NextResponse.json(
-        { error: "Product price is not available" },
-        { status: 400, headers: { "Cache-Control": "no-store" } }
-      );
+      return error(400, "PRICE_UNAVAILABLE", "Product price is not available");
+    }
+
+    const productType = typeof product.product_type === "string" ? product.product_type : "";
+    const isIntoxicating =
+      productType === "intoxicating" ||
+      product.market_category === "INTOXICATING" ||
+      product.market_category === "RECREATIONAL";
+
+    if (fulfillmentMethod === "delivery" && !/^[A-Z]{2}$/.test(customerState)) {
+      return error(400, "STATE_REQUIRED", "customer_state is required for delivery");
+    }
+
+    let stateRule: HempStateRule | null = null;
+    if (/^[A-Z]{2}$/.test(customerState)) {
+      const { data: rule } = await supabase
+        .from("hemp_state_rules")
+        .select("state_code, sale_allowed, intoxicating_sale_allowed, non_intoxicating_sale_allowed, delivery_allowed, intoxicating_delivery_allowed, non_intoxicating_delivery_allowed")
+        .eq("state_code", customerState)
+        .maybeSingle();
+      stateRule = (rule as HempStateRule | null) ?? null;
+    }
+
+    if (fulfillmentMethod === "delivery") {
+      const saleAllowed = isSaleAllowedForCategory(stateRule, isIntoxicating);
+      const deliveryAllowed = isDeliveryAllowedForCategory(stateRule, isIntoxicating);
+      if (!saleAllowed || !deliveryAllowed) {
+        return error(
+          400,
+          "STATE_COMPLIANCE_BLOCK",
+          "Delivery is not allowed for this product in the selected state",
+          { available_fulfillment: ["pickup", "shipping"] }
+        );
+      }
+    } else if (stateRule) {
+      const saleAllowed = isSaleAllowedForCategory(stateRule, isIntoxicating);
+      if (!saleAllowed) {
+        return error(400, "STATE_SALE_BLOCK", "Sale is not allowed for this product in the selected state");
+      }
     }
 
     const totalCents = product.price_cents * quantity;
@@ -118,10 +169,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (orderError || !order) {
-      return NextResponse.json(
-        { error: "Failed to create order" },
-        { status: 500, headers: { "Cache-Control": "no-store" } }
-      );
+      return error(500, "ORDER_CREATE_FAILED", "Failed to create order");
     }
 
     // Create order item (item_type, item_id, vendor_user_id, line_total_cents)
@@ -139,10 +187,7 @@ export async function POST(req: NextRequest) {
       });
 
     if (itemError) {
-      return NextResponse.json(
-        { error: "Failed to create order item" },
-        { status: 500, headers: { "Cache-Control": "no-store" } }
-      );
+      return error(500, "ORDER_ITEM_CREATE_FAILED", "Failed to create order item");
     }
 
     // Create Stripe checkout session
@@ -158,7 +203,7 @@ export async function POST(req: NextRequest) {
             },
             unit_amount: product.price_cents,
           },
-          quantity: quantity,
+          quantity,
         },
       ],
       success_url: `${siteUrl}/orders/success?session_id={CHECKOUT_SESSION_ID}`,
@@ -168,6 +213,7 @@ export async function POST(req: NextRequest) {
         order_id: order.id,
         product_id: product.id,
         vendor_id: product.vendor_id || "",
+        fulfillment_method: fulfillmentMethod,
       },
     });
 
@@ -177,16 +223,13 @@ export async function POST(req: NextRequest) {
       .update({ checkout_session_id: stripeSession.id })
       .eq("id", order.id);
 
-    return NextResponse.json({
-      sessionId: stripeSession.id,
-      url: stripeSession.url,
-    }, { headers: { "Cache-Control": "no-store" } });
-  } catch (error: unknown) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error("[checkout/create-session]", errorMessage);
     return NextResponse.json(
-      { error: "Failed to create checkout session" },
-      { status: 500, headers: { "Cache-Control": "no-store" } }
+      { sessionId: stripeSession.id, url: stripeSession.url },
+      { headers: noStoreHeaders }
     );
+  } catch (errorValue: unknown) {
+    const errorMessage = errorValue instanceof Error ? errorValue.message : String(errorValue);
+    console.error("[checkout/create-session]", { requestId, message: errorMessage.slice(0, 300) });
+    return error(500, "CHECKOUT_SESSION_CREATE_FAILED", "Failed to create checkout session");
   }
 }

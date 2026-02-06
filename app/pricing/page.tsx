@@ -177,7 +177,8 @@ export default function PricingPage() {
       });
       const data = await response.json();
       if (!response.ok) {
-        alert(data.error || "Failed to create checkout session");
+        const requestId = response.headers.get("x-request-id") || data?.requestId;
+        alert(`Checkout failed. Reference: ${requestId ?? "unknown"}`);
         return;
       }
       if (data.url) {
@@ -185,7 +186,7 @@ export default function PricingPage() {
       }
     } catch (error) {
       console.error("Error starting vendor checkout:", error);
-      alert("Failed to start checkout. Please try again.");
+      alert("Checkout failed. Reference: unknown");
     }
   };
 

@@ -22,6 +22,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/wholesale",
     "/vendor-registration",
     "/affiliate",
+    "/affiliate/portal",
     "/privacy",
     "/terms",
     "/refunds",

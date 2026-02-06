@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
-import { stripe, getSiteUrl } from "@/lib/stripe";
+import { stripe } from "@/lib/stripe";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 
 /**
@@ -8,18 +8,27 @@ import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
  * Requires vendor session.
  */
 export async function POST(req: NextRequest) {
+  const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID();
+  const route = "/api/vendors/connect/create-account";
+  const responseHeaders = { "X-Request-Id": requestId };
+  let safeUserId: string | null = null;
+  const json = (payload: Record<string, unknown>, status = 200) =>
+    NextResponse.json(
+      { ...payload, requestId },
+      { status, headers: responseHeaders }
+    );
+
   try {
-    if (!process.env.STRIPE_CONNECT_CLIENT_ID?.trim()) {
-      throw new Error("STRIPE_CONNECT_CLIENT_ID is required for Stripe Connect.");
-    }
     assertStripeLiveConfig();
     const supabase = await createSupabaseServerClient();
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user ?? null;
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      console.warn("[vendor-connect] unauthorized", { route, requestId });
+      return json({ error: "Unauthorized" }, 401);
     }
+    safeUserId = user.id;
 
     const { data: existing } = await supabase
       .from("vendor_connect_accounts")
@@ -28,7 +37,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (existing?.stripe_account_id) {
-      return NextResponse.json({
+      return json({
         ok: true,
         stripe_account_id: existing.stripe_account_id,
         already_exists: true,
@@ -60,31 +69,46 @@ export async function POST(req: NextRequest) {
       );
 
     if (insertError) {
-      return NextResponse.json(
-        { error: "Failed to save Connect account" },
-        { status: 500 }
-      );
+      console.error("[vendor-connect] save failed", {
+        route,
+        requestId,
+        userId: safeUserId,
+        stripeRequestId: undefined,
+        errorType: "supabase_error",
+        errorCode: insertError.code,
+        message: insertError.message,
+      });
+      return json({ error: "Failed to save Connect account" }, 500);
     }
 
-    return NextResponse.json({
+    return json({
       ok: true,
       stripe_account_id: account.id,
     });
   } catch (e: unknown) {
-    console.error("Vendor Connect create-account failed", e);
     const err = e as { type?: string; code?: string; message?: string; requestId?: string; statusCode?: number };
-    const status = typeof err?.statusCode === "number" ? err.statusCode : 500;
-    return NextResponse.json(
+    const errorMessage =
+      typeof err?.message === "string" ? err.message.slice(0, 300) : "Unknown error";
+    const errorType = typeof err?.type === "string" ? err.type : undefined;
+    const errorCode = typeof err?.code === "string" ? err.code : undefined;
+    const stripeRequestId =
+      typeof err?.requestId === "string" ? err.requestId : undefined;
+    console.error("[vendor-connect] create-account failed", {
+      route,
+      requestId,
+      userId: safeUserId,
+      stripeRequestId,
+      errorType,
+      errorCode,
+      message: errorMessage,
+    });
+    return json(
       {
         error: "Failed to create Connect account",
-        details: {
-          type: typeof err?.type === "string" ? err.type : undefined,
-          code: typeof err?.code === "string" ? err.code : undefined,
-          message: typeof err?.message === "string" ? err.message : undefined,
-          requestId: typeof err?.requestId === "string" ? err.requestId : undefined,
-        },
+        diagnosticReason: errorType || errorCode,
+        stripeRequestId,
       },
-      { status }
+      500
     );
   }
 }

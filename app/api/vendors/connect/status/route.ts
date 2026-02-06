@@ -7,14 +7,26 @@ import { stripe } from "@/lib/stripe";
  * Requires vendor session.
  */
 export async function GET(req: NextRequest) {
+  const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID();
+  const route = "/api/vendors/connect/status";
+  const responseHeaders = { "X-Request-Id": requestId };
+  let safeUserId: string | null = null;
+  const json = (payload: Record<string, unknown>, status = 200) =>
+    NextResponse.json(
+      { ...payload, requestId },
+      { status, headers: responseHeaders }
+    );
+
   try {
     const supabase = await createSupabaseServerClient();
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user ?? null;
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      console.warn("[vendor-connect] unauthorized", { route, requestId });
+      return json({ error: "Unauthorized" }, 401);
     }
+    safeUserId = user.id;
 
     const { data: row } = await supabase
       .from("vendor_connect_accounts")
@@ -23,7 +35,7 @@ export async function GET(req: NextRequest) {
       .maybeSingle();
 
     if (!row) {
-      return NextResponse.json({
+      return json({
         ok: true,
         connected: false,
         stripe_account_id: null,
@@ -45,7 +57,7 @@ export async function GET(req: NextRequest) {
       })
       .eq("user_id", user.id);
 
-    return NextResponse.json({
+    return json({
       ok: true,
       connected: true,
       stripe_account_id: row.stripe_account_id,
@@ -53,9 +65,29 @@ export async function GET(req: NextRequest) {
       payouts_enabled: payoutsEnabled,
     });
   } catch (e) {
-    return NextResponse.json(
-      { error: "Failed to get Connect status" },
-      { status: 500 }
+    const err = e as { type?: string; code?: string; message?: string; requestId?: string };
+    const errorMessage =
+      typeof err?.message === "string" ? err.message.slice(0, 300) : "Unknown error";
+    const errorType = typeof err?.type === "string" ? err.type : undefined;
+    const errorCode = typeof err?.code === "string" ? err.code : undefined;
+    const stripeRequestId =
+      typeof err?.requestId === "string" ? err.requestId : undefined;
+    console.error("[vendor-connect] status failed", {
+      route,
+      requestId,
+      userId: safeUserId,
+      stripeRequestId,
+      errorType,
+      errorCode,
+      message: errorMessage,
+    });
+    return json(
+      {
+        error: "Failed to get Connect status",
+        diagnosticReason: errorType || errorCode,
+        stripeRequestId,
+      },
+      500
     );
   }
 }

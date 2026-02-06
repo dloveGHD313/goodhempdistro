@@ -7,7 +7,9 @@ import {
 } from "./stripe/prices";
 
 const allowedPriceIds = new Set<string>(
-  Object.values(STRIPE_PRICES).flatMap((p) => [p.MONTHLY, p.ANNUAL])
+  Object.values(STRIPE_PRICES)
+    .flatMap((p) => [p.MONTHLY, p.ANNUAL])
+    .filter((priceId): priceId is string => Boolean(priceId))
 );
 
 export function resolvePriceId(input: {

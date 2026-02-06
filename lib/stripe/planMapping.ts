@@ -13,62 +13,97 @@ export type InternalPlanFromPriceId = {
 const CONSUMER_STRIPE_TO_INTERNAL: Record<
   string,
   { planKey: string; interval: "MONTHLY" | "ANNUAL" }
-> = {
-  [STRIPE_PRICES.CONSUMER_BASIC.MONTHLY]: {
-    planKey: "consumer_starter_monthly",
-    interval: "MONTHLY",
-  },
-  [STRIPE_PRICES.CONSUMER_BASIC.ANNUAL]: {
-    planKey: "consumer_starter_annual",
-    interval: "ANNUAL",
-  },
-  [STRIPE_PRICES.CONSUMER_PLUS.MONTHLY]: {
-    planKey: "consumer_plus_monthly",
-    interval: "MONTHLY",
-  },
-  [STRIPE_PRICES.CONSUMER_PLUS.ANNUAL]: {
-    planKey: "consumer_plus_annual",
-    interval: "ANNUAL",
-  },
-  [STRIPE_PRICES.CONSUMER_PREMIUM.MONTHLY]: {
-    planKey: "consumer_vip_monthly",
-    interval: "MONTHLY",
-  },
-  [STRIPE_PRICES.CONSUMER_PREMIUM.ANNUAL]: {
-    planKey: "consumer_vip_annual",
-    interval: "ANNUAL",
-  },
-};
+> = {};
 
 const VENDOR_STRIPE_TO_INTERNAL: Record<
   string,
   { planKey: string; interval: "MONTHLY" | "ANNUAL" }
-> = {
-  [STRIPE_PRICES.VENDOR_STARTER.MONTHLY]: {
-    planKey: "vendor_starter_monthly",
-    interval: "MONTHLY",
-  },
-  [STRIPE_PRICES.VENDOR_STARTER.ANNUAL]: {
-    planKey: "vendor_starter_annual",
-    interval: "ANNUAL",
-  },
-  [STRIPE_PRICES.VENDOR_GROWTH.MONTHLY]: {
-    planKey: "vendor_pro_monthly",
-    interval: "MONTHLY",
-  },
-  [STRIPE_PRICES.VENDOR_GROWTH.ANNUAL]: {
-    planKey: "vendor_pro_annual",
-    interval: "ANNUAL",
-  },
-  [STRIPE_PRICES.VENDOR_PRO.MONTHLY]: {
-    planKey: "vendor_enterprise_monthly",
-    interval: "MONTHLY",
-  },
-  [STRIPE_PRICES.VENDOR_PRO.ANNUAL]: {
-    planKey: "vendor_enterprise_annual",
-    interval: "ANNUAL",
-  },
+> = {};
+
+const addMapping = (
+  map: Record<string, { planKey: string; interval: "MONTHLY" | "ANNUAL" }>,
+  priceId: string,
+  planKey: string,
+  interval: "MONTHLY" | "ANNUAL"
+) => {
+  if (priceId) {
+    map[priceId] = { planKey, interval };
+  }
 };
+
+addMapping(
+  CONSUMER_STRIPE_TO_INTERNAL,
+  STRIPE_PRICES.CONSUMER_BASIC.MONTHLY,
+  "consumer_starter_monthly",
+  "MONTHLY"
+);
+addMapping(
+  CONSUMER_STRIPE_TO_INTERNAL,
+  STRIPE_PRICES.CONSUMER_BASIC.ANNUAL,
+  "consumer_starter_annual",
+  "ANNUAL"
+);
+addMapping(
+  CONSUMER_STRIPE_TO_INTERNAL,
+  STRIPE_PRICES.CONSUMER_PLUS.MONTHLY,
+  "consumer_plus_monthly",
+  "MONTHLY"
+);
+addMapping(
+  CONSUMER_STRIPE_TO_INTERNAL,
+  STRIPE_PRICES.CONSUMER_PLUS.ANNUAL,
+  "consumer_plus_annual",
+  "ANNUAL"
+);
+addMapping(
+  CONSUMER_STRIPE_TO_INTERNAL,
+  STRIPE_PRICES.CONSUMER_PREMIUM.MONTHLY,
+  "consumer_vip_monthly",
+  "MONTHLY"
+);
+addMapping(
+  CONSUMER_STRIPE_TO_INTERNAL,
+  STRIPE_PRICES.CONSUMER_PREMIUM.ANNUAL,
+  "consumer_vip_annual",
+  "ANNUAL"
+);
+
+addMapping(
+  VENDOR_STRIPE_TO_INTERNAL,
+  STRIPE_PRICES.VENDOR_STARTER.MONTHLY,
+  "vendor_starter_monthly",
+  "MONTHLY"
+);
+addMapping(
+  VENDOR_STRIPE_TO_INTERNAL,
+  STRIPE_PRICES.VENDOR_STARTER.ANNUAL,
+  "vendor_starter_annual",
+  "ANNUAL"
+);
+addMapping(
+  VENDOR_STRIPE_TO_INTERNAL,
+  STRIPE_PRICES.VENDOR_GROWTH.MONTHLY,
+  "vendor_pro_monthly",
+  "MONTHLY"
+);
+addMapping(
+  VENDOR_STRIPE_TO_INTERNAL,
+  STRIPE_PRICES.VENDOR_GROWTH.ANNUAL,
+  "vendor_pro_annual",
+  "ANNUAL"
+);
+addMapping(
+  VENDOR_STRIPE_TO_INTERNAL,
+  STRIPE_PRICES.VENDOR_PRO.MONTHLY,
+  "vendor_enterprise_monthly",
+  "MONTHLY"
+);
+addMapping(
+  VENDOR_STRIPE_TO_INTERNAL,
+  STRIPE_PRICES.VENDOR_PRO.ANNUAL,
+  "vendor_enterprise_annual",
+  "ANNUAL"
+);
 
 /**
  * Resolve a Stripe Price ID to the internal plan key and interval.
