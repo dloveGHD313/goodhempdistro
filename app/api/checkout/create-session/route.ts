@@ -116,18 +116,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Delta-8 not allowed on platform
+    // Delta-8 not allowed on platform (runtime block even if active somehow)
     const isDelta8 = product.is_delta8 === true || product.product_type === "delta8";
     if (isDelta8) {
       return NextResponse.json(
-        { error: "This product category is not available for purchase" },
+        { code: "DELTA8_BLOCKED", message: "This product category is not available for purchase" },
         { status: 400, headers: { "Cache-Control": "no-store" } }
       );
     }
 
     const isIntoxicating = product.is_intoxicating === true || product.product_type === "intoxicating";
 
-    // State rules: enforce on fulfillmentMethod (not delivery_selected) to prevent bypass
+    // State rules: single source of truth is fulfillmentMethod (not delivery_selected) to prevent bypass.
+    // Delivery implies sale — enforce both delivery and sale checks for delivery orders.
     if (fulfillmentMethod === "delivery") {
       if (!customerState) {
         return NextResponse.json(
@@ -140,10 +141,12 @@ export async function POST(req: NextRequest) {
         );
       }
       const stateRule = await getHempStateRule(customerState);
-      if (!isDeliveryAllowedForCategory(stateRule, isIntoxicating)) {
+      const deliveryAllowed = isDeliveryAllowedForCategory(stateRule, isIntoxicating);
+      const saleAllowed = isSaleAllowedForCategory(stateRule, isIntoxicating);
+      if (!deliveryAllowed || !saleAllowed) {
         return NextResponse.json(
           {
-            code: "DELIVERY_NOT_ALLOWED",
+            code: "STATE_COMPLIANCE_BLOCK",
             message: "Delivery is not available in your state due to local regulations. Choose pickup or shipping.",
             available_fulfillment: ["pickup", "shipping"],
           },
@@ -155,7 +158,7 @@ export async function POST(req: NextRequest) {
       if (!isSaleAllowedForCategory(stateRule, isIntoxicating)) {
         return NextResponse.json(
           {
-            code: "SALE_NOT_ALLOWED",
+            code: "STATE_SALE_BLOCK",
             message: "This product cannot be sold in your state. Please remove it from your order.",
           },
           { status: 400, headers: { "Cache-Control": "no-store" } }
