@@ -23,6 +23,8 @@ const businessLinksBase = [
   { label: "🏪 Vendors", href: "/vendors" },
   { label: "🛠️ Services", href: "/services" },
   { label: "🏢 Wholesale", href: "/wholesale" },
+  { label: "🚚 Logistics", href: "/logistics" },
+  { label: "🚗 Driver Network", href: "/logistics/apply" },
   { label: "💰 Affiliate Portal", href: "/affiliate/portal" },
   { label: "🤝 Vendor Registration", href: "/vendor-registration" },
 ];
