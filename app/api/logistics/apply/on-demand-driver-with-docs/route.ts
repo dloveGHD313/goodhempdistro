@@ -82,6 +82,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const ref = `ref-${Date.now()}`;
+    const uploadedPaths: string[] = [];
+    let applicationId: string | null = null;
+
+    const cleanup = async () => {
+      if (applicationId) {
+        await admin.from("logistics_applications").delete().eq("id", applicationId);
+      }
+      if (uploadedPaths.length > 0) {
+        await admin.storage.from(BUCKET).remove(uploadedPaths);
+      }
+    };
+
     const { data: row, error: insertError } = await admin
       .from("logistics_applications")
       .insert({
@@ -98,55 +111,68 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (insertError || !row) {
-      console.warn("[logistics/apply/on-demand-driver-with-docs] insert error", insertError?.message);
+      console.warn("[logistics/apply/on-demand-driver-with-docs] insert error", insertError?.message, { ref });
       return NextResponse.json(
-        { code: "SUBMIT_FAILED", message: "Failed to submit application" },
+        { code: "SUBMIT_FAILED", message: "Failed to submit application", ref },
         { status: 500, headers: { "Cache-Control": "no-store" } }
       );
     }
 
-    const applicationId = row.id;
-    for (const { doc_type, file, expires_at } of docs) {
-      const ext = file.name?.split(".").pop()?.slice(0, 6) || "pdf";
-      const path = `${applicationId}/${doc_type}.${ext}`;
-      const buf = await file.arrayBuffer();
-      const { error: uploadError } = await admin.storage.from(BUCKET).upload(path, buf, {
-        contentType: file.type || "application/octet-stream",
-        upsert: true,
-      });
-      if (uploadError) {
-        console.warn("[logistics/apply/on-demand-driver-with-docs] upload error", doc_type, uploadError.message);
-        await admin.from("logistics_applications").delete().eq("id", applicationId);
-        return NextResponse.json(
-          { code: "UPLOAD_FAILED", message: `Failed to upload ${doc_type.replace("_", " ")}` },
-          { status: 500, headers: { "Cache-Control": "no-store" } }
-        );
-      }
-      const { error: docError } = await admin.from("driver_documents").insert({
-        application_id: applicationId,
-        doc_type,
-        file_path: path,
-        expires_at: expires_at.toISOString().slice(0, 10),
-        status: "pending",
-      });
-      if (docError) {
-        console.warn("[logistics/apply/on-demand-driver-with-docs] doc insert error", docError.message);
-        await admin.from("logistics_applications").delete().eq("id", applicationId);
-        return NextResponse.json(
-          { code: "SUBMIT_FAILED", message: "Failed to save document record" },
-          { status: 500, headers: { "Cache-Control": "no-store" } }
-        );
-      }
-    }
+    applicationId = row.id;
 
-    return NextResponse.json(
-      { success: true, application: { id: row.id, status: row.status } },
-      { status: 201, headers: { "Cache-Control": "no-store" } }
-    );
+    try {
+      for (const { doc_type, file, expires_at } of docs) {
+        const ext = file.name?.split(".").pop()?.slice(0, 6) || "pdf";
+        const path = `${applicationId}/${doc_type}.${ext}`;
+        const buf = await file.arrayBuffer();
+        const { error: uploadError } = await admin.storage.from(BUCKET).upload(path, buf, {
+          contentType: file.type || "application/octet-stream",
+          upsert: true,
+        });
+        if (uploadError) {
+          console.warn("[logistics/apply/on-demand-driver-with-docs] upload error", doc_type, uploadError.message, { ref });
+          await cleanup();
+          return NextResponse.json(
+            { code: "SUBMIT_FAILED", message: `Failed to upload ${doc_type.replace("_", " ")}`, ref },
+            { status: 500, headers: { "Cache-Control": "no-store" } }
+          );
+        }
+        uploadedPaths.push(path);
+
+        const { error: docError } = await admin.from("driver_documents").insert({
+          application_id: applicationId,
+          doc_type,
+          file_path: path,
+          expires_at: expires_at.toISOString().slice(0, 10),
+          status: "pending",
+        });
+        if (docError) {
+          console.warn("[logistics/apply/on-demand-driver-with-docs] doc insert error", docError.message, { ref });
+          await cleanup();
+          return NextResponse.json(
+            { code: "SUBMIT_FAILED", message: "Failed to save document record", ref },
+            { status: 500, headers: { "Cache-Control": "no-store" } }
+          );
+        }
+      }
+
+      return NextResponse.json(
+        { success: true, application: { id: row.id, status: row.status } },
+        { status: 201, headers: { "Cache-Control": "no-store" } }
+      );
+    } catch (err) {
+      console.warn("[logistics/apply/on-demand-driver-with-docs]", err, { ref });
+      await cleanup();
+      return NextResponse.json(
+        { code: "SUBMIT_FAILED", message: "Internal server error", ref },
+        { status: 500, headers: { "Cache-Control": "no-store" } }
+      );
+    }
   } catch (err) {
-    console.warn("[logistics/apply/on-demand-driver-with-docs]", err);
+    const ref = `ref-${Date.now()}`;
+    console.warn("[logistics/apply/on-demand-driver-with-docs]", err, { ref });
     return NextResponse.json(
-      { code: "SUBMIT_FAILED", message: "Internal server error" },
+      { code: "SUBMIT_FAILED", message: "Internal server error", ref },
       { status: 500, headers: { "Cache-Control": "no-store" } }
     );
   }
