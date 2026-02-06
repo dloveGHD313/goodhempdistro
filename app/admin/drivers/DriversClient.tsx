@@ -56,6 +56,7 @@ export default function DriversClient({
   const [drivers, setDrivers] = useState<Driver[]>(initialDrivers);
   const [onDemandApplications, setOnDemandApplications] = useState<OnDemandApplication[]>(initialOnDemandApplications);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  const [documentsByAppId, setDocumentsByAppId] = useState<Record<string, { doc_type: string; view_url: string | null; expires_at: string | null }[]>>({});
 
   const handleViewDocument = async (url: string | null | undefined, label: string) => {
     if (!url) return;
@@ -190,20 +191,51 @@ export default function DriversClient({
                       {new Date(app.created_at).toLocaleDateString()}
                     </td>
                     <td className="py-3">
-                      {app.status === "pending" && (
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => updateOnDemandStatus(app.id, "approve")}
-                            className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => updateOnDemandStatus(app.id, "reject")}
-                            className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm"
-                          >
-                            Reject
-                          </button>
+                      <div className="flex flex-wrap gap-2 items-center">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (documentsByAppId[app.id]) return;
+                            const res = await fetch(`/api/admin/drivers/applications/${app.id}/documents`);
+                            const data = await res.json();
+                            if (res.ok && data.documents) {
+                              setDocumentsByAppId((prev) => ({ ...prev, [app.id]: data.documents }));
+                            }
+                          }}
+                          className="px-2 py-1 bg-[var(--surface)] hover:bg-[var(--border)] rounded text-xs"
+                        >
+                          {documentsByAppId[app.id] ? "Docs loaded" : "View docs"}
+                        </button>
+                        {app.status === "pending" && (
+                          <>
+                            <button
+                              onClick={() => updateOnDemandStatus(app.id, "approve")}
+                              className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => updateOnDemandStatus(app.id, "reject")}
+                              className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-sm"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      {documentsByAppId[app.id] && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {documentsByAppId[app.id].map((d) => (
+                            <a
+                              key={d.doc_type}
+                              href={d.view_url ?? "#"}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-accent hover:underline"
+                            >
+                              {d.doc_type.replace("_", " ")} {d.expires_at ? `(exp ${d.expires_at})` : ""}
+                            </a>
+                          ))}
                         </div>
                       )}
                     </td>
