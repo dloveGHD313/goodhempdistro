@@ -21,14 +21,14 @@ export async function GET() {
     if (error) {
       console.warn("[logistics/pay-scale] query error", error.message);
       return NextResponse.json(
-        { error: "Unable to load pay scale", code: "PAY_SCALE_ERROR" },
+        { code: "PAY_SCALE_ERROR", message: "Unable to load pay scale" },
         { status: 500, headers: CACHE_NO_STORE }
       );
     }
 
     if (!pricing) {
       return NextResponse.json(
-        { error: "Pay scale not configured", code: "PAY_SCALE_NOT_CONFIGURED" },
+        { code: "PAY_SCALE_NOT_CONFIGURED", message: "Pay scale not configured" },
         { status: 404, headers: CACHE_NO_STORE }
       );
     }
@@ -51,7 +51,7 @@ export async function GET() {
   } catch (e) {
     console.warn("[logistics/pay-scale] unexpected error", e);
     return NextResponse.json(
-      { error: "Unable to load pay scale", code: "PAY_SCALE_ERROR" },
+      { code: "PAY_SCALE_ERROR", message: "Unable to load pay scale" },
       { status: 500, headers: CACHE_NO_STORE }
     );
   }
