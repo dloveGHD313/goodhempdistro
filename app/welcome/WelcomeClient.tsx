@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -18,13 +18,16 @@ const INTENTS: { value: WelcomeIntent; label: string; href: string; description:
 ];
 
 export default function WelcomeClient() {
-  const [selectedIntent, setSelectedIntent] = useState<WelcomeIntent | null>(() => {
+  const [selectedIntent, setSelectedIntent] = useState<WelcomeIntent | null>(null);
+  const [step, setStep] = useState<"quiz" | "done">("quiz");
+
+  useEffect(() => {
     const stored = getWelcomeFromStorage();
-    return stored?.intent ?? null;
-  });
-  const [step, setStep] = useState<"quiz" | "done">(
-    getWelcomeFromStorage()?.intent ? "done" : "quiz"
-  );
+    if (stored?.intent) {
+      setSelectedIntent(stored.intent);
+      setStep("done");
+    }
+  }, []);
 
   const handleSelect = (intent: WelcomeIntent) => {
     setSelectedIntent(intent);
