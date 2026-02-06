@@ -31,13 +31,20 @@ export async function getHempStateRule(stateCode: string): Promise<HempStateRule
   return data as HempStateRule;
 }
 
-/** Default-safe: if no rule, delivery not allowed for both. Sale: non-intoxicating allowed, intoxicating allowed (platform default until Nov 2026). */
+/**
+ * Default-safe when no rule: delivery DENIED.
+ * With rule: use state's allows_delivery_* for the category.
+ */
 export function isDeliveryAllowedForCategory(rule: HempStateRule | null, isIntoxicating: boolean): boolean {
   if (!rule) return false;
   return isIntoxicating ? rule.allows_delivery_intoxicating : rule.allows_delivery_non_intoxicating;
 }
 
+/**
+ * Default when no rule: sale ALLOWED (business requirement).
+ * With rule: use state's allows_sale_* for the category.
+ */
 export function isSaleAllowedForCategory(rule: HempStateRule | null, isIntoxicating: boolean): boolean {
-  if (!rule) return isIntoxicating ? true : true; // default: allow sale for both when no rule (business rule)
+  if (!rule) return true;
   return isIntoxicating ? rule.allows_sale_intoxicating : rule.allows_sale_non_intoxicating;
 }
