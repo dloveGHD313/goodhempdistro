@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { mascotAssets } from "./config";
-import { getMascotFlagStatus } from "@/lib/mascotFlags";
 
 type Props = {
   selectedCount: number;
@@ -11,10 +10,8 @@ type Props = {
 const asset = mascotAssets.JAX;
 
 export default function JaxWelcomeHero({ selectedCount }: Props) {
-  const { clientEnabled, serverEnabled } = getMascotFlagStatus();
-  const visible = clientEnabled && serverEnabled;
-
-  if (!visible) return null;
+  const enabled = process.env.NEXT_PUBLIC_MASCOT_ENABLED === "true";
+  if (!enabled) return null;
 
   const dialogue =
     selectedCount === 0
