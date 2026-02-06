@@ -26,8 +26,8 @@ export async function POST(req: NextRequest) {
 
     if (!affiliate) {
       return NextResponse.json(
-        { error: "Affiliate record not found. Use /affiliate first to get your code." },
-        { status: 400 }
+        { error: "Affiliate record not found. Use /affiliate first to get your code.", code: "AFFILIATE_NOT_FOUND" },
+        { status: 400, headers: { "Cache-Control": "no-store" } }
       );
     }
 
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
         ok: true,
         stripe_account_id: affiliate.stripe_account_id,
         already_exists: true,
-      });
+      }, { headers: { "Cache-Control": "no-store" } });
     }
 
     const account = await stripe.accounts.create({
@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
       },
       metadata: { user_id: user.id, affiliate_id: affiliate.id },
     });
+    console.info("[affiliates/connect/create-account] account created", { accountId: account.id?.slice(0, 12) });
 
     const { error: updateError } = await supabase
       .from("affiliates")
@@ -59,21 +60,25 @@ export async function POST(req: NextRequest) {
       .eq("id", affiliate.id);
 
     if (updateError) {
+      const ref = `ref-${Date.now()}`;
+      console.warn("[affiliates/connect/create-account] update failed", { ref, message: updateError.message });
       return NextResponse.json(
-        { error: "Failed to save Connect account" },
-        { status: 500 }
+        { error: "Failed to save Connect account. Please try again or contact support.", code: "CONNECT_SAVE_FAILED", ref },
+        { status: 500, headers: { "Cache-Control": "no-store" } }
       );
     }
 
     return NextResponse.json({
       ok: true,
       stripe_account_id: account.id,
-    });
+    }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
+    const ref = `ref-${Date.now()}`;
     const msg = e instanceof Error ? e.message : String(e);
+    console.warn("[affiliates/connect/create-account] error", { ref, message: msg.slice(0, 200) });
     return NextResponse.json(
-      { error: "Failed to create Connect account" },
-      { status: 500 }
+      { error: "Failed to create Connect account. Please try again or contact support.", code: "CONNECT_CREATE_FAILED", ref },
+      { status: 500, headers: { "Cache-Control": "no-store" } }
     );
   }
 }
