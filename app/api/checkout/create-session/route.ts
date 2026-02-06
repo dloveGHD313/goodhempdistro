@@ -127,13 +127,13 @@ export async function POST(req: NextRequest) {
 
     const isIntoxicating = product.is_intoxicating === true || product.product_type === "intoxicating";
 
-    // State rules: delivery requires customer_state; default-safe (no rule => delivery not allowed)
-    if (deliverySelected) {
+    // State rules: enforce on fulfillmentMethod (not delivery_selected) to prevent bypass
+    if (fulfillmentMethod === "delivery") {
       if (!customerState) {
         return NextResponse.json(
           {
-            error: "Delivery requires your state. Please provide customer_state (2-letter code).",
             code: "STATE_REQUIRED",
+            message: "Delivery requires your state. Please provide customer_state (2-letter code).",
             available_fulfillment: ["pickup", "shipping"],
           },
           { status: 400, headers: { "Cache-Control": "no-store" } }
@@ -143,8 +143,8 @@ export async function POST(req: NextRequest) {
       if (!isDeliveryAllowedForCategory(stateRule, isIntoxicating)) {
         return NextResponse.json(
           {
-            error: "Delivery is not available in your state due to local regulations. Choose pickup or shipping.",
             code: "DELIVERY_NOT_ALLOWED",
+            message: "Delivery is not available in your state due to local regulations. Choose pickup or shipping.",
             available_fulfillment: ["pickup", "shipping"],
           },
           { status: 400, headers: { "Cache-Control": "no-store" } }
@@ -155,8 +155,8 @@ export async function POST(req: NextRequest) {
       if (!isSaleAllowedForCategory(stateRule, isIntoxicating)) {
         return NextResponse.json(
           {
-            error: "This product cannot be sold in your state. Please remove it from your order.",
             code: "SALE_NOT_ALLOWED",
+            message: "This product cannot be sold in your state. Please remove it from your order.",
           },
           { status: 400, headers: { "Cache-Control": "no-store" } }
         );
@@ -211,7 +211,7 @@ export async function POST(req: NextRequest) {
       : (product.vendors as { owner_user_id: string } | undefined)?.owner_user_id ?? null;
 
     let deliveryFees: Awaited<ReturnType<typeof computeDeliveryFees>> = null;
-    if (deliverySelected) {
+    if (fulfillmentMethod === "delivery") {
       let distanceMiles: number | null = deliveryDistanceMiles;
       if (distanceMiles == null) {
         const allCoordsPresent =
@@ -268,15 +268,16 @@ export async function POST(req: NextRequest) {
       totalCents += Math.round(deliveryFees.deliveryFeeCustomer * 100);
     }
 
+    const isDelivery = fulfillmentMethod === "delivery";
     const orderPayload: Record<string, unknown> = {
       user_id: user.id,
       vendor_id: product.vendor_id,
       status: "pending",
       total_cents: totalCents,
       currency: "usd",
-      delivery_selected: deliverySelected,
+      delivery_selected: isDelivery,
       fulfillment_method: fulfillmentMethod,
-      delivery_status: deliverySelected ? "unassigned" : null,
+      delivery_status: isDelivery ? "unassigned" : null,
     };
     if (deliveryFees) {
       orderPayload.delivery_distance_miles = deliveryFees.distanceMiles;
