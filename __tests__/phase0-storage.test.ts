@@ -3,7 +3,6 @@ import {
   getWelcomeFromStorage,
   setWelcomeInStorage,
   WELCOME_ANSWERS_KEY,
-  WELCOME_INTENT_KEY,
   type WelcomeIntent,
 } from "@/lib/phase0-storage";
 
@@ -11,7 +10,6 @@ describe("phase0-storage", () => {
   beforeEach(() => {
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(WELCOME_ANSWERS_KEY);
-      window.localStorage.removeItem(WELCOME_INTENT_KEY);
     }
   });
 
@@ -26,8 +24,12 @@ describe("phase0-storage", () => {
     expect(got?.completedAt).toBeDefined();
   });
 
-  it("WELCOME_INTENT_KEY and WELCOME_ANSWERS_KEY are prefixed", () => {
+  it("WELCOME_ANSWERS_KEY is prefixed and intent is stored in JSON", () => {
     expect(WELCOME_ANSWERS_KEY.startsWith("ghd_phase0_")).toBe(true);
-    expect(WELCOME_INTENT_KEY.startsWith("ghd_phase0_")).toBe(true);
+    setWelcomeInStorage({ intent: "explore" });
+    const raw = typeof window !== "undefined" ? window.localStorage.getItem(WELCOME_ANSWERS_KEY) : null;
+    expect(raw).toBeTruthy();
+    const parsed = raw ? (JSON.parse(raw) as { intent?: string }) : null;
+    expect(parsed?.intent).toBe("explore");
   });
 });

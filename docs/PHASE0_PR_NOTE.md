@@ -3,7 +3,7 @@
 ## What changed
 
 - **Design tokens & motion:** `app/globals.css` — Added CSS variables for motion presets (`--motion-heavy-duration`, `--motion-medium-*`, `--motion-minimal-*`), utility classes (`.motion-heavy`, `.motion-medium`, `.motion-minimal`), and UI primitives for welcome (`.welcome-hero`, `.quiz-card`, `.animate-fade-in`, `.animate-scale-in`).
-- **Public `/welcome` page:** New `app/welcome/page.tsx` and `app/welcome/WelcomeClient.tsx` — Cinematic entry with logo, hero copy, and “What brings you here?” quiz (Shop / Sell / Events / Explore). Intent stored in `localStorage` via `lib/phase0-storage.ts` (keys `ghd_phase0_welcome_intent`, `ghd_phase0_welcome_answers`). No DB writes; future wiring can attach to profile after sign-in.
+- **Public `/welcome` page:** New `app/welcome/page.tsx` and `app/welcome/WelcomeClient.tsx` — Cinematic entry with logo, hero copy, and “What brings you here?” quiz (Shop / Sell / Events / Explore). Phase 0 onboarding uses a single `localStorage` key: `WELCOME_ANSWERS_KEY` (`ghd_phase0_welcome_answers`). Intent is stored as a property inside the JSON payload. No DB writes; future wiring can attach to profile after sign-in.
 - **JAX floating scaffold:** `components/mascot/JaxFloatingScaffold.tsx` — Wraps existing mascot widget with a Phase 0 data attribute; used in root layout instead of `MascotMountClient`. `/welcome` added to mascot context so JAX appears on the welcome page.
 - **Nav:** “Welcome” link added to primary nav.
 - **Tests:** `__tests__/phase0-storage.test.ts` — Round-trip and key prefix tests for welcome storage.

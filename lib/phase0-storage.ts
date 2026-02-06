@@ -6,7 +6,6 @@
 
 const PREFIX = "ghd_phase0_";
 
-export const WELCOME_INTENT_KEY = `${PREFIX}welcome_intent`;
 export const WELCOME_ANSWERS_KEY = `${PREFIX}welcome_answers`;
 
 export type WelcomeIntent = "shop" | "sell" | "events" | "explore";
