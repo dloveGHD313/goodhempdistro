@@ -119,7 +119,7 @@ export default function WelcomeClient() {
               key={value}
               type="button"
               onClick={() => handleToggle(value)}
-              className={`motion-heavy rounded-xl border-2 px-4 py-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-[var(--brand-lime)] ${
+              className={`motion-heavy animate-fade-in opacity-0 rounded-xl border-2 px-4 py-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-[var(--brand-lime)] ${
                 selectedIntents.includes(value)
                   ? "border-[var(--brand-lime)] bg-[var(--brand-lime)]/15"
                   : "border-[var(--border)] bg-[var(--surface)]/60 hover:border-[var(--brand-lime)] hover:bg-[var(--surface)]"
