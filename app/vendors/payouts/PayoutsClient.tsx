@@ -45,6 +45,11 @@ export default function PayoutsClient() {
     fetchStatus();
   }, []);
 
+  const getRequestId = (res: Response, data: { requestId?: string }): string => {
+    const fromHeader = res.headers.get("X-Request-Id");
+    return (fromHeader ?? data?.requestId) ? ` Reference: ${fromHeader ?? data?.requestId}` : "";
+  };
+
   const handleConnect = async () => {
     setConnecting(true);
     setError(null);
@@ -63,6 +68,7 @@ export default function PayoutsClient() {
       }
       const createRes = await fetch("/api/vendors/connect/create-account", { method: "POST" });
       const createData = await createRes.json();
+      const createRef = getRequestId(createRes, createData);
       if (!createRes.ok) {
         const requestId = createRes.headers.get("x-request-id") || createData?.requestId;
         setError(`Onboarding failed. Reference: ${requestId ?? "unknown"}`);
@@ -71,6 +77,7 @@ export default function PayoutsClient() {
       }
       const linkRes = await fetch("/api/vendors/connect/onboard-link", { method: "POST" });
       const linkData = await linkRes.json();
+      const linkRef = getRequestId(linkRes, linkData);
       if (!linkRes.ok || !linkData?.url) {
         const requestId = linkRes.headers.get("x-request-id") || linkData?.requestId;
         setError(`Onboarding failed. Reference: ${requestId ?? "unknown"}`);

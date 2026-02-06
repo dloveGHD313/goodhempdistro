@@ -2,9 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { stripe } from "@/lib/stripe";
 
+const ROUTE_NAME = "vendors/connect/status";
+
+function requestIdHeaders(requestId: string): Record<string, string> {
+  return { "X-Request-Id": requestId };
+}
+
 /**
  * Get vendor Stripe Connect status.
- * Requires vendor session.
+ * Returns 200 with connected:false when no account or Stripe account invalid (no 500).
  */
 export async function GET(req: NextRequest) {
   const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID();
@@ -44,9 +50,10 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const account = await stripe.accounts.retrieve(row.stripe_account_id);
-    const chargesEnabled = account.charges_enabled ?? false;
-    const payoutsEnabled = account.payouts_enabled ?? false;
+    try {
+      const account = await stripe.accounts.retrieve(row.stripe_account_id);
+      const chargesEnabled = account.charges_enabled ?? false;
+      const payoutsEnabled = account.payouts_enabled ?? false;
 
     const { error: updateError } = await supabase
       .from("vendor_connect_accounts")

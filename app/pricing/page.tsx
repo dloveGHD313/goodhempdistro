@@ -169,13 +169,13 @@ export default function PricingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          priceId: plan.priceId,
+          productType: "vendor",
           planKey: plan.planKey,
           tier: plan.tier,
           cadence: plan.billingCycle,
         }),
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         const requestId = response.headers.get("x-request-id") || data?.requestId;
         alert(`Checkout failed. Reference: ${requestId ?? "unknown"}`);

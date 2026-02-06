@@ -21,8 +21,9 @@ export function getStripeServer(): Stripe {
   if (!key?.trim()) {
     throw new Error("STRIPE_SECRET_KEY is required. Set it in Vercel → Environment Variables.");
   }
+  // Keep in sync with Stripe Dashboard API version. Must be a published stable version (not future-dated / not speculative).
   stripeServerInstance = new Stripe(key, {
-    apiVersion: "2025-02-24.acacia",
+    apiVersion: "2024-11-20.acacia" as Stripe.LatestApiVersion,
     typescript: true,
   });
   return stripeServerInstance;

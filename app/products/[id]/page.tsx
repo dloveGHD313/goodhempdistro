@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import BuyButton from "./BuyButton";
 import { getDelta8WarningText, requiresWarning } from "@/lib/compliance";
@@ -65,6 +66,11 @@ async function getProduct(id: string): Promise<ProductFetchResult> {
     };
   }
 
+  // Products without vendor_id are not visible (consistent with list page)
+  if (data.vendor_id == null || String(data.vendor_id).trim() === "") {
+    return { product: null, supabaseErrorMessage: "no_vendor" };
+  }
+
   const normalizedCoaPath = data.coa_object_path
     ? data.coa_object_path.trim().replace(/^\/+/, "")
     : "";
@@ -76,6 +82,18 @@ async function getProduct(id: string): Promise<ProductFetchResult> {
   const coaPublicUrl = storageCoaPath
     ? supabase.storage.from("coas").getPublicUrl(storageCoaPath).data.publicUrl
     : data.coa_url || null;
+
+  // Hide product if vendor is suspended (4.3.B)
+  if (data.vendor_id) {
+    const { data: vendor } = await supabase
+      .from("vendors")
+      .select("status")
+      .eq("id", data.vendor_id)
+      .maybeSingle();
+    if (vendor?.status !== "active") {
+      return { product: null, supabaseErrorMessage: "vendor_suspended" };
+    }
+  }
 
   return {
     product: {
@@ -164,6 +182,9 @@ export default async function ProductDetailPage(props: Props) {
   const isApprovedActive = product?.status === "approved" && product?.active === true;
 
   if (!product || supabaseErrorMessage) {
+    if (supabaseErrorMessage === "no_vendor") {
+      notFound();
+    }
     console.error("[products/detail] product unavailable", {
       productId: params.id,
       supabaseErrorMessage,

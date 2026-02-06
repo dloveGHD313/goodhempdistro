@@ -27,12 +27,12 @@ export async function getVendorAccessStatus(
   }
 
   const supabase = await createSupabaseServerClient();
-  type VendorRow = { id: string; owner_user_id: string; subscription_status: string | null };
+  type VendorRow = { id: string; owner_user_id: string; subscription_status: string | null; status: string | null };
   let vendor: VendorRow | null = null;
 
   const { data, error } = await supabase
     .from("vendors")
-    .select("id, owner_user_id, subscription_status")
+    .select("id, owner_user_id, subscription_status, status")
     .eq("owner_user_id", userId)
     .maybeSingle();
 
@@ -42,7 +42,7 @@ export async function getVendorAccessStatus(
     const admin = getSupabaseAdminClient();
     const { data: adminVendor } = await admin
       .from("vendors")
-      .select("id, owner_user_id, subscription_status")
+      .select("id, owner_user_id, subscription_status, status")
       .eq("owner_user_id", userId)
       .maybeSingle();
     vendor = (adminVendor as VendorRow | null) ?? null;
@@ -54,6 +54,16 @@ export async function getVendorAccessStatus(
       isSubscribed: false,
       subscriptionStatus: null,
       vendorId: null,
+      isAdmin: false,
+    };
+  }
+
+  if (vendor.status === "suspended") {
+    return {
+      isVendor: true,
+      isSubscribed: false,
+      subscriptionStatus: "suspended",
+      vendorId: vendor.id,
       isAdmin: false,
     };
   }

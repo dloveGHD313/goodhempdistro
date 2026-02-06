@@ -3,9 +3,33 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 import { stripe } from "@/lib/stripe";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 
+const ROUTE_NAME = "vendors/connect/create-account";
+const TRUNCATE = 300;
+
+function safeTruncate(s: string | undefined): string | undefined {
+  if (s == null || typeof s !== "string") return undefined;
+  return s.length <= TRUNCATE ? s : s.slice(0, TRUNCATE) + "...";
+}
+
+function requestIdHeaders(requestId: string): Record<string, string> {
+  return { "X-Request-Id": requestId };
+}
+
+/** Safe user-facing reason for known Stripe errors; avoids leaking sensitive data. */
+function safeErrorReason(err: { type?: string; code?: string }): string | undefined {
+  const t = err?.type;
+  const c = err?.code;
+  if (t === "StripeInvalidRequestError" || t === "invalid_request_error") return "Invalid request to payment provider.";
+  if (t === "StripeAuthenticationError" || t === "authentication_error") return "Payment provider authentication failed.";
+  if (t === "StripeRateLimitError" || t === "rate_limit_error") return "Too many requests; try again shortly.";
+  if (t === "StripeAPIError" || t === "api_error") return "Payment provider temporarily unavailable.";
+  if (c === "account_invalid" || c === "account_already_exists") return "Account setup issue; contact support.";
+  return undefined;
+}
+
 /**
  * Create Stripe Connect Express account for vendor (if not exists).
- * Requires vendor session.
+ * Account Links onboarding does NOT require STRIPE_CONNECT_CLIENT_ID (only OAuth does).
  */
 export async function POST(req: NextRequest) {
   const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID();

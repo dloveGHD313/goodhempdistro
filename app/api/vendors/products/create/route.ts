@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
     type VendorRecord = {
       id: string;
       owner_user_id: string;
+      status?: string | null;
       subscription_status?: string | null;
       subscription_plan_key?: string | null;
       subscription_price_id?: string | null;
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
 
     let { data: vendor, error: vendorError } = await supabase
       .from("vendors")
-      .select("id, owner_user_id, subscription_status, subscription_plan_key, subscription_price_id")
+      .select("id, owner_user_id, status, subscription_status, subscription_plan_key, subscription_price_id")
       .eq("owner_user_id", user.id)
       .maybeSingle<VendorRecord>();
 
@@ -78,7 +79,7 @@ export async function POST(req: NextRequest) {
       const admin = getSupabaseAdminClient();
       const { data: adminVendor, error: adminVendorError } = await admin
         .from("vendors")
-          .select("id, owner_user_id, subscription_status, subscription_plan_key, subscription_price_id")
+        .select("id, owner_user_id, status, subscription_status, subscription_plan_key, subscription_price_id")
         .eq("owner_user_id", user.id)
         .maybeSingle<VendorRecord>();
       if (adminVendorError) {
@@ -109,6 +110,17 @@ export async function POST(req: NextRequest) {
               },
             },
         { status: 500 }
+      );
+    }
+
+    // Suspended vendors cannot create products (4.3.B)
+    if (vendor?.status === "suspended") {
+      logStage("vendor_suspended", { vendorId: vendor.id });
+      return NextResponse.json(
+        process.env.NODE_ENV === "production"
+          ? { error: "Vendor account is suspended. Contact support." }
+          : { requestId, error: "Vendor account is suspended. Contact support." },
+        { status: 403 }
       );
     }
 

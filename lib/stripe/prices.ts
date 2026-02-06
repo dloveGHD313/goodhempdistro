@@ -40,6 +40,7 @@ export const STRIPE_PRODUCTS = {
   VENDOR_PRO: "prod_Ttzm5L3fBC7eF3",
 } as const;
 
+/** Stripe Checkout uses PRICE IDs only. Product IDs (prod_*) are not used for checkout. */
 export const STRIPE_PRICES = {
   CONSUMER_BASIC: {
     MONTHLY: "price_1SwBuhEKpXx4yA1Rfr2dSaOm",
@@ -56,6 +57,7 @@ export const STRIPE_PRICES = {
     ANNUAL: "price_1SwCIDEKpXx4yA1RXK7VMaao",
   },
 
+  // Vendor: read ONLY from env (no fallbacks). See lib/pricing.ts for single source of truth.
   VENDOR_STARTER: {
     MONTHLY: getEnvOrDevFallback(
       "STRIPE_VENDOR_STARTER_MONTHLY_PRICE_ID",

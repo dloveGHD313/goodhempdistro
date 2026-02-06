@@ -40,13 +40,11 @@ async function getProducts(
     if (vendorId) {
       const { data: vendor } = await supabase
         .from("vendors")
-        .select("id, business_name")
+        .select("id, business_name, status")
         .eq("id", vendorId)
-        .eq("is_active", true)
-        .eq("is_approved", true)
         .maybeSingle();
 
-      if (!vendor) {
+      if (!vendor || vendor.status !== "active") {
         return { products: [], vendorName: null };
       }
       vendorName = vendor.business_name;
@@ -72,29 +70,40 @@ async function getProducts(
     }
 
     const rawProducts = data || [];
-    const vendorIds = Array.from(
-      new Set(rawProducts.map((product) => product.vendor_id).filter(Boolean))
-    ) as string[];
+    // Exclude products without vendor_id consistently (vendorless products not visible on list)
+    const withVendor = rawProducts.filter((p) => p.vendor_id != null && String(p.vendor_id).trim() !== "");
+    const vendorIds = Array.from(new Set(withVendor.map((p) => p.vendor_id).filter(Boolean))) as string[];
 
     let vendorMap: Record<string, string> = {};
+    const activeVendorIds = new Set<string>();
+    let vendorStatusLookupOk = true;
     if (vendorIds.length > 0) {
       const { data: vendors, error: vendorError } = await supabase
         .from("vendors")
-        .select("id, business_name")
+        .select("id, business_name, status")
         .in("id", vendorIds);
       if (vendorError) {
-        console.error("[products] Error fetching vendor names:", vendorError);
+        vendorStatusLookupOk = false;
+        console.warn("[products] Vendor status lookup failed; skipping active-vendor filter", {
+          code: vendorError.code,
+          message: vendorError.message?.slice(0, 100),
+        });
       } else {
-        vendorMap = (vendors || []).reduce<Record<string, string>>((acc, vendor) => {
-          if (vendor?.id) {
-            acc[vendor.id] = vendor.business_name || "Verified Vendor";
+        (vendors || []).forEach((v) => {
+          if (v?.id && v?.status === "active") {
+            activeVendorIds.add(v.id);
+            vendorMap[v.id] = v.business_name || "Verified Vendor";
           }
-          return acc;
-        }, {});
+        });
       }
     }
 
-    const products = rawProducts.map((product) => {
+    // Only apply active-vendor filter when lookup succeeded; otherwise avoid silently hiding all products
+    const visibleProducts = vendorStatusLookupOk
+      ? withVendor.filter((p) => p.vendor_id && activeVendorIds.has(p.vendor_id))
+      : withVendor;
+
+    const products = visibleProducts.map((product) => {
       const marketMode: "gated" | "ungated" =
         product.is_gated ||
         product.market_category === "RECREATIONAL" ||

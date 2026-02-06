@@ -18,6 +18,9 @@ import {
 } from "@/lib/consumer-loyalty";
 import { applyPlatformFeesToOrder } from "@/lib/platformFees";
 
+/** Subscription statuses that grant vendor access (vendor.status = active, profile.role = vendor). */
+const VENDOR_ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing"]);
+
 /** Award vendor referral first-sale reward when a referred vendor's first order is paid. */
 async function awardVendorReferralFirstSale(
   admin: Awaited<ReturnType<typeof getSupabaseAdminClient>>,
@@ -148,15 +151,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  console.log("✅ Webhook verified (live):", { type: event.type, id: event.id });
+  const correlationId = `wh-${event.id}-${Date.now().toString(36)}`;
+  console.log("✅ Webhook verified (live):", { type: event.type, id: event.id, correlationId });
 
   try {
     // Handle the event
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        console.log(`📦 Processing checkout.session.completed | order_id=${session.metadata?.order_id || "N/A"} | mode=${session.mode} | session=${session.id}`);
-        await handleCheckoutSessionCompleted(session);
+        console.log(`📦 [${correlationId}] checkout.session.completed | order_id=${session.metadata?.order_id || "N/A"} | mode=${session.mode} | session=${session.id}`);
+        await handleCheckoutSessionCompleted(session, correlationId);
         break;
       }
 
@@ -482,7 +486,7 @@ async function awardPurchasePointsForOrder(orderId: string) {
   }
 }
 
-async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
+async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, correlationId?: string) {
   const orderId = session.metadata?.order_id;
   const planType = session.metadata?.plan_type; // 'vendor' or 'consumer'
   const planName = session.metadata?.plan_name;
@@ -492,8 +496,9 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   const consumerPlanKey = session.metadata?.consumer_plan_key;
   const userId = session.client_reference_id || session.metadata?.user_id;
   const affiliateCode = session.metadata?.affiliate_code;
+  const reqId = correlationId ?? `evt-${session.id}`;
 
-  console.log(`💰 [handleCheckoutSessionCompleted] order_id=${orderId} | mode=${session.mode} | session=${session.id} | user_id=${userId} | plan=${planName} | affiliate=${affiliateCode}`);
+  console.log(`💰 [handleCheckoutSessionCompleted] ${reqId} | order_id=${orderId} | mode=${session.mode} | session=${session.id} | user_id=${userId} | plan=${planName} | affiliate=${affiliateCode}`);
 
   const supabase = await createSupabaseServerClient();
 
@@ -568,23 +573,36 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
         stripeCustomerId: session.customer as string,
       });
       if (resolvedVendorId) {
-        await admin
+        const vendorUpdate: Record<string, unknown> = {
+          stripe_customer_id: session.customer as string,
+          stripe_subscription_id: subscriptionId,
+          subscription_status: subscriptionStatus,
+          subscription_price_id: priceId || subscriptionPriceId || null,
+          subscription_plan_key: subscriptionPlanKey,
+          subscription_current_period_end: currentPeriodEnd,
+          subscription_cancel_at_period_end: cancelAtPeriodEnd,
+          subscription_updated_at: new Date().toISOString(),
+        };
+        if (VENDOR_ACTIVE_SUBSCRIPTION_STATUSES.has(subscriptionStatus)) {
+          vendorUpdate.status = "active";
+        }
+        const { error: vendorUpdateErr } = await admin
           .from("vendors")
-          .update({
-            stripe_customer_id: session.customer as string,
-            stripe_subscription_id: subscriptionId,
-            subscription_status: subscriptionStatus,
-            subscription_price_id: priceId || subscriptionPriceId || null,
-            subscription_plan_key: subscriptionPlanKey,
-            subscription_current_period_end: currentPeriodEnd,
-            subscription_cancel_at_period_end: cancelAtPeriodEnd,
-            subscription_updated_at: new Date().toISOString(),
-          })
+          .update(vendorUpdate)
           .eq("id", resolvedVendorId);
+        if (vendorUpdateErr) {
+          console.error("❌ [handleCheckoutSessionCompleted] vendor activation failed", JSON.stringify({
+            requestId: reqId,
+            vendorIdSuffix: resolvedVendorId.slice(-8),
+            userId: userId ?? null,
+            error: vendorUpdateErr.message,
+          }));
+          throw vendorUpdateErr;
+        }
         console.log("✅ [vendor-subscription] updated via checkout", {
-          vendorId: resolvedVendorId,
+          vendorIdSuffix: resolvedVendorId.slice(-8),
           status: subscriptionStatus,
-          subscriptionId,
+          subscriptionIdSuffix: subscriptionId?.slice(-8) ?? null,
         });
         if (process.env.NODE_ENV !== "production") {
           console.log(
@@ -908,24 +926,65 @@ async function handleSubscriptionChange(
       stripeCustomerId: subscription.customer as string,
     });
     if (resolvedVendorId) {
-      await admin
+      const vendorUpdate: Record<string, unknown> = {
+        stripe_subscription_id: subscription.id,
+        stripe_customer_id: subscription.customer as string,
+        subscription_status: status,
+        subscription_price_id: subscriptionPriceId,
+        subscription_plan_key: subscriptionPlanKey,
+        subscription_current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+        subscription_cancel_at_period_end: subscription.cancel_at_period_end,
+        subscription_updated_at: new Date().toISOString(),
+      };
+      if (VENDOR_ACTIVE_SUBSCRIPTION_STATUSES.has(status)) {
+        vendorUpdate.status = "active";
+      }
+      const { error: vendorUpdateErr } = await admin
         .from("vendors")
-        .update({
-          stripe_subscription_id: subscription.id,
-          stripe_customer_id: subscription.customer as string,
-          subscription_status: status,
-          subscription_price_id: subscriptionPriceId,
-          subscription_plan_key: subscriptionPlanKey,
-          subscription_current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-          subscription_cancel_at_period_end: subscription.cancel_at_period_end,
-          subscription_updated_at: new Date().toISOString(),
-        })
+        .update(vendorUpdate)
         .eq("id", resolvedVendorId);
+      if (vendorUpdateErr) {
+        console.error("❌ [vendor-subscription] vendor activation failed (webhook)", JSON.stringify({
+          eventId: subscription.id,
+          vendorIdSuffix: resolvedVendorId.slice(-8),
+          userId: userId ?? null,
+          error: vendorUpdateErr.message,
+        }));
+        throw vendorUpdateErr;
+      }
       console.log("✅ [vendor-subscription] updated via webhook", {
-        vendorId: resolvedVendorId,
+        vendorIdSuffix: resolvedVendorId.slice(-8),
         status,
-        subscriptionId: subscription.id,
+        subscriptionIdSuffix: subscription.id.slice(-8),
       });
+      if (VENDOR_ACTIVE_SUBSCRIPTION_STATUSES.has(status) && userId) {
+        const { data: profile } = await admin
+          .from("profiles")
+          .select("role")
+          .eq("id", userId)
+          .maybeSingle();
+        const canPromoteToVendor = profile?.role === "consumer" || profile?.role === "vendor_pending";
+        if (canPromoteToVendor) {
+          const { error: roleErr } = await admin
+            .from("profiles")
+            .update({ role: "vendor" })
+            .eq("id", userId);
+          if (roleErr) {
+            console.error("❌ [vendor-subscription] role upgrade failed (webhook)", JSON.stringify({
+              eventId: subscription.id,
+              vendorIdSuffix: resolvedVendorId.slice(-8),
+              userId,
+              error: roleErr.message,
+            }));
+            throw roleErr;
+          }
+        } else {
+          console.log("[vendor-subscription] role update skipped (not consumer/vendor_pending)", {
+            userId,
+            currentRole: profile?.role ?? null,
+          });
+        }
+      }
       if (process.env.NODE_ENV !== "production") {
         console.log(
           `[vendor-subscription] vendorId=${resolvedVendorId} status=${status} source=webhook`

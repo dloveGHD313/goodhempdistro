@@ -1,11 +1,12 @@
-import { STRIPE_PRICES } from "@/lib/stripe/prices";
-
-/** Map internal vendor tier to STRIPE_PRICES key (Option B: keep existing keys). */
-const VENDOR_TIER_TO_STRIPE = {
-  Starter: "VENDOR_STARTER",
-  Pro: "VENDOR_GROWTH",
-  Enterprise: "VENDOR_PRO",
-} as const;
+/** Vendor price IDs are read ONLY from env; never hardcoded. */
+const VENDOR_PRICE_ENV_KEYS = [
+  "STRIPE_VENDOR_STARTER_MONTHLY_PRICE_ID",
+  "STRIPE_VENDOR_STARTER_ANNUAL_PRICE_ID",
+  "STRIPE_VENDOR_PRO_MONTHLY_PRICE_ID",
+  "STRIPE_VENDOR_PRO_ANNUAL_PRICE_ID",
+  "STRIPE_VENDOR_ENTERPRISE_MONTHLY_PRICE_ID",
+  "STRIPE_VENDOR_ENTERPRISE_ANNUAL_PRICE_ID",
+] as const;
 
 export type VendorPlanConfig = {
   key: string;
@@ -206,16 +207,25 @@ const VENDOR_PLAN_ENVS: VendorPlanEnv[] = [
   },
 ];
 
-export function getVendorPlanConfigs() {
+export function getVendorPlanConfigs(): {
+  plans: VendorPlanConfig[];
+  hasVendorPlans: boolean;
+  missingEnv: string[];
+  invalidEnv: string[];
+} {
   const plans: VendorPlanConfig[] = [];
   const missingEnv: string[] = [];
+  const invalidEnv: string[] = [];
 
   for (const plan of VENDOR_PLAN_ENVS) {
-    const stripeKey = VENDOR_TIER_TO_STRIPE[plan.tier];
-    const interval = plan.interval === "month" ? "MONTHLY" : "ANNUAL";
-    const priceId = STRIPE_PRICES[stripeKey][interval];
-    if (!priceId) {
+    const raw = process.env[plan.envKey];
+    if (!raw || typeof raw !== "string") {
       missingEnv.push(plan.envKey);
+      continue;
+    }
+    const trimmed = raw.trim();
+    if (!trimmed.startsWith("price_") || trimmed.startsWith("prod_")) {
+      invalidEnv.push(plan.envKey);
       continue;
     }
     plans.push({
@@ -224,7 +234,7 @@ export function getVendorPlanConfigs() {
       tier: plan.tier,
       billingCycle: plan.billingCycle,
       interval: plan.interval,
-      priceId,
+      priceId: raw,
       displayName: plan.displayName,
       headlinePriceText: plan.headlinePriceText,
       subPriceNote: plan.subPriceNote,
@@ -243,7 +253,48 @@ export function getVendorPlanConfigs() {
     plans,
     hasVendorPlans: plans.length > 0,
     missingEnv,
+    invalidEnv,
   };
+}
+
+/** Env preflight for vendor PRICE IDs only. Returns key NAMES only (no values). */
+export function getVendorPriceEnvStatus(): { missingEnv: string[]; invalidEnv: string[] } {
+  const { missingEnv, invalidEnv } = getVendorPlanConfigs();
+  return { missingEnv, invalidEnv };
+}
+
+/** Resolve vendor price ID from planKey and billing interval (month/year). Returns null if not found or invalid.
+ * STRICT: only returns non-empty string when value starts with price_. Rejects prod_ and any other prefix. */
+export function resolveVendorPriceId(planKey: string, billingInterval: string): string | null {
+  const { plans } = getVendorPlanConfigs();
+  const interval = billingInterval?.toLowerCase() === "annual" || billingInterval?.toLowerCase() === "year" ? "year" : "month";
+  const match = plans.find(
+    (p) => p.planKey === planKey && (interval === "year" ? p.interval === "year" : p.interval === "month")
+  );
+  const id = match?.priceId ?? null;
+  if (!id || typeof id !== "string" || !id.startsWith("price_")) {
+    return null;
+  }
+  return id;
+}
+
+const VENDOR_PLAN_KEYS = ["vendor_starter_monthly", "vendor_starter_annual", "vendor_pro_monthly", "vendor_pro_annual", "vendor_enterprise_monthly", "vendor_enterprise_annual"] as const;
+
+/** Resolve vendor price ID or throw if env missing. Use in server checkout when planKey + interval must be valid. */
+export function resolveVendorPriceIdOrThrow(planKey: string, billingInterval: string): string {
+  if (!VENDOR_PLAN_KEYS.includes(planKey as (typeof VENDOR_PLAN_KEYS)[number])) {
+    throw new Error(`Invalid vendor planKey: ${planKey}`);
+  }
+  const id = resolveVendorPriceId(planKey, billingInterval);
+  if (!id) {
+    const { missingEnv } = getVendorPriceEnvStatus();
+    throw new Error(
+      missingEnv.length > 0
+        ? `Vendor pricing not configured: missing env (${missingEnv.join(", ")})`
+        : `Vendor price not found for planKey=${planKey} interval=${billingInterval}`
+    );
+  }
+  return id;
 }
 
 export function getVendorPlanByPriceId(priceId: string) {

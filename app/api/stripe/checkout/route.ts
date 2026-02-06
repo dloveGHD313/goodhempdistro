@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
-import { stripe, getSiteUrl, resolvePriceId } from "@/lib/stripe";
+import { stripe, getSiteUrl } from "@/lib/stripe";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 import { getVendorPlanByPriceId } from "@/lib/pricing";
 
 type CheckoutPayload = {
+  productType?: string;
   priceId?: string;
   planKey?: string;
   billingInterval?: string;
@@ -104,6 +105,13 @@ export async function POST(req: NextRequest) {
         .select("id, owner_user_id, business_name, stripe_customer_id")
         .single();
       if (insertErr) {
+        console.error("[stripe/checkout] vendor provision failed", JSON.stringify({
+          requestId,
+          userId: user.id,
+          error: insertErr?.message ?? String(insertErr),
+          code: insertErr?.code ?? null,
+          details: insertErr?.details ?? null,
+        }));
         const { data: existing } = await admin
           .from("vendors")
           .select("id, owner_user_id, business_name, stripe_customer_id")
@@ -128,12 +136,34 @@ export async function POST(req: NextRequest) {
     }
 
     let stripeCustomerId = vendor.stripe_customer_id || null;
+    const hadStoredCustomerId = Boolean(vendor.stripe_customer_id);
+    let oldCustomerSuffixForLog: string | null = null;
+
+    if (stripeCustomerId) {
+      try {
+        const retrieved = await stripe.customers.retrieve(stripeCustomerId);
+        const deleted = (retrieved as { deleted?: boolean }).deleted === true;
+        if (deleted) {
+          oldCustomerSuffixForLog = stripeCustomerId.slice(-8);
+          stripeCustomerId = null;
+        }
+      } catch (retrieveErr: unknown) {
+        if (isStripeMissingCustomerError(retrieveErr)) {
+          oldCustomerSuffixForLog = stripeCustomerId.slice(-8);
+          stripeCustomerId = null;
+        } else {
+          throw retrieveErr;
+        }
+      }
+    }
+
     if (!stripeCustomerId) {
       const customer = await stripe.customers.create({
         email: user.email || undefined,
         name: vendor.business_name || undefined,
         metadata: {
           user_id: user.id,
+          plan_type: "vendor",
           vendor_id: vendor.id,
         },
       });
@@ -142,6 +172,13 @@ export async function POST(req: NextRequest) {
         .from("vendors")
         .update({ stripe_customer_id: stripeCustomerId })
         .eq("id", vendor.id);
+      if (hadStoredCustomerId && oldCustomerSuffixForLog) {
+        console.warn("[stripe/checkout] recovered_missing_customer", JSON.stringify({
+          requestId,
+          oldCustomerSuffix: oldCustomerSuffixForLog,
+          newCustomerSuffix: customer.id.slice(-8),
+        }));
+      }
     }
 
     const siteUrl = getSiteUrl(req);
@@ -176,13 +213,59 @@ export async function POST(req: NextRequest) {
           plan_key: body.planKey || "",
           tier: body.tier || "",
           cadence: body.cadence || "",
+          product_limit:
+            body.productLimit === null || body.productLimit === undefined
+              ? ""
+              : String(body.productLimit),
+          commission:
+            body.commission === null || body.commission === undefined
+              ? ""
+              : String(body.commission),
           price_id: priceId,
           plan_type: "vendor",
           vendor_id: vendor.id,
           user_id: user.id,
         },
-      },
-    });
+        subscription_data: {
+          metadata: {
+            plan_key: body.planKey || "",
+            tier: body.tier || "",
+            cadence: body.cadence || "",
+            price_id: priceId,
+            plan_type: "vendor",
+            vendor_id: vendor.id,
+            user_id: user.id,
+          },
+        },
+      });
+    } catch (stripeErr: unknown) {
+      const se = stripeErr as { message?: string; code?: string; type?: string; requestId?: string };
+      const safeMessage = safeTruncate(se?.message ?? (stripeErr instanceof Error ? stripeErr.message : String(stripeErr)));
+      console.error("[stripe/checkout] stripe session create failed", JSON.stringify({
+        requestId,
+        planKey,
+        cadence: normalizedCadence,
+        priceIdSuffix: priceId.slice(-6),
+        stripeCustomerId: stripeCustomerId?.slice(-8) ?? null,
+        stripeErrorCode: se?.code ?? null,
+        stripeErrorType: se?.type ?? null,
+        stripeRequestId: se?.requestId ?? null,
+        message: safeMessage,
+      }));
+      return NextResponse.json(
+        {
+          error: "Could not start checkout. Please try again.",
+          requestId,
+          errorReason: "stripe_session_create_failed",
+        },
+        { status: 500, headers: requestIdHeaders(requestId) }
+      );
+    }
+    console.info("[stripe/checkout]", JSON.stringify({
+      requestId,
+      step: "stripe_create_session_ok",
+      sessionIdSuffix: session.id.slice(-6),
+    }));
 
     return json({ ok: true, url: session.url });
   } catch (error) {

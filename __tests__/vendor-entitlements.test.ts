@@ -3,6 +3,8 @@ import {
   getProductLimitStatus,
   getVendorEntitlements,
   getVendorPlanByPriceId,
+  getVendorPriceEnvStatus,
+  resolveVendorPriceId,
 } from "@/lib/pricing";
 
 describe("vendor entitlements", () => {
@@ -13,6 +15,34 @@ describe("vendor entitlements", () => {
     process.env.STRIPE_VENDOR_PRO_ANNUAL_PRICE_ID = "price_pro_year";
     process.env.STRIPE_VENDOR_ENTERPRISE_MONTHLY_PRICE_ID = "price_ent_month";
     process.env.STRIPE_VENDOR_ENTERPRISE_ANNUAL_PRICE_ID = "price_ent_year";
+  });
+
+  it("getVendorPriceEnvStatus returns empty when all PRICE_ID env are valid", () => {
+    const { missingEnv, invalidEnv } = getVendorPriceEnvStatus();
+    expect(missingEnv).toEqual([]);
+    expect(invalidEnv).toEqual([]);
+  });
+
+  it("resolveVendorPriceId returns price_ only and null for unknown plan", () => {
+    const id = resolveVendorPriceId("vendor_starter_monthly", "monthly");
+    expect(id).toBe("price_starter_month");
+    expect(id?.startsWith("price_")).toBe(true);
+    expect(resolveVendorPriceId("unknown_plan", "monthly")).toBeNull();
+  });
+
+  it("getVendorPriceEnvStatus reports invalidEnv when value is prod_", () => {
+    const orig = process.env.STRIPE_VENDOR_STARTER_MONTHLY_PRICE_ID;
+    process.env.STRIPE_VENDOR_STARTER_MONTHLY_PRICE_ID = "prod_xxx";
+    const { invalidEnv } = getVendorPriceEnvStatus();
+    expect(invalidEnv).toContain("STRIPE_VENDOR_STARTER_MONTHLY_PRICE_ID");
+    process.env.STRIPE_VENDOR_STARTER_MONTHLY_PRICE_ID = orig;
+  });
+
+  it("resolveVendorPriceId returns null when env has prod_ for that plan", () => {
+    const orig = process.env.STRIPE_VENDOR_STARTER_MONTHLY_PRICE_ID;
+    process.env.STRIPE_VENDOR_STARTER_MONTHLY_PRICE_ID = "prod_xxx";
+    expect(resolveVendorPriceId("vendor_starter_monthly", "monthly")).toBeNull();
+    process.env.STRIPE_VENDOR_STARTER_MONTHLY_PRICE_ID = orig;
   });
 
   it("maps priceId to plan config", () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 
 type LedgerEntry = {
@@ -155,6 +155,25 @@ export default function AffiliatePortalClient({ affiliateCode }: AffiliatePortal
         </div>
       )}
 
+      {affiliateCode && (
+        <div className="surface-card p-6">
+          <h2 className="text-xl font-bold mb-2">Referral link</h2>
+          <p className="text-sm text-muted mb-2">Share this link to earn when others sign up or purchase.</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="flex-1 min-w-0 truncate px-3 py-2 bg-[var(--surface)]/70 border border-[var(--border)] rounded text-sm">
+              {typeof window !== "undefined" ? window.location.origin : ""}/r/{affiliateCode}
+            </code>
+            <button
+              type="button"
+              onClick={copyReferralLink}
+              className="btn-secondary whitespace-nowrap"
+            >
+              {copied ? "Copied!" : "Copy"}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-6 md:grid-cols-2">
         <div className="surface-card p-6">
           <h2 className="text-xl font-bold mb-2">Overview</h2>
@@ -294,7 +313,9 @@ export default function AffiliatePortalClient({ affiliateCode }: AffiliatePortal
       <div className="surface-card p-6">
         <h2 className="text-xl font-bold mb-4">Earnings (ledger)</h2>
         {entries.length === 0 ? (
-          <p className="text-muted">No ledger entries yet.</p>
+          <p className="text-muted">
+            No earnings yet. Share your referral link to start earning. When referrals convert, entries will appear here.
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left">

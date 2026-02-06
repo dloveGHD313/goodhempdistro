@@ -1,5 +1,9 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Docs
+
+- [Vendor Checkout Guide](docs/VENDOR_CHECKOUT_GUIDE.md) — Vendor subscription flow, env vars, Stripe setup, webhooks, and debugging with requestId.
+
 ## Release Notes
 
 **Fix(posts): display name and avatar persist in feed**
