@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   getWelcomeProfile,
@@ -11,6 +12,7 @@ import {
 } from "@/lib/phase0-storage";
 import { brand } from "@/lib/brand";
 import useAuthUser from "@/components/engagement/useAuthUser";
+import JaxWelcomeHero from "@/components/mascot/JaxWelcomeHero";
 
 const INTENT_LABELS: Record<WelcomeIntentOption, string> = {
   shop: "Shop",
@@ -37,6 +39,7 @@ const INTENT_DESCRIPTIONS: Record<WelcomeIntentOption, string> = {
 };
 
 export default function WelcomeClient() {
+  const router = useRouter();
   const { userId, loading: authLoading } = useAuthUser();
   const [selectedIntents, setSelectedIntents] = useState<string[]>([]);
   const [mounted, setMounted] = useState(false);
@@ -58,6 +61,12 @@ export default function WelcomeClient() {
   };
 
   const hasSelection = selectedIntents.length >= 1;
+  const canContinue = hasSelection && !authLoading;
+
+  const handleContinue = () => {
+    if (authLoading || !hasSelection) return;
+    router.push(userId ? "/" : "/signup");
+  };
 
   if (!mounted) {
     return (
@@ -124,21 +133,14 @@ export default function WelcomeClient() {
         </div>
 
         <div className="flex flex-wrap gap-3 mt-6">
-          {hasSelection ? (
-            <Link
-              href={userId ? "/" : "/signup"}
-              className="btn-primary motion-medium"
-            >
-              Continue
-            </Link>
-          ) : (
-            <span
-              className="btn-primary motion-medium opacity-50 cursor-not-allowed inline-block"
-              aria-disabled
-            >
-              Continue
-            </span>
-          )}
+          <button
+            type="button"
+            onClick={handleContinue}
+            disabled={!canContinue}
+            className={`btn-primary motion-medium ${!canContinue ? "opacity-50 cursor-not-allowed" : ""}`}
+          >
+            Continue
+          </button>
           {userId && (
             <Link href="/" className="btn-secondary motion-medium">
               Skip for now
