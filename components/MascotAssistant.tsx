@@ -8,7 +8,7 @@ const intents = [
   { label: "Explore the feed", href: "/newsfeed", helper: "See VIP vendors + community updates." },
   { label: "Check compliance", href: "/blog", helper: "Quick compliance briefs and COA guidance." },
   { label: "Start onboarding", href: "/get-started", helper: "Join as a consumer or vendor." },
-  { label: "Apply to drive", href: "/driver-apply", helper: "Earn with local deliveries." },
+  { label: "Apply to drive", href: "/logistics/apply", helper: "Earn with local deliveries." },
 ];
 
 export default function MascotAssistant() {

@@ -69,9 +69,11 @@ export default function LogisticsApplyPage() {
                   className="card-glass p-6 text-left hover:border-accent/50 transition border-2 border-transparent rounded-xl"
                 >
                   <h2 className="text-xl font-semibold mb-2">Delivery Provider Listing</h2>
-                  <p className="text-muted text-sm mb-2">You set your own prices and negotiate directly with vendors.</p>
-                  <p className="text-muted text-sm mb-4">Good Hemp Distro functions as a marketing directory + lead source.</p>
-                  <span className="text-accent font-medium">Continue to Provider Registration →</span>
+                  <p className="text-muted text-sm mb-4">
+                    You negotiate pricing directly with vendors. Good Hemp Distro functions as a
+                    discovery & directory platform.
+                  </p>
+                  <span className="text-accent font-medium">Continue →</span>
                 </button>
                 <button
                   type="button"
@@ -79,18 +81,23 @@ export default function LogisticsApplyPage() {
                   className="card-glass p-6 text-left hover:border-accent/50 transition border-2 border-transparent rounded-xl"
                 >
                   <h2 className="text-xl font-semibold mb-2">On-Demand Driver Network</h2>
-                  <p className="text-muted text-sm mb-2">GHD sets customer pricing per mile.</p>
-                  <p className="text-muted text-sm mb-4">Drivers are paid per delivery: base + mileage; tips 100% to driver.</p>
+                  <p className="text-muted text-sm mb-4">
+                    Good Hemp Distro sets delivery pricing. You&apos;re paid per delivery + keep
+                    100% of tips.
+                  </p>
                   <span className="text-accent font-medium">Apply as On-Demand Driver →</span>
                 </button>
               </div>
             ) : selected === "provider" ? (
               <div className="card-glass p-6">
                 <h2 className="text-xl font-semibold mb-2">Delivery Provider Listing</h2>
-                <p className="text-muted text-sm mb-4">You&apos;ll register as a provider so vendors can find and contact you. You set your own prices.</p>
+                <p className="text-muted text-sm mb-4">
+                  You negotiate pricing directly with vendors. Good Hemp Distro functions as a
+                  discovery & directory platform.
+                </p>
                 <div className="flex gap-3">
-                  <Link href="/vendor-registration?intent=logistics_provider" className="btn-primary">
-                    Continue to Provider Registration
+                  <Link href="/pricing?tab=vendor" className="btn-primary">
+                    Continue to Vendor Pricing
                   </Link>
                   <button type="button" onClick={() => setSelected(null)} className="btn-secondary">
                     Back

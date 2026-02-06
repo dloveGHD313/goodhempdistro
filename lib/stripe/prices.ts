@@ -3,32 +3,7 @@
 // This file is the single source of truth for Stripe pricing.
 // Do NOT hardcode price IDs elsewhere in the application.
 
-const isProd = process.env.NODE_ENV === "production";
 const getEnv = (name: string) => process.env[name]?.trim() || "";
-const getEnvOrDevFallback = (name: string, fallback: string) => {
-  const value = getEnv(name);
-  if (value) return value;
-  return isProd ? "" : fallback;
-};
-
-const VENDOR_ENV_KEYS = [
-  "STRIPE_VENDOR_STARTER_MONTHLY_PRICE_ID",
-  "STRIPE_VENDOR_STARTER_ANNUAL_PRICE_ID",
-  "STRIPE_VENDOR_PRO_MONTHLY_PRICE_ID",
-  "STRIPE_VENDOR_PRO_ANNUAL_PRICE_ID",
-  "STRIPE_VENDOR_ENTERPRISE_MONTHLY_PRICE_ID",
-  "STRIPE_VENDOR_ENTERPRISE_ANNUAL_PRICE_ID",
-] as const;
-
-if (!isProd) {
-  const missingVendorEnv = VENDOR_ENV_KEYS.filter((key) => !getEnv(key));
-  if (missingVendorEnv.length > 0) {
-    console.warn(
-      "[stripe-prices] Missing vendor price env vars:",
-      missingVendorEnv.join(", ")
-    );
-  }
-}
 
 /** Stripe Checkout uses PRICE IDs only. Product IDs (prod_*) are not used for checkout. */
 export const STRIPE_PRICES = {
@@ -47,37 +22,20 @@ export const STRIPE_PRICES = {
     ANNUAL: "price_1SwCIDEKpXx4yA1RXK7VMaao",
   },
 
+  // Vendor: read ONLY from env (no fallbacks). See lib/pricing.ts for single source of truth.
   VENDOR_STARTER: {
-    MONTHLY: getEnvOrDevFallback(
-      "STRIPE_VENDOR_STARTER_MONTHLY_PRICE_ID",
-      "price_1SwBtKEKpXx4yA1ReX1LNk6s"
-    ),
-    ANNUAL: getEnvOrDevFallback(
-      "STRIPE_VENDOR_STARTER_ANNUAL_PRICE_ID",
-      "price_1SwCFBEKpXx4yA1RstiMk93D"
-    ),
-  },
-
-  VENDOR_GROWTH: {
-    MONTHLY: getEnvOrDevFallback(
-      "STRIPE_VENDOR_PRO_MONTHLY_PRICE_ID",
-      "price_1SwBrqEKpXx4yA1RJVt7xOTX"
-    ),
-    ANNUAL: getEnvOrDevFallback(
-      "STRIPE_VENDOR_PRO_ANNUAL_PRICE_ID",
-      "price_1SwCDYEKpXx4yA1RtmanSEdk"
-    ),
+    MONTHLY: getEnv("STRIPE_VENDOR_STARTER_MONTHLY_PRICE_ID"),
+    ANNUAL: getEnv("STRIPE_VENDOR_STARTER_ANNUAL_PRICE_ID"),
   },
 
   VENDOR_PRO: {
-    MONTHLY: getEnvOrDevFallback(
-      "STRIPE_VENDOR_ENTERPRISE_MONTHLY_PRICE_ID",
-      "price_1SwBmzEKpXx4yA1RgSYmvEPk"
-    ),
-    ANNUAL: getEnvOrDevFallback(
-      "STRIPE_VENDOR_ENTERPRISE_ANNUAL_PRICE_ID",
-      "price_1SwC8JEKpXx4yA1Rv6JPIy3U"
-    ),
+    MONTHLY: getEnv("STRIPE_VENDOR_PRO_MONTHLY_PRICE_ID"),
+    ANNUAL: getEnv("STRIPE_VENDOR_PRO_ANNUAL_PRICE_ID"),
+  },
+
+  VENDOR_ENTERPRISE: {
+    MONTHLY: getEnv("STRIPE_VENDOR_ENTERPRISE_MONTHLY_PRICE_ID"),
+    ANNUAL: getEnv("STRIPE_VENDOR_ENTERPRISE_ANNUAL_PRICE_ID"),
   },
 } as const;
 

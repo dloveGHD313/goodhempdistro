@@ -278,6 +278,25 @@ export function resolveVendorPriceId(planKey: string, billingInterval: string): 
   return id;
 }
 
+const VENDOR_PLAN_KEYS = ["vendor_starter_monthly", "vendor_starter_annual", "vendor_pro_monthly", "vendor_pro_annual", "vendor_enterprise_monthly", "vendor_enterprise_annual"] as const;
+
+/** Resolve vendor price ID or throw if env missing. Use in server checkout when planKey + interval must be valid. */
+export function resolveVendorPriceIdOrThrow(planKey: string, billingInterval: string): string {
+  if (!VENDOR_PLAN_KEYS.includes(planKey as (typeof VENDOR_PLAN_KEYS)[number])) {
+    throw new Error(`Invalid vendor planKey: ${planKey}`);
+  }
+  const id = resolveVendorPriceId(planKey, billingInterval);
+  if (!id) {
+    const { missingEnv } = getVendorPriceEnvStatus();
+    throw new Error(
+      missingEnv.length > 0
+        ? `Vendor pricing not configured: missing env (${missingEnv.join(", ")})`
+        : `Vendor price not found for planKey=${planKey} interval=${billingInterval}`
+    );
+  }
+  return id;
+}
+
 export function getVendorPlanByPriceId(priceId: string) {
   const { plans } = getVendorPlanConfigs();
   return plans.find((plan) => plan.priceId === priceId) || null;

@@ -5,6 +5,15 @@ import { stripe, getSiteUrl } from "@/lib/stripe";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 import { getVendorPriceEnvStatus, getVendorPlanByPriceId, resolveVendorPriceId } from "@/lib/pricing";
 
+const VENDOR_PLAN_KEYS = [
+  "vendor_starter_monthly",
+  "vendor_starter_annual",
+  "vendor_pro_monthly",
+  "vendor_pro_annual",
+  "vendor_enterprise_monthly",
+  "vendor_enterprise_annual",
+] as const;
+
 const ROUTE_NAME = "stripe/checkout";
 const TRUNCATE = 300;
 
@@ -81,13 +90,40 @@ export async function POST(req: NextRequest) {
         { status: 400, headers: requestIdHeaders(requestId) }
       );
     }
-    if (!planKey || !cadence) {
+    if (!planKey || cadence == null) {
       return NextResponse.json(
         { error: "Vendor checkout requires planKey and cadence", requestId },
         { status: 400, headers: requestIdHeaders(requestId) }
       );
     }
-    console.info("[stripe/checkout]", JSON.stringify({ requestId, step: "parsed", planKey, cadence }));
+    if (typeof cadence !== "string") {
+      return NextResponse.json(
+        { error: "Invalid cadence type", requestId },
+        { status: 400, headers: requestIdHeaders(requestId) }
+      );
+    }
+    const trimmedLower = cadence.trim().toLowerCase();
+    const cadenceToNormalized: Record<string, "monthly" | "annual"> = {
+      month: "monthly",
+      monthly: "monthly",
+      year: "annual",
+      annual: "annual",
+      yearly: "annual",
+    };
+    const normalizedCadence = cadenceToNormalized[trimmedLower];
+    if (!normalizedCadence) {
+      return NextResponse.json(
+        { error: "Invalid vendor plan or billing interval", requestId },
+        { status: 400, headers: requestIdHeaders(requestId) }
+      );
+    }
+    if (!VENDOR_PLAN_KEYS.includes(planKey as (typeof VENDOR_PLAN_KEYS)[number])) {
+      return NextResponse.json(
+        { error: "Invalid vendor plan or billing interval", requestId },
+        { status: 400, headers: requestIdHeaders(requestId) }
+      );
+    }
+    console.info("[stripe/checkout]", JSON.stringify({ requestId, step: "parsed", planKey, cadence: normalizedCadence }));
 
     const { missingEnv, invalidEnv } = getVendorPriceEnvStatus();
     if (missingEnv.length > 0 || invalidEnv.length > 0) {
@@ -108,17 +144,17 @@ export async function POST(req: NextRequest) {
         { status: 500, headers: requestIdHeaders(requestId) }
       );
     }
-    const priceId = resolveVendorPriceId(planKey, cadence);
+    const priceId = resolveVendorPriceId(planKey, normalizedCadence);
     const priceIdSuffix = priceId ? priceId.slice(-6) : null;
     console.info("[stripe/checkout]", JSON.stringify({
       requestId,
       step: "vendor_price_resolved",
       planKey,
-      cadence,
+      cadence: normalizedCadence,
       priceIdSuffix,
     }));
     if (!priceId || !priceId.startsWith("price_")) {
-      console.info("[stripe/checkout]", JSON.stringify({ requestId, step: "vendor_price_missing", planKey, cadence }));
+      console.info("[stripe/checkout]", JSON.stringify({ requestId, step: "vendor_price_missing", planKey, cadence: normalizedCadence }));
       return NextResponse.json(
         { error: "Invalid vendor plan selection", requestId },
         { status: 400, headers: requestIdHeaders(requestId) }
@@ -289,7 +325,7 @@ export async function POST(req: NextRequest) {
       console.error("[stripe/checkout] stripe session create failed", JSON.stringify({
         requestId,
         planKey,
-        cadence,
+        cadence: normalizedCadence,
         priceIdSuffix: priceId.slice(-6),
         stripeCustomerId: stripeCustomerId?.slice(-8) ?? null,
         stripeErrorCode: se?.code ?? null,
