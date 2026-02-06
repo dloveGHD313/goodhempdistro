@@ -32,8 +32,12 @@ export default function LogisticsPage() {
             setPayScaleState({ status: "empty" });
             return;
           }
-          return res.json().then((body) => {
-            setPayScaleState({ status: "error", message: body?.error || "Failed to load pay scale" });
+          return res.json().then((body: { error?: string; code?: string }) => {
+            const msg =
+              res.status >= 500
+                ? body?.error || "Unable to load pay scale"
+                : body?.error || "Failed to load pay scale";
+            setPayScaleState({ status: "error", message: msg });
           });
         }
         return res.json().then((data: PayScale) => {
