@@ -1,5 +1,26 @@
 # Phase 7+ Validation Checklist
 
+## How to validate the Bugbot fixes
+
+1. **Delivery / state compliance (PR #64)**  
+   - Create checkout with `fulfillment_method: "delivery"` and a state that has `allows_delivery_*` true but `allows_sale_*` false for that category → must get 400 `code: "STATE_COMPLIANCE_BLOCK"`, `available_fulfillment: ["pickup","shipping"]`.  
+   - Same with `delivery_selected: false` but `fulfillment_method: "delivery"` → delivery path must still run (state required, then both delivery + sale checks).  
+   - Non-delivery with `customer_state` where sale disallowed → 400 `code: "STATE_SALE_BLOCK"`.
+
+2. **Driver upload cleanup (PR #64)**  
+   - Simulate partial failure: e.g. temporarily break the second doc upload or the first `driver_documents` insert. Submit form with all three docs.  
+   - Verify: no orphan files in `driver_documents` bucket for that request; no half-complete `logistics_applications` or `driver_documents` rows; response is 500 with `code: "SUBMIT_FAILED"` and a `ref` (correlation id).
+
+3. **Pay-scale unauthenticated**  
+   - Open `/logistics` signed out: pay scale section shows loading → then either table (200) or "Pay scale is not configured yet" (404) or error message (500). No infinite loading.  
+   - `curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/api/logistics/pay-scale` (no auth) → 200 or 404 or 500.
+
+4. **Delta-8**  
+   - Migration 076: run on DB that has `active = true` and `is_delta8 = true` → migration deactivates those rows then adds constraint; no failure.  
+   - Checkout for a delta8 product → 400 `code: "DELTA8_BLOCKED"`.
+
+---
+
 ## Bugbot fixes (Phases 1–4)
 
 ### Pay scale (unauthenticated) — Bugbot A
@@ -7,9 +28,10 @@
 - [ ] `curl -s http://localhost:3000/api/logistics/pay-scale` (no auth) returns **200** with `base_pay_driver`, `per_mile_driver`, `minimum_miles`, `minimum_payout_driver`, `formula_note` OR **404** with `code: "PAY_SCALE_NOT_CONFIGURED"`, `message: "Pay scale not configured"`.
 - [ ] On 500, API returns `code: "PAY_SCALE_ERROR"`, `message: "Unable to load pay scale"`; UI shows error message. All responses have `Cache-Control: no-store`. Route uses admin client only (no RLS for anon).
 
-### Checkout fulfillment bypass — Bugbot B
-- [ ] Delivery compliance and fees are driven by **fulfillment_method** (not delivery_selected). Setting `fulfillment_method: "delivery"` with `delivery_selected: false` still enforces state rules and delivery fees.
-- [ ] Missing state for delivery returns `code: "STATE_REQUIRED"`; disallowed state returns `code: "DELIVERY_NOT_ALLOWED"` with `available_fulfillment: ["pickup","shipping"]`.
+### Checkout fulfillment + state sale/delivery — Bugbot B
+- [ ] Single source of truth: **fulfillment_method** ∈ pickup | delivery | shipping (not delivery_selected). Setting `fulfillment_method: "delivery"` with `delivery_selected: false` still enforces delivery path.
+- [ ] Delivery: `customer_state` required; block if `!isDeliveryAllowedForCategory` OR `!isSaleAllowedForCategory` → 400 `code: "STATE_COMPLIANCE_BLOCK"`, `available_fulfillment: ["pickup","shipping"]`.
+- [ ] Non-delivery with `customer_state`: block if `!isSaleAllowedForCategory` → 400 `code: "STATE_SALE_BLOCK"`.
 
 ### State rules + migration — Bugbot C & D
 - [ ] `isSaleAllowedForCategory(null, *)` returns `true`; `isDeliveryAllowedForCategory(null, *)` returns `false`. No redundant ternary in `lib/server/hempStateRules.ts`.
@@ -31,7 +53,7 @@
 - [ ] Vendor subscription checkout uses `resolveVendorPriceIdOrThrow`; invalid plan returns 400 "Invalid vendor plan selection".
 
 ### Compliance
-- [ ] Delta-8 product cannot be purchased. Delivery blocked by state returns 400 with `available_fulfillment: ["pickup","shipping"]`.
+- [ ] Delta-8 product cannot be purchased; checkout returns 400 `code: "DELTA8_BLOCKED"`. Delivery blocked by state returns 400 with `available_fulfillment: ["pickup","shipping"]`.
 
 ### Driver compliance (Phase 6)
 - [ ] Driver application requires uploads for driver_license, vehicle_registration, insurance with expiry dates.
