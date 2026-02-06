@@ -77,6 +77,8 @@ function FeedCard({ post }: { post: FeedPost }) {
   );
 }
 
+// TODO: Later phases will personalize feed ranking based on welcome intents.
+// Use getWelcomeIntents() from @/lib/phase0-storage to weight/sort posts.
 export default function FeedExperience({ variant = "feed" }: { variant?: "feed" | "landing" }) {
   const { userId, loading: authLoading } = useAuthUser();
   const [activeFilter, setActiveFilter] = useState<(typeof filters)[number]["id"]>("all");
