@@ -11,11 +11,15 @@ const DOC_LABELS: Record<string, string> = {
 };
 
 function isFutureDate(s: string): boolean {
-  const d = new Date(s);
+  const parts = s.split("-").map(Number);
+  const year = parts[0];
+  const month = parts[1];
+  const day = parts[2];
+  if (year === undefined || month === undefined || day === undefined || Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) return false;
+  const dateAtLocalMidnight = new Date(year, month - 1, day);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  d.setHours(0, 0, 0, 0);
-  return d > today;
+  return dateAtLocalMidnight > today;
 }
 
 export default function LogisticsApplyPage() {
