@@ -90,6 +90,9 @@
    - `POST /api/stripe/checkout` with `cadence: 123` (number) → 400, “Invalid cadence type”.
    - `POST /api/stripe/checkout` with `cadence: {}` → 400, “Invalid cadence type”.
    - `POST /api/stripe/checkout` with `cadence: "monthly"` (and valid planKey) → proceeds as expected.
+   - `POST /api/stripe/checkout` with `cadence: "month"` → behaves identically to `"monthly"` (symmetric with year/annual).
+   - `POST /api/stripe/checkout` with `cadence: "year"` → behaves identically to `"annual"`.
+   - `POST /api/stripe/checkout` with `cadence: "yearly"` → behaves identically to `"annual"`.
 
 5. **Vendor pricing**
    - Visit `/pricing?tab=vendor` and complete checkout → no change from Phase 6 vendor pricing work.
@@ -99,4 +102,4 @@
 ## Confirmation: no vendor pricing regression
 
 - Vendor pricing values, Stripe price IDs, `planMapping`, delivery pricing math, and driver pay rates were **not modified**.
-- Cadence fix only adds validation; allowed values (`monthly`, `annual`, `year`) match what the pricing UI sends.
+- Cadence fix adds validation and symmetric normalization; accepted values: `month`, `monthly`, `year`, `annual`, `yearly` (normalized to `monthly` | `annual`).
