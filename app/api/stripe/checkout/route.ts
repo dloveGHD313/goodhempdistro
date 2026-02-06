@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { stripe, getSiteUrl } from "@/lib/stripe";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
-import { getVendorPriceEnvStatus, getVendorPlanByPriceId, resolveVendorPriceId } from "@/lib/pricing";
+import { getVendorPriceEnvStatus, getVendorPlanByPriceId, resolveVendorPriceIdOrThrow } from "@/lib/pricing";
 
 const VENDOR_PLAN_KEYS = [
   "vendor_starter_monthly",
@@ -144,8 +144,17 @@ export async function POST(req: NextRequest) {
         { status: 500, headers: requestIdHeaders(requestId) }
       );
     }
-    const priceId = resolveVendorPriceId(planKey, normalizedCadence);
-    const priceIdSuffix = priceId ? priceId.slice(-6) : null;
+    let priceId: string;
+    try {
+      priceId = resolveVendorPriceIdOrThrow(planKey, normalizedCadence);
+    } catch (err) {
+      console.info("[stripe/checkout]", JSON.stringify({ requestId, step: "vendor_price_resolve_failed", planKey, cadence: normalizedCadence }));
+      return NextResponse.json(
+        { error: "Invalid vendor plan selection", requestId },
+        { status: 400, headers: requestIdHeaders(requestId) }
+      );
+    }
+    const priceIdSuffix = priceId.slice(-6);
     console.info("[stripe/checkout]", JSON.stringify({
       requestId,
       step: "vendor_price_resolved",
@@ -153,13 +162,6 @@ export async function POST(req: NextRequest) {
       cadence: normalizedCadence,
       priceIdSuffix,
     }));
-    if (!priceId || !priceId.startsWith("price_")) {
-      console.info("[stripe/checkout]", JSON.stringify({ requestId, step: "vendor_price_missing", planKey, cadence: normalizedCadence }));
-      return NextResponse.json(
-        { error: "Invalid vendor plan selection", requestId },
-        { status: 400, headers: requestIdHeaders(requestId) }
-      );
-    }
     const vendorPlan = getVendorPlanByPriceId(priceId);
     if (!vendorPlan) {
       return NextResponse.json(
