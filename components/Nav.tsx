@@ -7,6 +7,7 @@ import { brand } from "@/lib/brand";
 import BrandLogo from "@/components/BrandLogo";
 
 const primaryLinks = [
+  { label: "👋 Welcome", href: "/welcome" },
   { label: "🏠 Feed", href: "/newsfeed" },
   { label: "🛍️ Shop", href: "/products" },
   { label: "🧭 Discover", href: "/discover" },

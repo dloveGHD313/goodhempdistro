@@ -14,6 +14,14 @@
   --accent-orange: var(--brand-orange);
   --background: var(--bg);
   --foreground: var(--text);
+
+  /* Phase 0: Motion presets (use on welcome/onboarding = heavy, dash/cards = medium, payments/compliance = minimal) */
+  --motion-heavy-duration: 0.6s;
+  --motion-heavy-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-medium-duration: 0.35s;
+  --motion-medium-ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --motion-minimal-duration: 0.2s;
+  --motion-minimal-ease: ease-out;
 }
 
 @theme inline {
@@ -230,6 +238,53 @@ footer {
 .hero-content {
   position: relative;
   z-index: 1;
+}
+
+/* Phase 0: Motion preset utility classes */
+.motion-heavy {
+  transition-duration: var(--motion-heavy-duration);
+  transition-timing-function: var(--motion-heavy-ease);
+}
+.motion-medium {
+  transition-duration: var(--motion-medium-duration);
+  transition-timing-function: var(--motion-medium-ease);
+}
+.motion-minimal {
+  transition-duration: var(--motion-minimal-duration);
+  transition-timing-function: var(--motion-minimal-ease);
+}
+
+/* Phase 0: UI primitives for welcome/entry */
+.welcome-hero {
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem 1.5rem;
+}
+.quiz-card {
+  background: linear-gradient(140deg, var(--glass) 0%, color-mix(in srgb, var(--bg) 85%, transparent) 100%);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 1.5rem 2rem;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(14px);
+}
+.animate-fade-in {
+  animation: phase0-fade-in var(--motion-heavy-duration) var(--motion-heavy-ease) forwards;
+}
+@keyframes phase0-fade-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-scale-in {
+  animation: phase0-scale-in var(--motion-heavy-duration) var(--motion-heavy-ease) forwards;
+}
+@keyframes phase0-scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 .hero-title {

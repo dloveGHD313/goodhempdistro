@@ -8,7 +8,7 @@ import Nav from "@/components/Nav";
 import AgeGateClient from "@/components/AgeGateClient";
 import RecoveryHashRedirect from "@/components/RecoveryHashRedirect";
 import { logMascotFlagMismatch } from "@/lib/mascotFlags";
-import MascotMountClient from "@/components/mascot/MascotMountClient";
+import JaxFloatingScaffold from "@/components/mascot/JaxFloatingScaffold";
 import { MarketModeProvider } from "@/lib/marketMode";
 
 // Validate environment variables at startup (logs warnings, doesn't throw)
@@ -90,7 +90,7 @@ export default function RootLayout({
             </div>
           </header>
           {children}
-          {mascotEnabled ? <MascotMountClient /> : null}
+          {mascotEnabled ? <JaxFloatingScaffold /> : null}
           <AgeGateClient />
           <RecoveryHashRedirect />
         </MarketModeProvider>
