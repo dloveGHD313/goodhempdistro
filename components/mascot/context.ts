@@ -14,6 +14,10 @@ const normalize = (path: string | null | undefined) => (path || "").toLowerCase(
 export function detectContext(pathname: string, role: MascotUserRole): MascotContext {
   const path = normalize(pathname);
 
+  if (path.startsWith("/welcome")) {
+    return "GENERIC";
+  }
+
   if (path.startsWith("/newsfeed") || path === "/" || path.startsWith("/groups") || path.startsWith("/forums")) {
     return "FEED";
   }
