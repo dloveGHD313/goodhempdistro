@@ -22,14 +22,12 @@ export default function JaxWelcomeHero({ selectedCount }: Props) {
     <div
       className="mb-10 motion-heavy animate-fade-in opacity-0"
       style={{ animationDelay: "0s" }}
-      role="img"
-      aria-label="JAX mascot"
     >
       <div
         className="animate-scale-in opacity-0 flex flex-col items-center"
         style={{ animationDelay: "0.1s" }}
       >
-        <div className="w-28 h-28 md:w-36 md:h-36 relative mb-4">
+        <div className="w-28 h-28 md:w-36 md:h-36 relative mb-4" aria-hidden="true">
           <Image
             src={asset.idleSrc}
             alt=""
