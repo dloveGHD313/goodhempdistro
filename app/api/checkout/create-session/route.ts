@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe, getSiteUrl } from "@/lib/stripe";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { isGatedProduct, requireMarketAccess } from "@/lib/server/marketGate";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 import {
   computeDeliveryFees,
   haversineMiles,
 } from "@/lib/server/deliveryPricing";
-import { isDeliveryAllowedInState } from "@/lib/server/deliveryStateRules";
+import {
+  getHempStateRule,
+  isDeliveryAllowedForCategory,
+  isSaleAllowedForCategory,
+} from "@/lib/server/hempStateRules";
+
+type FulfillmentMethod = "pickup" | "delivery" | "shipping";
 
 /** Returns number only if value is finite (rejects NaN/Infinity). */
 function parseFiniteNumber(value: unknown): number | null {
@@ -50,6 +57,14 @@ export async function POST(req: NextRequest) {
     const rawQuantity = body?.quantity;
     const deliverySelected = body?.delivery_selected === true;
     const customerStateRaw = typeof body?.customer_state === "string" ? body.customer_state.trim().toUpperCase().slice(0, 2) : null;
+    const customerState = customerStateRaw && customerStateRaw.length === 2 ? customerStateRaw : null;
+    const rawFulfillment = typeof body?.fulfillment_method === "string" ? body.fulfillment_method.trim().toLowerCase() : null;
+    const fulfillmentMethod: FulfillmentMethod =
+      rawFulfillment === "delivery" || rawFulfillment === "pickup" || rawFulfillment === "shipping"
+        ? rawFulfillment
+        : deliverySelected
+          ? "delivery"
+          : "pickup";
     const deliveryDistanceMilesRaw = parseFiniteNumber(body?.delivery_distance_miles);
     const deliveryDistanceMiles =
       deliveryDistanceMilesRaw != null && deliveryDistanceMilesRaw >= 0
@@ -83,7 +98,7 @@ export async function POST(req: NextRequest) {
     // Fetch product and vendor (status) for order_items — suspended vendors cannot accept orders (4.3.B)
     const { data: product, error: productError } = await supabase
       .from("products")
-      .select("id, name, price_cents, vendor_id, active, status, is_gated, market_category, vendors(owner_user_id, status)")
+      .select("id, name, price_cents, vendor_id, active, status, is_gated, market_category, product_type, is_intoxicating, is_delta8, vendors(owner_user_id, status)")
       .eq("id", productId)
       .single();
 
@@ -99,6 +114,56 @@ export async function POST(req: NextRequest) {
         { error: "Product is not available" },
         { status: 400, headers: { "Cache-Control": "no-store" } }
       );
+    }
+
+    // Delta-8 not allowed on platform (runtime block even if active somehow)
+    const isDelta8 = product.is_delta8 === true || product.product_type === "delta8";
+    if (isDelta8) {
+      return NextResponse.json(
+        { code: "DELTA8_BLOCKED", message: "This product category is not available for purchase" },
+        { status: 400, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    const isIntoxicating = product.is_intoxicating === true || product.product_type === "intoxicating";
+
+    // State rules: single source of truth is fulfillmentMethod (not delivery_selected) to prevent bypass.
+    // Delivery implies sale — enforce both delivery and sale checks for delivery orders.
+    if (fulfillmentMethod === "delivery") {
+      if (!customerState) {
+        return NextResponse.json(
+          {
+            code: "STATE_REQUIRED",
+            message: "Delivery requires your state. Please provide customer_state (2-letter code).",
+            available_fulfillment: ["pickup", "shipping"],
+          },
+          { status: 400, headers: { "Cache-Control": "no-store" } }
+        );
+      }
+      const stateRule = await getHempStateRule(customerState);
+      const deliveryAllowed = isDeliveryAllowedForCategory(stateRule, isIntoxicating);
+      const saleAllowed = isSaleAllowedForCategory(stateRule, isIntoxicating);
+      if (!deliveryAllowed || !saleAllowed) {
+        return NextResponse.json(
+          {
+            code: "STATE_COMPLIANCE_BLOCK",
+            message: "Delivery is not available in your state due to local regulations. Choose pickup or shipping.",
+            available_fulfillment: ["pickup", "shipping"],
+          },
+          { status: 400, headers: { "Cache-Control": "no-store" } }
+        );
+      }
+    } else if (customerState) {
+      const stateRule = await getHempStateRule(customerState);
+      if (!isSaleAllowedForCategory(stateRule, isIntoxicating)) {
+        return NextResponse.json(
+          {
+            code: "STATE_SALE_BLOCK",
+            message: "This product cannot be sold in your state. Please remove it from your order.",
+          },
+          { status: 400, headers: { "Cache-Control": "no-store" } }
+        );
+      }
     }
 
     const vendorRow = Array.isArray(product.vendors)
@@ -149,20 +214,7 @@ export async function POST(req: NextRequest) {
       : (product.vendors as { owner_user_id: string } | undefined)?.owner_user_id ?? null;
 
     let deliveryFees: Awaited<ReturnType<typeof computeDeliveryFees>> = null;
-    if (deliverySelected) {
-      if (!customerStateRaw || customerStateRaw.length !== 2) {
-        return NextResponse.json(
-          { error: "Delivery requires a valid delivery state (2-letter state code)" },
-          { status: 400, headers: { "Cache-Control": "no-store" } }
-        );
-      }
-      const deliveryAllowed = await isDeliveryAllowedInState(customerStateRaw);
-      if (!deliveryAllowed) {
-        return NextResponse.json(
-          { error: "Delivery is not available in your state due to local regulations." },
-          { status: 400, headers: { "Cache-Control": "no-store" } }
-        );
-      }
+    if (fulfillmentMethod === "delivery") {
       let distanceMiles: number | null = deliveryDistanceMiles;
       if (distanceMiles == null) {
         const allCoordsPresent =
@@ -219,14 +271,16 @@ export async function POST(req: NextRequest) {
       totalCents += Math.round(deliveryFees.deliveryFeeCustomer * 100);
     }
 
+    const isDelivery = fulfillmentMethod === "delivery";
     const orderPayload: Record<string, unknown> = {
       user_id: user.id,
       vendor_id: product.vendor_id,
       status: "pending",
       total_cents: totalCents,
       currency: "usd",
-      delivery_selected: deliverySelected,
-      delivery_status: deliverySelected ? "unassigned" : null,
+      delivery_selected: isDelivery,
+      fulfillment_method: fulfillmentMethod,
+      delivery_status: isDelivery ? "unassigned" : null,
     };
     if (deliveryFees) {
       orderPayload.delivery_distance_miles = deliveryFees.distanceMiles;
@@ -248,6 +302,27 @@ export async function POST(req: NextRequest) {
         { error: "Failed to create order" },
         { status: 500, headers: { "Cache-Control": "no-store" } }
       );
+    }
+
+    // Notify vendor (admin client; order_notifications has no anon insert policy)
+    const vendorId = product.vendor_id;
+    if (vendorId) {
+      const notifyMsg =
+        fulfillmentMethod === "delivery"
+          ? "New Delivery Order"
+          : fulfillmentMethod === "shipping"
+            ? "New Shipping Order"
+            : "New Pickup Order";
+      try {
+        const admin = getSupabaseAdminClient();
+        await admin.from("order_notifications").insert({
+          vendor_id: vendorId,
+          order_id: order.id,
+          message: notifyMsg,
+        });
+      } catch (notifyErr) {
+        console.warn("[checkout/create-session] vendor notification insert failed", notifyErr);
+      }
     }
 
     // Create order item (item_type, item_id, vendor_user_id, line_total_cents)

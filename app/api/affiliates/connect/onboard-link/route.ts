@@ -26,8 +26,8 @@ export async function POST(req: NextRequest) {
 
     if (!affiliate?.stripe_account_id) {
       return NextResponse.json(
-        { error: "No Connect account. Call create-account first." },
-        { status: 400 }
+        { error: "No Connect account. Call create-account first.", code: "NO_CONNECT_ACCOUNT" },
+        { status: 400, headers: { "Cache-Control": "no-store" } }
       );
     }
 
@@ -38,16 +38,26 @@ export async function POST(req: NextRequest) {
       return_url: `${siteUrl}/affiliate/portal?success=1`,
       type: "account_onboarding",
     });
+    if (!accountLink.url) {
+      const ref = `ref-${Date.now()}`;
+      console.warn("[affiliates/connect/onboard-link] no url in accountLink", { ref });
+      return NextResponse.json(
+        { error: "Unable to get Stripe onboarding link. Please try again or contact support.", code: "ONBOARD_LINK_FAILED", ref },
+        { status: 500, headers: { "Cache-Control": "no-store" } }
+      );
+    }
 
     return NextResponse.json({
       ok: true,
       url: accountLink.url,
-    });
+    }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
+    const ref = `ref-${Date.now()}`;
     const msg = e instanceof Error ? e.message : String(e);
+    console.warn("[affiliates/connect/onboard-link] error", { ref, message: msg.slice(0, 200) });
     return NextResponse.json(
-      { error: "Failed to create onboarding link" },
-      { status: 500 }
+      { error: "Failed to create onboarding link. Please try again or contact support.", code: "ONBOARD_LINK_FAILED", ref },
+      { status: 500, headers: { "Cache-Control": "no-store" } }
     );
   }
 }

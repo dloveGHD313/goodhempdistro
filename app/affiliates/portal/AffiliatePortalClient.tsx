@@ -128,23 +128,25 @@ export default function AffiliatePortalClient({ affiliateCode }: Props) {
     setConnecting(true);
     setError(null);
     try {
-      let res = await fetch("/api/affiliates/connect/create-account", { method: "POST" });
-      const createData = await res.json();
+      let res = await fetch("/api/affiliates/connect/create-account", { method: "POST", cache: "no-store" });
+      const createData = (await res.json()) as { error?: string; ref?: string };
       if (!res.ok) {
-        setError(createData?.error || "Failed to create account");
+        const ref = createData?.ref ? ` Reference: ${createData.ref}` : "";
+        setError((createData?.error || "Failed to create account") + ref);
         setConnecting(false);
         return;
       }
-      res = await fetch("/api/affiliates/connect/onboard-link", { method: "POST" });
-      const linkData = await res.json();
+      res = await fetch("/api/affiliates/connect/onboard-link", { method: "POST", cache: "no-store" });
+      const linkData = (await res.json()) as { url?: string; error?: string; ref?: string };
       if (!res.ok || !linkData?.url) {
-        setError(linkData?.error || "Failed to get link");
+        const ref = linkData?.ref ? ` Reference: ${linkData.ref}` : "";
+        setError((linkData?.error || "Failed to get link") + ref);
         setConnecting(false);
         return;
       }
       window.location.href = linkData.url;
     } catch {
-      setError("Something went wrong");
+      setError("Something went wrong. Please try again or contact support.");
       setConnecting(false);
     }
   };

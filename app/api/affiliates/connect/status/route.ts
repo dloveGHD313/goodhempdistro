@@ -44,10 +44,12 @@ export async function GET(req: NextRequest) {
       payouts_enabled: payoutsEnabled,
     });
   } catch (e) {
+    const ref = `ref-${Date.now()}`;
     const msg = e instanceof Error ? e.message : String(e);
+    console.warn("[affiliates/connect/status] error", { ref, message: msg.slice(0, 200) });
     return NextResponse.json(
-      { error: "Failed to get Connect status" },
-      { status: 500 }
+      { error: "Failed to get Connect status.", code: "CONNECT_STATUS_FAILED", ref },
+      { status: 500, headers: { "Cache-Control": "no-store" } }
     );
   }
 }
