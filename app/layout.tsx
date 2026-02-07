@@ -9,7 +9,7 @@ import AgeGateClient from "@/components/AgeGateClient";
 import RecoveryHashRedirect from "@/components/RecoveryHashRedirect";
 import { logMascotFlagMismatch } from "@/lib/mascotFlags";
 import JaxFloatingScaffold from "@/components/mascot/JaxFloatingScaffold";
-import PersistWelcomeProfile from "@/components/PersistWelcomeProfile";
+import PersistWelcomeIntents from "@/components/PersistWelcomeIntents";
 import { MarketModeProvider } from "@/lib/marketMode";
 
 // Validate environment variables at startup (logs warnings, doesn't throw)
@@ -91,7 +91,7 @@ export default function RootLayout({
             </div>
           </header>
           {children}
-          <PersistWelcomeProfile />
+          <PersistWelcomeIntents />
           {mascotEnabled ? <JaxFloatingScaffold /> : null}
           <AgeGateClient />
           <RecoveryHashRedirect />

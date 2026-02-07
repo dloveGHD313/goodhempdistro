@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { unstable_noStore as noStore } from "next/cache";
+import Footer from "@/components/Footer";
+import OnboardingShellClient from "./OnboardingShellClient";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -12,7 +14,7 @@ export default async function OnboardingIndexPage() {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect(`/login?redirect=${encodeURIComponent("/onboarding/consumer")}`);
+    redirect(`/signup?redirect=${encodeURIComponent("/onboarding")}`);
   }
 
   const { data: vendor } = await supabase
@@ -21,5 +23,16 @@ export default async function OnboardingIndexPage() {
     .eq("owner_user_id", user.id)
     .maybeSingle();
 
-  redirect(vendor ? "/onboarding/vendor" : "/onboarding/consumer");
+  const hasVendor = !!vendor?.id;
+
+  return (
+    <div className="min-h-screen text-white flex flex-col">
+      <main className="flex-1">
+        <section className="section-shell">
+          <OnboardingShellClient hasVendor={hasVendor} />
+        </section>
+      </main>
+      <Footer />
+    </div>
+  );
 }

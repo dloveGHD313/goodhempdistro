@@ -2,28 +2,26 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import {
-  getWelcomeProfile,
-  clearWelcomeProfile,
-} from "@/lib/phase0-storage";
-import { getWelcomeDestination } from "@/lib/welcome-destination";
+import { getWelcomeProfile, clearWelcomeProfile } from "@/lib/phase0-storage";
 import useAuthUser from "@/components/engagement/useAuthUser";
 
 const isDev = typeof process !== "undefined" && process.env.NODE_ENV !== "production";
 
 /**
- * On first authenticated load, persists WelcomeProfile from localStorage to DB,
- * clears localStorage, and redirects to destination based on intents.
- * Runs once per session when conditions are met.
+ * On first authenticated load after signup/login, persists WelcomeProfile from
+ * localStorage to profiles.welcome_intents, clears localStorage, routes to /onboarding.
+ * Does not run on /welcome; uses ref guard to avoid re-runs.
  */
-export default function PersistWelcomeProfile() {
+export default function PersistWelcomeIntents() {
   const router = useRouter();
+  const pathname = usePathname();
   const { userId, loading: authLoading } = useAuthUser();
   const didRunRef = useRef(false);
 
   useEffect(() => {
     if (authLoading || !userId) return;
     if (didRunRef.current) return;
+    if (pathname?.startsWith("/welcome")) return;
     if (typeof window === "undefined") return;
 
     const profile = getWelcomeProfile();
@@ -44,14 +42,13 @@ export default function PersistWelcomeProfile() {
 
         if (data.ok) {
           clearWelcomeProfile();
-          const dest = getWelcomeDestination(intents);
-          if (isDev) console.debug("[PersistWelcomeProfile] persisted, redirecting to", dest);
-          router.replace(dest);
+          if (isDev) console.debug("[PersistWelcomeIntents] persisted, redirecting to /onboarding");
+          router.replace("/onboarding");
         } else if (isDev) {
-          console.debug("[PersistWelcomeProfile] persist failed", res.status, data);
+          console.debug("[PersistWelcomeIntents] persist failed", res.status, data);
         }
       } catch (err) {
-        if (isDev) console.debug("[PersistWelcomeProfile] error", err);
+        if (isDev) console.debug("[PersistWelcomeIntents] error", err);
         didRunRef.current = false;
       }
     })();
