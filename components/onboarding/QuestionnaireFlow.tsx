@@ -10,19 +10,27 @@ import type { OnboardingRole } from "@/lib/onboarding/role";
 import QuestionnaireCard from "./QuestionnaireCard";
 import ProgressIndicator from "./ProgressIndicator";
 
+export type OnboardingStepStatus = "idle" | "submitting" | "error" | "success";
+
 type Props = {
   role: OnboardingRole;
   reducedMotion?: boolean;
+  onStepStatusChange?: (stepIndex: number, totalSteps: number, status: OnboardingStepStatus) => void;
 };
 
 const SUCCESS_DELAY_MS = 550;
 
-export default function QuestionnaireFlow({ role, reducedMotion: reducedMotionProp }: Props) {
+export default function QuestionnaireFlow({
+  role,
+  reducedMotion: reducedMotionProp,
+  onStepStatusChange,
+}: Props) {
   const router = useRouter();
   const systemReduced = useReducedMotion();
   const reducedMotion = reducedMotionProp ?? systemReduced ?? false;
 
   const questions = getQuestionsForRole(role);
+  const totalSteps = questions.length;
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -30,12 +38,27 @@ export default function QuestionnaireFlow({ role, reducedMotion: reducedMotionPr
   const [success, setSuccess] = useState(false);
   const [direction, setDirection] = useState(0);
   const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onStepStatusChangeRef = useRef<Props["onStepStatusChange"]>(onStepStatusChange);
+  useEffect(() => {
+    onStepStatusChangeRef.current = onStepStatusChange;
+  }, [onStepStatusChange]);
+
+  const emit = useCallback(
+    (status: OnboardingStepStatus) => {
+      onStepStatusChangeRef.current?.(step, totalSteps, status);
+    },
+    [step, totalSteps]
+  );
 
   useEffect(() => {
     return () => {
       if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    emit("idle");
+  }, [step, totalSteps, emit]);
 
   const currentQuestion = questions[step];
   const selected = currentQuestion ? answers[currentQuestion.id] ?? null : null;
@@ -59,6 +82,7 @@ export default function QuestionnaireFlow({ role, reducedMotion: reducedMotionPr
     const driver_mode =
       role === "driver" && answers["driver_mode"] ? answers["driver_mode"] : undefined;
 
+    emit("submitting");
     setSubmitting(true);
     setError(null);
 
@@ -80,15 +104,19 @@ export default function QuestionnaireFlow({ role, reducedMotion: reducedMotionPr
       if (res.ok && data.ok) {
         logEvent("onboarding_submit_success", { role, stepCount: questions.length });
         setSuccess(true);
+        emit("success");
         const dest = getDestinationForRole(role, driver_mode);
-        setTimeout(() => {
+        if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
+        navTimeoutRef.current = setTimeout(() => {
           router.replace(dest);
         }, SUCCESS_DELAY_MS);
       } else {
+        emit("error");
+        const fallback = "We couldn't save your answers. Please try again.";
         const errMsg =
-          typeof data?.error === "string"
+          typeof data?.error === "string" && data.error.trim().length > 0
             ? data.error
-            : "We couldn't save your answers. Please try again.";
+            : fallback;
         setError(errMsg);
         logEvent("onboarding_submit_failure", {
           route: "/api/onboarding/submit",
@@ -102,6 +130,7 @@ export default function QuestionnaireFlow({ role, reducedMotion: reducedMotionPr
         });
       }
     } catch (err) {
+      emit("error");
       const errMsg = "We couldn't save your answers. Please try again.";
       if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
       setError(errMsg);
@@ -113,7 +142,7 @@ export default function QuestionnaireFlow({ role, reducedMotion: reducedMotionPr
     } finally {
       setSubmitting(false);
     }
-  }, [submitting, role, answers, questions.length, router]);
+  }, [submitting, role, answers, questions.length, router, emit]);
 
   const handleNext = useCallback(() => {
     if (!canProceed || submitting) return;
