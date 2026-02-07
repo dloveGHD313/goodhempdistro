@@ -24,18 +24,23 @@ export async function POST(req: NextRequest) {
     ? body.intents.filter((x): x is string => typeof x === "string")
     : [];
 
+  const now = new Date().toISOString();
+
   const { error } = await supabase
     .from("profiles")
-    .update({
-      welcome_intents: intents,
-      welcome_intents_updated_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", user.id);
+    .upsert(
+      {
+        id: user.id,
+        welcome_intents: intents,
+        welcome_intents_updated_at: now,
+        updated_at: now,
+      },
+      { onConflict: "id" }
+    );
 
   if (error) {
     return NextResponse.json(
-      { ok: false, code: "PERSIST_FAILED", message: error.message },
+      { ok: false, error: error.message },
       { status: 500 }
     );
   }
