@@ -10,9 +10,12 @@ import type { OnboardingRole } from "@/lib/onboarding/role";
 import QuestionnaireCard from "./QuestionnaireCard";
 import ProgressIndicator from "./ProgressIndicator";
 
+export type OnboardingStepStatus = "idle" | "submitting" | "error" | "success";
+
 type Props = {
   role: OnboardingRole;
   reducedMotion?: boolean;
+  onStepStatusChange?: (stepIndex: number, totalSteps: number, status: OnboardingStepStatus) => void;
 };
 
 const SUCCESS_DELAY_MS = 550;
@@ -81,14 +84,16 @@ export default function QuestionnaireFlow({ role, reducedMotion: reducedMotionPr
         logEvent("onboarding_submit_success", { role, stepCount: questions.length });
         setSuccess(true);
         const dest = getDestinationForRole(role, driver_mode);
-        setTimeout(() => {
+        if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
+        navTimeoutRef.current = setTimeout(() => {
           router.replace(dest);
         }, SUCCESS_DELAY_MS);
       } else {
+        const fallback = "We couldn't save your answers. Please try again.";
         const errMsg =
-          typeof data?.error === "string"
+          typeof data?.error === "string" && data.error.trim().length > 0
             ? data.error
-            : "We couldn't save your answers. Please try again.";
+            : fallback;
         setError(errMsg);
         logEvent("onboarding_submit_failure", {
           route: "/api/onboarding/submit",
