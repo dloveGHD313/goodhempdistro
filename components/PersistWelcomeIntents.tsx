@@ -17,9 +17,23 @@ export default function PersistWelcomeIntents() {
   const pathname = usePathname();
   const { userId, loading: authLoading } = useAuthUser();
   const didRunRef = useRef(false);
+  const lastUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (authLoading || !userId) return;
+    if (authLoading) return;
+
+    // Reset guard when user logs out OR user changes
+    if (!userId) {
+      didRunRef.current = false;
+      lastUserIdRef.current = null;
+      return;
+    }
+
+    if (lastUserIdRef.current !== userId) {
+      didRunRef.current = false;
+      lastUserIdRef.current = userId;
+    }
+
     if (didRunRef.current) return;
     if (pathname?.startsWith("/welcome")) return;
     if (typeof window === "undefined") return;
@@ -27,7 +41,6 @@ export default function PersistWelcomeIntents() {
     const profile = getWelcomeProfile();
     if (!profile?.intents?.length) return;
 
-    didRunRef.current = true;
     const intents = profile.intents;
 
     (async () => {
@@ -42,6 +55,7 @@ export default function PersistWelcomeIntents() {
 
         if (data.ok) {
           clearWelcomeProfile();
+          didRunRef.current = true;
           if (isDev) console.debug("[PersistWelcomeIntents] persisted, redirecting to /onboarding");
           router.replace("/onboarding");
         } else if (isDev) {
