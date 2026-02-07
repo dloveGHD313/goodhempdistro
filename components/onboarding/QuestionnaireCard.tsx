@@ -92,7 +92,7 @@ export default function QuestionnaireCard({
               onClick={() => !disabled && onSelect(opt.value)}
               disabled={disabled}
               whileHover={!disabled && !reducedMotion ? { scale: 1.02 } : undefined}
-              whileTap={!disabled ? { scale: 0.98 } : undefined}
+              whileTap={!disabled && !reducedMotion ? { scale: 0.98 } : undefined}
               className={`relative rounded-xl border-2 px-4 py-3 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--brand-lime)] focus:ring-offset-2 focus:ring-offset-[var(--bg)] ${
                 disabled ? "cursor-not-allowed opacity-80" : "cursor-pointer"
               } ${

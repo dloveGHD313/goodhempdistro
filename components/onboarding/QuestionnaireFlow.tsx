@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { getQuestionsForRole } from "@/lib/onboarding/questions";
@@ -29,6 +29,13 @@ export default function QuestionnaireFlow({ role, reducedMotion: reducedMotionPr
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [direction, setDirection] = useState(0);
+  const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
+    };
+  }, []);
 
   const currentQuestion = questions[step];
   const selected = currentQuestion ? answers[currentQuestion.id] ?? null : null;
@@ -46,6 +53,8 @@ export default function QuestionnaireFlow({ role, reducedMotion: reducedMotionPr
 
   const handleSubmit = useCallback(async () => {
     if (submitting) return;
+    if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
+    navTimeoutRef.current = null;
 
     const driver_mode =
       role === "driver" && answers["driver_mode"] ? answers["driver_mode"] : undefined;
@@ -94,6 +103,7 @@ export default function QuestionnaireFlow({ role, reducedMotion: reducedMotionPr
       }
     } catch (err) {
       const errMsg = "We couldn't save your answers. Please try again.";
+      if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
       setError(errMsg);
       logEvent("onboarding_submit_failure", {
         route: "/api/onboarding/submit",
