@@ -19,21 +19,22 @@ export default function JaxWelcomeHero({ selectedCount }: Props) {
       : "Nice. I'll tailor your experience around that.";
 
   return (
-    <div
-      className="mb-10 motion-heavy animate-fade-in opacity-0"
+    <section
+      className="mx-auto w-full max-w-md flex flex-col items-center justify-center gap-3 flex-shrink-0 mb-8 motion-heavy animate-fade-in opacity-0"
+      aria-label="JAX mascot greeting"
       style={{ animationDelay: "0s" }}
     >
       <div
-        className="animate-scale-in opacity-0 flex flex-col items-center"
+        className="animate-scale-in opacity-0 flex flex-col items-center w-full"
         style={{ animationDelay: "0.1s" }}
       >
-        <div className="w-28 h-28 md:w-36 md:h-36 relative mb-4" aria-hidden="true">
+        <div className="relative w-[140px] sm:w-[160px] md:w-[180px] h-[140px] sm:h-[160px] md:h-[180px] flex-shrink-0 mb-4" aria-hidden="true">
           <Image
             src={asset.idleSrc}
             alt=""
-            width={144}
-            height={144}
-            className="object-contain"
+            width={180}
+            height={180}
+            className="object-contain w-full h-full"
             priority
           />
         </div>
@@ -41,6 +42,6 @@ export default function JaxWelcomeHero({ selectedCount }: Props) {
           {dialogue}
         </p>
       </div>
-    </div>
+    </section>
   );
 }

@@ -60,6 +60,7 @@ export default function WelcomeClient() {
     setWelcomeProfile({ intents: next });
   };
 
+  const mascotEnabled = process.env.NEXT_PUBLIC_MASCOT_ENABLED === "true";
   const hasSelection = selectedIntents.length >= 1;
   const canContinue = hasSelection && !authLoading;
 
@@ -78,11 +79,15 @@ export default function WelcomeClient() {
   }
 
   return (
-    <div className="max-w-2xl w-full mx-auto">
-      <JaxWelcomeHero selectedCount={selectedIntents.length} />
+    <div className="max-w-2xl w-full mx-auto flex flex-col">
+      {mascotEnabled && (
+        <section aria-label="JAX mascot greeting" className="flex-shrink-0">
+          <JaxWelcomeHero selectedCount={selectedIntents.length} />
+        </section>
+      )}
 
       <div
-        className="animate-fade-in opacity-0"
+        className={`animate-fade-in opacity-0 flex-shrink-0 ${mascotEnabled ? "mt-6" : ""}`}
         style={{ animationDelay: "0.2s" }}
       >
         <div className="flex justify-center mb-6">
