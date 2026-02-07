@@ -7,6 +7,7 @@ import { brand, colorVars } from "@/lib/brand";
 import Nav from "@/components/Nav";
 import AgeGateClient from "@/components/AgeGateClient";
 import RecoveryHashRedirect from "@/components/RecoveryHashRedirect";
+import MascotGate from "@/components/mascot/MascotGate";
 import PersistWelcomeIntents from "@/components/PersistWelcomeIntents";
 import Phase15Gate from "@/components/Phase15Gate";
 import { MarketModeProvider } from "@/lib/marketMode";
@@ -90,6 +91,7 @@ export default function RootLayout({
           {children}
           <PersistWelcomeIntents />
           <Phase15Gate />
+          <MascotGate />
           <AgeGateClient />
           <RecoveryHashRedirect />
         </MarketModeProvider>
