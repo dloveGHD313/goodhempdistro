@@ -99,23 +99,13 @@ export function getDelta8WarningText(): string {
 }
 
 /**
- * Validate product compliance rules
+ * Validate product compliance rules.
+ * Phase 2: COA never blocks product create/update; upload is optional and isolated per product.
  */
 export function validateProductCompliance(payload: ProductCompliancePayload): ComplianceErrors[] {
   const errors: ComplianceErrors[] = [];
 
-  // COA URL is required only if category requires it
-  if (payload.category_requires_coa === true) {
-    const hasCoaUrl = !!payload.coa_url && payload.coa_url.trim().length > 0;
-    const hasCoaObjectPath =
-      !!payload.coa_object_path && payload.coa_object_path.trim().length > 0;
-    if (!hasCoaUrl && !hasCoaObjectPath) {
-      errors.push({
-        field: "coa_url",
-        message: "COA is required for this product category",
-      });
-    }
-  }
+  // COA is optional: do not add an error when category_requires_coa and no COA (hard rule: never block creation)
 
   // Recreational (intoxicating) products are only allowed until cutoff date
   if (payload.product_type === "intoxicating" && !isIntoxicatingAllowedNow()) {
