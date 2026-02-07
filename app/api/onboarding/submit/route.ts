@@ -44,23 +44,51 @@ export async function POST(req: NextRequest) {
 
   const now = new Date().toISOString();
 
-  const { error } = await supabase
+  const { data: existingProfile, error: profileReadError } = await supabase
     .from("profiles")
-    .upsert(
-      {
-        id: user.id,
+    .select("id, market_mode_preference")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileReadError) {
+    return NextResponse.json(
+      { ok: false, error: profileReadError.message },
+      { status: 500 }
+    );
+  }
+
+  if (existingProfile?.id) {
+    const { error } = await supabase
+      .from("profiles")
+      .update({
         onboarding_answers: payload,
         onboarding_completed_at: now,
         updated_at: now,
-      },
-      { onConflict: "id" }
-    );
+      })
+      .eq("id", user.id);
 
-  if (error) {
-    return NextResponse.json(
-      { ok: false, error: error.message },
-      { status: 500 }
-    );
+    if (error) {
+      return NextResponse.json(
+        { ok: false, error: error.message },
+        { status: 500 }
+      );
+    }
+  } else {
+    const { error } = await supabase.from("profiles").insert({
+      id: user.id,
+      role: "consumer",
+      onboarding_answers: payload,
+      onboarding_completed_at: now,
+      updated_at: now,
+      market_mode_preference: "CBD_WELLNESS",
+    });
+
+    if (error) {
+      return NextResponse.json(
+        { ok: false, error: error.message },
+        { status: 500 }
+      );
+    }
   }
 
   return NextResponse.json({ ok: true, role });
