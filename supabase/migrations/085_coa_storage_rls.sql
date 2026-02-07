@@ -23,7 +23,7 @@ CREATE POLICY "COAs: vendor insert isolated path" ON storage.objects
     bucket_id = 'coas'
     AND (storage.foldername(name))[1] = 'vendors'
     AND (storage.foldername(name))[2] = auth.uid()::text
-    AND array_length(storage.foldername(name)) >= 5
+    AND cardinality(storage.foldername(name)) >= 5
     AND (storage.foldername(name))[3] = 'products'
     AND (storage.foldername(name))[5] = 'coa'
   );
