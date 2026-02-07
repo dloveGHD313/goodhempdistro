@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { requireVendorActive } from "@/lib/server/vendorStatusGate";
 
 /**
  * Create event with ticket types
@@ -32,6 +33,11 @@ export async function POST(req: NextRequest) {
           : { requestId, error: "Unauthorized" },
         { status: 401 }
       );
+    }
+
+    const vendorStatusResult = await requireVendorActive(user.id, user.email);
+    if (!vendorStatusResult.allowed) {
+      return NextResponse.json(vendorStatusResult.json, { status: vendorStatusResult.status });
     }
 
     // Verify vendor

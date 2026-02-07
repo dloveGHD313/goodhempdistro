@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { requireVendorActive } from "@/lib/server/vendorStatusGate";
 import { stripe, getSiteUrl } from "@/lib/stripe";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 
@@ -47,6 +48,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Unauthorized", requestId },
         { status: 401, headers: requestIdHeaders(requestId) }
+      );
+    }
+    const vendorStatusResult = await requireVendorActive(user.id, user.email);
+    if (!vendorStatusResult.allowed) {
+      return NextResponse.json(
+        { ...vendorStatusResult.json, requestId },
+        { status: vendorStatusResult.status, headers: requestIdHeaders(requestId) }
       );
     }
     userId = user.id;

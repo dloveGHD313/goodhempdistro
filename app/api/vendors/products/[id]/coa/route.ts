@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { requireAdminUsers } from "@/lib/auth/requireAdminUsers";
+import { requireVendorActive } from "@/lib/server/vendorStatusGate";
 import { isAdminEmail } from "@/lib/admin";
 
 const COA_BUCKET = "coas";
@@ -26,6 +27,11 @@ export async function POST(
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const vendorStatusResult = await requireVendorActive(user.id, user.email);
+    if (!vendorStatusResult.allowed) {
+      return NextResponse.json(vendorStatusResult.json, { status: vendorStatusResult.status });
     }
 
     const { isAdmin: isAdminByTable } = await requireAdminUsers(req);

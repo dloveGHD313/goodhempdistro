@@ -126,14 +126,8 @@ export default function VendorForm() {
         return;
       }
 
-      // Show pending message - force refresh to clear cache
-      if (data.application?.status === "pending") {
-        // Use window.location for hard refresh to bypass Next.js cache
-        window.location.href = "/vendor-registration?status=pending";
-      } else {
-        // If somehow approved immediately, go to dashboard
-        window.location.href = "/vendors/dashboard";
-      }
+      // Redirect to activate: choose a plan to get vendor_status=active (Stripe webhook only)
+      window.location.href = "/vendors/activate";
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "An unexpected error occurred";
       setError(errorMessage);

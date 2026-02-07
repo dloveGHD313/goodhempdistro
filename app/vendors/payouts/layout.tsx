@@ -2,23 +2,19 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { requireVendorOnboarding } from "@/lib/server/onboardingGate";
 
-export default async function VendorsBillingLayout({
+export default async function VendorsPayoutsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const supabase = await createSupabaseServerClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  const user = session?.user;
-
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    redirect("/login?redirect=/vendors/billing");
+    redirect("/login?redirect=/vendors/payouts");
   }
-
   const result = await requireVendorOnboarding(user.id);
   if ("redirectTo" in result) {
     redirect(result.redirectTo);
   }
-
   return <>{children}</>;
 }

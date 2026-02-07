@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { requireVendorActive } from "@/lib/server/vendorStatusGate";
 
 /**
  * GET /api/vendors/referrals/code — get or create referral code for current vendor.
@@ -12,6 +13,10 @@ export async function GET() {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const vendorStatusResult = await requireVendorActive(user.id, user.email);
+  if (!vendorStatusResult.allowed) {
+    return NextResponse.json(vendorStatusResult.json, { status: vendorStatusResult.status });
   }
 
   const { data: vendor } = await supabase

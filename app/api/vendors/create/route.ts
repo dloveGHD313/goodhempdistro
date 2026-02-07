@@ -456,6 +456,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // SSOT: Set profiles.vendor_status = "pending" when vendor applies (active only via Stripe webhook)
+    await supabase
+      .from("profiles")
+      .update({ vendor_status: "pending", updated_at: new Date().toISOString() })
+      .eq("id", user.id);
+
     // Revalidate relevant paths for immediate UI update
     const { revalidatePath } = await import("next/cache");
     revalidatePath("/vendor-registration");
