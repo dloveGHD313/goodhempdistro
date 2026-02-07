@@ -126,19 +126,23 @@ export default function QuestionnaireFlow({ role, reducedMotion: reducedMotionPr
   if (success) {
     return (
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
+        initial={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95 }}
+        animate={reducedMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
         transition={{ duration: reducedMotion ? 0.1 : 0.4, ease: [0.22, 1, 0.36, 1] }}
         className="max-w-2xl mx-auto surface-card p-12 text-center"
       >
-        <motion.div
-          initial={reducedMotion ? false : { scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ delay: 0.1, type: "spring", stiffness: 200, damping: 15 }}
-          className="text-5xl mb-4"
-        >
-          ✓
-        </motion.div>
+        {reducedMotion ? (
+          <span className="text-5xl mb-4 block">✓</span>
+        ) : (
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.1, type: "spring", stiffness: 200, damping: 15 }}
+            className="text-5xl mb-4"
+          >
+            ✓
+          </motion.div>
+        )}
         <h2 className="text-2xl font-bold text-accent mb-2">All set!</h2>
         <p className="text-muted">Taking you to your next step…</p>
         <div className="mt-6 flex justify-center">
@@ -168,7 +172,6 @@ export default function QuestionnaireFlow({ role, reducedMotion: reducedMotionPr
           selected={selected}
           onSelect={handleSelect}
           stepIndex={step}
-          totalSteps={questions.length}
           disabled={submitting}
           error={error}
           reducedMotion={reducedMotion}
