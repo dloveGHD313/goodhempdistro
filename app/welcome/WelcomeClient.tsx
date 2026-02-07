@@ -38,7 +38,12 @@ const INTENT_DESCRIPTIONS: Record<WelcomeIntentOption, string> = {
   industrial: "Construction, materials, large-scale",
 };
 
-export default function WelcomeClient() {
+type WelcomeClientProps = {
+  /** When provided (from server), mascot shows only when both NEXT_PUBLIC_MASCOT_ENABLED and MASCOT_AI_ENABLED are true */
+  mascotEnabled?: boolean;
+};
+
+export default function WelcomeClient({ mascotEnabled: serverMascotEnabled }: WelcomeClientProps = {}) {
   const router = useRouter();
   const { userId, loading: authLoading } = useAuthUser();
   const [selectedIntents, setSelectedIntents] = useState<string[]>([]);
@@ -60,7 +65,10 @@ export default function WelcomeClient() {
     setWelcomeProfile({ intents: next });
   };
 
-  const mascotEnabled = process.env.NEXT_PUBLIC_MASCOT_ENABLED === "true";
+  const mascotEnabled =
+    typeof serverMascotEnabled === "boolean"
+      ? serverMascotEnabled
+      : process.env.NEXT_PUBLIC_MASCOT_ENABLED === "true";
   const hasSelection = selectedIntents.length >= 1;
   const canContinue = hasSelection && !authLoading;
 
