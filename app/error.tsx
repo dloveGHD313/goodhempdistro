@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 
 type Props = {
@@ -9,6 +10,15 @@ type Props = {
 
 export default function RootError({ error, reset }: Props) {
   const pathname = usePathname();
+
+  useEffect(() => {
+    console.error("[RootError] client-side exception", {
+      message: error.message,
+      digest: error.digest,
+      pathname,
+      stack: error.stack,
+    });
+  }, [error, pathname]);
 
   return (
     <div className="min-h-screen text-white flex flex-col">

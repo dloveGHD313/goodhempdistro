@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { useSafeReducedMotion } from "@/lib/useSafeReducedMotion";
 import { getQuestionsForRole } from "@/lib/onboarding/questions";
 import { getDestinationForRole } from "@/lib/onboarding/destination";
 import { logEvent } from "@/lib/telemetry/client";
@@ -26,7 +27,7 @@ export default function QuestionnaireFlow({
   onStepStatusChange,
 }: Props) {
   const router = useRouter();
-  const systemReduced = useReducedMotion();
+  const systemReduced = useSafeReducedMotion();
   const reducedMotion = reducedMotionProp ?? systemReduced ?? false;
 
   const questions = getQuestionsForRole(role);

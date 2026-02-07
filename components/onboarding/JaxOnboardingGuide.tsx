@@ -48,10 +48,10 @@ export default function JaxOnboardingGuide({
 
   return (
     <>
-      {/* Decorative watermark behind card — never blocks clicks */}
+      {/* Decorative watermark behind content — z-0, never blocks clicks */}
       {showWatermark && (
         <div
-          className="absolute inset-0 flex items-center justify-center pointer-events-none select-none"
+          className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none select-none"
           aria-hidden
         >
           <img
@@ -62,13 +62,13 @@ export default function JaxOnboardingGuide({
         </div>
       )}
 
-      {/* Integrated guide: Jax + speech bubble at top of content area */}
+      {/* Guide: fixed to viewport so it does not bounce with questionnaire animation */}
       <motion.div
         initial={reducedMotion ? { opacity: 0 } : { opacity: 0, x: isRight ? 12 : -12 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: reducedMotion ? 0.15 : 0.3, ease: [0.22, 1, 0.36, 1] }}
-        className={`absolute top-0 z-10 flex max-w-[min(280px,calc(100vw-2rem))] ${
-          isRight ? "right-0 flex-row-reverse" : "left-0"
+        className={`fixed top-4 z-50 flex max-w-[min(280px,calc(100vw-2rem))] ${
+          isRight ? "right-4 flex-row-reverse" : "left-4"
         }`}
         role="complementary"
         aria-live="polite"
