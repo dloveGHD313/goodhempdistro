@@ -78,8 +78,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const themeVars = colorVars as CSSProperties;
-  const { clientEnabled, serverEnabled } = logMascotFlagMismatch("layout");
-  const mascotEnabled = clientEnabled && serverEnabled;
+  logMascotFlagMismatch("layout");
 
   return (
     <html lang="en" style={themeVars}>
@@ -94,7 +93,7 @@ export default function RootLayout({
           {children}
           <PersistWelcomeIntents />
           <Phase15Gate />
-          {mascotEnabled ? <JaxFloatingScaffold /> : null}
+          <JaxFloatingScaffold />
           <AgeGateClient />
           <RecoveryHashRedirect />
         </MarketModeProvider>
