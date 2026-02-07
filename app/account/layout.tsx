@@ -1,25 +1,21 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { requirePhase15Complete } from "@/lib/server/phase15Gate";
-import { requireConsumerOnboarding } from "@/lib/server/onboardingGate";
 
-export default async function VendorsLayout({
+export default async function AccountLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const supabase = await createSupabaseServerClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  const user = session?.user;
+  const { data: { user } } = await supabase.auth.getUser();
+
   if (!user) {
-    redirect("/login?redirect=/vendors/dashboard");
+    redirect("/login?redirect=/account");
   }
+
   const phase15Redirect = await requirePhase15Complete(user.id);
   if (phase15Redirect) redirect(phase15Redirect);
-  const result = await requireConsumerOnboarding(user.id);
-  if ("redirectTo" in result) {
-    redirect(result.redirectTo);
-  }
 
   return <>{children}</>;
 }
