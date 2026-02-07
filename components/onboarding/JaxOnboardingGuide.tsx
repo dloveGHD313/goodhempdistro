@@ -4,11 +4,16 @@ import { motion } from "framer-motion";
 
 type Status = "idle" | "submitting" | "error" | "success";
 
+export const JAX_GUIDE_POSITION = "top-left" as const;
+export type JaxGuidePosition = "top-left" | "top-right";
+
 type Props = {
   stepIndex: number;
   totalSteps: number;
   status: Status;
   reducedMotion?: boolean;
+  position?: JaxGuidePosition;
+  showWatermark?: boolean;
 };
 
 const STEP_MESSAGES: Record<number, string> = {
@@ -27,36 +32,65 @@ function getMessage(stepIndex: number, totalSteps: number, status: Status): stri
 }
 
 /**
- * Phase 2.1: Jax guidance panel on onboarding. Step-aware copy; respects reduced motion.
+ * Phase 2.1: Jax guidance integrated near onboarding header. Step-aware copy; respects reduced motion.
+ * Position: top-left (default) or top-right within relative parent. Optional blended watermark behind card.
  */
 export default function JaxOnboardingGuide({
   stepIndex,
   totalSteps,
   status,
   reducedMotion,
+  position = JAX_GUIDE_POSITION,
+  showWatermark = true,
 }: Props) {
   const message = getMessage(stepIndex, totalSteps, status);
+  const isRight = position === "top-right";
 
   return (
-    <motion.div
-      initial={reducedMotion ? { opacity: 0 } : { opacity: 0, x: 16 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: reducedMotion ? 0.15 : 0.3, ease: [0.22, 1, 0.36, 1] }}
-      className="fixed bottom-24 right-6 z-10 max-w-[280px] rounded-xl border border-[var(--border)] bg-[var(--surface)]/95 p-4 shadow-lg backdrop-blur-sm sm:bottom-6"
-      role="complementary"
-      aria-live="polite"
-      aria-label="Jax guidance"
-    >
-      <div className="flex gap-3">
+    <>
+      {/* Decorative watermark behind content — z-0, never blocks clicks */}
+      {showWatermark && (
+        <div
+          className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none select-none"
+          aria-hidden
+        >
+          <img
+            src="/mascot/jax/idle.png"
+            alt=""
+            className="w-[320px] md:w-[420px] max-w-[85vw] opacity-[0.08] object-contain"
+          />
+        </div>
+      )}
+
+      {/* Guide: fixed to viewport so it does not bounce with questionnaire animation */}
+      <motion.div
+        initial={reducedMotion ? { opacity: 0 } : { opacity: 0, x: isRight ? 12 : -12 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: reducedMotion ? 0.15 : 0.3, ease: [0.22, 1, 0.36, 1] }}
+        className={`fixed top-4 z-50 flex max-w-[min(280px,calc(100vw-2rem))] ${
+          isRight ? "right-4 flex-row-reverse" : "left-4"
+        }`}
+        role="complementary"
+        aria-live="polite"
+        aria-label="Onboarding guidance"
+      >
         <img
           src="/mascot/jax/idle.png"
           alt=""
-          width={48}
-          height={48}
-          className="h-12 w-12 shrink-0 rounded-lg object-contain"
+          width={40}
+          height={40}
+          className="h-10 w-10 shrink-0 rounded-lg object-contain md:h-12 md:w-12"
         />
-        <p className="text-sm text-[var(--muted)] leading-snug">{message}</p>
-      </div>
-    </motion.div>
+        <div
+          className={`rounded-xl border border-[var(--border)] bg-[var(--surface)]/95 px-3 py-2 shadow-md backdrop-blur-sm ${
+            isRight ? "mr-2 md:mr-3" : "ml-2 md:ml-3"
+          }`}
+        >
+          <p className="text-xs leading-snug text-[var(--muted)] line-clamp-2 md:text-sm md:line-clamp-none">
+            {message}
+          </p>
+        </div>
+      </motion.div>
+    </>
   );
 }
