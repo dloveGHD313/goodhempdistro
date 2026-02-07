@@ -38,9 +38,17 @@ export default function QuestionnaireFlow({
   const [success, setSuccess] = useState(false);
   const [direction, setDirection] = useState(0);
   const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onStepStatusChangeRef = useRef<Props["onStepStatusChange"]>(onStepStatusChange);
+  useEffect(() => {
+    onStepStatusChangeRef.current = onStepStatusChange;
+  }, [onStepStatusChange]);
 
-  const emit = (status: OnboardingStepStatus) =>
-    onStepStatusChange?.(step, totalSteps, status);
+  const emit = useCallback(
+    (status: OnboardingStepStatus) => {
+      onStepStatusChangeRef.current?.(step, totalSteps, status);
+    },
+    [step, totalSteps]
+  );
 
   useEffect(() => {
     return () => {
@@ -49,8 +57,8 @@ export default function QuestionnaireFlow({
   }, []);
 
   useEffect(() => {
-    onStepStatusChange?.(step, totalSteps, "idle");
-  }, [step, totalSteps, onStepStatusChange]);
+    emit("idle");
+  }, [step, totalSteps, emit]);
 
   const currentQuestion = questions[step];
   const selected = currentQuestion ? answers[currentQuestion.id] ?? null : null;
@@ -74,6 +82,7 @@ export default function QuestionnaireFlow({
     const driver_mode =
       role === "driver" && answers["driver_mode"] ? answers["driver_mode"] : undefined;
 
+    emit("submitting");
     setSubmitting(true);
     setError(null);
 
@@ -102,6 +111,7 @@ export default function QuestionnaireFlow({
           router.replace(dest);
         }, SUCCESS_DELAY_MS);
       } else {
+        emit("error");
         const fallback = "We couldn't save your answers. Please try again.";
         const errMsg =
           typeof data?.error === "string" && data.error.trim().length > 0
@@ -132,7 +142,7 @@ export default function QuestionnaireFlow({
     } finally {
       setSubmitting(false);
     }
-  }, [submitting, role, answers, questions.length, router]);
+  }, [submitting, role, answers, questions.length, router, emit]);
 
   const handleNext = useCallback(() => {
     if (!canProceed || submitting) return;

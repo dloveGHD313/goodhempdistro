@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import type { OnboardingRole } from "@/lib/onboarding/role";
+import type { OnboardingStepStatus } from "./QuestionnaireFlow";
 import QuestionnaireFlow from "./QuestionnaireFlow";
 import JaxOnboardingGuide from "./JaxOnboardingGuide";
 
@@ -20,8 +21,23 @@ function OnboardingShellWithMotion({ role }: Props) {
   const [stepStatus, setStepStatus] = useState({
     stepIndex: 0,
     totalSteps: 3,
-    status: "idle" as "idle" | "submitting" | "error" | "success",
+    status: "idle" as OnboardingStepStatus,
   });
+
+  const handleStepStatusChange = useCallback(
+    (stepIndex: number, totalSteps: number, status: OnboardingStepStatus) => {
+      setStepStatus((prev) => {
+        if (
+          prev.stepIndex === stepIndex &&
+          prev.totalSteps === totalSteps &&
+          prev.status === status
+        )
+          return prev;
+        return { stepIndex, totalSteps, status };
+      });
+    },
+    []
+  );
 
   return (
     <motion.div
@@ -40,9 +56,7 @@ function OnboardingShellWithMotion({ role }: Props) {
         <QuestionnaireFlow
           role={role}
           reducedMotion={reducedMotion}
-          onStepStatusChange={(stepIndex, totalSteps, status) =>
-            setStepStatus({ stepIndex, totalSteps, status })
-          }
+          onStepStatusChange={handleStepStatusChange}
         />
       </div>
       <JaxOnboardingGuide
