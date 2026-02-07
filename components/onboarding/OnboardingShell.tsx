@@ -44,9 +44,17 @@ function OnboardingShellWithMotion({ role }: Props) {
       initial={reducedMotion ? undefined : { opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: reducedMotion ? 0.1 : 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="space-y-6"
+      className="relative space-y-6"
     >
-      <div>
+      <JaxOnboardingGuide
+        stepIndex={stepStatus.stepIndex}
+        totalSteps={stepStatus.totalSteps}
+        status={stepStatus.status}
+        reducedMotion={reducedMotion}
+        position="top-left"
+        showWatermark
+      />
+      <div className="pt-20 md:pt-24">
         <h1 className="text-2xl md:text-3xl font-bold text-accent mb-2 text-center max-w-2xl mx-auto">
           Let&apos;s tailor your experience
         </h1>
@@ -59,12 +67,6 @@ function OnboardingShellWithMotion({ role }: Props) {
           onStepStatusChange={handleStepStatusChange}
         />
       </div>
-      <JaxOnboardingGuide
-        stepIndex={stepStatus.stepIndex}
-        totalSteps={stepStatus.totalSteps}
-        status={stepStatus.status}
-        reducedMotion={reducedMotion}
-      />
     </motion.div>
   );
 }
