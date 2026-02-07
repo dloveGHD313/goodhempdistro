@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 import { requirePhase15Complete } from "@/lib/server/phase15Gate";
 import { requireConsumerOnboarding } from "@/lib/server/onboardingGate";
 
+/** Dashboard safety net: redirect to /onboarding if profile missing or onboarding incomplete (no hook-order impact; server-only). */
 export default async function DashboardLayout({
   children,
 }: {
