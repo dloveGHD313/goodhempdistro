@@ -12,7 +12,14 @@ export default function ProgressIndicator({ current, total, reducedMotion }: Pro
   const progress = total > 0 ? (current / total) * 100 : 0;
 
   return (
-    <div className="max-w-2xl mx-auto mb-6" role="progressbar" aria-valuenow={current + 1} aria-valuemin={1} aria-valuemax={total} aria-label={`Question ${current + 1} of ${total}`}>
+    <div
+      className="max-w-2xl mx-auto mb-6"
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(progress)}
+      aria-valuetext={`Question ${current + 1} of ${total}`}
+    >
       <div className="flex items-center gap-2 text-sm text-muted mb-2">
         <span>Question {current + 1} of {total}</span>
       </div>

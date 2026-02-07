@@ -44,24 +44,6 @@ export default function QuestionnaireFlow({ role, reducedMotion: reducedMotionPr
     [currentQuestion, submitting]
   );
 
-  const handleNext = useCallback(() => {
-    if (!canProceed || submitting) return;
-    setError(null);
-    if (isLast) {
-      handleSubmit();
-    } else {
-      setDirection(1);
-      setStep((s) => s + 1);
-    }
-  }, [canProceed, submitting, isLast]);
-
-  const handleBack = useCallback(() => {
-    if (step === 0 || submitting) return;
-    setError(null);
-    setDirection(-1);
-    setStep((s) => s - 1);
-  }, [step, submitting]);
-
   const handleSubmit = useCallback(async () => {
     if (submitting) return;
 
@@ -122,6 +104,24 @@ export default function QuestionnaireFlow({ role, reducedMotion: reducedMotionPr
       setSubmitting(false);
     }
   }, [submitting, role, answers, questions.length, router]);
+
+  const handleNext = useCallback(() => {
+    if (!canProceed || submitting) return;
+    setError(null);
+    if (isLast) {
+      handleSubmit();
+    } else {
+      setDirection(1);
+      setStep((s) => s + 1);
+    }
+  }, [canProceed, submitting, isLast, handleSubmit]);
+
+  const handleBack = useCallback(() => {
+    if (step === 0 || submitting) return;
+    setError(null);
+    setDirection(-1);
+    setStep((s) => s - 1);
+  }, [step, submitting]);
 
   if (success) {
     return (

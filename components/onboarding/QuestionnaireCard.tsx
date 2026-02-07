@@ -57,8 +57,8 @@ export default function QuestionnaireCard({
 
         {error && (
           <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
+            animate={reducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
             className="mb-4 p-4 rounded-lg bg-red-500/15 border border-red-500/40 text-red-300 text-sm"
             role="alert"
           >
