@@ -36,7 +36,9 @@ export default function LoginForm() {
 
       if (data.user) {
         setMessage("Login successful! Redirecting...");
-        router.push("/dashboard");
+        const res = await fetch("/api/auth/post-login-route", { credentials: "include" });
+        const { redirectTo } = (await res.json()) as { redirectTo: "/onboarding" | "/dashboard" };
+        router.push(redirectTo);
         router.refresh();
       }
     } catch (err) {

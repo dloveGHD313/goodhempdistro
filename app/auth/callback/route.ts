@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { getPostLoginRoute, type PostLoginProfile } from "@/lib/routing/postLoginRoute";
 
 /**
  * Handle Supabase auth callback
@@ -9,7 +10,6 @@ import { cookies } from "next/headers";
 export async function GET(req: NextRequest) {
   const requestUrl = new URL(req.url);
   const code = requestUrl.searchParams.get("code");
-  const next = requestUrl.searchParams.get("next") || "/reset-password";
 
   if (code) {
     // Exchange code for session server-side
@@ -61,8 +61,24 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // For other flows, use next param or default to dashboard
-    const redirectPath = next || "/dashboard";
+    // For other flows (e.g. email confirm): use post-login routing rule (first-time -> /onboarding)
+    const { data: { user } } = await supabase.auth.getUser();
+    let profile: PostLoginProfile = null;
+    if (user?.id) {
+      const { data: row } = await supabase
+        .from("profiles")
+        .select("role, onboarding_completed_at, consumer_onboarding_completed")
+        .eq("id", user.id)
+        .maybeSingle();
+      profile = row
+        ? {
+            role: row.role ?? null,
+            onboarding_completed_at: row.onboarding_completed_at ?? null,
+            consumer_onboarding_completed: row.consumer_onboarding_completed ?? null,
+          }
+        : null;
+    }
+    const redirectPath = getPostLoginRoute(profile);
     const redirectUrl = new URL(redirectPath, requestUrl.origin);
     return NextResponse.redirect(redirectUrl);
   }
