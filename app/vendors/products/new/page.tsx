@@ -7,7 +7,6 @@ import Footer from "@/components/Footer";
 import { getCategoriesClient, organizeCategoriesHierarchically, type Category } from "@/lib/categories";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { getDelta8WarningText, getIntoxicatingCutoffDate, isIntoxicatingAllowedNow, requiresCOA } from "@/lib/compliance";
-import UploadField from "@/components/UploadField";
 
 export default function NewProductPage() {
   const router = useRouter();
@@ -113,15 +112,7 @@ export default function NewProductPage() {
       return;
     }
 
-    // Phase 2: Block submit when COA required and missing (vendors only; admin bypass)
-    if (!isAdmin && categoryRequiresCoa) {
-      const hasCoa = (useManualUrl && coaUrl.trim().length > 0) || (!useManualUrl && (coaObjectPath?.trim() ?? "").length > 0);
-      if (!hasCoa) {
-        setError("COA is required for this product category. Please add a full panel Certificate of Analysis.");
-        setLoading(false);
-        return;
-      }
-    }
+    // Phase 2: COA never blocks creation; optional. Vendor can add COA later on product edit.
 
     try {
       if (productType === "intoxicating" && !isIntoxicatingAllowedNow()) {
@@ -272,8 +263,8 @@ export default function NewProductPage() {
                     ))}
                   </select>
                   {categoryRequiresCoa && (
-                    <p className="text-yellow-400 text-sm mt-1">
-                      ⚠️ COA is required before approval for this category
+                    <p className="text-muted text-sm mt-1">
+                      You can add a COA after creating the product (optional).
                     </p>
                   )}
                 </div>
@@ -348,7 +339,7 @@ export default function NewProductPage() {
                         className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
                         placeholder="https://example.com/coa.pdf"
                       />
-                      <p className="text-sm text-muted mt-1">Full panel COA required before approval</p>
+                      <p className="text-sm text-muted mt-1">Optional. Full panel COA can be added later.</p>
                     </div>
                   ) : (
                     subscriptionChecked && !subscriptionActive && !isAdmin ? (
@@ -356,15 +347,10 @@ export default function NewProductPage() {
                         Uploads are disabled until an active vendor plan is applied.
                       </div>
                     ) : (
-                    <UploadField
-                      bucket="coas"
-                      folderPrefix={draftProductId}
-                      label="COA Document (Full Panel Required)"
-                      required={categoryRequiresCoa && !isAdmin}
-                      existingUrl={null}
-                      onUploaded={(path) => setCoaObjectPath(path)}
-                      helperText="Upload a PDF or image of your full panel COA (max 50MB)"
-                    />
+                    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-lg p-4 text-sm text-muted">
+                      <p className="font-medium text-white/90">COA (optional)</p>
+                      <p className="mt-1">Skip for now. You can upload a COA from the product edit page after creating the product.</p>
+                    </div>
                     )
                   )}
                 </div>

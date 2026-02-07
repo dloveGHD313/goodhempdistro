@@ -36,13 +36,12 @@ describe("requiresCOA", () => {
 });
 
 describe("validateProductCompliance COA enforcement", () => {
-  it("returns COA error when category_requires_coa is true and no COA provided", () => {
+  it("never returns COA error (Phase 2: COA does not block product create/update)", () => {
     const errors = validateProductCompliance({
       product_type: "non_intoxicating",
       category_requires_coa: true,
     });
-    expect(errors.length).toBeGreaterThan(0);
-    expect(errors.some((e) => e.field === "coa_url" && e.message.includes("COA"))).toBe(true);
+    expect(errors.filter((e) => e.field === "coa_url").length).toBe(0);
   });
 
   it("returns no COA error when category_requires_coa is false (e.g. apparel)", () => {
