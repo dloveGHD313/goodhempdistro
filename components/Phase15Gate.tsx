@@ -22,15 +22,26 @@ export default function Phase15Gate() {
   const pathname = usePathname();
   const { userId, loading: authLoading } = useAuthUser();
   const didCheckRef = useRef(false);
+  const lastUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (authLoading || !userId) return;
+    if (authLoading) return;
+
+    if (!userId) {
+      didCheckRef.current = false;
+      lastUserIdRef.current = null;
+      return;
+    }
+
+    if (lastUserIdRef.current !== userId) {
+      didCheckRef.current = false;
+      lastUserIdRef.current = userId;
+    }
+
     if (didCheckRef.current) return;
 
     const excluded = EXCLUDED_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
     if (excluded) return;
-
-    didCheckRef.current = true;
 
     fetch("/api/onboarding/status", { credentials: "include" })
       .then((r) => r.json())
@@ -38,6 +49,7 @@ export default function Phase15Gate() {
         if (!data.completed) {
           router.replace("/onboarding");
         }
+        didCheckRef.current = true;
       })
       .catch(() => {
         didCheckRef.current = false;
