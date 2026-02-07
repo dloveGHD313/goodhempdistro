@@ -7,8 +7,7 @@ import { brand, colorVars } from "@/lib/brand";
 import Nav from "@/components/Nav";
 import AgeGateClient from "@/components/AgeGateClient";
 import RecoveryHashRedirect from "@/components/RecoveryHashRedirect";
-import { logMascotFlagMismatch } from "@/lib/mascotFlags";
-import JaxFloatingScaffold from "@/components/mascot/JaxFloatingScaffold";
+import MascotGate from "@/components/mascot/MascotGate";
 import PersistWelcomeIntents from "@/components/PersistWelcomeIntents";
 import Phase15Gate from "@/components/Phase15Gate";
 import { MarketModeProvider } from "@/lib/marketMode";
@@ -78,8 +77,6 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const themeVars = colorVars as CSSProperties;
-  const { clientEnabled, serverEnabled } = logMascotFlagMismatch("layout");
-  const mascotEnabled = clientEnabled && serverEnabled;
 
   return (
     <html lang="en" style={themeVars}>
@@ -94,7 +91,7 @@ export default function RootLayout({
           {children}
           <PersistWelcomeIntents />
           <Phase15Gate />
-          {mascotEnabled ? <JaxFloatingScaffold /> : null}
+          <MascotGate />
           <AgeGateClient />
           <RecoveryHashRedirect />
         </MarketModeProvider>
