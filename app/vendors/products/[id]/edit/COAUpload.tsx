@@ -32,6 +32,11 @@ export default function COAUpload({
   const [signedViewUrl, setSignedViewUrl] = useState<string | null>(null);
   const [viewStatus, setViewStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  /** Path we already have a signed URL for; skip effect-driven refresh when prop matches (avoids flicker after upload) */
+  const signedUrlPathRef = useRef<string | null>(null);
+
+  const normalizePath = (p: string | null | undefined) =>
+    (p?.trim().replace(/^coas\//, "") ?? "") || null;
 
   const refreshSignedViewUrl = async () => {
     if (!existingStoragePath || !existingStoragePath.trim()) {
@@ -53,6 +58,7 @@ export default function COAUpload({
       if (data?.signedUrl) {
         setSignedViewUrl(data.signedUrl);
         setViewStatus("ready");
+        signedUrlPathRef.current = normalizePath(existingStoragePath);
       } else {
         setViewStatus("error");
       }
@@ -63,8 +69,13 @@ export default function COAUpload({
 
   useEffect(() => {
     if (!existingStoragePath || !existingStoragePath.trim()) {
+      signedUrlPathRef.current = null;
       setViewStatus("idle");
       setSignedViewUrl(null);
+      return;
+    }
+    const path = normalizePath(existingStoragePath);
+    if (path && path === signedUrlPathRef.current) {
       return;
     }
     refreshSignedViewUrl();
@@ -126,6 +137,7 @@ export default function COAUpload({
         .createSignedUrl(path, SIGNED_URL_TTL_SEC);
       setSignedViewUrl(signed?.signedUrl ?? null);
       setViewStatus(signed?.signedUrl ? "ready" : "error");
+      signedUrlPathRef.current = normalizePath(storagePath);
       onUploaded(storagePath);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -136,6 +148,7 @@ export default function COAUpload({
   };
 
   const handleRemove = () => {
+    signedUrlPathRef.current = null;
     setSignedViewUrl(null);
     setViewStatus("idle");
     onUploaded("");
