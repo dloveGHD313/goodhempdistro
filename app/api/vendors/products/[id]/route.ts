@@ -210,6 +210,15 @@ export async function PUT(
         }
         return withoutPrefix;
       }
+      // COA upload endpoint uses vendors/{uid}/products/{pid}/coa/...
+      const vendorsMatch = /^vendors\/([^/]+)\/products\/([^/]+)\/coa\//.exec(trimmed);
+      if (vendorsMatch) {
+        const [, pathUid, pathPid] = vendorsMatch;
+        if (pathPid !== id) return null;
+        if (pathUid === user.id) return trimmed;
+        if (isAdmin) return trimmed;
+        return null;
+      }
       if (trimmed.startsWith(`${id}/`)) {
         return trimmed;
       }

@@ -554,6 +554,15 @@ export async function POST(req: NextRequest) {
         }
         return withoutPrefix;
       }
+      // COA upload endpoint uses vendors/{uid}/products/{pid}/coa/...
+      const vendorsMatch = /^vendors\/([^/]+)\/products\/([^/]+)\/coa\//.exec(trimmed);
+      if (vendorsMatch && productId) {
+        const [, pathUid, pathPid] = vendorsMatch;
+        if (pathPid !== productId) return null;
+        if (pathUid === user.id) return trimmed;
+        if (isAdmin) return trimmed;
+        return null;
+      }
       if (productId && trimmed.startsWith(`${productId}/`)) {
         return trimmed;
       }
