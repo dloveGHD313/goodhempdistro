@@ -6,7 +6,8 @@ import Link from "next/link";
 import Footer from "@/components/Footer";
 import type { Category } from "@/lib/categories";
 import { getDelta8WarningText, getIntoxicatingCutoffDate, isIntoxicatingAllowedNow, requiresCOA } from "@/lib/compliance";
-import UploadField from "@/components/UploadField";
+import COAUpload from "./COAUpload";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 type Product = {
   id: string;
@@ -135,15 +136,7 @@ export default function EditProductForm({ productId, initialProduct, initialCate
       return;
     }
 
-    // Phase 2: Block submit when COA required and missing (vendors only; admin bypass)
-    if (!isAdmin && categoryRequiresCoa) {
-      const hasCoa = (useManualUrl && (coaUrl?.trim() ?? "").length > 0) || (!useManualUrl && (coaObjectPath?.trim() ?? "").length > 0);
-      if (!hasCoa) {
-        setError("COA is required for this product category. Please add a full panel Certificate of Analysis.");
-        setSaving(false);
-        return;
-      }
-    }
+    // Backend enforces COA when category requires it (admin bypass).
 
     try {
       const response = await fetch(`/api/vendors/products/${productId}`, {
@@ -327,11 +320,6 @@ export default function EditProductForm({ productId, initialProduct, initialCate
                   )}
                 </div>
 
-                {categoryRequiresCoa && !isAdmin && (
-                  <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-4 text-yellow-300 text-sm">
-                    ⚠️ COA is required before approval for this category
-                  </div>
-                )}
                 <div>
                   <label className="flex items-center gap-2 mb-2">
                     <input
@@ -362,24 +350,24 @@ export default function EditProductForm({ productId, initialProduct, initialCate
                         className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
                         placeholder="https://example.com/coa.pdf"
                       />
-                      <p className="text-sm text-muted mt-1">Full panel COA required before approval</p>
+                      <p className="text-sm text-muted mt-1">
+                        {categoryRequiresCoa && !isAdmin ? "Full panel COA required before approval." : "Optional for admin."}
+                      </p>
+                    </div>
+                  ) : subscriptionChecked && !subscriptionActive && !isAdmin ? (
+                    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-lg p-4 text-sm text-muted">
+                      Uploads are disabled until an active vendor plan is applied.
                     </div>
                   ) : (
-                    subscriptionChecked && !subscriptionActive && !isAdmin ? (
-                      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-lg p-4 text-sm text-muted">
-                        Uploads are disabled until an active vendor plan is applied.
-                      </div>
-                    ) : (
-                    <UploadField
-                      bucket="coas"
-                      folderPrefix={productId}
-                      label="COA Document (Full Panel Required)"
+                    <COAUpload
+                      productId={productId}
+                      label={categoryRequiresCoa && !isAdmin ? "Upload COA (required)" : "Upload COA (optional)"}
                       required={categoryRequiresCoa && !isAdmin}
                       existingUrl={coaObjectUrl}
                       onUploaded={(path) => setCoaObjectPath(path)}
-                      helperText="Upload a PDF or image of your full panel COA (max 50MB)"
+                      helperText="Upload a PDF or image of your full panel COA (max 50MB). Uses product_documents."
+                      disabled={subscriptionChecked && !subscriptionActive && !isAdmin}
                     />
-                    )
                   )}
                 </div>
 

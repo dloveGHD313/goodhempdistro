@@ -4,6 +4,7 @@ import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { validateProductCompliance, requiresCOA } from "@/lib/compliance";
 import { isAdminEmail } from "@/lib/admin";
 import { requireAdminUsers } from "@/lib/auth/requireAdminUsers";
+import { requireVendorActive } from "@/lib/server/vendorStatusGate";
 import { getProductLimitStatus, getVendorEntitlements, getVendorPlanByPriceId } from "@/lib/pricing";
 
 /**
@@ -56,6 +57,11 @@ export async function POST(req: NextRequest) {
           : { requestId, error: "Unauthorized" },
         { status: 401 }
       );
+    }
+
+    const vendorStatusResult = await requireVendorActive(user.id, user.email);
+    if (!vendorStatusResult.allowed) {
+      return NextResponse.json(vendorStatusResult.json, { status: vendorStatusResult.status });
     }
 
     // Get vendor for this user with error handling

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { requireVendorActive } from "@/lib/server/vendorStatusGate";
 
 /**
  * POST /api/vendors/referrals/payouts/request — create payout request (status requested).
@@ -12,6 +13,10 @@ export async function POST(req: NextRequest) {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const vendorStatusResult = await requireVendorActive(user.id, user.email);
+  if (!vendorStatusResult.allowed) {
+    return NextResponse.json(vendorStatusResult.json, { status: vendorStatusResult.status });
   }
 
   let body: { amount_cents?: number };

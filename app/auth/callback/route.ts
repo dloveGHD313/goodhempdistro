@@ -53,6 +53,31 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
+    // Success - ensure profile exists (idempotent; handle_new_user trigger may have raced or failed)
+    const user = data.session?.user;
+    if (user?.id) {
+      try {
+        const { getSupabaseAdminClient } = await import("@/lib/supabaseAdmin");
+        const admin = getSupabaseAdminClient();
+        await admin
+          .from("profiles")
+          .upsert(
+            {
+              id: user.id,
+              email: user.email ?? null,
+              role: "consumer",
+              display_name: user.user_metadata?.display_name ?? user.email ?? null,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: "id", ignoreDuplicates: true }
+          );
+      } catch (profileErr) {
+        if (process.env.NODE_ENV !== "production") {
+          console.debug("[auth/callback] profile upsert:", profileErr);
+        }
+      }
+    }
+
     // Success - determine redirect based on type
     const type = requestUrl.searchParams.get("type");
     if (type === "recovery") {

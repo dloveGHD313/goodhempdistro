@@ -4,6 +4,7 @@ import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { validateProductCompliance, requiresCOA } from "@/lib/compliance";
 import { isAdminEmail } from "@/lib/admin";
 import { requireAdminUsers } from "@/lib/auth/requireAdminUsers";
+import { requireVendorActive } from "@/lib/server/vendorStatusGate";
 import { writeAdminActionLog } from "@/lib/adminActionLog";
 
 /** Full select for product edit + admin detail (status, review fields) */
@@ -45,6 +46,11 @@ export async function GET(
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized", code: "SESSION_MISSING" }, { status: 401 });
+    }
+
+    const vendorStatusResult = await requireVendorActive(user.id, user.email);
+    if (!vendorStatusResult.allowed) {
+      return NextResponse.json(vendorStatusResult.json, { status: vendorStatusResult.status });
     }
 
     const { isAdmin: isAdminByTable } = await requireAdminUsers(req);
@@ -141,6 +147,10 @@ export async function PUT(
         { error: "Unauthorized", code: "SESSION_MISSING" },
         { status: 401 }
       );
+    }
+    const vendorStatusResult = await requireVendorActive(user.id, user.email);
+    if (!vendorStatusResult.allowed) {
+      return NextResponse.json(vendorStatusResult.json, { status: vendorStatusResult.status });
     }
     const { isAdmin: isAdminByTable } = await requireAdminUsers(req);
     const isAdmin = isAdminByTable || isAdminEmail(user.email);
@@ -344,7 +354,10 @@ export async function DELETE(
         { status: 401 }
       );
     }
-
+    const vendorStatusResult = await requireVendorActive(user.id, user.email);
+    if (!vendorStatusResult.allowed) {
+      return NextResponse.json(vendorStatusResult.json, { status: vendorStatusResult.status });
+    }
     const { isAdmin: isAdminByTable } = await requireAdminUsers(req);
     const isAdmin = isAdminByTable || isAdminEmail(user.email);
 
