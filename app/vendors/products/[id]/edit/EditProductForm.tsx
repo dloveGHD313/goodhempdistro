@@ -363,7 +363,7 @@ export default function EditProductForm({ productId, initialProduct, initialCate
                       productId={productId}
                       label={categoryRequiresCoa && !isAdmin ? "Upload COA (required)" : "Upload COA (optional)"}
                       required={categoryRequiresCoa && !isAdmin}
-                      existingUrl={coaObjectUrl}
+                      existingStoragePath={storageCoaPath}
                       onUploaded={(path) => setCoaObjectPath(path)}
                       helperText="Upload a PDF or image of your full panel COA (max 50MB). Uses product_documents."
                       disabled={subscriptionChecked && !subscriptionActive && !isAdmin}

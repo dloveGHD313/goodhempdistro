@@ -1,15 +1,18 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 const ACCEPT = ".pdf,.png,.jpg,.jpeg,.webp";
 const MAX_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
+const SIGNED_URL_TTL_SEC = 3600; // 1 hour for private bucket
 
 type COAUploadProps = {
   productId: string;
   label: string;
   required?: boolean;
-  existingUrl?: string | null;
+  /** Storage path (e.g. vendors/uid/products/id/coa/file.pdf) for signed URL; no public URL for private bucket */
+  existingStoragePath?: string | null;
   onUploaded: (storagePath: string) => void;
   helperText?: string;
   disabled?: boolean;
@@ -19,15 +22,42 @@ export default function COAUpload({
   productId,
   label,
   required = false,
-  existingUrl,
+  existingStoragePath,
   onUploaded,
   helperText,
   disabled = false,
 }: COAUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [uploadedUrl, setUploadedUrl] = useState<string | null>(existingUrl || null);
+  const [signedViewUrl, setSignedViewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Private bucket: fetch signed URL for existing COA so vendor/admin can view
+  useEffect(() => {
+    if (!existingStoragePath || !existingStoragePath.trim()) {
+      setSignedViewUrl(null);
+      return;
+    }
+    const path = existingStoragePath.trim().replace(/^coas\//, "");
+    let cancelled = false;
+    createSupabaseBrowserClient()
+      .storage.from("coas")
+      .createSignedUrl(path, SIGNED_URL_TTL_SEC)
+      .then(({ data, error: err }) => {
+        if (cancelled) return;
+        if (err) {
+          setSignedViewUrl(null);
+          return;
+        }
+        setSignedViewUrl(data?.signedUrl ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setSignedViewUrl(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [existingStoragePath]);
 
   const validateFile = (file: File): string | null => {
     const validTypes = ["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp"];
@@ -79,11 +109,11 @@ export default function COAUpload({
         return;
       }
 
-      const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const displayUrl = baseUrl
-        ? `${baseUrl}/storage/v1/object/public/coas/${storagePath.replace(/^coas\//, "")}`
-        : null;
-      setUploadedUrl(displayUrl);
+      const path = storagePath.replace(/^coas\//, "");
+      const { data: signed } = await createSupabaseBrowserClient()
+        .storage.from("coas")
+        .createSignedUrl(path, SIGNED_URL_TTL_SEC);
+      setSignedViewUrl(signed?.signedUrl ?? null);
       onUploaded(storagePath);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -94,7 +124,7 @@ export default function COAUpload({
   };
 
   const handleRemove = () => {
-    setUploadedUrl(null);
+    setSignedViewUrl(null);
     onUploaded("");
     setError(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -106,16 +136,20 @@ export default function COAUpload({
         {label} {required && <span className="text-red-400">*</span>}
       </label>
 
-      {uploadedUrl ? (
+      {signedViewUrl || existingStoragePath ? (
         <div className="space-y-2">
-          <a
-            href={uploadedUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-accent hover:underline text-sm block"
-          >
-            ✓ COA uploaded — View file →
-          </a>
+          {signedViewUrl ? (
+            <a
+              href={signedViewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent hover:underline text-sm block"
+            >
+              ✓ COA uploaded — View file →
+            </a>
+          ) : (
+            <span className="text-sm text-muted">✓ COA on file — loading view link…</span>
+          )}
           <button
             type="button"
             onClick={handleRemove}
