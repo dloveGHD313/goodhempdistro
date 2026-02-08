@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { requiresCOA } from "@/lib/compliance";
+import { isAdminEmail } from "@/lib/admin";
 import { revalidatePath } from "next/cache";
 
 /**
@@ -55,10 +57,10 @@ export async function POST(
       productId: id,
     });
 
-    // Verify product exists and belongs to this vendor
+    // Verify product exists and belongs to this vendor (include category + COA for submit validation)
     const { data: product, error: productError } = await supabase
       .from("products")
-      .select("id, owner_user_id, status")
+      .select("id, owner_user_id, status, category_id, coa_url, coa_object_path")
       .eq("id", id)
       .eq("owner_user_id", user.id)
       .maybeSingle();
@@ -85,6 +87,42 @@ export async function POST(
     logStage("fetch_product", {
       status: product.status,
     });
+
+    // COA required for vendors before submit (admin bypass)
+    const isAdmin = isAdminEmail(user.email);
+    let effectiveRequiresCoa = !isAdmin;
+    if (effectiveRequiresCoa && product.category_id) {
+      const { data: category } = await supabase
+        .from("categories")
+        .select("id, name, slug, parent_id")
+        .eq("id", product.category_id)
+        .maybeSingle();
+      if (category) {
+        effectiveRequiresCoa = requiresCOA({ slug: category.slug, name: category.name });
+        if (category.parent_id && effectiveRequiresCoa) {
+          const { data: parent } = await supabase
+            .from("categories")
+            .select("slug, name")
+            .eq("id", category.parent_id)
+            .maybeSingle();
+          if (parent && !requiresCOA({ slug: parent.slug, name: parent.name })) {
+            effectiveRequiresCoa = false;
+          }
+        }
+      }
+    }
+    if (effectiveRequiresCoa) {
+      const hasCoaUrl = !!product.coa_url && String(product.coa_url).trim().length > 0;
+      const hasCoaPath = !!product.coa_object_path && String(product.coa_object_path).trim().length > 0;
+      if (!hasCoaUrl && !hasCoaPath) {
+        return NextResponse.json(
+          process.env.NODE_ENV === "production"
+            ? { error: "COA is required for this product category before submitting for review." }
+            : { error: "COA is required for this product category before submitting for review.", requestId },
+          { status: 400 }
+        );
+      }
+    }
 
     // Check if product is already submitted or approved
     if (product.status === 'pending_review') {

@@ -6,9 +6,7 @@ import Link from "next/link";
 import Footer from "@/components/Footer";
 import type { Category } from "@/lib/categories";
 import { getDelta8WarningText, getIntoxicatingCutoffDate, isIntoxicatingAllowedNow, requiresCOA } from "@/lib/compliance";
-import UploadField from "@/components/UploadField";
-import { createSupabaseBrowserClient } from "@/lib/supabase";
-
+import COAUpload from "./COAUpload";
 type Product = {
   id: string;
   name: string;
@@ -52,13 +50,6 @@ export default function EditProductForm({ productId, initialProduct, initialCate
   const [subscriptionActive, setSubscriptionActive] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [subscriptionChecked, setSubscriptionChecked] = useState(false);
-  const [ownerUserId, setOwnerUserId] = useState<string | null>(null);
-
-  useEffect(() => {
-    createSupabaseBrowserClient()
-      .auth.getUser()
-      .then(({ data: { user } }) => setOwnerUserId(user?.id ?? null));
-  }, []);
 
   const normalizedCoaPath = coaObjectPath
     ? coaObjectPath.trim().replace(/^\/+/, "")
@@ -364,20 +355,16 @@ export default function EditProductForm({ productId, initialProduct, initialCate
                       <div className="bg-[var(--surface)] border border-[var(--border)] rounded-lg p-4 text-sm text-muted">
                         Uploads are disabled until an active vendor plan is applied.
                       </div>
-                    ) : ownerUserId ? (
-                    <UploadField
-                      bucket="coas"
-                      folderPrefix={`vendors/${ownerUserId}/products/${productId}/coa`}
-                      label="Upload COA (optional)"
-                      required={false}
+                    ) : (
+                    <COAUpload
+                      productId={productId}
+                      label={categoryRequiresCoa && !isAdmin ? "Upload COA (required)" : "Upload COA (optional)"}
+                      required={categoryRequiresCoa && !isAdmin}
                       existingUrl={coaObjectUrl}
                       onUploaded={(path) => setCoaObjectPath(path)}
-                      helperText="Upload a PDF or image of your full panel COA (max 50MB). You can skip and add later."
+                      helperText="Upload a PDF or image of your full panel COA (max 50MB). Uses product_documents."
+                      disabled={subscriptionChecked && !subscriptionActive && !isAdmin}
                     />
-                    ) : (
-                      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-lg p-4 text-sm text-muted">
-                        Loading… You can upload a COA here once the page is ready.
-                      </div>
                     )
                   )}
                 </div>

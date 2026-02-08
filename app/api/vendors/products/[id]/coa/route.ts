@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { requireAdminUsers } from "@/lib/auth/requireAdminUsers";
 import { isAdminEmail } from "@/lib/admin";
 
@@ -68,15 +69,19 @@ export async function POST(
       return NextResponse.json({ error: "File size must be under 50MB" }, { status: 400 });
     }
 
-    const uid = user.id;
+    // SSOT: storagePath and owner_user_id MUST use product owner so vendor can read after admin upload
+    const productOwnerId = ownerId ?? user.id;
     const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
     const prefix =
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
         : `${Date.now()}`;
-    const storagePath = `vendors/${uid}/products/${productId}/coa/${prefix}-${safeName}`;
+    const storagePath = `vendors/${productOwnerId}/products/${productId}/coa/${prefix}-${safeName}`;
 
-    const { error: uploadError } = await supabase.storage
+    // Admin uploads to vendor path: use admin client to bypass RLS (path[2] must match auth.uid() for user client)
+    const adminClient = getSupabaseAdminClient();
+    const storageClient = isAdmin ? adminClient.storage : supabase.storage;
+    const { error: uploadError } = await storageClient
       .from(COA_BUCKET)
       .upload(storagePath, file, { upsert: false, cacheControl: "3600" });
 
@@ -90,7 +95,7 @@ export async function POST(
 
     const docPayload = {
       product_id: productId,
-      owner_user_id: uid,
+      owner_user_id: productOwnerId,
       type: "coa" as const,
       storage_bucket: COA_BUCKET,
       storage_path: storagePath,
@@ -100,7 +105,8 @@ export async function POST(
       status: "pending" as const,
     };
 
-    const { data: doc, error: insertError } = await supabase
+    const dbClient = isAdmin ? adminClient : supabase;
+    const { data: doc, error: insertError } = await dbClient
       .from("product_documents")
       .upsert(
         { ...docPayload, updated_at: new Date().toISOString() },
@@ -117,7 +123,7 @@ export async function POST(
       );
     }
 
-    await supabase
+    await dbClient
       .from("products")
       .update({
         coa_object_path: storagePath,
