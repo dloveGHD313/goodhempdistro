@@ -17,6 +17,7 @@ DROP POLICY IF EXISTS "COAs: vendor delete own" ON storage.objects;
 DROP POLICY IF EXISTS "COAs: vendor manage" ON storage.objects;
 
 -- INSERT: only into own vendor folder (vendors/{auth.uid()}/products/.../coa/...)
+-- cardinality(arr) returns element count; dimension 1 implicit for 1D array (avoids array_length dimension arg)
 CREATE POLICY "COAs: vendor insert isolated path" ON storage.objects
   FOR INSERT TO authenticated
   WITH CHECK (
