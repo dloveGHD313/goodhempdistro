@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { unstable_noStore as noStore } from "next/cache";
 import Footer from "@/components/Footer";
-import QuestionnaireFlow from "@/components/onboarding/QuestionnaireFlow";
+import OnboardingShell from "@/components/onboarding/OnboardingShell";
 import { computeRoleFromWelcomeIntents } from "@/lib/onboarding/role";
 import { getDestinationForRole } from "@/lib/onboarding/destination";
 
@@ -37,15 +37,7 @@ export default async function OnboardingIndexPage() {
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
         <section className="section-shell">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-accent mb-2 text-center max-w-2xl mx-auto">
-              Let&apos;s tailor your experience
-            </h1>
-            <p className="text-muted text-center mb-8">
-              Answer a few quick questions — no typing.
-            </p>
-            <QuestionnaireFlow role={role} />
-          </div>
+          <OnboardingShell role={role} />
         </section>
       </main>
       <Footer />

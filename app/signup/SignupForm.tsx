@@ -38,7 +38,7 @@ export default function SignupForm() {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 
@@ -56,8 +56,10 @@ export default function SignupForm() {
       if (data.user) {
         // Check if email confirmation is required
         if (data.session) {
-          // User is immediately logged in (email confirmation disabled)
-          router.push("/dashboard");
+          // User is immediately logged in (email confirmation disabled) -> use post-login routing rule
+          const res = await fetch("/api/auth/post-login-route", { credentials: "include" });
+          const { redirectTo } = (await res.json()) as { redirectTo: "/onboarding" | "/dashboard" };
+          router.push(redirectTo);
         } else {
           // Email confirmation required
           setMessage("Account created! Please check your email to verify your account before logging in.");

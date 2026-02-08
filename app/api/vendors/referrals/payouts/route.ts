@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { requireVendorActive } from "@/lib/server/vendorStatusGate";
 
 /**
  * GET /api/vendors/referrals/payouts — list payout requests for current vendor referrer.
@@ -11,6 +12,10 @@ export async function GET() {
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const vendorStatusResult = await requireVendorActive(user.id, user.email);
+  if (!vendorStatusResult.allowed) {
+    return NextResponse.json(vendorStatusResult.json, { status: vendorStatusResult.status });
   }
 
   const { data: vendor } = await supabase

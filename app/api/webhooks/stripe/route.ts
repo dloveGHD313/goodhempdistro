@@ -604,6 +604,12 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
           status: subscriptionStatus,
           subscriptionIdSuffix: subscriptionId?.slice(-8) ?? null,
         });
+        if (VENDOR_ACTIVE_SUBSCRIPTION_STATUSES.has(subscriptionStatus) && userId) {
+          await admin
+            .from("profiles")
+            .update({ vendor_status: "active", updated_at: new Date().toISOString() })
+            .eq("id", userId);
+        }
         if (process.env.NODE_ENV !== "production") {
           console.log(
             `[vendor-subscription] vendorId=${resolvedVendorId} status=${subscriptionStatus} source=checkout`
@@ -964,10 +970,24 @@ async function handleSubscriptionChange(
           .eq("id", userId)
           .maybeSingle();
         const canPromoteToVendor = profile?.role === "consumer" || profile?.role === "vendor_pending";
+        // SSOT: Always set vendor_status="active" when subscription is active (webhook-verified)
+        const { error: statusErr } = await admin
+          .from("profiles")
+          .update({ vendor_status: "active", updated_at: new Date().toISOString() })
+          .eq("id", userId);
+        if (statusErr) {
+          console.error("❌ [vendor-subscription] vendor_status update failed (webhook)", JSON.stringify({
+            eventId: subscription.id,
+            vendorIdSuffix: resolvedVendorId.slice(-8),
+            userId,
+            error: statusErr.message,
+          }));
+          throw statusErr;
+        }
         if (canPromoteToVendor) {
           const { error: roleErr } = await admin
             .from("profiles")
-            .update({ role: "vendor" })
+            .update({ role: "vendor", updated_at: new Date().toISOString() })
             .eq("id", userId);
           if (roleErr) {
             console.error("❌ [vendor-subscription] role upgrade failed (webhook)", JSON.stringify({

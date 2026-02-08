@@ -100,12 +100,22 @@ export function getDelta8WarningText(): string {
 
 /**
  * Validate product compliance rules.
- * Phase 2: COA never blocks product create/update; upload is optional and isolated per product.
+ * Phase 2: COA required when category_requires_coa (vendor-only; admin bypass at API layer).
  */
 export function validateProductCompliance(payload: ProductCompliancePayload): ComplianceErrors[] {
   const errors: ComplianceErrors[] = [];
 
-  // COA is optional: do not add an error when category_requires_coa and no COA (hard rule: never block creation)
+  // COA required when category requires it (admin bypass handled by effectiveRequiresCoa at API)
+  if (payload.category_requires_coa === true) {
+    const hasCoaUrl = !!payload.coa_url && payload.coa_url.trim().length > 0;
+    const hasCoaObjectPath = !!payload.coa_object_path && payload.coa_object_path.trim().length > 0;
+    if (!hasCoaUrl && !hasCoaObjectPath) {
+      errors.push({
+        field: "coa_url",
+        message: "COA is required for this product category. Please add a full panel Certificate of Analysis.",
+      });
+    }
+  }
 
   // Recreational (intoxicating) products are only allowed until cutoff date
   if (payload.product_type === "intoxicating" && !isIntoxicatingAllowedNow()) {

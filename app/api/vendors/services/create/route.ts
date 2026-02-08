@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { requireVendorActive } from "@/lib/server/vendorStatusGate";
 
 /**
  * Create a new service
@@ -20,6 +21,11 @@ export async function POST(req: NextRequest) {
         { error: "Unauthorized" },
         { status: 401 }
       );
+    }
+
+    const vendorStatusResult = await requireVendorActive(user.id, user.email);
+    if (!vendorStatusResult.allowed) {
+      return NextResponse.json(vendorStatusResult.json, { status: vendorStatusResult.status });
     }
 
     // Get vendor with auto-provisioning safety net (same as products)

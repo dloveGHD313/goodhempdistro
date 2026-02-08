@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
-import { getVendorAccessStatus } from "@/lib/vendor-access";
+import { requireVendorOnboarding } from "@/lib/server/onboardingGate";
 
 export default async function VendorsBillingLayout({
   children,
@@ -15,15 +15,9 @@ export default async function VendorsBillingLayout({
     redirect("/login?redirect=/vendors/billing");
   }
 
-  const access = await getVendorAccessStatus(user.id, user.email);
-  if (access.isAdmin) {
-    return <>{children}</>;
-  }
-  if (!access.isVendor) {
-    redirect("/vendor-registration");
-  }
-  if (!access.isSubscribed) {
-    redirect("/pricing?tab=vendor&reason=subscription_required");
+  const result = await requireVendorOnboarding(user.id);
+  if ("redirectTo" in result) {
+    redirect(result.redirectTo);
   }
 
   return <>{children}</>;

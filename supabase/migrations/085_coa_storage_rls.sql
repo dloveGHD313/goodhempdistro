@@ -22,7 +22,7 @@ DROP POLICY IF EXISTS "COAs: vendor or admin update" ON storage.objects;
 DROP POLICY IF EXISTS "COAs: vendor or admin delete" ON storage.objects;
 
 -- INSERT: only into own vendor folder (vendors/{auth.uid()}/products/.../coa/...)
--- array_length(..., 1) requires dimension arg
+-- array_length(..., 1) requires dimension arg (Bugbot fix)
 CREATE POLICY "COAs: vendor insert isolated path" ON storage.objects
   FOR INSERT TO authenticated
   WITH CHECK (

@@ -6,6 +6,7 @@ type GateResult = { allow: true } | { redirectTo: string };
 type ProfileRow = {
   id: string;
   role: string | null;
+  vendor_status: string | null;
   consumer_onboarding_completed: boolean | null;
 };
 
@@ -32,7 +33,7 @@ const logDev = (message: string, detail?: Record<string, unknown>) => {
 async function loadProfile(supabase: SupabaseClient, userId: string) {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, role, consumer_onboarding_completed")
+    .select("id, role, consumer_onboarding_completed, vendor_status")
     .eq("id", userId)
     .maybeSingle();
 
@@ -100,9 +101,14 @@ export async function requireVendorOnboarding(userId: string | null): Promise<Ga
     return { allow: true };
   }
 
-  // Vendor dashboard requires profile.role === "vendor" (upgraded after Stripe payment)
-  if (profile?.role !== "vendor") {
-    logDev("redirect: vendor registration (role not vendor)", { userId, role: profile?.role ?? null });
+  // SSOT: Vendor dashboard requires profiles.vendor_status === "active" (set only by Stripe webhook)
+  if (profile?.vendor_status !== "active") {
+    logDev("redirect: vendor status not active", { userId, vendor_status: profile?.vendor_status ?? null });
+    // Has vendor record but not active -> choose plan
+    const vendor = await loadVendor(supabase, userId);
+    if (vendor && vendor.owner_user_id === userId) {
+      return { redirectTo: "/vendors/activate" };
+    }
     return { redirectTo: "/vendor-registration" };
   }
 

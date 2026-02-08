@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { requireAdminUsers } from "@/lib/auth/requireAdminUsers";
+import { requireVendorActive } from "@/lib/server/vendorStatusGate";
 import { isAdminEmail } from "@/lib/admin";
 
 const COA_BUCKET = "coas";
@@ -9,9 +10,9 @@ const ALLOWED_TYPES = ["application/pdf", "image/png", "image/jpeg", "image/jpg"
 const MAX_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
 
 /**
- * POST: Upload COA for a product. Vendor must own the product.
- * Path: vendors/{owner_user_id}/products/{product_id}/coa/{uuid}-filename
- * COA never blocks product creation; this is optional post-create.
+ * POST: Upload COA for a product. Vendor or admin (on behalf of owner).
+ * Path: vendors/{product_owner_user_id}/products/{product_id}/coa/{uuid}-filename
+ * product_documents.owner_user_id = product owner so vendor can read after admin upload.
  */
 export async function POST(
   req: NextRequest,
@@ -27,6 +28,11 @@ export async function POST(
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const vendorStatusResult = await requireVendorActive(user.id, user.email);
+    if (!vendorStatusResult.allowed) {
+      return NextResponse.json(vendorStatusResult.json, { status: vendorStatusResult.status });
     }
 
     const { isAdmin: isAdminByTable } = await requireAdminUsers(req);
@@ -69,7 +75,7 @@ export async function POST(
       return NextResponse.json({ error: "File size must be under 50MB" }, { status: 400 });
     }
 
-    // SSOT: storagePath and owner_user_id MUST use product owner so vendor can read after admin upload
+    // SSOT: storagePath MUST use product owner (owner_user_id) so vendor can read after admin upload
     const productOwnerId = ownerId ?? user.id;
     const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
     const prefix =
@@ -105,6 +111,7 @@ export async function POST(
       status: "pending" as const,
     };
 
+    // Admin inserts with owner_user_id=vendor: use admin client to bypass RLS
     const dbClient = isAdmin ? adminClient : supabase;
     const { data: doc, error: insertError } = await dbClient
       .from("product_documents")

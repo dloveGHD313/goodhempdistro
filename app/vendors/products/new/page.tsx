@@ -112,7 +112,15 @@ export default function NewProductPage() {
       return;
     }
 
-    // Phase 2: COA never blocks creation; optional. Vendor can add COA later on product edit.
+    // Phase 2: COA required when category requires it (vendor-only; admin bypass)
+    if (!isAdmin && categoryRequiresCoa) {
+      const hasCoa = (useManualUrl && (coaUrl?.trim() ?? "").length > 0) || (!useManualUrl && (coaObjectPath?.trim() ?? "").length > 0);
+      if (!hasCoa) {
+        setError("COA is required for this product category. Please add a full panel COA URL, or create the product and upload COA on the edit page.");
+        setLoading(false);
+        return;
+      }
+    }
 
     try {
       if (productType === "intoxicating" && !isIntoxicatingAllowedNow()) {
@@ -264,7 +272,7 @@ export default function NewProductPage() {
                   </select>
                   {categoryRequiresCoa && (
                     <p className="text-muted text-sm mt-1">
-                      You can add a COA after creating the product (optional).
+                      {!isAdmin ? "COA required. Paste URL below or create product and upload COA on edit page." : "Optional for admin."}
                     </p>
                   )}
                 </div>
@@ -348,8 +356,14 @@ export default function NewProductPage() {
                       </div>
                     ) : (
                     <div className="bg-[var(--surface)] border border-[var(--border)] rounded-lg p-4 text-sm text-muted">
-                      <p className="font-medium text-white/90">COA (optional)</p>
-                      <p className="mt-1">Skip for now. You can upload a COA from the product edit page after creating the product.</p>
+                      <p className="font-medium text-white/90">
+                        COA upload — use edit page after create
+                      </p>
+                      <p className="mt-1">
+                        {categoryRequiresCoa && !isAdmin
+                          ? "For new products, paste a COA URL above, or create the product then upload COA on the edit page."
+                          : "Create the product first, then upload COA on the edit page."}
+                      </p>
                     </div>
                     )
                   )}
