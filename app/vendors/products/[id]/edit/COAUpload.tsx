@@ -38,7 +38,7 @@ export default function COAUpload({
   const normalizePath = (p: string | null | undefined) =>
     (p?.trim().replace(/^coas\//, "") ?? "") || null;
 
-  const refreshSignedViewUrl = async () => {
+  const refreshSignedViewUrl = async (getIsCancelled?: () => boolean) => {
     if (!existingStoragePath || !existingStoragePath.trim()) {
       setViewStatus("idle");
       setSignedViewUrl(null);
@@ -51,6 +51,7 @@ export default function COAUpload({
       const { data, error: err } = await createSupabaseBrowserClient()
         .storage.from("coas")
         .createSignedUrl(path, SIGNED_URL_TTL_SEC);
+      if (getIsCancelled?.()) return;
       if (err) {
         setViewStatus("error");
         return;
@@ -63,6 +64,7 @@ export default function COAUpload({
         setViewStatus("error");
       }
     } catch {
+      if (getIsCancelled?.()) return;
       setViewStatus("error");
     }
   };
@@ -78,7 +80,11 @@ export default function COAUpload({
     if (path && path === signedUrlPathRef.current) {
       return;
     }
-    refreshSignedViewUrl();
+    let cancelled = false;
+    refreshSignedViewUrl(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
   }, [existingStoragePath]);
 
   const validateFile = (file: File): string | null => {
@@ -180,7 +186,7 @@ export default function COAUpload({
               <span className="text-sm text-muted">✓ COA on file — unable to generate view link.</span>
               <button
                 type="button"
-                onClick={refreshSignedViewUrl}
+                onClick={() => refreshSignedViewUrl()}
                 disabled={disabled}
                 className="text-accent hover:underline text-sm"
               >
