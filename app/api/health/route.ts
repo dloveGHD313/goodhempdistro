@@ -40,5 +40,6 @@ export async function GET() {
   }
 
   result.ok = result.db === "ok" && result.storage === "ok";
-  return NextResponse.json(result, { status: 200 });
+  const status = result.ok ? 200 : 503;
+  return NextResponse.json(result, { status });
 }

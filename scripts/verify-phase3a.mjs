@@ -6,6 +6,7 @@
  */
 
 import { execSync } from "child_process";
+import { readFileSync } from "node:fs";
 import path from "path";
 import { fileURLToPath } from "url";
 

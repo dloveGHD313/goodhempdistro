@@ -31,6 +31,15 @@ describe("Phase 3A: COA compliance rules", () => {
   });
 
   describe("Submit block condition (submit route logic)", () => {
+    /** Canonical block predicate: submit is blocked when category requires COA and neither URL nor path is present */
+    function shouldBlockSubmit(
+      effectiveRequiresCoa: boolean,
+      hasCoaUrl: boolean,
+      hasCoaPath: boolean
+    ): boolean {
+      return effectiveRequiresCoa && !hasCoaUrl && !hasCoaPath;
+    }
+
     it("requiresCOA is true for consumable-like categories", () => {
       expect(requiresCOA({ slug: "consumables", name: "Consumables" })).toBe(true);
       expect(requiresCOA({ slug: "edibles", name: "Edibles" })).toBe(true);
@@ -40,19 +49,20 @@ describe("Phase 3A: COA compliance rules", () => {
       expect(requiresCOA({ slug: "textiles-apparel", name: "Textiles & Apparel" })).toBe(false);
     });
 
-    it("submit block predicate: effectiveRequiresCoa && !hasCoaUrl && !hasCoaPath => should block", () => {
-      const effectiveRequiresCoa = true;
-      const hasCoaUrl = false;
-      const hasCoaPath = false;
-      const shouldBlock = effectiveRequiresCoa && !hasCoaUrl && !hasCoaPath;
-      expect(shouldBlock).toBe(true);
+    it("submit block: effectiveRequiresCoa && !hasCoaUrl && !hasCoaPath => blocked", () => {
+      expect(shouldBlockSubmit(true, false, false)).toBe(true);
     });
 
-    it("submit allow when COA path present (no block)", () => {
-      const effectiveRequiresCoa = true;
-      const hasCoaPath = true;
-      const shouldBlock = effectiveRequiresCoa && !hasCoaPath;
-      expect(shouldBlock).toBe(false);
+    it("submit allow when hasCoaPath (no block)", () => {
+      expect(shouldBlockSubmit(true, false, true)).toBe(false);
+    });
+
+    it("submit allow when hasCoaUrl (no block)", () => {
+      expect(shouldBlockSubmit(true, true, false)).toBe(false);
+    });
+
+    it("submit allow when effectiveRequiresCoa false (no block)", () => {
+      expect(shouldBlockSubmit(false, false, false)).toBe(false);
     });
   });
 });
