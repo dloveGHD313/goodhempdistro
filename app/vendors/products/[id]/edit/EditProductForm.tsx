@@ -61,10 +61,6 @@ export default function EditProductForm({ productId, initialProduct, initialCate
       ? normalizedCoaPath.replace(/^coas\//, "")
       : normalizedCoaPath
     : null;
-  const coaObjectUrl =
-    storageCoaPath && process.env.NEXT_PUBLIC_SUPABASE_URL
-      ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/coas/${storageCoaPath}`
-      : null;
 
   // Phase 2: COA required by category (requiresCOA) — use initialCategories
   const categoryRequiresCoa = useMemo(() => {

@@ -30,33 +30,51 @@ export default function COAUpload({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [signedViewUrl, setSignedViewUrl] = useState<string | null>(null);
+  const [viewStatus, setViewStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [viewError, setViewError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Private bucket: fetch signed URL for existing COA so vendor/admin can view
-  useEffect(() => {
+  const refreshSignedViewUrl = async () => {
     if (!existingStoragePath || !existingStoragePath.trim()) {
+      setViewStatus("idle");
       setSignedViewUrl(null);
+      setViewError(null);
       return;
     }
+    setViewStatus("loading");
+    setViewError(null);
+    setSignedViewUrl(null);
     const path = existingStoragePath.trim().replace(/^coas\//, "");
-    let cancelled = false;
-    createSupabaseBrowserClient()
-      .storage.from("coas")
-      .createSignedUrl(path, SIGNED_URL_TTL_SEC)
-      .then(({ data, error: err }) => {
-        if (cancelled) return;
-        if (err) {
-          setSignedViewUrl(null);
-          return;
-        }
-        setSignedViewUrl(data?.signedUrl ?? null);
-      })
-      .catch(() => {
-        if (!cancelled) setSignedViewUrl(null);
-      });
-    return () => {
-      cancelled = true;
-    };
+    try {
+      const { data, error: err } = await createSupabaseBrowserClient()
+        .storage.from("coas")
+        .createSignedUrl(path, SIGNED_URL_TTL_SEC);
+      if (err) {
+        setViewStatus("error");
+        setViewError("Unable to generate view link.");
+        return;
+      }
+      if (data?.signedUrl) {
+        setSignedViewUrl(data.signedUrl);
+        setViewStatus("ready");
+      } else {
+        setViewStatus("error");
+        setViewError("Unable to generate view link.");
+      }
+    } catch {
+      setViewStatus("error");
+      setViewError("Unable to generate view link.");
+    }
+  };
+
+  useEffect(() => {
+    if (!existingStoragePath || !existingStoragePath.trim()) {
+      setViewStatus("idle");
+      setSignedViewUrl(null);
+      setViewError(null);
+      return;
+    }
+    refreshSignedViewUrl();
   }, [existingStoragePath]);
 
   const validateFile = (file: File): string | null => {
@@ -114,6 +132,8 @@ export default function COAUpload({
         .storage.from("coas")
         .createSignedUrl(path, SIGNED_URL_TTL_SEC);
       setSignedViewUrl(signed?.signedUrl ?? null);
+      setViewStatus(signed?.signedUrl ? "ready" : "error");
+      setViewError(signed?.signedUrl ? null : "Unable to generate view link.");
       onUploaded(storagePath);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -125,6 +145,8 @@ export default function COAUpload({
 
   const handleRemove = () => {
     setSignedViewUrl(null);
+    setViewStatus("idle");
+    setViewError(null);
     onUploaded("");
     setError(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -136,9 +158,9 @@ export default function COAUpload({
         {label} {required && <span className="text-red-400">*</span>}
       </label>
 
-      {signedViewUrl || existingStoragePath ? (
+      {viewStatus !== "idle" || signedViewUrl || existingStoragePath ? (
         <div className="space-y-2">
-          {signedViewUrl ? (
+          {viewStatus === "ready" && signedViewUrl ? (
             <a
               href={signedViewUrl}
               target="_blank"
@@ -147,8 +169,22 @@ export default function COAUpload({
             >
               ✓ COA uploaded — View file →
             </a>
+          ) : viewStatus === "loading" ? (
+            <span className="text-sm text-muted">✓ COA on file — generating view link…</span>
+          ) : viewStatus === "error" ? (
+            <div className="space-y-1">
+              <span className="text-sm text-muted">✓ COA on file — unable to generate view link.</span>
+              <button
+                type="button"
+                onClick={refreshSignedViewUrl}
+                disabled={disabled}
+                className="text-accent hover:underline text-sm"
+              >
+                Retry
+              </button>
+            </div>
           ) : (
-            <span className="text-sm text-muted">✓ COA on file — loading view link…</span>
+            <span className="text-sm text-muted">✓ COA on file</span>
           )}
           <button
             type="button"
