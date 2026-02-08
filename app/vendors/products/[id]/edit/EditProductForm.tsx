@@ -61,10 +61,6 @@ export default function EditProductForm({ productId, initialProduct, initialCate
       ? normalizedCoaPath.replace(/^coas\//, "")
       : normalizedCoaPath
     : null;
-  const coaObjectUrl =
-    storageCoaPath && process.env.NEXT_PUBLIC_SUPABASE_URL
-      ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/coas/${storageCoaPath}`
-      : null;
 
   // Phase 2: COA required by category (requiresCOA) — use initialCategories
   const categoryRequiresCoa = useMemo(() => {
@@ -363,7 +359,7 @@ export default function EditProductForm({ productId, initialProduct, initialCate
                       productId={productId}
                       label={categoryRequiresCoa && !isAdmin ? "Upload COA (required)" : "Upload COA (optional)"}
                       required={categoryRequiresCoa && !isAdmin}
-                      existingUrl={coaObjectUrl}
+                      existingStoragePath={storageCoaPath}
                       onUploaded={(path) => setCoaObjectPath(path)}
                       helperText="Upload a PDF or image of your full panel COA (max 50MB). Uses product_documents."
                       disabled={subscriptionChecked && !subscriptionActive && !isAdmin}

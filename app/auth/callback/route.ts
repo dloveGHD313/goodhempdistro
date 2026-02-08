@@ -87,13 +87,13 @@ export async function GET(req: NextRequest) {
     }
 
     // For other flows (e.g. email confirm): use post-login routing rule (first-time -> /onboarding)
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user: authUser } } = await supabase.auth.getUser();
     let profile: PostLoginProfile = null;
-    if (user?.id) {
+    if (authUser?.id) {
       const { data: row } = await supabase
         .from("profiles")
         .select("role, onboarding_completed_at, consumer_onboarding_completed")
-        .eq("id", user.id)
+        .eq("id", authUser.id)
         .maybeSingle();
       profile = row
         ? {
