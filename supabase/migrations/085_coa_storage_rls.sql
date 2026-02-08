@@ -15,6 +15,11 @@ DROP POLICY IF EXISTS "COAs: vendor read own" ON storage.objects;
 DROP POLICY IF EXISTS "COAs: vendor update own" ON storage.objects;
 DROP POLICY IF EXISTS "COAs: vendor delete own" ON storage.objects;
 DROP POLICY IF EXISTS "COAs: vendor manage" ON storage.objects;
+-- Drop policies this migration creates (idempotent re-run)
+DROP POLICY IF EXISTS "COAs: vendor insert isolated path" ON storage.objects;
+DROP POLICY IF EXISTS "COAs: vendor or admin select" ON storage.objects;
+DROP POLICY IF EXISTS "COAs: vendor or admin update" ON storage.objects;
+DROP POLICY IF EXISTS "COAs: vendor or admin delete" ON storage.objects;
 
 -- INSERT: only into own vendor folder (vendors/{auth.uid()}/products/.../coa/...)
 -- array_length(..., 1) requires dimension arg (Bugbot fix)
