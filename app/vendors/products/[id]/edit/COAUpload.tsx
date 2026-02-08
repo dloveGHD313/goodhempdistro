@@ -31,18 +31,15 @@ export default function COAUpload({
   const [error, setError] = useState<string | null>(null);
   const [signedViewUrl, setSignedViewUrl] = useState<string | null>(null);
   const [viewStatus, setViewStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [viewError, setViewError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const refreshSignedViewUrl = async () => {
     if (!existingStoragePath || !existingStoragePath.trim()) {
       setViewStatus("idle");
       setSignedViewUrl(null);
-      setViewError(null);
       return;
     }
     setViewStatus("loading");
-    setViewError(null);
     setSignedViewUrl(null);
     const path = existingStoragePath.trim().replace(/^coas\//, "");
     try {
@@ -51,7 +48,6 @@ export default function COAUpload({
         .createSignedUrl(path, SIGNED_URL_TTL_SEC);
       if (err) {
         setViewStatus("error");
-        setViewError("Unable to generate view link.");
         return;
       }
       if (data?.signedUrl) {
@@ -59,11 +55,9 @@ export default function COAUpload({
         setViewStatus("ready");
       } else {
         setViewStatus("error");
-        setViewError("Unable to generate view link.");
       }
     } catch {
       setViewStatus("error");
-      setViewError("Unable to generate view link.");
     }
   };
 
@@ -71,7 +65,6 @@ export default function COAUpload({
     if (!existingStoragePath || !existingStoragePath.trim()) {
       setViewStatus("idle");
       setSignedViewUrl(null);
-      setViewError(null);
       return;
     }
     refreshSignedViewUrl();
@@ -133,7 +126,6 @@ export default function COAUpload({
         .createSignedUrl(path, SIGNED_URL_TTL_SEC);
       setSignedViewUrl(signed?.signedUrl ?? null);
       setViewStatus(signed?.signedUrl ? "ready" : "error");
-      setViewError(signed?.signedUrl ? null : "Unable to generate view link.");
       onUploaded(storagePath);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -146,7 +138,6 @@ export default function COAUpload({
   const handleRemove = () => {
     setSignedViewUrl(null);
     setViewStatus("idle");
-    setViewError(null);
     onUploaded("");
     setError(null);
     if (fileInputRef.current) fileInputRef.current.value = "";

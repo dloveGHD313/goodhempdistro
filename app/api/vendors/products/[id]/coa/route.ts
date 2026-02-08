@@ -75,6 +75,15 @@ export async function POST(
       return NextResponse.json({ error: "File size must be under 50MB" }, { status: 400 });
     }
 
+    // Fetch existing COA path to delete orphaned file after re-upload
+    const { data: existingDoc } = await supabase
+      .from("product_documents")
+      .select("storage_path")
+      .eq("product_id", productId)
+      .eq("type", "coa")
+      .maybeSingle();
+    const oldStoragePath = existingDoc?.storage_path ?? null;
+
     // SSOT: storagePath MUST use product owner (owner_user_id) so vendor can read after admin upload
     const productOwnerId = ownerId ?? user.id;
     const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
@@ -137,6 +146,23 @@ export async function POST(
         coa_uploaded_at: new Date().toISOString(),
       })
       .eq("id", productId);
+
+    // Delete orphaned previous file (UNIQUE(product_id,type) overwrites DB record; old blob left behind)
+    if (oldStoragePath && oldStoragePath !== storagePath) {
+      try {
+        const adminStorage = getSupabaseAdminClient().storage;
+        const { error: delErr } = await adminStorage.from(COA_BUCKET).remove([oldStoragePath]);
+        if (delErr) {
+          console.warn("[coa/upload] failed to delete orphaned file:", {
+            productId,
+            oldPath: oldStoragePath,
+            error: delErr.message,
+          });
+        }
+      } catch (delEx) {
+        console.warn("[coa/upload] error deleting orphaned file:", delEx);
+      }
+    }
 
     return NextResponse.json({
       documentId: doc?.id,
