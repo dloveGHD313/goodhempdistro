@@ -17,14 +17,14 @@ DROP POLICY IF EXISTS "COAs: vendor delete own" ON storage.objects;
 DROP POLICY IF EXISTS "COAs: vendor manage" ON storage.objects;
 
 -- INSERT: only into own vendor folder (vendors/{auth.uid()}/products/.../coa/...)
--- cardinality(arr) returns element count; dimension 1 implicit for 1D array (avoids array_length dimension arg)
+-- array_length(..., 1) requires dimension arg (Bugbot fix)
 CREATE POLICY "COAs: vendor insert isolated path" ON storage.objects
   FOR INSERT TO authenticated
   WITH CHECK (
     bucket_id = 'coas'
     AND (storage.foldername(name))[1] = 'vendors'
     AND (storage.foldername(name))[2] = auth.uid()::text
-    AND cardinality(storage.foldername(name)) >= 5
+    AND array_length(storage.foldername(name), 1) >= 5
     AND (storage.foldername(name))[3] = 'products'
     AND (storage.foldername(name))[5] = 'coa'
   );
@@ -36,7 +36,7 @@ CREATE POLICY "COAs: vendor or admin select" ON storage.objects
     bucket_id = 'coas'
     AND (
       ((storage.foldername(name))[1] = 'vendors' AND (storage.foldername(name))[2] = auth.uid()::text)
-      OR (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin'
+      OR EXISTS (SELECT 1 FROM public.admin_users au WHERE au.user_id = auth.uid())
     )
   );
 
@@ -47,14 +47,14 @@ CREATE POLICY "COAs: vendor or admin update" ON storage.objects
     bucket_id = 'coas'
     AND (
       ((storage.foldername(name))[1] = 'vendors' AND (storage.foldername(name))[2] = auth.uid()::text)
-      OR (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin'
+      OR EXISTS (SELECT 1 FROM public.admin_users au WHERE au.user_id = auth.uid())
     )
   )
   WITH CHECK (
     bucket_id = 'coas'
     AND (
       ((storage.foldername(name))[1] = 'vendors' AND (storage.foldername(name))[2] = auth.uid()::text)
-      OR (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin'
+      OR EXISTS (SELECT 1 FROM public.admin_users au WHERE au.user_id = auth.uid())
     )
   );
 
@@ -65,6 +65,6 @@ CREATE POLICY "COAs: vendor or admin delete" ON storage.objects
     bucket_id = 'coas'
     AND (
       ((storage.foldername(name))[1] = 'vendors' AND (storage.foldername(name))[2] = auth.uid()::text)
-      OR (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin'
+      OR EXISTS (SELECT 1 FROM public.admin_users au WHERE au.user_id = auth.uid())
     )
   );
