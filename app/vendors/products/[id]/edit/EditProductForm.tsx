@@ -136,7 +136,7 @@ export default function EditProductForm({ productId, initialProduct, initialCate
       return;
     }
 
-    // Phase 2: COA never blocks save; optional.
+    // Backend enforces COA when category requires it (admin bypass).
 
     try {
       const response = await fetch(`/api/vendors/products/${productId}`, {

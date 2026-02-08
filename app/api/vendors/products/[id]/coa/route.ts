@@ -10,9 +10,9 @@ const ALLOWED_TYPES = ["application/pdf", "image/png", "image/jpeg", "image/jpg"
 const MAX_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
 
 /**
- * POST: Upload COA for a product. Vendor must own the product.
- * Path: vendors/{owner_user_id}/products/{product_id}/coa/{uuid}-filename
- * COA never blocks product creation; this is optional post-create.
+ * POST: Upload COA for a product. Vendor or admin (on behalf of owner).
+ * Path: vendors/{product_owner_user_id}/products/{product_id}/coa/{uuid}-filename
+ * product_documents.owner_user_id = product owner so vendor can read after admin upload.
  */
 export async function POST(
   req: NextRequest,
