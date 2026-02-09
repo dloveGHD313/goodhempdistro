@@ -1,5 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  isMaintenanceModeEnabled,
+  MAINTENANCE_ALLOWLIST_API_PREFIXES,
+  MAINTENANCE_ALLOWLIST_PREFIXES,
+  MAINTENANCE_ALLOWLIST_ROUTES,
+} from "@/lib/server/maintenance";
+import { isAdminEmail } from "@/lib/admin";
 
 /**
  * Slim middleware: Supabase session refresh + auth-only redirects for protected routes.
@@ -13,6 +20,79 @@ export async function middleware(request: NextRequest) {
   }
   if (request.nextUrl.searchParams.has("__rsc")) {
     return NextResponse.next();
+  }
+
+  const maintenanceEnabled = isMaintenanceModeEnabled();
+
+  const isAllowedPrefix = MAINTENANCE_ALLOWLIST_PREFIXES.some((prefix) =>
+    pathname === prefix || pathname.startsWith(prefix + "/")
+  );
+  const isAllowedRoute = MAINTENANCE_ALLOWLIST_ROUTES.includes(pathname);
+  const isApiPath = pathname.startsWith("/api/");
+  const isAllowedApiPrefix = MAINTENANCE_ALLOWLIST_API_PREFIXES.some((prefix) =>
+    pathname === prefix || pathname.startsWith(prefix + "/")
+  );
+
+  const isAdminApiPath = pathname.startsWith("/api/admin");
+  const isAdminPagePath = pathname === "/admin" || pathname.startsWith("/admin/");
+
+  if (maintenanceEnabled) {
+    // Always allow core maintenance, static assets, auth pages, and explicitly allowlisted APIs.
+    if (isAllowedPrefix || isAllowedRoute || isAllowedApiPrefix) {
+      return NextResponse.next();
+    }
+
+    let isAdmin = false;
+
+    if (isAdminApiPath || isAdminPagePath) {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      if (supabaseUrl && supabaseAnonKey) {
+        const response = NextResponse.next({
+          request: { headers: request.headers },
+        });
+
+        const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+          cookies: {
+            getAll() {
+              return request.cookies.getAll();
+            },
+            setAll(cookiesToSet: Array<{ name: string; value: string; options?: Record<string, unknown> }>) {
+              cookiesToSet.forEach(({ name, value, options }) => {
+                response.cookies.set(name, value, options);
+              });
+            },
+          },
+        });
+
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const email = session?.user?.email || null;
+        isAdmin = !!email && isAdminEmail(email);
+
+        if (isAdmin) {
+          return response;
+        }
+      }
+    }
+
+    if (isApiPath) {
+      return NextResponse.json(
+        { ok: false, error: "maintenance", message: "Service temporarily unavailable" },
+        {
+          status: 503,
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        }
+      );
+    }
+
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/maintenance";
+    return NextResponse.redirect(redirectUrl, 307);
   }
 
   // Auth-gated routes only: dashboard, account, checkout, vendors/*, driver/dashboard, admin/*

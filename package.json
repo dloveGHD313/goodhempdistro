@@ -13,6 +13,7 @@
     "verify:consumer-onboarding": "tsx scripts/verify-consumer-onboarding.ts",
     "verify:env": "node scripts/verify-env.mjs",
     "verify:discovery": "tsx scripts/verify-discovery.ts",
+    "verify:phase3d": "node scripts/verify-phase3d.mjs",
     "autopush": "powershell -ExecutionPolicy Bypass -File scripts/ai_autopush.ps1",
     "audit:prod": "playwright test -c playwright.audit.config.ts"
   },

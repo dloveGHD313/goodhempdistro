@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/requireAdmin";
-import { getConsumerPlanEnvStatus } from "@/lib/consumer-plans";
+import { requireAdminUsers } from "@/lib/auth/requireAdminUsers";
+import { isMaintenanceModeEnabled } from "@/lib/server/maintenance";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -9,12 +9,12 @@ export const runtime = "nodejs";
  * Safe environment variable presence diagnostics
  * Returns ONLY booleans - never exposes secret values
  * Admin-only endpoint
- * 
+ *
  * Whitespace-only values should be treated as missing.
  */
 export async function GET(req: NextRequest) {
   try {
-    const adminCheck = await requireAdmin();
+    const adminCheck = await requireAdminUsers(req);
     if (!adminCheck.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -22,61 +22,25 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden: Not an admin" }, { status: 403 });
     }
 
-    // Check environment variable presence (only booleans, never values)
-    // Whitespace-only values should be treated as missing
-    const v_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-    const v_SECRET_KEY = process.env.SUPABASE_SECRET_KEY?.trim();
-    const v_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY?.trim();
-    const v_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE?.trim();
-    const v_URL = process.env.SUPABASE_URL?.trim();
-    const v_PUBLIC_URL = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-    const v_VERCEL_URL = process.env.VERCEL_URL?.trim();
-    const v_SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-
-    const envChecks = {
-      has_SUPABASE_SERVICE_ROLE_KEY: Boolean(v_SERVICE_ROLE_KEY),
-      has_SUPABASE_SECRET_KEY: Boolean(v_SECRET_KEY),
-      has_SUPABASE_SERVICE_KEY: Boolean(v_SERVICE_KEY),
-      has_SUPABASE_SERVICE_ROLE: Boolean(v_SERVICE_ROLE),
-      has_SUPABASE_URL: Boolean(v_URL),
-      has_NEXT_PUBLIC_SUPABASE_URL: Boolean(v_PUBLIC_URL),
-      has_VERCEL_URL: Boolean(v_VERCEL_URL),
-      has_NEXT_PUBLIC_SITE_URL: Boolean(v_SITE_URL),
+    const presence = (name: string): "present" | "missing" => {
+      const value = process.env[name];
+      return value && value.trim().length > 0 ? "present" : "missing";
     };
 
-    // Determine which key is chosen (first present in priority order)
-    // Only consider keys whose trimmed value is non-empty
-    let chosenKeyName: string | null = null;
-    let chosenKeyValueLength: number | null = null;
-    
-    if (v_SERVICE_ROLE_KEY) {
-      chosenKeyName = "SUPABASE_SERVICE_ROLE_KEY";
-      chosenKeyValueLength = v_SERVICE_ROLE_KEY.length;
-    } else if (v_SECRET_KEY) {
-      chosenKeyName = "SUPABASE_SECRET_KEY";
-      chosenKeyValueLength = v_SECRET_KEY.length;
-    } else if (v_SERVICE_KEY) {
-      chosenKeyName = "SUPABASE_SERVICE_KEY";
-      chosenKeyValueLength = v_SERVICE_KEY.length;
-    } else if (v_SERVICE_ROLE) {
-      chosenKeyName = "SUPABASE_SERVICE_ROLE";
-      chosenKeyValueLength = v_SERVICE_ROLE.length;
-    }
-
-    console.log(
-      `[admin/diag/env] Admin ${adminCheck.user.id} checked env vars. ` +
-      `chosenKeyName=${chosenKeyName}, ` +
-      `has_URL=${envChecks.has_SUPABASE_URL || envChecks.has_NEXT_PUBLIC_SUPABASE_URL}`
-    );
-
-    const consumerPlanEnvStatus = getConsumerPlanEnvStatus();
+    const requiredEnv = {
+      NEXT_PUBLIC_SUPABASE_URL: presence("NEXT_PUBLIC_SUPABASE_URL"),
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: presence("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+      SUPABASE_SERVICE_ROLE_KEY: presence("SUPABASE_SERVICE_ROLE_KEY"),
+      STRIPE_SECRET_KEY: presence("STRIPE_SECRET_KEY"),
+      STRIPE_WEBHOOK_SECRET: presence("STRIPE_WEBHOOK_SECRET"),
+      NEXT_PUBLIC_SITE_URL: presence("NEXT_PUBLIC_SITE_URL"),
+    };
 
     return NextResponse.json(
       {
-        ...envChecks,
-        chosenKeyName,
-        chosenKeyValueLength,
-        consumerPlans: consumerPlanEnvStatus,
+        ok: true,
+        maintenanceMode: isMaintenanceModeEnabled(),
+        requiredEnv,
       },
       {
         headers: {
