@@ -264,9 +264,10 @@ export default function AdminProductDetailClient({ productId, initialProduct }: 
     }
   };
 
-  const coaStatus = coaData?.document?.status ?? null;
-  const coaRequired = coaData?.coaRequired ?? false;
-  const canApprove = !coaRequired || coaStatus === "verified";
+  const coaLoaded = coaData !== null && coaData !== undefined;
+  const coaRequired = coaLoaded ? !!coaData.coaRequired : null;
+  const coaStatus = coaLoaded ? (coaData.document?.status ?? null) : null;
+  const canApprove = coaLoaded && (coaRequired === false || coaStatus === "verified");
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -415,7 +416,7 @@ export default function AdminProductDetailClient({ productId, initialProduct }: 
                 onClick={handleApprove}
                 disabled={loading !== null || !canApprove}
                 className="btn-primary disabled:opacity-50"
-                title={!canApprove ? "COA must be verified before approval" : undefined}
+                title={!coaLoaded ? "Loading COA status…" : !canApprove ? "COA must be verified before approval" : undefined}
               >
                 {loading === "approve" ? "Processing..." : "Approve"}
               </button>
