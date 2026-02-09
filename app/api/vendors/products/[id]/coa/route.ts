@@ -62,6 +62,10 @@ export async function POST(
       return NextResponse.json({ error: "You do not own this product" }, { status: 403 });
     }
 
+    const adminClient = getSupabaseAdminClient();
+    const dbClient = isAdmin ? adminClient : supabase;
+    const storageClient = isAdmin ? adminClient.storage : supabase.storage;
+
     const formData = await req.formData();
     const file = formData.get("file") ?? formData.get("coa");
     if (!file || !(file instanceof File)) {
@@ -75,8 +79,8 @@ export async function POST(
       return NextResponse.json({ error: "File size must be under 50MB" }, { status: 400 });
     }
 
-    // Fetch existing COA path to delete orphaned file after re-upload
-    const { data: existingDoc } = await supabase
+    // Fetch existing COA path to delete orphaned file after re-upload (dbClient so admin can see vendor row)
+    const { data: existingDoc } = await dbClient
       .from("product_documents")
       .select("storage_path")
       .eq("product_id", productId)
@@ -93,9 +97,6 @@ export async function POST(
         : `${Date.now()}`;
     const storagePath = `vendors/${productOwnerId}/products/${productId}/coa/${prefix}-${safeName}`;
 
-    // Admin uploads to vendor path: use admin client to bypass RLS (path[2] must match auth.uid() for user client)
-    const adminClient = getSupabaseAdminClient();
-    const storageClient = isAdmin ? adminClient.storage : supabase.storage;
     const { error: uploadError } = await storageClient
       .from(COA_BUCKET)
       .upload(storagePath, file, { upsert: false, cacheControl: "3600" });
@@ -120,8 +121,6 @@ export async function POST(
       status: "pending" as const,
     };
 
-    // Admin inserts with owner_user_id=vendor: use admin client to bypass RLS
-    const dbClient = isAdmin ? adminClient : supabase;
     const { data: doc, error: insertError } = await dbClient
       .from("product_documents")
       .upsert(
@@ -147,11 +146,14 @@ export async function POST(
       })
       .eq("id", productId);
 
-    // Delete orphaned previous file (UNIQUE(product_id,type) overwrites DB record; old blob left behind)
+    // Delete orphaned previous file (UNIQUE(product_id,type) overwrites DB record; old blob left behind).
+    // Always use admin storage so RLS does not block: old path may be vendors/{other_uid}/... (e.g. admin
+    // upload for vendor, or product ownership change) and DELETE policy requires foldername(name)[2] = auth.uid().
     if (oldStoragePath && oldStoragePath !== storagePath) {
       try {
-        const adminStorage = getSupabaseAdminClient().storage;
-        const { error: delErr } = await adminStorage.from(COA_BUCKET).remove([oldStoragePath]);
+        const { error: delErr } = await getSupabaseAdminClient().storage
+          .from(COA_BUCKET)
+          .remove([oldStoragePath]);
         if (delErr) {
           console.warn("[coa/upload] failed to delete orphaned file:", {
             productId,
