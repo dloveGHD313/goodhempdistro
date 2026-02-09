@@ -1,9 +1,8 @@
 import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase";
-import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { isAdminEmail } from "@/lib/admin";
 
-/** Single source of truth: profiles.vendor_status. Only "pending" | "active". */
+/** Single source of truth: profiles.vendor_status. Only "pending" | "active". Admin bypass: isAdminEmail(ADMIN_EMAILS) allows access without DB check; API admin uses admin_users elsewhere. */
 export async function getVendorStatus(userId: string | null, userEmail?: string | null): Promise<"pending" | "active" | null> {
   if (!userId) return null;
   if (isAdminEmail(userEmail)) return "active";
