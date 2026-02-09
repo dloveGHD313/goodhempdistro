@@ -675,6 +675,7 @@ Cancel
 <div className="space-y-2">
 <textarea
 ref={textareaRef}
+aria-label="Write a comment"
 defaultValue=""
 onChange={(e) => {
 draftRef.current = e.target.value;
@@ -716,6 +717,7 @@ type="button"
 className="btn-primary ml-auto"
 disabled={!canPost || !hasText || submitting}
 onClick={handleSubmit}
+aria-label="Post comment"
 >
 {submitting ? "Posting..." : "Post"}
 </button>

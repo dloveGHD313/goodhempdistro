@@ -16,6 +16,17 @@ vi.mock("next/link", () => ({
   },
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => {
+    const replace = vi.fn((url: string) => {
+      if (typeof window !== "undefined" && window.location) (window.location as { href: string }).href = url;
+    });
+    return { push: vi.fn(), replace, prefetch: vi.fn(), back: vi.fn(), forward: vi.fn(), refresh: vi.fn() };
+  },
+  usePathname: () => "/",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 vi.mock("@/lib/site", () => ({
   site: {
     name: "Good Hemp Distro",

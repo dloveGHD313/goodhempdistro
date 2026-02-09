@@ -12,6 +12,7 @@ export default function AffiliatePage() {
   const [loading, setLoading] = useState(true);
   const [affiliateCode, setAffiliateCode] = useState<string>("");
   const [copied, setCopied] = useState(false);
+  const [referrals, setReferrals] = useState<any[]>([]);
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -51,8 +52,15 @@ export default function AffiliatePage() {
           .single();
 
         setAffiliateCode(code);
+        setReferrals([]);
       } else {
         setAffiliateCode(affiliate.affiliate_code);
+        const { data: refs } = await supabase
+          .from("affiliate_referrals")
+          .select("*")
+          .eq("affiliate_id", affiliate.id)
+          .order("created_at", { ascending: false });
+        setReferrals(refs || []);
       }
 
       setLoading(false);
@@ -119,6 +127,42 @@ export default function AffiliatePage() {
               <p className="text-sm text-muted mt-2">
                 <a href="/affiliate/portal" className="text-accent hover:underline">Earnings & payouts →</a>
               </p>
+            </div>
+
+            <div className="surface-card p-6 mb-6">
+              <h2 className="text-2xl font-bold mb-4">Your Rewards</h2>
+              <p className="text-sm text-muted mb-2">Earn rewards for each successful referral:</p>
+              <ul className="list-disc list-inside text-sm text-muted space-y-1">
+                <li>First referral: <span className="text-white">$5</span></li>
+                <li>Second referral: <span className="text-white">$15</span></li>
+                <li>Third referral: <span className="text-white">$25</span></li>
+              </ul>
+            </div>
+
+            <div className="surface-card p-6">
+              <h2 className="text-2xl font-bold mb-4">Referral History</h2>
+              {referrals.length === 0 ? (
+                <p className="text-sm text-muted">No referrals yet. Share your link to get started.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left border-b border-[var(--border)]">
+                        <th className="py-2 pr-4">Date</th>
+                        <th className="py-2">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {referrals.map((ref) => (
+                        <tr key={ref.id} className="border-b border-[var(--border)]/40">
+                          <td className="py-2 pr-4">{ref.created_at ? new Date(ref.created_at).toLocaleDateString() : "—"}</td>
+                          <td className="py-2">{ref.status ?? "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         </section>
