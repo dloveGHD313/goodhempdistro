@@ -17,9 +17,10 @@ import {
   getSubscriptionBonusPoints,
 } from "@/lib/consumer-loyalty";
 import { applyPlatformFeesToOrder } from "@/lib/platformFees";
-
-/** Subscription statuses that grant vendor access (vendor.status = active, profile.role = vendor). */
-const VENDOR_ACTIVE_SUBSCRIPTION_STATUSES = new Set(["active", "trialing"]);
+import {
+  getDesiredVendorStatusFromSubscription,
+  VENDOR_ACTIVE_SUBSCRIPTION_STATUSES,
+} from "@/lib/stripe/vendorStatusFromSubscription";
 
 /** Award vendor referral first-sale reward when a referred vendor's first order is paid. */
 async function awardVendorReferralFirstSale(
@@ -604,7 +605,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
           status: subscriptionStatus,
           subscriptionIdSuffix: subscriptionId?.slice(-8) ?? null,
         });
-        if (VENDOR_ACTIVE_SUBSCRIPTION_STATUSES.has(subscriptionStatus) && userId) {
+        if (getDesiredVendorStatusFromSubscription(subscriptionStatus, null) === "active" && userId) {
           await admin
             .from("profiles")
             .update({ vendor_status: "active", updated_at: new Date().toISOString() })
@@ -963,14 +964,14 @@ async function handleSubscriptionChange(
         status,
         subscriptionIdSuffix: subscription.id.slice(-8),
       });
-      if (VENDOR_ACTIVE_SUBSCRIPTION_STATUSES.has(status) && userId) {
+      if (getDesiredVendorStatusFromSubscription(status, null) === "active" && userId) {
         const { data: profile } = await admin
           .from("profiles")
           .select("role")
           .eq("id", userId)
           .maybeSingle();
         const canPromoteToVendor = profile?.role === "consumer" || profile?.role === "vendor_pending";
-        // SSOT: Always set vendor_status="active" when subscription is active (webhook-verified)
+        // SSOT: vendor_status set via getDesiredVendorStatusFromSubscription (independent of role promotion)
         const { error: statusErr } = await admin
           .from("profiles")
           .update({ vendor_status: "active", updated_at: new Date().toISOString() })
