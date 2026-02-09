@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { requiresCOA } from "@/lib/compliance";
 import { writeAdminActionLog } from "@/lib/adminActionLog";
 import { revalidatePath } from "next/cache";
 
@@ -36,11 +37,11 @@ export async function POST(
     const { id } = await params;
     const admin = createSupabaseAdminClient();
 
-    // Get product
+    // Get product (include category_id for COA requirement check)
     logStage("fetch_product", { productId: id });
     const { data: product, error: productError } = await admin
       .from("products")
-      .select("id, name, status")
+      .select("id, name, status, category_id")
       .eq("id", id)
       .maybeSingle();
 
@@ -65,6 +66,32 @@ export async function POST(
         { ok: false, error: `Product is not pending review (current status: ${product.status})` },
         { status: 409, headers: { "Cache-Control": "no-store" } }
       );
+    }
+
+    // Phase 3C: COA must be verified before approval when category requires COA
+    let coaRequired = true;
+    if (product.category_id) {
+      const { data: category } = await admin
+        .from("categories")
+        .select("slug, name")
+        .eq("id", product.category_id)
+        .maybeSingle();
+      coaRequired = requiresCOA(category ?? undefined);
+    }
+    if (coaRequired) {
+      const { data: coaDoc } = await admin
+        .from("product_documents")
+        .select("status")
+        .eq("product_id", id)
+        .eq("type", "coa")
+        .maybeSingle();
+      if (!coaDoc || coaDoc.status !== "verified") {
+        logStage("coa_not_verified", { productId: id });
+        return NextResponse.json(
+          { ok: false, error: "COA must be verified before approval" },
+          { status: 409, headers: { "Cache-Control": "no-store" } }
+        );
+      }
     }
 
     // Update product to approved
