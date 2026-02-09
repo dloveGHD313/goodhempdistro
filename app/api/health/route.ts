@@ -8,19 +8,18 @@ type HealthStatus = "ok" | "fail" | "missing";
 
 /**
  * Production-safe health check. No auth, no writes, no secrets.
- * GET /api/health => { ok, db, storage, stripe }
+ * Only DB and storage liveness are reported; env config (e.g. Stripe) is not exposed.
+ * GET /api/health => { ok, db, storage }
  */
 export async function GET() {
   const result: {
     ok: boolean;
     db: HealthStatus;
     storage: HealthStatus;
-    stripe: HealthStatus;
   } = {
     ok: true,
     db: "fail",
     storage: "fail",
-    stripe: process.env.STRIPE_SECRET_KEY?.trim() ? "ok" : "missing",
   };
 
   try {

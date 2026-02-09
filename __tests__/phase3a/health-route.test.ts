@@ -30,7 +30,7 @@ describe("Phase 3A: /api/health", () => {
     mockList.mockResolvedValue({ error: null });
   });
 
-  it("returns 200 and JSON with ok, db, storage, stripe when healthy", async () => {
+  it("returns 200 and JSON with ok, db, storage when healthy (no env config exposed)", async () => {
     mockMaybeSingle.mockResolvedValue({ error: null });
     mockList.mockResolvedValue({ error: null });
     const { GET } = await import("@/app/api/health/route");
@@ -41,8 +41,8 @@ describe("Phase 3A: /api/health", () => {
       ok: true,
       db: "ok",
       storage: "ok",
-      stripe: expect.stringMatching(/^(ok|missing)$/),
     });
+    expect(body).not.toHaveProperty("stripe");
   });
 
   it("returns 503 when unhealthy (db fail)", async () => {
