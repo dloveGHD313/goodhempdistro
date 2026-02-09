@@ -119,6 +119,7 @@ export async function POST(
       mime_type: file.type,
       size_bytes: file.size,
       status: "pending" as const,
+      admin_note: null,
     };
 
     const { data: doc, error: insertError } = await dbClient
