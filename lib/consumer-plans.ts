@@ -162,7 +162,8 @@ export function getConsumerPlanConfigs() {
   for (const plan of CONSUMER_PLAN_ENVS) {
     const stripeKey = CONSUMER_TIER_TO_STRIPE[plan.tier];
     const interval = plan.cadence === "monthly" ? "MONTHLY" : "ANNUAL";
-    const priceId = STRIPE_PRICES[stripeKey][interval];
+    const envPriceId = process.env[plan.envKey]?.trim();
+    const priceId = envPriceId || STRIPE_PRICES[stripeKey]?.[interval] || "";
     if (!priceId) {
       missingEnv.push(plan.envKey);
       continue;

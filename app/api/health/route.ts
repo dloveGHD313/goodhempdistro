@@ -40,5 +40,10 @@ export async function GET() {
 
   result.ok = result.db === "ok" && result.storage === "ok";
   const status = result.ok ? 200 : 503;
-  return NextResponse.json(result, { status });
+  return NextResponse.json(result, {
+    status,
+    headers: {
+      "Cache-Control": "no-store",
+    },
+  });
 }
