@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Footer from "@/components/Footer";
+import DriverConnectCard from "./DriverConnectCard";
 
 type DriverStatus = {
   application: {
@@ -158,15 +159,7 @@ export default function DriverDashboardPage() {
                 </div>
               </div>
 
-              <div className="mb-6">
-                <button
-                  disabled
-                  className="btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Cash out feature coming soon"
-                >
-                  Cash Out (Coming Soon)
-                </button>
-              </div>
+              <DriverConnectCard />
 
               <div className="card-glass p-6">
                 <h2 className="text-2xl font-bold mb-4">My Deliveries</h2>
