@@ -23,8 +23,10 @@ type Payout = {
 type ConnectStatus = {
   connected: boolean;
   stripe_account_id: string | null;
+  details_submitted: boolean;
   charges_enabled: boolean;
   payouts_enabled: boolean;
+  payout_ready: boolean;
 };
 
 type Props = { affiliateCode: string | null };
@@ -73,12 +75,21 @@ export default function AffiliatePortalClient({ affiliateCode }: Props) {
 
       const ledger = ledgerRes.ok ? await ledgerRes.json() : { entries: [] };
       const balance = balanceRes.ok ? await balanceRes.json() : { available_cents: 0, total_earned_cents: 0 };
-      const conn = connectRes.ok ? await connectRes.json() : { connected: false };
+      const conn = connectRes.ok
+        ? await connectRes.json()
+        : {
+            connected: false,
+            stripe_account_id: null,
+            details_submitted: false,
+            charges_enabled: false,
+            payouts_enabled: false,
+            payout_ready: false,
+          };
 
       setEntries(ledger.entries ?? []);
       setAvailableCents(balance.available_cents ?? 0);
       setTotalEarnedCents(balance.total_earned_cents ?? 0);
-      setConnect(conn.connected ? conn : null);
+      setConnect(conn);
 
       const payoutsRes = await fetch("/api/affiliates/payouts", { cache: "no-store" });
       if (payoutsRes.ok) {
@@ -95,6 +106,11 @@ export default function AffiliatePortalClient({ affiliateCode }: Props) {
   useEffect(() => {
     fetchAll();
   }, []);
+
+  const getRequestRef = (res: Response, data: { requestId?: string; ref?: string } | null): string => {
+    const requestId = res.headers.get("X-Request-Id") ?? data?.requestId ?? data?.ref;
+    return requestId ? ` Reference: ${requestId}` : "";
+  };
 
   const handleRequestPayout = async () => {
     const cents = Math.floor(parseFloat(requestAmount || "0") * 100);
@@ -128,25 +144,36 @@ export default function AffiliatePortalClient({ affiliateCode }: Props) {
     setConnecting(true);
     setError(null);
     try {
-      let res = await fetch("/api/affiliates/connect/create-account", { method: "POST", cache: "no-store" });
-      const createData = (await res.json()) as { error?: string; ref?: string };
-      if (!res.ok) {
-        const ref = createData?.ref ? ` Reference: ${createData.ref}` : "";
-        setError((createData?.error || "Failed to create account") + ref);
+      let statusRes = await fetch("/api/affiliates/connect/status", { cache: "no-store" });
+      let statusData = (await statusRes.json().catch(() => null)) as ConnectStatus | { requestId?: string; error?: string } | null;
+
+      if (!statusRes.ok) {
+        const statusError = (statusData as { error?: string } | null)?.error || "Failed to load connect status";
+        setError(`${statusError}${getRequestRef(statusRes, statusData as { requestId?: string } | null)}`);
         setConnecting(false);
         return;
       }
-      res = await fetch("/api/affiliates/connect/onboard-link", { method: "POST", cache: "no-store" });
-      const linkData = (await res.json()) as { url?: string; error?: string; ref?: string };
-      if (!res.ok || !linkData?.url) {
-        const ref = linkData?.ref ? ` Reference: ${linkData.ref}` : "";
-        setError((linkData?.error || "Failed to get link") + ref);
+
+      if (!(statusData as ConnectStatus).stripe_account_id) {
+        const createRes = await fetch("/api/affiliates/connect/create-account", { method: "POST", cache: "no-store" });
+        const createData = (await createRes.json().catch(() => null)) as { error?: string; requestId?: string; ref?: string } | null;
+        if (!createRes.ok) {
+          setError((createData?.error || "Failed to create account") + getRequestRef(createRes, createData));
+          setConnecting(false);
+          return;
+        }
+      }
+
+      const linkRes = await fetch("/api/affiliates/connect/onboard-link", { method: "POST", cache: "no-store" });
+      const linkData = (await linkRes.json().catch(() => null)) as { url?: string; error?: string; requestId?: string; ref?: string } | null;
+      if (!linkRes.ok || !linkData?.url) {
+        setError((linkData?.error || "Onboarding failed") + getRequestRef(linkRes, linkData));
         setConnecting(false);
         return;
       }
       window.location.href = linkData.url;
     } catch {
-      setError("Something went wrong. Please try again or contact support.");
+      setError("Onboarding failed. Reference: unknown");
       setConnecting(false);
     }
   };
@@ -253,8 +280,10 @@ export default function AffiliatePortalClient({ affiliateCode }: Props) {
           <div>
             <p className="text-green-400 font-semibold">Connected</p>
             <ul className="text-sm text-muted mt-1">
+              <li>Details submitted: {connect.details_submitted ? "Yes" : "No"}</li>
               <li>Charges enabled: {connect.charges_enabled ? "Yes" : "No"}</li>
               <li>Payouts enabled: {connect.payouts_enabled ? "Yes" : "No"}</li>
+              <li>Payout ready: {connect.payout_ready ? "Yes" : "No"}</li>
             </ul>
             <button
               type="button"
@@ -267,7 +296,7 @@ export default function AffiliatePortalClient({ affiliateCode }: Props) {
           </div>
         ) : (
           <div>
-            <p className="text-muted mb-3">Connect Stripe to receive payouts when admin approves.</p>
+            <p className="text-muted mb-3">Connect Stripe to receive payouts when admin approves. We will create your Connect account automatically if needed.</p>
             <button
               type="button"
               onClick={handleConnect}
