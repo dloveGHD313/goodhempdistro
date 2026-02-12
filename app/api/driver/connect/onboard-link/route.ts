@@ -7,7 +7,7 @@ import { requireApprovedDriver } from "@/lib/server/driverStatusGate";
 const ROUTE_NAME = "driver/connect/onboard-link";
 
 function requestIdHeaders(requestId: string): Record<string, string> {
-  return { "X-Request-Id": requestId };
+  return { "X-Request-Id": requestId, "Cache-Control": "no-store" };
 }
 
 function truncateMessage(message?: string): string | undefined {
