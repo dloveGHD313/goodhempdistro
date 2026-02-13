@@ -84,6 +84,25 @@ export default function DriverConnectCard() {
     }
   };
 
+  const handleUpdateOnboarding = async () => {
+    setConnecting(true);
+    setError(null);
+    try {
+      const linkResponse = await fetch("/api/driver/connect/onboard-link", { method: "POST" });
+      const linkData = await linkResponse.json().catch(() => null);
+      if (!linkResponse.ok || !linkData?.url) {
+        setError(`Onboarding failed. Reference: ${getRef(linkResponse, linkData)}`);
+        setConnecting(false);
+        return;
+      }
+
+      window.location.href = linkData.url;
+    } catch {
+      setError("Onboarding failed. Reference: unknown");
+      setConnecting(false);
+    }
+  };
+
   return (
     <div className="card-glass p-6 mb-8">
       <h2 className="text-2xl font-bold mb-2">Payouts / Get Paid</h2>
@@ -107,14 +126,25 @@ export default function DriverConnectCard() {
             </div>
           </div>
 
-          {!payoutReady && (
+          {!status?.stripe_account_id && (
             <button
               type="button"
               onClick={handleConnect}
               disabled={connecting}
               className="btn-primary disabled:opacity-50"
             >
-              {connecting ? "Redirecting…" : "Connect Stripe"}
+              {connecting ? "Redirecting…" : "Start onboarding"}
+            </button>
+          )}
+
+          {status?.stripe_account_id && (
+            <button
+              type="button"
+              onClick={handleUpdateOnboarding}
+              disabled={connecting}
+              className="btn-secondary disabled:opacity-50"
+            >
+              {connecting ? "Redirecting…" : "Update onboarding"}
             </button>
           )}
 

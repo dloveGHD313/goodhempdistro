@@ -29,7 +29,10 @@ type Delivery = {
   payout_cents: number;
   status: string;
   created_at: string;
+  confirmed_at?: string | null;
+  proof_photo_url?: string | null;
   payout_status?: "unpaid" | "eligible" | "paid" | "failed";
+  driver_payout_cents?: number;
   driver_stripe_transfer_id?: string | null;
 };
 
@@ -163,6 +166,9 @@ export default function DriverDashboardPage() {
                   ...delivery,
                   payout_status: detailData.delivery.payout_status,
                   driver_stripe_transfer_id: detailData.delivery.driver_stripe_transfer_id,
+                  confirmed_at: detailData.delivery.confirmed_at,
+                  proof_photo_url: detailData.delivery.proof_photo_url,
+                  driver_payout_cents: detailData.delivery.driver_payout_cents,
                 }
               : delivery
           )
@@ -271,6 +277,20 @@ export default function DriverDashboardPage() {
 
               <DriverConnectCard />
 
+              <div className="card-glass p-6 mb-8">
+                <h2 className="text-2xl font-bold mb-3">Delivery Confirmation &amp; Proof</h2>
+                <ul className="list-disc pl-5 space-y-1 text-sm text-muted">
+                  <li>Retail: proof photo URL is required.</li>
+                  <li>B2B: proof photo URL and receiver name are required. BOL reference is optional.</li>
+                  <li>After verification, payout release is attempted automatically.</li>
+                </ul>
+                {deliveries.length === 0 && (
+                  <p className="text-sm text-muted mt-3">
+                    Confirmation actions appear per-delivery in the table once deliveries are assigned.
+                  </p>
+                )}
+              </div>
+
               <div className="card-glass p-6">
                 <h2 className="text-2xl font-bold mb-4">My Deliveries</h2>
                 {deliveries.length === 0 ? (
@@ -286,12 +306,16 @@ export default function DriverDashboardPage() {
                           <th className="pb-3 font-semibold text-muted">Distance</th>
                           <th className="pb-3 font-semibold text-muted">Payout</th>
                           <th className="pb-3 font-semibold text-muted">Status</th>
+                          <th className="pb-3 font-semibold text-muted">Confirmed</th>
+                          <th className="pb-3 font-semibold text-muted">Proof</th>
+                          <th className="pb-3 font-semibold text-muted">Payout</th>
                           <th className="pb-3 font-semibold text-muted">Action</th>
                         </tr>
                       </thead>
                       <tbody>
                         {deliveries.map((delivery) => {
                           const formState = confirmForms[delivery.id] ?? initialConfirmState();
+                          const canConfirm = delivery.status === "delivered";
 
                           return (
                             <tr key={delivery.id} className="border-b border-[var(--border)]/60 align-top">
@@ -315,12 +339,21 @@ export default function DriverDashboardPage() {
                                   >
                                     {delivery.status.toUpperCase()}
                                   </span>
-                                  {delivery.payout_status && (
-                                    <span className="text-xs text-muted">
-                                      Payout: {delivery.payout_status.toUpperCase()}
-                                    </span>
-                                  )}
                                 </div>
+                              </td>
+                              <td className="py-3 text-sm text-muted">
+                                {delivery.confirmed_at ? "Yes" : "No"}
+                                <div className="text-xs text-muted/80 mt-1">
+                                  {delivery.confirmed_at
+                                    ? new Date(delivery.confirmed_at).toLocaleString()
+                                    : "Not confirmed"}
+                                </div>
+                              </td>
+                              <td className="py-3 text-sm text-muted">
+                                {delivery.proof_photo_url ? "Uploaded" : "Missing"}
+                              </td>
+                              <td className="py-3 text-sm text-muted">
+                                {(delivery.payout_status ?? "unpaid").toUpperCase()}
                               </td>
                               <td className="py-3">
                                 <div className="space-y-2">
@@ -328,9 +361,19 @@ export default function DriverDashboardPage() {
                                     type="button"
                                     className="btn-secondary"
                                     onClick={() => toggleConfirmForm(delivery.id)}
+                                    disabled={!canConfirm}
+                                    title={
+                                      canConfirm
+                                        ? "Submit confirmation proof"
+                                        : "You can confirm after you mark delivered."
+                                    }
                                   >
                                     Confirm Delivery
                                   </button>
+
+                                  {!canConfirm && (
+                                    <p className="text-xs text-muted">You can confirm after you mark delivered.</p>
+                                  )}
 
                                   {formState.message && (
                                     <p className="text-xs text-muted max-w-72">{formState.message}</p>
