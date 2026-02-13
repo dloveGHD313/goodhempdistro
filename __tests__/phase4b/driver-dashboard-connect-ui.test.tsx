@@ -7,11 +7,12 @@ describe("DriverConnectCard", () => {
     vi.restoreAllMocks();
   });
 
-  it("shows connect CTA when payout is not ready", async () => {
+  it("shows start onboarding CTA when no Stripe account exists", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce(
       new Response(
         JSON.stringify({
           connected: false,
+          stripe_account_id: null,
           details_submitted: false,
           charges_enabled: false,
           payouts_enabled: false,
@@ -24,17 +25,18 @@ describe("DriverConnectCard", () => {
     render(<DriverConnectCard />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Connect Stripe" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Start onboarding" })).toBeInTheDocument();
     });
 
     expect(screen.getByRole("button", { name: "Cash Out (Coming Soon)" })).toBeDisabled();
   });
 
-  it("enables cash out button when payout_ready is true", async () => {
+  it("shows update onboarding when Stripe account exists", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce(
       new Response(
         JSON.stringify({
           connected: true,
+          stripe_account_id: "acct_123",
           details_submitted: true,
           charges_enabled: true,
           payouts_enabled: true,
@@ -47,7 +49,7 @@ describe("DriverConnectCard", () => {
     render(<DriverConnectCard />);
 
     await waitFor(() => {
-      expect(screen.getByText("Ready for payouts.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Update onboarding" })).toBeInTheDocument();
     });
 
     expect(screen.getByRole("button", { name: "Cash Out (Coming Soon)" })).not.toBeDisabled();
