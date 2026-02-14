@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { dispatchDeliveryOffers } from "@/lib/server/dispatchService";
 
 /**
  * Create delivery request (vendor only)
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { pickup_name, pickup_address, dropoff_name, dropoff_address, distance_miles } = await req.json();
+    const { pickup_name, pickup_address, dropoff_name, dropoff_address, distance_miles, pickup_lat, pickup_lng } = await req.json();
 
     if (!pickup_name || !pickup_address || !dropoff_name || !dropoff_address) {
       return NextResponse.json(
@@ -52,8 +53,10 @@ export async function POST(req: NextRequest) {
         distance_miles: miles > 0 ? miles : null,
         payout_cents: payoutCents,
         status: "pending",
+        pickup_lat: typeof pickup_lat === "number" ? pickup_lat : null,
+        pickup_lng: typeof pickup_lng === "number" ? pickup_lng : null,
       })
-      .select("id, status, payout_cents")
+      .select("id, status, payout_cents, pickup_lat, pickup_lng")
       .single();
 
     if (error) {
@@ -62,6 +65,10 @@ export async function POST(req: NextRequest) {
         { error: "Failed to create delivery request" },
         { status: 500 }
       );
+    }
+
+    if (delivery?.id) {
+      void dispatchDeliveryOffers(delivery.id);
     }
 
     return NextResponse.json({

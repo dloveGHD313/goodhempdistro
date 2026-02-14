@@ -33,7 +33,7 @@ export async function GET() {
       // Get vendor deliveries
       const { data: vendorDeliveries } = await supabase
         .from("deliveries")
-        .select("id, vendor_id, driver_id, pickup_name, pickup_address, dropoff_name, dropoff_address, distance_miles, payout_cents, driver_payout_cents, status, delivery_type, delivered_at, confirmed_at, confirmed_by, proof_photo_url, receiver_name, bol_reference, payout_status, driver_stripe_transfer_id, payout_attempted_at, payout_error, created_at, updated_at")
+        .select("id, vendor_id, driver_id, pickup_name, pickup_address, dropoff_name, dropoff_address, distance_miles, payout_cents, driver_payout_cents, status, delivery_type, delivered_at, confirmed_at, confirmed_by, proof_photo_url, receiver_name, bol_reference, payout_status, driver_stripe_transfer_id, payout_attempted_at, payout_error, created_at, updated_at, assigned_at, pickup_due_at, offering_started_at, offer_batch, pickup_lat, pickup_lng")
         .eq("vendor_id", vendor.id)
         .order("created_at", { ascending: false });
 
@@ -42,7 +42,7 @@ export async function GET() {
       // Get driver deliveries
       const { data: driverDeliveries } = await supabase
         .from("deliveries")
-        .select("id, vendor_id, driver_id, pickup_name, pickup_address, dropoff_name, dropoff_address, distance_miles, payout_cents, driver_payout_cents, status, delivery_type, delivered_at, confirmed_at, confirmed_by, proof_photo_url, receiver_name, bol_reference, payout_status, driver_stripe_transfer_id, payout_attempted_at, payout_error, created_at, updated_at")
+        .select("id, vendor_id, driver_id, pickup_name, pickup_address, dropoff_name, dropoff_address, distance_miles, payout_cents, driver_payout_cents, status, delivery_type, delivered_at, confirmed_at, confirmed_by, proof_photo_url, receiver_name, bol_reference, payout_status, driver_stripe_transfer_id, payout_attempted_at, payout_error, created_at, updated_at, assigned_at, pickup_due_at, offering_started_at, offer_batch, pickup_lat, pickup_lng")
         .eq("driver_id", driver.id)
         .order("created_at", { ascending: false });
 

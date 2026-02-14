@@ -63,8 +63,7 @@ describe("GET /api/deliveries/my", () => {
     mockDriverMaybeSingle.mockResolvedValue({ data: { id: "driver_1" } });
     mockDriverOrder.mockResolvedValue({ data: [{ id: "delivery_1", payout_status: "unpaid" }] });
 
-    const req = new NextRequest("http://localhost/api/deliveries/my");
-    const res = await GET(req);
+    const res = await GET();
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -85,8 +84,7 @@ describe("GET /api/deliveries/my", () => {
     mockDriverMaybeSingle.mockResolvedValue({ data: null });
     mockVendorOrder.mockResolvedValue({ data: [{ id: "delivery_vendor_1" }] });
 
-    const req = new NextRequest("http://localhost/api/deliveries/my");
-    const res = await GET(req);
+    const res = await GET();
     const body = await res.json();
 
     expect(res.status).toBe(200);

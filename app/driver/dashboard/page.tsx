@@ -36,6 +36,34 @@ type Delivery = {
   driver_stripe_transfer_id?: string | null;
 };
 
+
+
+type DriverPresence = {
+  is_online: boolean;
+  notify_offline: boolean;
+  lat?: number | null;
+  lng?: number | null;
+  location_updated_at?: string | null;
+};
+
+type DriverOffer = {
+  id: string;
+  delivery_id: string;
+  status: string;
+  offered_at: string;
+  expires_at: string;
+  offer_rank: number;
+  deliveries?: {
+    id: string;
+    pickup_name?: string | null;
+    pickup_address?: string | null;
+    dropoff_name?: string | null;
+    dropoff_address?: string | null;
+    payout_cents?: number | null;
+    status?: string | null;
+  } | null;
+};
+
 type ConfirmFormState = {
   open: boolean;
   deliveryType: "retail" | "b2b";
@@ -65,6 +93,9 @@ export default function DriverDashboardPage() {
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [confirmForms, setConfirmForms] = useState<Record<string, ConfirmFormState>>({});
+  const [presence, setPresence] = useState<DriverPresence | null>(null);
+  const [presenceSaving, setPresenceSaving] = useState(false);
+  const [offers, setOffers] = useState<DriverOffer[]>([]);
 
   const loadData = useCallback(async () => {
     try {
@@ -80,10 +111,25 @@ export default function DriverDashboardPage() {
       setStatus(statusData);
 
       if (statusData.driver?.status === "approved") {
-        const deliveriesRes = await fetch("/api/deliveries/my", { cache: "no-store" });
+        const [deliveriesRes, presenceRes, offersRes] = await Promise.all([
+          fetch("/api/deliveries/my", { cache: "no-store" }),
+          fetch("/api/driver/presence", { cache: "no-store" }),
+          fetch("/api/driver/offers", { cache: "no-store" }),
+        ]);
+
         if (deliveriesRes.ok) {
           const deliveriesData = await deliveriesRes.json();
           setDeliveries(deliveriesData.deliveries || []);
+        }
+
+        if (presenceRes.ok) {
+          const presenceData = await presenceRes.json();
+          setPresence(presenceData.presence ?? null);
+        }
+
+        if (offersRes.ok) {
+          const offersData = await offersRes.json();
+          setOffers(offersData.offers ?? []);
         }
       }
     } catch (err) {
@@ -182,6 +228,37 @@ export default function DriverDashboardPage() {
     }
   };
 
+
+
+  const updatePresence = async (payload: Partial<DriverPresence>) => {
+    setPresenceSaving(true);
+    try {
+      const response = await fetch("/api/driver/presence", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json().catch(() => null);
+      if (response.ok && data?.presence) {
+        setPresence(data.presence);
+      }
+    } finally {
+      setPresenceSaving(false);
+    }
+  };
+
+  const handleUpdateLocation = () => {
+    if (!navigator.geolocation) return;
+    setPresenceSaving(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        await updatePresence({ lat: position.coords.latitude, lng: position.coords.longitude });
+      },
+      () => setPresenceSaving(false),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen text-white flex flex-col">
@@ -276,6 +353,57 @@ export default function DriverDashboardPage() {
               </div>
 
               <DriverConnectCard />
+
+              <div className="card-glass p-6 mb-8">
+                <h2 className="text-2xl font-bold mb-3">Driver Availability</h2>
+                <div className="space-y-3 text-sm">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(presence?.is_online)}
+                      onChange={(e) => updatePresence({ is_online: e.target.checked })}
+                      disabled={presenceSaving}
+                    />
+                    Online
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={presence?.notify_offline ?? true}
+                      onChange={(e) => updatePresence({ notify_offline: e.target.checked })}
+                      disabled={presenceSaving}
+                    />
+                    Allow email offers while offline
+                  </label>
+                  <button type="button" className="btn-secondary" onClick={handleUpdateLocation} disabled={presenceSaving}>
+                    {presenceSaving ? "Updating..." : "Update location"}
+                  </button>
+                  <p className="text-xs text-muted">
+                    Last updated: {presence?.location_updated_at ? new Date(presence.location_updated_at).toLocaleString() : "Not set"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="card-glass p-6 mb-8">
+                <h2 className="text-2xl font-bold mb-4">Delivery Offers</h2>
+                {offers.length === 0 ? (
+                  <p className="text-muted">No active offers.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {offers.map((offer) => (
+                      <div key={offer.id} className="rounded border border-[var(--border)] p-3">
+                        <p className="text-sm">
+                          {offer.deliveries?.pickup_name ?? "Pickup"} → {offer.deliveries?.dropoff_name ?? "Dropoff"}
+                        </p>
+                        <p className="text-xs text-muted">
+                          Expires: {new Date(offer.expires_at).toLocaleTimeString()}
+                        </p>
+                        <p className="text-xs text-muted mt-2">Use the secure accept/decline links from your offer email.</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               <div className="card-glass p-6 mb-8">
                 <h2 className="text-2xl font-bold mb-3">Delivery Confirmation &amp; Proof</h2>
