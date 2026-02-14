@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
+
 const mockGetUser = vi.fn();
 const mockVendorMaybeSingle = vi.fn();
 const mockDriverMaybeSingle = vi.fn();
