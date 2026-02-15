@@ -13,11 +13,7 @@ export const jaxSpec = {
     JAX_CONSUMER: {
       name: "JAX",
       tagline: "Community concierge",
-      avatarSources: [
-        "/mascot/jax/consumer/idle.png",
-        "/mascot/jax/idle.png",
-        "/brand/goodhempdistrologo.png",
-      ],
+      avatarSources: ["/brand/mascot.png"],
       microLinesByContext: {
         FEED: [
           "Searching the feed now.",
@@ -70,11 +66,7 @@ export const jaxSpec = {
     JAX_VENDOR: {
       name: "JAX",
       tagline: "Vendor ops support",
-      avatarSources: [
-        "/mascot/jax/vendor/idle.png",
-        "/mascot/jax/idle.png",
-        "/brand/goodhempdistrologo.png",
-      ],
+      avatarSources: ["/brand/mascot.png"],
       microLinesByContext: {
         VENDOR: [
           "I'll guide you through the next step.",

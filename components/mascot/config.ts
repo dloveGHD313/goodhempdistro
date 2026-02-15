@@ -52,8 +52,8 @@ export const mascotAssets: Record<
 > = {
   JAX: {
     name: "JAX",
-    idleSrc: "/mascot/jax/idle.png",
-    fallbackSrc: "/brand/goodhempdistrologo.png",
+    idleSrc: "/brand/mascot.png",
+    fallbackSrc: "/brand/mascot.png",
     accent: "var(--accent)",
     tagline: "Community concierge",
   },
