@@ -683,9 +683,9 @@ footer {
 }
 
 .mascot-avatar {
-  border-radius: 1rem;
+  border-radius: 9999px; /* circular: rounded-full */
   overflow: hidden;
-  background: color-mix(in srgb, var(--brand-lime) 18%, transparent);
+  background: transparent;
   display: grid;
   place-items: center;
 }
