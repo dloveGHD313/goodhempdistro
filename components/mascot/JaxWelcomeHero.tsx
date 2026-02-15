@@ -1,13 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { mascotAssets } from "./config";
 
 type Props = {
   selectedCount: number;
 };
-
-const asset = mascotAssets.JAX;
 
 export default function JaxWelcomeHero({ selectedCount }: Props) {
   const enabled = process.env.NEXT_PUBLIC_MASCOT_ENABLED === "true";
@@ -30,8 +27,8 @@ export default function JaxWelcomeHero({ selectedCount }: Props) {
       >
         <div className="relative w-[140px] sm:w-[160px] md:w-[180px] h-[140px] sm:h-[160px] md:h-[180px] flex-shrink-0 mb-4" aria-hidden="true">
           <Image
-            src={asset.idleSrc}
-            alt=""
+            src="/brand/mascot.png"
+            alt="Good Hemp Distro mascot"
             width={180}
             height={180}
             className="object-contain w-full h-full"
