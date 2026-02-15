@@ -1,7 +1,9 @@
 # GHD Mascot Assets
 
-## JAX / Ask Jack AI (single asset)
-- `/public/brand/mascot.png` — Used for JAX and Ask Jack AI everywhere (welcome hero, onboarding guide, widget avatar).
+## JAX / Ask Jack AI (per-surface assets)
+- See **docs/MASCOT_ASSET_SURFACES.md** for the mapping of each surface to its asset path.
+- Assets: `mascot-hero.png`, `mascot-avatar.png`, `mascot-icon.png`, `mascot-watermark.png`, `mascot-social.png` (all under `/public/brand/`).
+- Legacy: `mascot.png` is kept for backward compatibility but is not used by the app surfaces.
 
 ## Other mascots (LEDGER, MILES, ATLAS)
 These paths are wired for non-JAX mascots; JAX uses `/brand/mascot.png` only.
