@@ -8,7 +8,7 @@
  * Requires: npm install sharp (devDependency)
  */
 
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, copyFileSync, existsSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 
@@ -37,6 +37,8 @@ try {
 const TRIM_THRESHOLD = 12;
 // Stronger trim for edge cleanup: removes more baked matte before resize (minimal defringe).
 const TRIM_EDGE_CLEANUP = 24;
+// Padding for normalized master so 1px border stays empty (halo check passes).
+const MASTER_PAD_PX = 10;
 
 function trimWhite(pipe, useEdgeCleanup = true) {
   const threshold = useEdgeCleanup ? TRIM_EDGE_CLEANUP : TRIM_THRESHOLD;
@@ -45,6 +47,48 @@ function trimWhite(pipe, useEdgeCleanup = true) {
   } catch {
     return pipe;
   }
+}
+
+/** On first run only, backup master to mascot.original.png if it does not exist. */
+async function ensureBackupOriginal(masterPath) {
+  const backupPath = join(outDir, "mascot.original.png");
+  if (!existsSync(backupPath)) {
+    copyFileSync(masterPath, backupPath);
+  }
+}
+
+/** Set RGB to 0 for every pixel where alpha === 0; return new sharp instance from raw. */
+async function dematteTransparentPixels(sharpInstance) {
+  const { data, info } = await sharpInstance
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  for (let i = 0; i < data.length; i += 4) {
+    const a = data[i + 3];
+    if (a === 0) {
+      data[i + 0] = 0;
+      data[i + 1] = 0;
+      data[i + 2] = 0;
+    }
+  }
+  return sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } });
+}
+
+/** Trim, dematte, add transparent padding; return PNG buffer for master. */
+async function normalizeMasterToTransparentSafeBorder(inputBuf, padPx) {
+  let pipe = sharp(inputBuf).ensureAlpha();
+  pipe = trimWhite(pipe);
+  pipe = await dematteTransparentPixels(pipe);
+  pipe = pipe.extend({
+    top: padPx,
+    bottom: padPx,
+    left: padPx,
+    right: padPx,
+    background: { r: 0, g: 0, b: 0, alpha: 0 },
+  });
+  const normalizedBuf = await pipe.png().toBuffer();
+  const normalizedMeta = await sharp(normalizedBuf).metadata();
+  return { normalizedBuf, normalizedMeta };
 }
 
 /**
@@ -77,10 +121,18 @@ async function dematteAndPad(inputSharp, padPx = 6) {
 }
 
 async function run() {
-  const buf = readFileSync(source);
-  const image = sharp(buf);
-  const meta = await image.metadata();
-  console.log("Source:", source, "| size:", meta.width, "x", meta.height);
+  const masterPath = join(outDir, "mascot.png");
+  const originalMasterBuf = readFileSync(masterPath);
+
+  await ensureBackupOriginal(masterPath);
+
+  const { normalizedBuf, normalizedMeta } = await normalizeMasterToTransparentSafeBorder(originalMasterBuf, MASTER_PAD_PX);
+  writeFileSync(masterPath, normalizedBuf);
+  console.log("Normalized master wrote mascot.png (backup: mascot.original.png)");
+
+  const buf = normalizedBuf;
+  const meta = normalizedMeta;
+  console.log("Source:", masterPath, "| size:", meta.width, "x", meta.height);
 
   // 1) mascot-hero.png — welcome hero, large, transparent, tightly cropped
   const heroSafe = await dematteAndPad(trimWhite(sharp(buf).clone()), 6);

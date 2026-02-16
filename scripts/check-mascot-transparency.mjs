@@ -92,7 +92,7 @@ async function main() {
     const stat = await import("fs").then((fs) => fs.promises.stat(input));
     if (stat.isDirectory()) {
       files = readdirSync(input)
-        .filter((f) => f.startsWith("mascot") && f.endsWith(".png"))
+        .filter((f) => f.startsWith("mascot") && f.endsWith(".png") && f !== "mascot.original.png")
         .map((f) => join(input, f));
     } else {
       files = [input];
