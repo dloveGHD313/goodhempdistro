@@ -31,7 +31,9 @@ export default function JaxWelcomeHero({ selectedCount }: Props) {
             alt="Good Hemp Distro mascot"
             width={180}
             height={180}
-            className="object-contain w-full h-full"
+            sizes="(max-width: 640px) 140px, (max-width: 768px) 160px, 180px"
+            quality={90}
+            className="object-contain w-full h-full drop-shadow-[0_2px_8px_rgba(0,0,0,0.12)]"
             priority
           />
         </div>
