@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { motion } from "framer-motion";
 
 type Status = "idle" | "submitting" | "error" | "success";
@@ -54,9 +55,13 @@ export default function JaxOnboardingGuide({
           className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none select-none"
           aria-hidden
         >
-          <img
+          <Image
             src="/brand/mascot-watermark.png"
             alt=""
+            width={420}
+            height={420}
+            sizes="(max-width: 768px) 320px, 420px"
+            quality={90}
             className="w-[320px] md:w-[420px] max-w-[85vw] opacity-[0.08] object-contain"
           />
         </div>
@@ -74,11 +79,13 @@ export default function JaxOnboardingGuide({
         aria-live="polite"
         aria-label="Onboarding guidance"
       >
-        <img
+        <Image
           src="/brand/mascot-icon.png"
           alt=""
-          width={40}
-          height={40}
+          width={48}
+          height={48}
+          sizes="(max-width: 768px) 40px, 48px"
+          quality={90}
           className="h-10 w-10 shrink-0 rounded-lg object-contain md:h-12 md:w-12"
         />
         <div

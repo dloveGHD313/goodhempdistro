@@ -1,5 +1,15 @@
 import Image from "next/image";
 import { brand } from "@/lib/brand";
+import MascotAssetCard from "./MascotAssetCard";
+
+const MASCOT_ASSETS = [
+  "mascot.png",
+  "mascot-hero.png",
+  "mascot-avatar.png",
+  "mascot-icon.png",
+  "mascot-watermark.png",
+  "mascot-social.png",
+] as const;
 
 export default function BrandCheckPage() {
   return (
@@ -26,6 +36,18 @@ export default function BrandCheckPage() {
             height={brand.logoHeight}
             className="max-w-xs h-auto"
           />
+        </section>
+
+        <section className="card p-6 space-y-4">
+          <h2 className="text-xl font-semibold">Mascot assets (QA)</h2>
+          <p className="text-sm text-gray-400">
+            All 6 mascot files from /public/brand. Rendered size fixed; natural size from image on load.
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {MASCOT_ASSETS.map((filename) => (
+              <MascotAssetCard key={filename} filename={filename} src={`/brand/${filename}`} />
+            ))}
+          </div>
         </section>
       </div>
     </main>
