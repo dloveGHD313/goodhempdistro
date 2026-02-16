@@ -17,6 +17,9 @@ const brandDir = join(root, "public", "brand");
 
 const WHITE_THRESHOLD = 245; // R,G,B >= this = "near white"
 const ALPHA_VISIBLE = 10;    // alpha >= this = "visible" pixel
+// HALO = YES only when severity is meaningful (fail the check)
+const HALO_PCT_THRESHOLD = 3.0;  // nearWhitePct >= this → fail
+const HALO_COUNT_THRESHOLD = 50; // nearWhiteCount >= this → fail
 
 let sharp;
 try {
@@ -67,7 +70,9 @@ async function checkFile(filePath) {
       }
     }
   }
-  const pct = visible > 0 ? ((whiteMatte / visible) * 100).toFixed(1) : "0";
+  const pctNum = visible > 0 ? (whiteMatte / visible) * 100 : 0;
+  const pct = visible > 0 ? pctNum.toFixed(1) : "0";
+  const hasHalo = pctNum >= HALO_PCT_THRESHOLD || whiteMatte >= HALO_COUNT_THRESHOLD;
   return {
     file: filePath,
     width: w,
@@ -76,7 +81,7 @@ async function checkFile(filePath) {
     visibleBorderPixels: visible,
     whiteMatteBorderPixels: whiteMatte,
     pctVisibleThatAreWhite: pct,
-    hasHalo: whiteMatte > 0,
+    hasHalo,
   };
 }
 
@@ -112,7 +117,7 @@ async function main() {
     }
     console.log(name);
     console.log("  ", r.width, "x", r.height, "| border visible:", r.visibleBorderPixels, "| near-white at edge:", r.whiteMatteBorderPixels, "(", r.pctVisibleThatAreWhite, "% of visible)");
-    console.log("  HALO (baked white matte):", r.hasHalo ? "YES" : "NO");
+    console.log("  HALO (pct>=" + HALO_PCT_THRESHOLD + "% or count>=" + HALO_COUNT_THRESHOLD + "):", r.hasHalo ? "YES" : "NO");
     console.log("");
   }
   const withHalo = results.filter((r) => r.hasHalo && !r.error);

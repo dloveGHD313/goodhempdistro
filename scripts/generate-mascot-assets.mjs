@@ -33,11 +33,15 @@ try {
   process.exit(1);
 }
 
-const TRIM_THRESHOLD = 12; // trim near-white borders (0-255, higher = more aggressive)
+// Trim near-white borders (0-255). Higher = more aggressive; reduces halo at edges.
+const TRIM_THRESHOLD = 12;
+// Stronger trim for edge cleanup: removes more baked matte before resize (minimal defringe).
+const TRIM_EDGE_CLEANUP = 24;
 
-function trimWhite(pipe) {
+function trimWhite(pipe, useEdgeCleanup = true) {
+  const threshold = useEdgeCleanup ? TRIM_EDGE_CLEANUP : TRIM_THRESHOLD;
   try {
-    return pipe.trim({ threshold: TRIM_THRESHOLD });
+    return pipe.trim({ threshold });
   } catch {
     return pipe;
   }
