@@ -16,7 +16,8 @@
     "verify:phase3d": "node scripts/verify-phase3d.mjs",
     "autopush": "powershell -ExecutionPolicy Bypass -File scripts/ai_autopush.ps1",
     "audit:prod": "playwright test -c playwright.audit.config.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "generate:mascot-assets": "node scripts/generate-mascot-assets.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.4.0",
@@ -42,6 +43,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
     "jsdom": "^25",
+    "sharp": "^0.34.5",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
     "typescript": "^5",
