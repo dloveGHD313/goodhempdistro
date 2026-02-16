@@ -47,6 +47,35 @@ function trimWhite(pipe, useEdgeCleanup = true) {
   }
 }
 
+/**
+ * De-matte fully transparent pixels (set RGB to 0 when alpha === 0) and add
+ * a transparent safe border so the 1px edge has no visible pixels (halo check passes).
+ */
+async function dematteAndPad(inputSharp, padPx = 6) {
+  const { data, info } = await inputSharp
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  for (let i = 0; i < data.length; i += 4) {
+    const a = data[i + 3];
+    if (a === 0) {
+      data[i + 0] = 0;
+      data[i + 1] = 0;
+      data[i + 2] = 0;
+    }
+  }
+
+  return sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
+    .extend({
+      top: padPx,
+      bottom: padPx,
+      left: padPx,
+      right: padPx,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    });
+}
+
 async function run() {
   const buf = readFileSync(source);
   const image = sharp(buf);
@@ -54,35 +83,40 @@ async function run() {
   console.log("Source:", source, "| size:", meta.width, "x", meta.height);
 
   // 1) mascot-hero.png — welcome hero, large, transparent, tightly cropped
-  await trimWhite(sharp(buf).clone())
+  const heroSafe = await dematteAndPad(trimWhite(sharp(buf).clone()), 6);
+  await heroSafe
     .resize({ width: 600, fit: "inside", withoutEnlargement: true })
     .png()
     .toFile(join(outDir, "mascot-hero.png"));
   console.log("Wrote mascot-hero.png");
 
   // 2) mascot-avatar.png — Ask JAX floating chat avatar, head/shoulders
-  await trimWhite(sharp(buf).clone())
+  const avatarSafe = await dematteAndPad(trimWhite(sharp(buf).clone()), 6);
+  await avatarSafe
     .resize({ width: 384, height: 384, fit: "cover", position: "top" })
     .png()
     .toFile(join(outDir, "mascot-avatar.png"));
   console.log("Wrote mascot-avatar.png");
 
   // 3) mascot-icon.png — small square icon ~512x512
-  await trimWhite(sharp(buf).clone())
+  const iconSafe = await dematteAndPad(trimWhite(sharp(buf).clone()), 6);
+  await iconSafe
     .resize({ width: 512, height: 512, fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png()
     .toFile(join(outDir, "mascot-icon.png"));
   console.log("Wrote mascot-icon.png");
 
   // 4) mascot-watermark.png — watermark background, tightly cropped (opacity via CSS)
-  await trimWhite(sharp(buf).clone())
+  const watermarkSafe = await dematteAndPad(trimWhite(sharp(buf).clone()), 6);
+  await watermarkSafe
     .resize({ width: 420, fit: "inside", withoutEnlargement: true })
     .png()
     .toFile(join(outDir, "mascot-watermark.png"));
   console.log("Wrote mascot-watermark.png");
 
   // 5) mascot-social.png — 1024x1024 square social thumbnail
-  await trimWhite(sharp(buf).clone())
+  const socialSafe = await dematteAndPad(trimWhite(sharp(buf).clone()), 6);
+  await socialSafe
     .resize({ width: 1024, height: 1024, fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png()
     .toFile(join(outDir, "mascot-social.png"));
