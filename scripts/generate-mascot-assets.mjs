@@ -1,26 +1,53 @@
 #!/usr/bin/env node
 /**
  * Generate per-surface mascot assets from a single source PNG.
- * Usage: node scripts/generate-mascot-assets.mjs [source.png]
+ * Usage:
+ *   node scripts/generate-mascot-assets.mjs
+ *   node scripts/generate-mascot-assets.mjs --source path/to/image.png
+ *   node scripts/generate-mascot-assets.mjs --source path/to/image.png --write-master
  * Default source: public/brand/mascot.png
  * Outputs to public/brand/: mascot-hero.png, mascot-avatar.png, mascot-icon.png,
  *   mascot-watermark.png, mascot-social.png
+ * When source is the default master file, it is normalized and overwritten.
+ * When --source points elsewhere, only the five derivatives are written unless --write-master is set.
  * Requires: npm install sharp (devDependency)
  */
 
 import { readFileSync, writeFileSync, copyFileSync, existsSync } from "fs";
-import { dirname, join } from "path";
+import { dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
-const defaultSource = join(root, "public", "brand", "mascot.png");
 const outDir = join(root, "public", "brand");
+const masterPath = join(outDir, "mascot.png");
 
-const source = process.argv[2] || defaultSource;
+function parseArgs() {
+  const args = process.argv.slice(2);
+  let sourcePath = null;
+  let writeMaster = false;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--source") {
+      sourcePath = args[i + 1] ? resolve(process.cwd(), args[i + 1]) : null;
+      if (sourcePath) i++;
+    } else if (args[i].startsWith("--source=")) {
+      sourcePath = resolve(process.cwd(), args[i].slice("--source=".length));
+    } else if (args[i] === "--write-master") {
+      writeMaster = true;
+    }
+  }
+  return {
+    sourcePath: sourcePath || masterPath,
+    writeMaster,
+  };
+}
 
-if (!existsSync(source)) {
-  console.error("Source image not found:", source);
+const { sourcePath, writeMaster } = parseArgs();
+const isDefaultMaster = sourcePath === masterPath;
+const mayOverwriteMaster = isDefaultMaster || writeMaster;
+
+if (!existsSync(sourcePath)) {
+  console.error("Source image not found:", sourcePath);
   process.exit(1);
 }
 
@@ -121,18 +148,20 @@ async function dematteAndPad(inputSharp, padPx = 6) {
 }
 
 async function run() {
-  const masterPath = join(outDir, "mascot.png");
-  const originalMasterBuf = readFileSync(masterPath);
+  const inputBuf = readFileSync(sourcePath);
 
-  await ensureBackupOriginal(masterPath);
-
-  const { normalizedBuf, normalizedMeta } = await normalizeMasterToTransparentSafeBorder(originalMasterBuf, MASTER_PAD_PX);
-  writeFileSync(masterPath, normalizedBuf);
-  console.log("Normalized master wrote mascot.png (backup: mascot.original.png)");
-
-  const buf = normalizedBuf;
+  const { normalizedBuf, normalizedMeta } = await normalizeMasterToTransparentSafeBorder(inputBuf, MASTER_PAD_PX);
+  let buf = normalizedBuf;
   const meta = normalizedMeta;
-  console.log("Source:", masterPath, "| size:", meta.width, "x", meta.height);
+
+  if (mayOverwriteMaster) {
+    await ensureBackupOriginal(masterPath);
+    writeFileSync(masterPath, normalizedBuf);
+    console.log("Normalized master wrote mascot.png (backup: mascot.original.png)");
+  } else {
+    console.log("Source (custom):", sourcePath, "| master not overwritten (use --write-master to update mascot.png)");
+  }
+  console.log("Size:", meta.width, "x", meta.height);
 
   // 1) mascot-hero.png — welcome hero, large, transparent, tightly cropped
   const heroSafe = await dematteAndPad(trimWhite(sharp(buf).clone()), 6);

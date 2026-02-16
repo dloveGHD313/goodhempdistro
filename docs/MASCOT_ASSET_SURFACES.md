@@ -14,6 +14,10 @@ Each JAX/Ask Jack surface uses a dedicated asset to avoid bad cropping and white
 
 **Regenerating assets:** From repo root run:
 ```bash
-node scripts/generate-mascot-assets.mjs [source.png]
+npm run generate:mascot-assets
+# or with custom source (only derivatives are written; master is not overwritten):
+node scripts/generate-mascot-assets.mjs --source path/to/image.png
+# to also overwrite public/brand/mascot.png with normalized output from custom source:
+node scripts/generate-mascot-assets.mjs --source path/to/image.png --write-master
 ```
-Default source: `public/brand/mascot.png`. Outputs the five files above. Requires `sharp` (devDependency).
+Default source: `public/brand/mascot.png`. Outputs the five derivative files; when using the default source, the master is normalized and overwritten. Requires `sharp` (devDependency).
