@@ -172,6 +172,10 @@ export default function WelcomeClient({ mascotEnabled: serverMascotEnabled }: We
           <Link href="/login" className="text-accent hover:underline">
             Sign in
           </Link>
+          {" · "}
+          <Link href="/start" className="text-accent hover:underline">
+            Start here
+          </Link> to choose your path first
         </p>
       )}
     </div>

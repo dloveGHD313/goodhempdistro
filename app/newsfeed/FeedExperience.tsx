@@ -418,7 +418,7 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
               </>
             ) : (
               <>
-                <Link href="/get-started" className="btn-primary">
+                <Link href="/start" className="btn-primary">
                   Join
                 </Link>
                 <Link href="/login" className="btn-secondary">
