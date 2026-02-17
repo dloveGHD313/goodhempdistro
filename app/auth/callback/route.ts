@@ -104,31 +104,33 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // For other flows (e.g. email confirm): honor next then workout_path then post-login rule (never external redirect)
-    const safeNext = isSafeNextPath(nextParam) ? nextParam : null;
+    // Onboarding gating first (same logic as post-login-route), then safe next, then workout_path, then fallback
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    let profile: PostLoginProfile = null;
+    if (authUser?.id) {
+      const { data: row } = await supabase
+        .from("profiles")
+        .select("role, onboarding_completed_at, consumer_onboarding_completed")
+        .eq("id", authUser.id)
+        .maybeSingle();
+      profile = row
+        ? {
+            role: row.role ?? null,
+            onboarding_completed_at: row.onboarding_completed_at ?? null,
+            consumer_onboarding_completed: row.consumer_onboarding_completed ?? null,
+          }
+        : null;
+    }
+    const mandatoryRedirect = getPostLoginRoute(profile);
     let redirectPath: string;
-    if (safeNext) {
-      redirectPath = safeNext;
+    if (mandatoryRedirect === "/onboarding") {
+      redirectPath = "/onboarding";
+    } else if (isSafeNextPath(nextParam)) {
+      redirectPath = nextParam;
     } else if (workoutPathParam) {
       redirectPath = getDefaultRouteForUser({ workoutPath: workoutPathParam });
     } else {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      let profile: PostLoginProfile = null;
-      if (authUser?.id) {
-        const { data: row } = await supabase
-          .from("profiles")
-          .select("role, onboarding_completed_at, consumer_onboarding_completed")
-          .eq("id", authUser.id)
-          .maybeSingle();
-        profile = row
-          ? {
-              role: row.role ?? null,
-              onboarding_completed_at: row.onboarding_completed_at ?? null,
-              consumer_onboarding_completed: row.consumer_onboarding_completed ?? null,
-            }
-          : null;
-      }
-      redirectPath = getPostLoginRoute(profile);
+      redirectPath = mandatoryRedirect;
     }
     const redirectUrl = new URL(redirectPath, requestUrl.origin);
     return NextResponse.redirect(redirectUrl);

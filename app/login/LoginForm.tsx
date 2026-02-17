@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
-import { getDefaultRouteForUser, isSafeNextPath, sanitizeNextPath } from "@/lib/phase2-workout-flow";
+import { isSafeNextPath } from "@/lib/phase2-workout-flow";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -40,13 +40,14 @@ export default function LoginForm() {
 
       if (data.user) {
         setMessage("Login successful! Redirecting...");
-        if (next || role) {
-          router.push(sanitizeNextPath(next, getDefaultRouteForUser({ workoutPath: role })));
-        } else {
-          const res = await fetch("/api/auth/post-login-route", { credentials: "include" });
-          const { redirectTo } = (await res.json()) as { redirectTo: "/onboarding" | "/dashboard" };
-          router.push(redirectTo);
-        }
+        const res = await fetch("/api/auth/post-login-route", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ next: next ?? undefined, workoutPath: role ?? undefined, role: role ?? undefined }),
+          credentials: "include",
+        });
+        const { redirectTo } = (await res.json()) as { redirectTo: string };
+        router.push(redirectTo ?? "/onboarding");
         router.refresh();
       }
     } catch (err) {

@@ -5,10 +5,13 @@
 
 const KEY = "ghd_phase2_workout_flow";
 
-export type WorkoutPath = "shopper" | "vendor" | "logistics" | "builder" | "affiliate";
+export type WorkoutPath = "shopper" | "vendor" | "logistics" | "builder" | "affiliate" | "education";
+
+/** Start flow UI can show "events" tile; it maps to vendor for redirect + persistence. */
+export type StartPathId = WorkoutPath | "events";
 
 export type WorkoutFlowState = {
-  selectedPath: WorkoutPath | null;
+  selectedPath: StartPathId | null;
   timestamp: string;
   lastStepCompleted: number;
 };
@@ -20,8 +23,8 @@ function readRaw(): WorkoutFlowState | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as { selectedPath?: string; timestamp?: string; lastStepCompleted?: number };
     if (!parsed || typeof parsed.lastStepCompleted !== "number") return null;
-    const path = parsed.selectedPath as WorkoutPath | null;
-    const validPaths: WorkoutPath[] = ["shopper", "vendor", "logistics", "builder", "affiliate"];
+    const path = parsed.selectedPath as StartPathId | null;
+    const validPaths: StartPathId[] = ["shopper", "vendor", "logistics", "builder", "affiliate", "education", "events"];
     return {
       selectedPath: path && validPaths.includes(path) ? path : null,
       timestamp: typeof parsed.timestamp === "string" ? parsed.timestamp : new Date().toISOString(),
@@ -71,7 +74,21 @@ export const WORKOUT_REDIRECTS: Record<WorkoutPath, string> = {
   logistics: "/logistics/apply",
   builder: "/services",
   affiliate: "/affiliate",
+  education: "/education",
 };
+
+/** Resolve redirect URL for a Start flow selection (events → /vendor-registration). */
+export function getRedirectForStartPath(selectedPath: string | null | undefined): string {
+  if (selectedPath === "events") return "/vendor-registration";
+  return getDefaultRouteForUser({ workoutPath: selectedPath ?? undefined });
+}
+
+/** Resolve workout_path to persist / pass as role param (events → vendor). */
+export function getEffectiveWorkoutPath(selectedPath: string | null | undefined): WorkoutPath {
+  if (selectedPath === "events") return "vendor";
+  if (isValidWorkoutPath(selectedPath)) return selectedPath;
+  return "shopper";
+}
 
 /** Type guard: true if path is a valid workout path key. */
 export function isValidWorkoutPath(path: string | null | undefined): path is WorkoutPath {

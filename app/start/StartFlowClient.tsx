@@ -6,23 +6,26 @@ import { useRouter } from "next/navigation";
 import {
   getWorkoutFlowState,
   setWorkoutFlowState,
-  WORKOUT_REDIRECTS,
-  type WorkoutPath,
+  getRedirectForStartPath,
+  getEffectiveWorkoutPath,
+  type StartPathId,
 } from "@/lib/phase2-workout-flow";
 import { HeroShell } from "@/components/ui/HeroShell";
 
-const PATHS: { id: WorkoutPath; label: string; promise: string; icon: string }[] = [
+const PATHS: { id: StartPathId; label: string; promise: string; icon: string }[] = [
   { id: "shopper", label: "Shopper / Community", promise: "Discover products and join the community.", icon: "🛍️" },
   { id: "vendor", label: "Vendor", promise: "Sell products and grow your brand.", icon: "🏪" },
+  { id: "events", label: "Events", promise: "Host events and sell tickets or vendor booths.", icon: "🎟️" },
   { id: "logistics", label: "Logistics / Driver", promise: "Apply to deliver and offer services.", icon: "🚚" },
   { id: "builder", label: "Builder / Contractor", promise: "Hemp construction and professional services.", icon: "🏗️" },
   { id: "affiliate", label: "Affiliate", promise: "Earn rewards by referring others to the community.", icon: "💰" },
+  { id: "education", label: "Education", promise: "Learn, watch episodes, and stay compliant.", icon: "🎓" },
 ];
 
 export default function StartFlowClient() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
-  const [path, setPath] = useState<WorkoutPath | null>(null);
+  const [path, setPath] = useState<StartPathId | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -34,7 +37,7 @@ export default function StartFlowClient() {
     setMounted(true);
   }, []);
 
-  const handleSelectPath = (p: WorkoutPath) => {
+  const handleSelectPath = (p: StartPathId) => {
     setPath(p);
     setWorkoutFlowState({ selectedPath: p, lastStepCompleted: 1 });
     setStep(2);
@@ -43,14 +46,15 @@ export default function StartFlowClient() {
   const handleContinueWithoutAccount = () => {
     if (!path) return;
     setWorkoutFlowState({ lastStepCompleted: 2 });
-    router.push(WORKOUT_REDIRECTS[path]);
+    router.push(getRedirectForStartPath(path));
   };
 
   const handleSignUpFirst = () => {
     if (!path) return;
     setWorkoutFlowState({ lastStepCompleted: 2 });
-    const redirect = WORKOUT_REDIRECTS[path];
-    router.push(`/signup?next=${encodeURIComponent(redirect)}&role=${encodeURIComponent(path)}`);
+    const redirect = getRedirectForStartPath(path);
+    const role = getEffectiveWorkoutPath(path);
+    router.push(`/signup?next=${encodeURIComponent(redirect)}&role=${encodeURIComponent(role)}`);
   };
 
   if (!mounted) {
@@ -98,7 +102,7 @@ export default function StartFlowClient() {
   }
 
   const pathMeta = PATHS.find((p) => p.id === path);
-  const destination = path ? WORKOUT_REDIRECTS[path] : "#";
+  const destination = path ? getRedirectForStartPath(path) : "#";
 
   return (
     <main className="welcome-hero py-10 px-4" aria-label="Next step">

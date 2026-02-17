@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
-import { getDefaultRouteForUser, isSafeNextPath, sanitizeNextPath } from "@/lib/phase2-workout-flow";
+import { isSafeNextPath } from "@/lib/phase2-workout-flow";
 
 export default function SignupForm() {
   const router = useRouter();
@@ -65,22 +65,23 @@ export default function SignupForm() {
       if (data.user) {
         // Check if email confirmation is required
         if (data.session) {
-          // User is immediately logged in (email confirmation disabled)
-          if (next || role) {
-            if (role) {
-              await fetch("/api/auth/set-role", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ role }),
-                credentials: "include",
-              });
-            }
-            router.push(sanitizeNextPath(next, getDefaultRouteForUser({ workoutPath: role })));
-          } else {
-            const res = await fetch("/api/auth/post-login-route", { credentials: "include" });
-            const { redirectTo } = (await res.json()) as { redirectTo: "/onboarding" | "/dashboard" };
-            router.push(redirectTo);
+          // User is immediately logged in (email confirmation disabled) — always use post-login-route so onboarding gating applies
+          if (role) {
+            await fetch("/api/auth/set-role", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ role }),
+              credentials: "include",
+            });
           }
+          const res = await fetch("/api/auth/post-login-route", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ next: next ?? undefined, workoutPath: role ?? undefined, role: role ?? undefined }),
+            credentials: "include",
+          });
+          const { redirectTo } = (await res.json()) as { redirectTo: string };
+          router.push(redirectTo ?? "/onboarding");
         } else {
           // Email confirmation required — preserve next/role so callback or login can use them
           setMessage("Check your email to confirm your account.");
@@ -172,7 +173,17 @@ export default function SignupForm() {
 
       <div className="text-center text-sm text-muted">
         <p className="mb-2">Already have an account?</p>
-        <Link href="/login" className="text-accent hover:underline">
+        <Link
+          href={
+            next || role
+              ? `/login?${new URLSearchParams({
+                  ...(next && isSafeNextPath(next) && { next }),
+                  ...(role && { role }),
+                }).toString()}`
+              : "/login"
+          }
+          className="text-accent hover:underline"
+        >
           Sign in here
         </Link>
       </div>

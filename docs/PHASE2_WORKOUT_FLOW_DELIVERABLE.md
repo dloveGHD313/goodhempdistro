@@ -50,7 +50,21 @@
 - `app/welcome/WelcomeClient.tsx` (Start here link)
 - `docs/PHASE2_WORKOUT_FLOW_DELIVERABLE.md` (this file)
 
+## Auth Redirect Gate + Events/Education
+
+### What changed
+
+- **Post-auth redirect:** All login/signup redirects now go through `POST /api/auth/post-login-route`. Onboarding gating wins: if the user needs onboarding (`getPostLoginRoute(profile) === "/onboarding"`), they are always sent to `/onboarding`; only then are `next` or `workoutPath` considered. The `next` parameter can no longer bypass onboarding.
+- **Callback:** Same logic: after email verification, redirect is computed with onboarding first, then safe `next`, then workout default, then post-login fallback. No open redirects.
+- **Start flow paths:** Added **Events** (maps to vendor: redirect `/vendor-registration`, persist `workout_path=vendor`) and **Education** (redirect `/education`, persist `workout_path=education`). Schema: migration `092_profiles_workout_path_education.sql` adds `education` to `profiles.workout_path` CHECK.
+- **Education page:** New `/education` with hero “Education Hub”, placeholders for Learning with JAX, Compliance & Rules, and category grid (Farming, Retail, Logistics, Construction, Compliance). Uses existing `HeroShell`, `FeatureSection`, `surface-glass`, `futuristic-glow`.
+
+### Discovery summary (for BugBot)
+
+- **Onboarding gating:** Implemented in `lib/routing/postLoginRoute.ts`: `getPostLoginRoute(profile)` returns `"/onboarding"` when profile is null or when `onboarding_completed_at` or `consumer_onboarding_completed` is falsy (admin always gets `/dashboard`). This is the single condition that forces first-time users to onboarding.
+- **Previous bypass:** LoginForm and SignupForm, when `next` or `role` was present, redirected client-side to `sanitizeNextPath(next, getDefaultRouteForUser({ workoutPath: role }))` without calling the post-login API, so onboarding was skipped.
+- **Fix:** Clients always call `POST /api/auth/post-login-route` with `{ next, workoutPath, role }`; the API returns `redirectTo` after applying onboarding-first logic. Callback uses the same order: mandatory post-login route, then safe next, then workout default.
+
 ## Follow-ups (not in this PR)
 
-- Optional: signup page honors `?next=` so post-signup redirects to workout destination (if not already implemented).
 - Optional: migrate welcome/feed CTAs to `components/ui/Button` per check:ui-regressions (advisory).
