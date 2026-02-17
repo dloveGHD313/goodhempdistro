@@ -1,4 +1,4 @@
-﻿import fs from "node:fs/promises";
+import fs from "node:fs/promises";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -128,8 +128,29 @@ return { content: [{ type: "text", text: stdout }] };
 
 if (name === "npm_run") {
 const script = String(args.script);
-const { stdout, stderr } = await execFileAsync("npm", ["run", script], { cwd: REPO_ROOT });
-return { content: [{ type: "text", text: stdout + (stderr ? "\n" + stderr : "") }] };
+
+// Explicit allowlist of safe scripts
+const ALLOWED_SCRIPTS = new Set([
+"build",
+"dev",
+"check:mascot-img",
+"check:ui-regressions",
+"test"
+]);
+
+if (!ALLOWED_SCRIPTS.has(script)) {
+throw new Error(`Script "${script}" is not allowed by MCP policy.`);
+}
+
+const { stdout, stderr } = await execFileAsync("npm", ["run", script], {
+cwd: REPO_ROOT
+});
+
+return {
+content: [
+{ type: "text", text: stdout + (stderr ? "\n" + stderr : "") }
+]
+};
 }
 
 throw new Error(`Unknown tool: ${name}`);
