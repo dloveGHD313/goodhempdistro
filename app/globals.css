@@ -87,6 +87,19 @@ footer {
   z-index: 1;
 }
 
+/* Accessibility: screen-reader only (keeps landmark from being empty) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
 .btn-primary {
   background: linear-gradient(
     135deg,
@@ -263,15 +276,15 @@ footer {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 2rem 1.5rem;
+  padding: 2.5rem 1.5rem;
 }
 .welcome-hero::before {
   content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: radial-gradient(ellipse 100% 80% at 50% -20%, color-mix(in srgb, var(--brand-lime) 8%, transparent), transparent 50%),
-    radial-gradient(ellipse 80% 60% at 80% 50%, color-mix(in srgb, var(--brand-teal) 6%, transparent), transparent 45%);
+  background: radial-gradient(ellipse 100% 80% at 50% -20%, color-mix(in srgb, var(--brand-lime) 6%, transparent), transparent 50%),
+    radial-gradient(ellipse 80% 60% at 80% 50%, color-mix(in srgb, var(--brand-teal) 4%, transparent), transparent 45%);
   animation: welcome-gradient-shift 18s ease-in-out infinite alternate;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -350,8 +363,8 @@ footer {
 }
 
 .feed-hero {
-  border: 1px solid color-mix(in srgb, var(--brand-lime) 35%, transparent);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+  border: 1px solid color-mix(in srgb, var(--brand-lime) 22%, transparent);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
 }
 
 .feed-filter-bar {

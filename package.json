@@ -18,7 +18,8 @@
     "audit:prod": "playwright test -c playwright.audit.config.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "generate:mascot-assets": "node scripts/generate-mascot-assets.mjs",
-    "check:mascot-img": "node scripts/check-no-mascot-img.mjs"
+    "check:mascot-img": "node scripts/check-no-mascot-img.mjs",
+    "check:ui-regressions": "node scripts/check-ui-regressions.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.4.0",
