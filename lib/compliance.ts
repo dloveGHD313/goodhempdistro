@@ -36,11 +36,19 @@ export interface ProductCompliancePayload {
   coa_object_path?: string | null;
   delta8_disclaimer_ack?: boolean;
   category_requires_coa?: boolean;
+  /** Required: must be true for all products (hemp-derived attestation). */
+  hemp_derived_attestation?: boolean;
 }
 
 export interface ComplianceErrors {
   field: string;
   message: string;
+}
+
+/** "draft" = create/update must not block on COA; "submit" = enforce COA before publish. */
+export type ValidateProductComplianceMode = "draft" | "submit";
+export interface ValidateProductComplianceOptions {
+  mode?: ValidateProductComplianceMode;
 }
 
 /**
@@ -100,12 +108,35 @@ export function getDelta8WarningText(): string {
 
 /**
  * Validate product compliance rules.
- * Phase 2: COA never blocks product create/update; submit route enforces COA before pending_review for vendors.
+ * mode "draft": create/update — do NOT block on COA (Phase 2). Hemp-derived attestation still required.
+ * mode "submit": publish/submit — enforce COA when category_requires_coa.
  */
-export function validateProductCompliance(payload: ProductCompliancePayload): ComplianceErrors[] {
+export function validateProductCompliance(
+  payload: ProductCompliancePayload,
+  options?: ValidateProductComplianceOptions
+): ComplianceErrors[] {
+  const mode = options?.mode ?? "draft";
   const errors: ComplianceErrors[] = [];
 
-  // COA is not enforced here: create/edit must never block. Submit route enforces COA for vendors when required.
+  // All products must attest hemp-derived (create/update)
+  if (payload.hemp_derived_attestation !== true) {
+    errors.push({
+      field: "hemp_derived_attestation",
+      message: "You must confirm this product is hemp-derived.",
+    });
+  }
+
+  // COA blocking only in submit mode (Phase 2: create/update must not block on COA)
+  if (mode === "submit" && payload.category_requires_coa) {
+    const hasCoaUrl = typeof payload.coa_url === "string" && payload.coa_url.trim().length > 0;
+    const hasCoaPath = typeof payload.coa_object_path === "string" && payload.coa_object_path.trim().length > 0;
+    if (!hasCoaUrl && !hasCoaPath) {
+      errors.push({
+        field: "coa",
+        message: "A COA (Certificate of Analysis) upload or link is required for this category.",
+      });
+    }
+  }
 
   // Recreational (intoxicating) products are only allowed until cutoff date
   if (payload.product_type === "intoxicating" && !isIntoxicatingAllowedNow()) {
@@ -131,4 +162,41 @@ export function validateProductCompliance(payload: ProductCompliancePayload): Co
  */
 export function requiresWarning(productType: ProductType): boolean {
   return productType === "delta8";
+}
+
+/**
+ * Server-side: determine if a category requires COA by ID.
+ * Fetches category, calls requiresCOA; if child category and category requires COA, also checks parent.
+ * Returns true when categoryId is null/undefined (unknown → require COA for safety).
+ *
+ * @param supabase - Supabase client (server or route handler) with from().select().eq().maybeSingle()
+ */
+export async function getCategoryCoaRequirement(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- avoids deep Supabase generic instantiation
+  supabase: any,
+  categoryId: string | null | undefined
+): Promise<boolean> {
+  if (!categoryId || typeof categoryId !== "string" || !categoryId.trim()) {
+    return true;
+  }
+  const { data: category } = await supabase
+    .from("categories")
+    .select("id, name, slug, parent_id")
+    .eq("id", categoryId.trim())
+    .maybeSingle();
+  if (!category) {
+    return true;
+  }
+  let result = requiresCOA({ slug: category.slug, name: category.name });
+  if (category.parent_id && result) {
+    const { data: parent } = await supabase
+      .from("categories")
+      .select("slug, name")
+      .eq("id", category.parent_id)
+      .maybeSingle();
+    if (parent && !requiresCOA({ slug: parent.slug, name: parent.name })) {
+      result = false;
+    }
+  }
+  return result;
 }

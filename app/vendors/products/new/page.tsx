@@ -33,6 +33,7 @@ export default function NewProductPage() {
   const [coaObjectPath, setCoaObjectPath] = useState("");
   const [useManualUrl, setUseManualUrl] = useState(false);
   const [delta8DisclaimerAck, setDelta8DisclaimerAck] = useState(false);
+  const [hempDerivedAttestation, setHempDerivedAttestation] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -112,6 +113,12 @@ export default function NewProductPage() {
       return;
     }
 
+    if (!hempDerivedAttestation) {
+      setError("You must confirm this product is hemp-derived.");
+      setLoading(false);
+      return;
+    }
+
     // Phase 2: COA required when category requires it (vendor-only; admin bypass)
     if (!isAdmin && categoryRequiresCoa) {
       const hasCoa = (useManualUrl && (coaUrl?.trim() ?? "").length > 0) || (!useManualUrl && (coaObjectPath?.trim() ?? "").length > 0);
@@ -149,6 +156,7 @@ export default function NewProductPage() {
           coa_url: useManualUrl ? coaUrl.trim() : null,
           coa_object_path: !useManualUrl ? coaObjectPath.trim() || null : null,
           delta8_disclaimer_ack: productType === "delta8" ? delta8DisclaimerAck : false,
+          hemp_derived_attestation: hempDerivedAttestation,
         }),
       });
 
@@ -288,6 +296,22 @@ export default function NewProductPage() {
                   </div>
                 )}
                 <div>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={hempDerivedAttestation}
+                      onChange={(e) => setHempDerivedAttestation(e.target.checked)}
+                      required
+                      disabled={subscriptionChecked && !subscriptionActive && !isAdmin}
+                      className="mt-1 w-4 h-4 accent-accent"
+                    />
+                    <span className="text-sm">
+                      This product is hemp-derived <span className="text-red-400">*</span>
+                    </span>
+                  </label>
+                </div>
+
+                <div>
                   <label htmlFor="product_type" className="block text-sm font-medium mb-2">
                     Product Type <span className="text-red-400">*</span>
                   </label>
@@ -347,7 +371,9 @@ export default function NewProductPage() {
                         className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
                         placeholder="https://example.com/coa.pdf"
                       />
-                      <p className="text-sm text-muted mt-1">Optional. Full panel COA can be added later.</p>
+                      <p className="text-sm text-muted mt-1">
+                        {categoryRequiresCoa && !isAdmin ? "Required for this category." : "Optional. Full panel COA can be added later."}
+                      </p>
                     </div>
                   ) : (
                     subscriptionChecked && !subscriptionActive && !isAdmin ? (

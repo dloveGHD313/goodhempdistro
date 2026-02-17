@@ -20,6 +20,7 @@ type Product = {
   coa_url?: string | null;
   coa_object_path?: string | null;
   delta8_disclaimer_ack?: boolean;
+  hemp_derived_attestation?: boolean;
   status?: string;
   submitted_at?: string | null;
   rejection_reason?: string | null;
@@ -45,6 +46,7 @@ export default function EditProductForm({ productId, initialProduct, initialCate
   const [coaObjectPath, setCoaObjectPath] = useState(initialProduct.coa_object_path || "");
   const [useManualUrl, setUseManualUrl] = useState(!!initialProduct.coa_url);
   const [delta8DisclaimerAck, setDelta8DisclaimerAck] = useState(initialProduct.delta8_disclaimer_ack || false);
+  const [hempDerivedAttestation, setHempDerivedAttestation] = useState(initialProduct.hemp_derived_attestation ?? true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -132,6 +134,12 @@ export default function EditProductForm({ productId, initialProduct, initialCate
       return;
     }
 
+    if (!hempDerivedAttestation) {
+      setError("You must confirm this product is hemp-derived.");
+      setSaving(false);
+      return;
+    }
+
     // Backend enforces COA when category requires it (admin bypass).
 
     try {
@@ -149,6 +157,7 @@ export default function EditProductForm({ productId, initialProduct, initialCate
           coa_url: useManualUrl ? coaUrl.trim() : null,
           coa_object_path: !useManualUrl ? coaObjectPath.trim() || null : null,
           delta8_disclaimer_ack: productType === "delta8" ? delta8DisclaimerAck : false,
+          hemp_derived_attestation: hempDerivedAttestation,
         }),
       });
 
@@ -286,6 +295,21 @@ export default function EditProductForm({ productId, initialProduct, initialCate
                     </Link>
                   </div>
                 )}
+                <div>
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={hempDerivedAttestation}
+                      onChange={(e) => setHempDerivedAttestation(e.target.checked)}
+                      required
+                      disabled={subscriptionChecked && !subscriptionActive && !isAdmin}
+                      className="mt-1 w-4 h-4 accent-accent"
+                    />
+                    <span className="text-sm">
+                      This product is hemp-derived <span className="text-red-400">*</span>
+                    </span>
+                  </label>
+                </div>
                 <div>
                   <label htmlFor="product_type" className="block text-sm font-medium mb-2">
                     Product Type <span className="text-red-400">*</span>

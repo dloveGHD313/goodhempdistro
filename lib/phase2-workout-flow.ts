@@ -7,8 +7,8 @@ const KEY = "ghd_phase2_workout_flow";
 
 export type WorkoutPath = "shopper" | "vendor" | "logistics" | "builder" | "affiliate" | "education";
 
-/** Start flow UI can show "events" tile; it maps to vendor for redirect + persistence. */
-export type StartPathId = WorkoutPath | "events";
+/** Start flow UI can show "events" and "service_provider" tiles; both map to vendor for signup. */
+export type StartPathId = WorkoutPath | "events" | "service_provider";
 
 export type WorkoutFlowState = {
   selectedPath: StartPathId | null;
@@ -24,7 +24,7 @@ function readRaw(): WorkoutFlowState | null {
     const parsed = JSON.parse(raw) as { selectedPath?: string; timestamp?: string; lastStepCompleted?: number };
     if (!parsed || typeof parsed.lastStepCompleted !== "number") return null;
     const path = parsed.selectedPath as StartPathId | null;
-    const validPaths: StartPathId[] = ["shopper", "vendor", "logistics", "builder", "affiliate", "education", "events"];
+    const validPaths: StartPathId[] = ["shopper", "vendor", "logistics", "builder", "affiliate", "education", "events", "service_provider"];
     return {
       selectedPath: path && validPaths.includes(path) ? path : null,
       timestamp: typeof parsed.timestamp === "string" ? parsed.timestamp : new Date().toISOString(),
@@ -77,15 +77,37 @@ export const WORKOUT_REDIRECTS: Record<WorkoutPath, string> = {
   education: "/education",
 };
 
-/** Resolve redirect URL for a Start flow selection (events → /vendor-registration). */
+/** Redirect when "Sign me up, then take me there" (events + service_provider → vendor registration). */
 export function getRedirectForStartPath(selectedPath: string | null | undefined): string {
-  if (selectedPath === "events") return "/vendor-registration";
+  if (selectedPath === "events" || selectedPath === "service_provider") return "/vendor-registration";
   return getDefaultRouteForUser({ workoutPath: selectedPath ?? undefined });
 }
 
-/** Resolve workout_path to persist / pass as role param (events → vendor). */
+/**
+ * Public destination when "Continue without account".
+ * MUST only return public routes (no auth/onboarding gates). Never vendor-registration, affiliate dashboard, etc.
+ */
+const PUBLIC_START_REDIRECTS: Record<string, string> = {
+  events: "/events",
+  education: "/education",
+  shopper: "/discover",
+  vendor: "/discover",
+  logistics: "/discover",
+  builder: "/discover",
+  affiliate: "/discover",
+  service_provider: "/discover",
+};
+
+export function getPublicRedirectForStartPath(selectedPath: string | null | undefined): string {
+  if (typeof selectedPath === "string" && selectedPath.length > 0 && PUBLIC_START_REDIRECTS[selectedPath] !== undefined) {
+    return PUBLIC_START_REDIRECTS[selectedPath];
+  }
+  return "/discover";
+}
+
+/** Resolve workout_path to persist / pass as role param (events + service_provider → vendor). */
 export function getEffectiveWorkoutPath(selectedPath: string | null | undefined): WorkoutPath {
-  if (selectedPath === "events") return "vendor";
+  if (selectedPath === "events" || selectedPath === "service_provider") return "vendor";
   if (isValidWorkoutPath(selectedPath)) return selectedPath;
   return "shopper";
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
-import { validateProductCompliance, requiresCOA } from "@/lib/compliance";
+import { getCategoryCoaRequirement, validateProductCompliance } from "@/lib/compliance";
 import { isAdminEmail } from "@/lib/admin";
 import { requireAdminUsers } from "@/lib/auth/requireAdminUsers";
 import { requireVendorActive } from "@/lib/server/vendorStatusGate";
@@ -373,6 +373,7 @@ export async function POST(req: NextRequest) {
       coa_url,
       coa_object_path,
       delta8_disclaimer_ack,
+      hemp_derived_attestation,
     } = body;
 
     const nameValue = typeof name === "string" ? name.trim() : "";
@@ -503,29 +504,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Phase 2: COA required by category (requiresCOA) — admin bypass
-    let categoryRequiresCoa = true;
-    if (resolvedCategoryId) {
-      const { data: category } = await supabase
-        .from("categories")
-        .select("id, name, slug, parent_id")
-        .eq("id", resolvedCategoryId)
-        .maybeSingle();
-
-      if (category) {
-        categoryRequiresCoa = requiresCOA({ slug: category.slug, name: category.name });
-        // If child category, also check parent slug/name for exceptions (e.g. parent "Textiles & Apparel")
-        if (category.parent_id && categoryRequiresCoa) {
-          const { data: parent } = await supabase
-            .from("categories")
-            .select("slug, name")
-            .eq("id", category.parent_id)
-            .maybeSingle();
-          if (parent && !requiresCOA({ slug: parent.slug, name: parent.name })) {
-            categoryRequiresCoa = false;
-          }
-        }
-      }
-    }
+    const categoryRequiresCoa = await getCategoryCoaRequirement(supabase, resolvedCategoryId);
     const effectiveRequiresCoa = !isAdmin && categoryRequiresCoa;
 
     console.log(
@@ -574,14 +553,19 @@ export async function POST(req: NextRequest) {
     const normalizedCoaObjectPath = normalizeCoaObjectPath(coa_object_path, requestedProductId);
 
     const delta8Ack = delta8_disclaimer_ack === true;
+    const hempDerivedAttestation = hemp_derived_attestation === true;
 
-    const complianceErrors = validateProductCompliance({
-      product_type: normalizedProductType,
-      coa_url: coaUrlValue,
-      coa_object_path: normalizedCoaObjectPath,
-      delta8_disclaimer_ack: delta8Ack,
-      category_requires_coa: effectiveRequiresCoa,
-    });
+    const complianceErrors = validateProductCompliance(
+      {
+        product_type: normalizedProductType,
+        coa_url: coaUrlValue,
+        coa_object_path: normalizedCoaObjectPath,
+        delta8_disclaimer_ack: delta8Ack,
+        category_requires_coa: effectiveRequiresCoa,
+        hemp_derived_attestation: hempDerivedAttestation,
+      },
+      { mode: "draft" }
+    );
 
     if (complianceErrors.length > 0) {
       return NextResponse.json(
@@ -683,6 +667,9 @@ export async function POST(req: NextRequest) {
     }
     if (delta8_disclaimer_ack !== undefined) {
       optionalUpdates.delta8_disclaimer_ack = delta8Ack;
+    }
+    if (hemp_derived_attestation !== undefined) {
+      optionalUpdates.hemp_derived_attestation = hempDerivedAttestation;
     }
 
     let optionalUpdateError:

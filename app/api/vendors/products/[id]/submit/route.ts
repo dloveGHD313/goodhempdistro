@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { requireVendorActive } from "@/lib/server/vendorStatusGate";
-import { requiresCOA } from "@/lib/compliance";
+import { getCategoryCoaRequirement } from "@/lib/compliance";
 import { isAdminEmail } from "@/lib/admin";
 import { revalidatePath } from "next/cache";
 
@@ -96,27 +96,8 @@ export async function POST(
 
     // COA required for vendors before submit (admin bypass)
     const isAdmin = isAdminEmail(user.email);
-    let effectiveRequiresCoa = !isAdmin;
-    if (effectiveRequiresCoa && product.category_id) {
-      const { data: category } = await supabase
-        .from("categories")
-        .select("id, name, slug, parent_id")
-        .eq("id", product.category_id)
-        .maybeSingle();
-      if (category) {
-        effectiveRequiresCoa = requiresCOA({ slug: category.slug, name: category.name });
-        if (category.parent_id && effectiveRequiresCoa) {
-          const { data: parent } = await supabase
-            .from("categories")
-            .select("slug, name")
-            .eq("id", category.parent_id)
-            .maybeSingle();
-          if (parent && !requiresCOA({ slug: parent.slug, name: parent.name })) {
-            effectiveRequiresCoa = false;
-          }
-        }
-      }
-    }
+    const categoryRequiresCoa = await getCategoryCoaRequirement(supabase, product.category_id);
+    const effectiveRequiresCoa = !isAdmin && categoryRequiresCoa;
     if (effectiveRequiresCoa) {
       const hasCoaUrl = !!product.coa_url && String(product.coa_url).trim().length > 0;
       const hasCoaPath = !!product.coa_object_path && String(product.coa_object_path).trim().length > 0;
