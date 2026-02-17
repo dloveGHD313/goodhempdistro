@@ -112,7 +112,8 @@ export default function StartFlowClient() {
   }
 
   const pathMeta = PATHS.find((p) => p.id === path);
-  const destination = path ? getPublicRedirectForStartPath(path) : "#";
+  const signupDestination = path ? getRedirectForStartPath(path) : "#";
+  const publicDestination = path ? getPublicRedirectForStartPath(path) : "#";
 
   return (
     <main className="welcome-hero py-10 px-4" aria-label="Next step">
@@ -140,9 +141,12 @@ export default function StartFlowClient() {
             Continue without account
           </button>
         </div>
-        <p className="text-muted text-xs mt-4">
-          You&apos;ll go to: <strong className="text-foreground">{destination}</strong>
-        </p>
+        {path && (
+          <div className="text-muted text-xs mt-4 space-y-1">
+            <p>After you sign up: <strong className="text-foreground">{signupDestination}</strong></p>
+            <p>Continue without account: <strong className="text-foreground">{publicDestination}</strong></p>
+          </div>
+        )}
         <button
           type="button"
           onClick={handleChooseDifferentPath}
