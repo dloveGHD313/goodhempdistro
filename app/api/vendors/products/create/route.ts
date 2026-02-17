@@ -607,7 +607,6 @@ export async function POST(req: NextRequest) {
       status: "draft", // Always start as draft
       active: false,
       product_type: normalizedProductType,
-      hemp_derived_attestation: hempDerivedAttestation,
     };
 
     const payloadKeys = Object.keys(baseInsertPayload);
