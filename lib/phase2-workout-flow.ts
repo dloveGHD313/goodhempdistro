@@ -81,3 +81,25 @@ export function getDefaultRouteForRole(role?: string | null): string {
   }
   return "/discover";
 }
+
+const MAX_NEXT_LENGTH = 2048;
+
+/**
+ * Validates that `next` is a safe internal path (no open redirect).
+ * Must be string, start with "/", not "//", no protocol, no newlines, reasonable length.
+ */
+export function isSafeNextPath(next: string | null | undefined): next is string {
+  if (typeof next !== "string") return false;
+  if (next.length === 0 || next.length > MAX_NEXT_LENGTH) return false;
+  if (!next.startsWith("/") || next.startsWith("//")) return false;
+  if (next.includes("http://") || next.includes("https://")) return false;
+  if (next.includes("\n") || next.includes("\r")) return false;
+  return true;
+}
+
+/**
+ * Returns a safe redirect path: `next` if valid, otherwise `fallback`.
+ */
+export function sanitizeNextPath(next: string | null | undefined, fallback: string): string {
+  return isSafeNextPath(next) ? next : fallback;
+}

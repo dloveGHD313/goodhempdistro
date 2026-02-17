@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
-import { getDefaultRouteForRole } from "@/lib/phase2-workout-flow";
+import { getDefaultRouteForRole, isSafeNextPath, sanitizeNextPath } from "@/lib/phase2-workout-flow";
 
 export default function SignupForm() {
   const router = useRouter();
@@ -41,7 +41,7 @@ export default function SignupForm() {
       const supabase = createSupabaseBrowserClient();
       const origin = window.location.origin;
       const url = new URL(origin + callbackPath);
-      if (next) url.searchParams.set("next", next);
+      if (next && isSafeNextPath(next)) url.searchParams.set("next", next);
       if (role) url.searchParams.set("role", role);
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
@@ -75,7 +75,7 @@ export default function SignupForm() {
                 credentials: "include",
               });
             }
-            router.push(next ?? getDefaultRouteForRole(role));
+            router.push(sanitizeNextPath(next, getDefaultRouteForRole(role)));
           } else {
             const res = await fetch("/api/auth/post-login-route", { credentials: "include" });
             const { redirectTo } = (await res.json()) as { redirectTo: "/onboarding" | "/dashboard" };
@@ -85,7 +85,7 @@ export default function SignupForm() {
           // Email confirmation required — preserve next/role so callback or login can use them
           setMessage("Check your email to confirm your account.");
           const loginUrl = new URL(origin + "/login");
-          if (next) loginUrl.searchParams.set("next", next);
+          if (next && isSafeNextPath(next)) loginUrl.searchParams.set("next", next);
           if (role) loginUrl.searchParams.set("role", role);
           loginUrl.searchParams.set("confirm", "1");
           setTimeout(() => {

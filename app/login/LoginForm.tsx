@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
-import { getDefaultRouteForRole } from "@/lib/phase2-workout-flow";
+import { getDefaultRouteForRole, isSafeNextPath, sanitizeNextPath } from "@/lib/phase2-workout-flow";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -41,7 +41,7 @@ export default function LoginForm() {
       if (data.user) {
         setMessage("Login successful! Redirecting...");
         if (next || role) {
-          router.push(next ?? getDefaultRouteForRole(role));
+          router.push(sanitizeNextPath(next, getDefaultRouteForRole(role)));
         } else {
           const res = await fetch("/api/auth/post-login-route", { credentials: "include" });
           const { redirectTo } = (await res.json()) as { redirectTo: "/onboarding" | "/dashboard" };
@@ -176,7 +176,14 @@ export default function LoginForm() {
         )}
         <p className="mb-2 mt-4">Don&apos;t have an account?</p>
         <Link
-          href={next || role ? `/signup?${new URLSearchParams({ ...(next && { next }), ...(role && { role }) }).toString()}` : "/signup"}
+          href={
+            next || role
+              ? `/signup?${new URLSearchParams({
+                  ...(next && isSafeNextPath(next) && { next }),
+                  ...(role && { role }),
+                }).toString()}`
+              : "/signup"
+          }
           className="text-accent hover:underline"
         >
           Sign up here

@@ -23,14 +23,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, code: "INVALID_ROLE" }, { status: 400 });
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("profiles")
-    .update({ role: role as WorkoutPath, updated_at: new Date().toISOString() })
-    .eq("id", user.id);
+    .upsert(
+      {
+        id: user.id,
+        role: role as WorkoutPath,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "id" }
+    )
+    .select("id, role")
+    .single();
 
   if (error) {
     return NextResponse.json({ ok: false, code: "UPDATE_FAILED", message: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true });
+  if (data == null || data.role !== role) {
+    return NextResponse.json(
+      { ok: false, code: "ROLE_NOT_PERSISTED", message: "Role was not persisted" },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({ ok: true, role: data.role });
 }

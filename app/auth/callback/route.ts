@@ -2,11 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getPostLoginRoute, type PostLoginProfile } from "@/lib/routing/postLoginRoute";
-import { getDefaultRouteForRole, WORKOUT_REDIRECTS, type WorkoutPath } from "@/lib/phase2-workout-flow";
-
-function isSafeNextPath(p: string): boolean {
-  return p.startsWith("/") && !p.startsWith("//") && !p.includes("://");
-}
+import { getDefaultRouteForRole, isSafeNextPath, WORKOUT_REDIRECTS, type WorkoutPath } from "@/lib/phase2-workout-flow";
 
 /**
  * Handle Supabase auth callback
@@ -108,10 +104,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // For other flows (e.g. email confirm): honor next/role then fall back to post-login rule
+    // For other flows (e.g. email confirm): honor next/role then fall back to post-login rule (never external redirect)
+    const safeNext = isSafeNextPath(nextParam) ? nextParam : null;
     let redirectPath: string;
-    if (nextParam && isSafeNextPath(nextParam)) {
-      redirectPath = nextParam;
+    if (safeNext) {
+      redirectPath = safeNext;
     } else if (roleParam && validRoles.has(roleParam)) {
       redirectPath = getDefaultRouteForRole(roleParam);
     } else {
