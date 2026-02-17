@@ -195,7 +195,7 @@ export default function Nav() {
         : isAffiliate
           ? { label: "Affiliate Portal", href: "/affiliate/portal" }
           : { label: "Go to Feed", href: "/newsfeed" }
-    : { label: "Join Free", href: "/start" };
+    : { label: "Join Free", href: "/" };
 
   const secondaryCta =
     isLoggedIn && primaryCta.href !== "/newsfeed"

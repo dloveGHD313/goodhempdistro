@@ -5,7 +5,7 @@
 
 const KEY = "ghd_phase2_workout_flow";
 
-export type WorkoutPath = "shopper" | "vendor" | "logistics" | "builder";
+export type WorkoutPath = "shopper" | "vendor" | "logistics" | "builder" | "affiliate";
 
 export type WorkoutFlowState = {
   selectedPath: WorkoutPath | null;
@@ -21,7 +21,7 @@ function readRaw(): WorkoutFlowState | null {
     const parsed = JSON.parse(raw) as { selectedPath?: string; timestamp?: string; lastStepCompleted?: number };
     if (!parsed || typeof parsed.lastStepCompleted !== "number") return null;
     const path = parsed.selectedPath as WorkoutPath | null;
-    const validPaths: WorkoutPath[] = ["shopper", "vendor", "logistics", "builder"];
+    const validPaths: WorkoutPath[] = ["shopper", "vendor", "logistics", "builder", "affiliate"];
     return {
       selectedPath: path && validPaths.includes(path) ? path : null,
       timestamp: typeof parsed.timestamp === "string" ? parsed.timestamp : new Date().toISOString(),
@@ -70,4 +70,5 @@ export const WORKOUT_REDIRECTS: Record<WorkoutPath, string> = {
   vendor: "/vendor-registration",
   logistics: "/logistics/apply",
   builder: "/services",
+  affiliate: "/affiliate",
 };

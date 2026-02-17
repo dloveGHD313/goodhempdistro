@@ -16,6 +16,7 @@ const PATHS: { id: WorkoutPath; label: string; promise: string; icon: string }[]
   { id: "vendor", label: "Vendor", promise: "Sell products and grow your brand.", icon: "🏪" },
   { id: "logistics", label: "Logistics / Driver", promise: "Apply to deliver and offer services.", icon: "🚚" },
   { id: "builder", label: "Builder / Contractor", promise: "Hemp construction and professional services.", icon: "🏗️" },
+  { id: "affiliate", label: "Affiliate", promise: "Earn rewards by referring others to the community.", icon: "💰" },
 ];
 
 export default function StartFlowClient() {

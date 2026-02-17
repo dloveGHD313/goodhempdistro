@@ -47,7 +47,7 @@ export default async function HomeMarketingPage() {
                 High-quality hemp products from verified vendors. Join the community and explore curated drops.
               </p>
               <div className="flex flex-col md:flex-row gap-4 justify-center">
-                <Link href="/start" className="btn-primary text-base md:text-lg py-4 px-8">
+                <Link href="/" className="btn-primary text-base md:text-lg py-4 px-8">
                   🚀 Get Started Now
                 </Link>
                 <Link href="/newsfeed" className="btn-secondary text-base md:text-lg py-4 px-8">
@@ -155,7 +155,7 @@ export default async function HomeMarketingPage() {
             <p className="text-muted mb-8 text-lg">
               Start exploring premium hemp products and connect with our community.
             </p>
-            <Link href="/start" className="btn-primary text-base md:text-lg py-3 px-8 inline-block">
+            <Link href="/" className="btn-primary text-base md:text-lg py-3 px-8 inline-block">
               🚀 Get Started
             </Link>
           </div>
