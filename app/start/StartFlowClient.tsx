@@ -49,8 +49,8 @@ export default function StartFlowClient() {
   const handleSignUpFirst = () => {
     if (!path) return;
     setWorkoutFlowState({ lastStepCompleted: 2 });
-    const next = WORKOUT_REDIRECTS[path];
-    router.push(`/signup?next=${encodeURIComponent(next)}`);
+    const redirect = WORKOUT_REDIRECTS[path];
+    router.push(`/signup?next=${encodeURIComponent(redirect)}&role=${encodeURIComponent(path)}`);
   };
 
   if (!mounted) {

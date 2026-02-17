@@ -1,12 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { getDefaultRouteForRole } from "@/lib/phase2-workout-flow";
 
 export default function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next");
+  const role = searchParams.get("role");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -56,10 +60,22 @@ export default function SignupForm() {
       if (data.user) {
         // Check if email confirmation is required
         if (data.session) {
-          // User is immediately logged in (email confirmation disabled) -> use post-login routing rule
-          const res = await fetch("/api/auth/post-login-route", { credentials: "include" });
-          const { redirectTo } = (await res.json()) as { redirectTo: "/onboarding" | "/dashboard" };
-          router.push(redirectTo);
+          // User is immediately logged in (email confirmation disabled)
+          if (next || role) {
+            if (role) {
+              await fetch("/api/auth/set-role", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ role }),
+                credentials: "include",
+              });
+            }
+            router.push(next ?? getDefaultRouteForRole(role));
+          } else {
+            const res = await fetch("/api/auth/post-login-route", { credentials: "include" });
+            const { redirectTo } = (await res.json()) as { redirectTo: "/onboarding" | "/dashboard" };
+            router.push(redirectTo);
+          }
         } else {
           // Email confirmation required
           setMessage("Account created! Please check your email to verify your account before logging in.");

@@ -72,3 +72,12 @@ export const WORKOUT_REDIRECTS: Record<WorkoutPath, string> = {
   builder: "/services",
   affiliate: "/affiliate",
 };
+
+/** Default route for a stored profile role (used for logged-in home redirect). */
+export function getDefaultRouteForRole(role?: string | null): string {
+  if (!role) return "/discover";
+  if (role in WORKOUT_REDIRECTS) {
+    return WORKOUT_REDIRECTS[role as WorkoutPath];
+  }
+  return "/discover";
+}
