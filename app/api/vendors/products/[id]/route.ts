@@ -85,6 +85,7 @@ export async function GET(
       if (product) {
         product.coa_object_path = null;
         product.delta8_disclaimer_ack = product.delta8_disclaimer_ack ?? false;
+        product.hemp_derived_attestation = product.hemp_derived_attestation ?? false;
         product.status = product.status ?? "draft";
         product.submitted_at = null;
         product.reviewed_at = null;
