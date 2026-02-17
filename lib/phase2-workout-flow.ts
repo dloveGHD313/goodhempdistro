@@ -115,11 +115,6 @@ export function getDefaultRouteForUser(opts: GetDefaultRouteForUserOpts): string
   return "/discover";
 }
 
-/** @deprecated Use getDefaultRouteForUser({ workoutPath }) when param is workout path. Kept for URL param back-compat. */
-export function getDefaultRouteForRole(role?: string | null): string {
-  return getDefaultRouteForUser({ workoutPath: role ?? undefined });
-}
-
 const MAX_NEXT_LENGTH = 2048;
 
 /**
@@ -133,11 +128,4 @@ export function isSafeNextPath(next: string | null | undefined): next is string 
   if (next.includes("http://") || next.includes("https://")) return false;
   if (next.includes("\n") || next.includes("\r")) return false;
   return true;
-}
-
-/**
- * Returns a safe redirect path: `next` if valid, otherwise `fallback`.
- */
-export function sanitizeNextPath(next: string | null | undefined, fallback: string): string {
-  return isSafeNextPath(next) ? next : fallback;
 }

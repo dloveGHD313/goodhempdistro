@@ -62,7 +62,7 @@
 ### Discovery summary (for BugBot)
 
 - **Onboarding gating:** Implemented in `lib/routing/postLoginRoute.ts`: `getPostLoginRoute(profile)` returns `"/onboarding"` when profile is null or when `onboarding_completed_at` or `consumer_onboarding_completed` is falsy (admin always gets `/dashboard`). This is the single condition that forces first-time users to onboarding.
-- **Previous bypass:** LoginForm and SignupForm, when `next` or `role` was present, redirected client-side to `sanitizeNextPath(next, getDefaultRouteForUser({ workoutPath: role }))` without calling the post-login API, so onboarding was skipped.
+- **Previous bypass:** LoginForm and SignupForm, when `next` or `role` was present, redirected client-side (using next if safe, else default route for role) without calling the post-login API, so onboarding was skipped.
 - **Fix:** Clients always call `POST /api/auth/post-login-route` with `{ next, workoutPath, role }`; the API returns `redirectTo` after applying onboarding-first logic. Callback uses the same order: mandatory post-login route, then safe next, then workout default.
 
 ## Follow-ups (not in this PR)
