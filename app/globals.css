@@ -360,6 +360,12 @@ footer {
   margin-right: auto;
 }
 
+.hero-subtitle--left {
+  margin-left: 0;
+  margin-right: 0;
+  max-width: none;
+}
+
 /* Hero system: lighting, grid, glass, mascot blend */
 .futuristic-glow {
   position: relative;

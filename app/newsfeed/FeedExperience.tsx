@@ -373,7 +373,7 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
             <h1 className="hero-title text-accent mb-3">
               {variant === "landing" ? "Live Community Feed" : "Community News Feed"}
             </h1>
-            <p className="hero-subtitle max-w-2xl leading-relaxed">
+            <p className="hero-subtitle hero-subtitle--left max-w-2xl leading-relaxed">
               Real-time drops, VIP vendors, and local events — all in one social-first marketplace feed.
             </p>
             <div className="live-indicator mt-4">
