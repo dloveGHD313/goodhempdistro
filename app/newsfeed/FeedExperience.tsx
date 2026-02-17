@@ -365,15 +365,15 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
   };
 
   return (
-    <section className="section-shell section-shell--tight feed-shell">
-      <div className="feed-hero card-glass p-6 mb-10">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+    <section className="section-shell section-shell--tight feed-shell" aria-label="Community feed">
+      <div className="feed-hero card-glass p-6 sm:p-8 mb-10">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 max-w-4xl mx-auto">
           <div>
-            <p className="text-xs uppercase tracking-[0.4em] text-muted mb-2">Good Hemp Social</p>
-            <h1 className="text-3xl md:text-4xl font-bold text-accent mb-3">
+            <p className="text-xs uppercase tracking-[0.35em] text-muted mb-2">Good Hemp Social</p>
+            <h1 className="hero-title text-accent mb-3">
               {variant === "landing" ? "Live Community Feed" : "Community News Feed"}
             </h1>
-            <p className="text-muted max-w-2xl">
+            <p className="hero-subtitle hero-subtitle--left max-w-2xl leading-relaxed">
               Real-time drops, VIP vendors, and local events — all in one social-first marketplace feed.
             </p>
             <div className="live-indicator mt-4">

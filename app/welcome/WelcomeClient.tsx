@@ -80,8 +80,9 @@ export default function WelcomeClient({ mascotEnabled: serverMascotEnabled }: We
   if (!mounted) {
     return (
       <div className="max-w-2xl w-full mx-auto animate-fade-in opacity-0">
-        <div className="h-24" aria-hidden />
-        <div className="h-64 rounded-xl bg-[var(--surface)]/40" aria-hidden />
+        <span className="sr-only" aria-live="polite">Loading…</span>
+        <div className="h-24" aria-hidden="true" />
+        <div className="h-64 rounded-xl bg-[var(--surface)]/40" aria-hidden="true" />
       </div>
     );
   }

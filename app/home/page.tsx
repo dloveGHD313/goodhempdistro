@@ -40,7 +40,7 @@ export default async function HomeMarketingPage() {
           <div className="section-shell text-center hero-content">
             <div className="max-w-3xl mx-auto">
               <p className="text-sm uppercase tracking-[0.3em] text-muted mb-4">Good Hemp Distros</p>
-              <h1 className="hero-title font-black mb-5 text-accent">
+              <h1 className="hero-title mb-5 text-accent">
                 Premium Hemp Marketplace
               </h1>
               <p className="hero-subtitle mb-10">

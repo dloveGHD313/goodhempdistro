@@ -1,0 +1,11 @@
+{
+"mcpServers": {
+"goodhemp-local": {
+"command": "node",
+"args": ["scripts/mcp/goodhemp-mcp.mjs"],
+"env": {
+"NODE_ENV": "development"
+}
+}
+}
+}

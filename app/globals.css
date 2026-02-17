@@ -15,6 +15,8 @@
   --background: var(--bg);
   --foreground: var(--text);
 
+  --radius-xl: 1rem;
+
   /* Phase 0: Motion presets (use on welcome/onboarding = heavy, dash/cards = medium, payments/compliance = minimal) */
   --motion-heavy-duration: 0.6s;
   --motion-heavy-ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -85,6 +87,19 @@ header,
 footer {
   position: relative;
   z-index: 1;
+}
+
+/* Accessibility: screen-reader only (keeps landmark from being empty) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }
 
 .btn-primary {
@@ -263,15 +278,15 @@ footer {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 2rem 1.5rem;
+  padding: 2.5rem 1.5rem;
 }
 .welcome-hero::before {
   content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: radial-gradient(ellipse 100% 80% at 50% -20%, color-mix(in srgb, var(--brand-lime) 8%, transparent), transparent 50%),
-    radial-gradient(ellipse 80% 60% at 80% 50%, color-mix(in srgb, var(--brand-teal) 6%, transparent), transparent 45%);
+  background: radial-gradient(ellipse 100% 80% at 50% -20%, color-mix(in srgb, var(--brand-lime) 6%, transparent), transparent 50%),
+    radial-gradient(ellipse 80% 60% at 80% 50%, color-mix(in srgb, var(--brand-teal) 4%, transparent), transparent 45%);
   animation: welcome-gradient-shift 18s ease-in-out infinite alternate;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -345,13 +360,59 @@ footer {
   margin-right: auto;
 }
 
+.hero-subtitle--left {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+/* Hero system: lighting, grid, glass, mascot blend */
+.futuristic-glow {
+  position: relative;
+  overflow: hidden;
+}
+.futuristic-glow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 100% 80% at 50% -20%, color-mix(in srgb, var(--brand-lime) 6%, transparent), transparent 50%),
+    radial-gradient(ellipse 80% 60% at 80% 50%, color-mix(in srgb, var(--brand-teal) 4%, transparent), transparent 45%);
+}
+.futuristic-grid-overlay {
+  position: relative;
+}
+.futuristic-grid-overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.06;
+  background-image:
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--text) 6%, transparent) 0px, color-mix(in srgb, var(--text) 6%, transparent) 1px, transparent 1px, transparent 2px),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--text) 6%, transparent) 0px, color-mix(in srgb, var(--text) 6%, transparent) 1px, transparent 1px, transparent 2px);
+  mix-blend-mode: soft-light;
+}
+.surface-glass {
+  background: linear-gradient(140deg, var(--glass) 0%, color-mix(in srgb, var(--bg) 80%, transparent) 100%);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(14px);
+  border-radius: var(--radius-xl);
+}
+.hero-mascot-halo {
+  position: relative;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand-lime) 12%, transparent),
+    0 0 40px color-mix(in srgb, var(--brand-lime) 8%, transparent);
+}
+
 .feed-shell {
   padding-top: 3.5rem;
 }
 
 .feed-hero {
-  border: 1px solid color-mix(in srgb, var(--brand-lime) 35%, transparent);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+  border: 1px solid color-mix(in srgb, var(--brand-lime) 22%, transparent);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
 }
 
 .feed-filter-bar {
