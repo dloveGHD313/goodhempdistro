@@ -152,3 +152,40 @@ export function validateProductCompliance(payload: ProductCompliancePayload): Co
 export function requiresWarning(productType: ProductType): boolean {
   return productType === "delta8";
 }
+
+/**
+ * Server-side: determine if a category requires COA by ID.
+ * Fetches category, calls requiresCOA; if child category and category requires COA, also checks parent.
+ * Returns true when categoryId is null/undefined (unknown → require COA for safety).
+ *
+ * @param supabase - Supabase client (server or route handler) with from().select().eq().maybeSingle()
+ */
+export async function getCategoryCoaRequirement(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- avoids deep Supabase generic instantiation
+  supabase: any,
+  categoryId: string | null | undefined
+): Promise<boolean> {
+  if (!categoryId || typeof categoryId !== "string" || !categoryId.trim()) {
+    return true;
+  }
+  const { data: category } = await supabase
+    .from("categories")
+    .select("id, name, slug, parent_id")
+    .eq("id", categoryId.trim())
+    .maybeSingle();
+  if (!category) {
+    return true;
+  }
+  let result = requiresCOA({ slug: category.slug, name: category.name });
+  if (category.parent_id && result) {
+    const { data: parent } = await supabase
+      .from("categories")
+      .select("slug, name")
+      .eq("id", category.parent_id)
+      .maybeSingle();
+    if (parent && !requiresCOA({ slug: parent.slug, name: parent.name })) {
+      result = false;
+    }
+  }
+  return result;
+}

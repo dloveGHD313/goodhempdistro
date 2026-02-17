@@ -3,7 +3,7 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import BuyButton from "./BuyButton";
-import { getDelta8WarningText, requiresCOA, requiresWarning } from "@/lib/compliance";
+import { getCategoryCoaRequirement, getDelta8WarningText, requiresWarning } from "@/lib/compliance";
 import FavoriteButton from "@/components/engagement/FavoriteButton";
 import ReviewSection from "@/components/engagement/ReviewSection";
 import Footer from "@/components/Footer";
@@ -97,27 +97,7 @@ async function getProduct(id: string): Promise<ProductFetchResult> {
   }
 
   // Category COA requirement (for display: View COA vs COA required badge)
-  let categoryRequiresCoa = true;
-  if (data.category_id) {
-    const { data: category } = await supabase
-      .from("categories")
-      .select("id, name, slug, parent_id")
-      .eq("id", data.category_id)
-      .maybeSingle();
-    if (category) {
-      categoryRequiresCoa = requiresCOA({ slug: category.slug, name: category.name });
-      if (category.parent_id && categoryRequiresCoa) {
-        const { data: parent } = await supabase
-          .from("categories")
-          .select("slug, name")
-          .eq("id", category.parent_id)
-          .maybeSingle();
-        if (parent && !requiresCOA({ slug: parent.slug, name: parent.name })) {
-          categoryRequiresCoa = false;
-        }
-      }
-    }
-  }
+  const categoryRequiresCoa = await getCategoryCoaRequirement(supabase, data.category_id);
 
   return {
     product: {

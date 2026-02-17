@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
-import { validateProductCompliance, requiresCOA } from "@/lib/compliance";
+import { getCategoryCoaRequirement, validateProductCompliance } from "@/lib/compliance";
 import { isAdminEmail } from "@/lib/admin";
 import { requireAdminUsers } from "@/lib/auth/requireAdminUsers";
 import { requireVendorActive } from "@/lib/server/vendorStatusGate";
@@ -264,27 +264,8 @@ export async function PUT(
 
     // Phase 2: COA required by category — admin bypass
     const categoryIdForCoa = category_id !== undefined ? category_id : currentProduct?.category_id;
-    let effectiveRequiresCoa = !isAdmin;
-    if (effectiveRequiresCoa && categoryIdForCoa) {
-      const { data: category } = await supabase
-        .from("categories")
-        .select("id, name, slug, parent_id")
-        .eq("id", categoryIdForCoa)
-        .maybeSingle();
-      if (category) {
-        effectiveRequiresCoa = requiresCOA({ slug: category.slug, name: category.name });
-        if (category.parent_id && effectiveRequiresCoa) {
-          const { data: parent } = await supabase
-            .from("categories")
-            .select("slug, name")
-            .eq("id", category.parent_id)
-            .maybeSingle();
-          if (parent && !requiresCOA({ slug: parent.slug, name: parent.name })) {
-            effectiveRequiresCoa = false;
-          }
-        }
-      }
-    }
+    const categoryRequiresCoa = await getCategoryCoaRequirement(supabase, categoryIdForCoa);
+    const effectiveRequiresCoa = !isAdmin && categoryRequiresCoa;
 
     const hempDerivedAttestation =
       hemp_derived_attestation !== undefined ? hemp_derived_attestation === true : currentProduct?.hemp_derived_attestation === true;

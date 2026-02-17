@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
-import { validateProductCompliance, requiresCOA } from "@/lib/compliance";
+import { getCategoryCoaRequirement, validateProductCompliance } from "@/lib/compliance";
 import { isAdminEmail } from "@/lib/admin";
 import { requireAdminUsers } from "@/lib/auth/requireAdminUsers";
 import { requireVendorActive } from "@/lib/server/vendorStatusGate";
@@ -504,29 +504,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Phase 2: COA required by category (requiresCOA) — admin bypass
-    let categoryRequiresCoa = true;
-    if (resolvedCategoryId) {
-      const { data: category } = await supabase
-        .from("categories")
-        .select("id, name, slug, parent_id")
-        .eq("id", resolvedCategoryId)
-        .maybeSingle();
-
-      if (category) {
-        categoryRequiresCoa = requiresCOA({ slug: category.slug, name: category.name });
-        // If child category, also check parent slug/name for exceptions (e.g. parent "Textiles & Apparel")
-        if (category.parent_id && categoryRequiresCoa) {
-          const { data: parent } = await supabase
-            .from("categories")
-            .select("slug, name")
-            .eq("id", category.parent_id)
-            .maybeSingle();
-          if (parent && !requiresCOA({ slug: parent.slug, name: parent.name })) {
-            categoryRequiresCoa = false;
-          }
-        }
-      }
-    }
+    const categoryRequiresCoa = await getCategoryCoaRequirement(supabase, resolvedCategoryId);
     const effectiveRequiresCoa = !isAdmin && categoryRequiresCoa;
 
     console.log(
