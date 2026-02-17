@@ -12,12 +12,16 @@ CallToolRequestSchema
 
 const execFileAsync = promisify(execFile);
 
-const REPO_ROOT = process.cwd();
+const REPO_ROOT = path.normalize(path.resolve(process.cwd()));
 
 function safeResolve(p) {
-const full = path.resolve(REPO_ROOT, p);
-if (!full.startsWith(REPO_ROOT)) throw new Error("Path escapes repo root");
-return full;
+  const full = path.resolve(REPO_ROOT, p);
+  const normalized = path.normalize(full);
+  const isInside =
+    normalized === REPO_ROOT ||
+    normalized.startsWith(REPO_ROOT + path.sep);
+  if (!isInside) throw new Error("Path escapes repo root");
+  return full;
 }
 
 const server = new Server(
@@ -102,19 +106,25 @@ const baseDir = safeResolve(args.dir ?? ".");
 const exts = new Set([".ts",".tsx",".js",".jsx",".mjs",".md",".css",".json"]);
 const results = [];
 
+function isUnderRoot(filePath) {
+  const normalized = path.normalize(path.resolve(filePath));
+  return normalized === REPO_ROOT || normalized.startsWith(REPO_ROOT + path.sep);
+}
+
 async function walk(d) {
-const entries = await fs.readdir(d, { withFileTypes: true });
-for (const e of entries) {
-if (e.name === "node_modules" || e.name === ".next" || e.name === ".git") continue;
-const full = path.join(d, e.name);
-if (e.isDirectory()) await walk(full);
-else if (exts.has(path.extname(e.name))) {
-const txt = await fs.readFile(full, "utf8").catch(() => "");
-if (txt.includes(query)) {
-results.push(path.relative(REPO_ROOT, full));
-}
-}
-}
+  const entries = await fs.readdir(d, { withFileTypes: true });
+  for (const e of entries) {
+    if (e.name === "node_modules" || e.name === ".next" || e.name === ".git") continue;
+    const full = path.join(d, e.name);
+    if (!isUnderRoot(full)) continue;
+    if (e.isDirectory()) await walk(full);
+    else if (exts.has(path.extname(e.name))) {
+      const txt = await fs.readFile(full, "utf8").catch(() => "");
+      if (txt.includes(query)) {
+        results.push(path.relative(REPO_ROOT, full));
+      }
+    }
+  }
 }
 
 await walk(baseDir);
