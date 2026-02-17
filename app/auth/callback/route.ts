@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getPostLoginRoute, type PostLoginProfile } from "@/lib/routing/postLoginRoute";
+import { getDefaultRouteForUser, isSafeNextPath, isValidWorkoutPath, type WorkoutPath } from "@/lib/phase2-workout-flow";
 
 /**
  * Handle Supabase auth callback
@@ -53,12 +54,24 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // Success - ensure profile exists (idempotent; handle_new_user trigger may have raced or failed)
+    // Success - ensure profile exists (account role stays consumer); persist workout_path if provided (best-effort; redirect still happens if admin fails)
     const user = data.session?.user;
-    if (user?.id) {
+    const nextParam = requestUrl.searchParams.get("next");
+    const roleParam = requestUrl.searchParams.get("role");
+    const pathParam = requestUrl.searchParams.get("workoutPath") ?? requestUrl.searchParams.get("path") ?? roleParam;
+    const workoutPathParam = typeof pathParam === "string" && isValidWorkoutPath(pathParam) ? (pathParam as WorkoutPath) : null;
+
+    let admin: ReturnType<typeof import("@/lib/supabaseAdmin").getSupabaseAdminClient> | null = null;
+    try {
+      const mod = await import("@/lib/supabaseAdmin");
+      admin = mod.getSupabaseAdminClient();
+    } catch (err) {
+      console.error("[auth/callback] admin client init failed (non-blocking)", err);
+      admin = null;
+    }
+
+    if (admin && user?.id) {
       try {
-        const { getSupabaseAdminClient } = await import("@/lib/supabaseAdmin");
-        const admin = getSupabaseAdminClient();
         await admin
           .from("profiles")
           .upsert(
@@ -72,8 +85,16 @@ export async function GET(req: NextRequest) {
             { onConflict: "id", ignoreDuplicates: true }
           );
       } catch (profileErr) {
-        if (process.env.NODE_ENV !== "production") {
-          console.debug("[auth/callback] profile upsert:", profileErr);
+        console.error("[auth/callback] profile update failed (non-blocking)", profileErr);
+      }
+      if (workoutPathParam) {
+        try {
+          await admin
+            .from("profiles")
+            .update({ workout_path: workoutPathParam, updated_at: new Date().toISOString() })
+            .eq("id", user.id);
+        } catch (pathErr) {
+          console.error("[auth/callback] profile update failed (non-blocking)", pathErr);
         }
       }
     }
@@ -86,7 +107,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // For other flows (e.g. email confirm): use post-login routing rule (first-time -> /onboarding)
+    // Onboarding gating first (same logic as post-login-route), then safe next, then workout_path, then fallback
     const { data: { user: authUser } } = await supabase.auth.getUser();
     let profile: PostLoginProfile = null;
     if (authUser?.id) {
@@ -103,7 +124,17 @@ export async function GET(req: NextRequest) {
           }
         : null;
     }
-    const redirectPath = getPostLoginRoute(profile);
+    const mandatoryRedirect = getPostLoginRoute(profile);
+    let redirectPath: string;
+    if (mandatoryRedirect === "/onboarding") {
+      redirectPath = "/onboarding";
+    } else if (isSafeNextPath(nextParam)) {
+      redirectPath = nextParam;
+    } else if (workoutPathParam) {
+      redirectPath = getDefaultRouteForUser({ workoutPath: workoutPathParam });
+    } else {
+      redirectPath = mandatoryRedirect;
+    }
     const redirectUrl = new URL(redirectPath, requestUrl.origin);
     return NextResponse.redirect(redirectUrl);
   }

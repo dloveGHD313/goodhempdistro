@@ -1,32 +1,36 @@
 import { redirect } from "next/navigation";
+import { brand } from "@/lib/brand";
 import { createSupabaseServerClient } from "@/lib/supabase";
-import { unstable_noStore as noStore } from "next/cache";
-import Footer from "@/components/Footer";
-import FeedExperience from "./newsfeed/FeedExperience";
-import { requirePhase15Complete } from "@/lib/server/phase15Gate";
+import StartFlowClient from "./start/StartFlowClient";
+import { getDefaultRouteForUser } from "@/lib/phase2-workout-flow";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
-// TODO: Later phases will personalize feed ranking based on welcome intents (getWelcomeIntents).
-export default async function Home() {
-  noStore();
+export const metadata = {
+  title: brand.name,
+  description: "Choose your path: Shopper, Vendor, Logistics, Builder, or Affiliate. We'll take you to the right place.",
+};
+
+export default async function HomePage() {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
+  // If NOT logged in → show Start
   if (!user) {
-    redirect("/welcome");
+    return <StartFlowClient />;
   }
 
-  const phase15Redirect = await requirePhase15Complete(user.id);
-  if (phase15Redirect) redirect(phase15Redirect);
+  // If logged in → fetch account role + workout_path and redirect
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role, workout_path")
+    .eq("id", user.id)
+    .maybeSingle();
 
-  return (
-    <div className="min-h-screen text-white flex flex-col">
-      <main className="w-full flex-1">
-        <FeedExperience variant="landing" />
-      </main>
-      <Footer />
-    </div>
-  );
+  const defaultRoute = getDefaultRouteForUser({
+    accountRole: profile?.role ?? null,
+    workoutPath: profile?.workout_path ?? null,
+  });
+
+  redirect(defaultRoute);
 }

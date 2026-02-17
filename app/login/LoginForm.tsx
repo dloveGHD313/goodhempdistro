@@ -1,12 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { isSafeNextPath } from "@/lib/phase2-workout-flow";
 
 export default function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next") ?? undefined;
+  const role = searchParams.get("role") ?? undefined;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -36,9 +40,14 @@ export default function LoginForm() {
 
       if (data.user) {
         setMessage("Login successful! Redirecting...");
-        const res = await fetch("/api/auth/post-login-route", { credentials: "include" });
-        const { redirectTo } = (await res.json()) as { redirectTo: "/onboarding" | "/dashboard" };
-        router.push(redirectTo);
+        const res = await fetch("/api/auth/post-login-route", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ next: next ?? undefined, workoutPath: role ?? undefined, role: role ?? undefined }),
+          credentials: "include",
+        });
+        const { redirectTo } = (await res.json()) as { redirectTo: string };
+        router.push(redirectTo ?? "/onboarding");
         router.refresh();
       }
     } catch (err) {
@@ -166,8 +175,18 @@ export default function LoginForm() {
             </form>
           </div>
         )}
-        <p className="mb-2 mt-4">Don't have an account?</p>
-        <Link href="/signup" className="text-accent hover:underline">
+        <p className="mb-2 mt-4">Don&apos;t have an account?</p>
+        <Link
+          href={
+            next || role
+              ? `/signup?${new URLSearchParams({
+                  ...(next && isSafeNextPath(next) && { next }),
+                  ...(role && { role }),
+                }).toString()}`
+              : "/signup"
+          }
+          className="text-accent hover:underline"
+        >
           Sign up here
         </Link>
       </div>
