@@ -27,13 +27,13 @@ export default function JaxWelcomeHero({ selectedCount }: Props) {
       >
         <div className="relative w-[140px] sm:w-[160px] md:w-[180px] h-[140px] sm:h-[160px] md:h-[180px] flex-shrink-0 mb-4" aria-hidden="true">
           <Image
-            src="/brand/mascot-hero.png"
+            src="/brand/mascot-social.png"
             alt="Good Hemp Distro mascot"
             width={180}
             height={180}
             sizes="(max-width: 640px) 140px, (max-width: 768px) 160px, 180px"
-            quality={90}
-            className="object-contain w-full h-full drop-shadow-[0_2px_8px_rgba(0,0,0,0.12)]"
+            quality={95}
+            className="object-contain w-full h-full drop-shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
             priority
           />
         </div>

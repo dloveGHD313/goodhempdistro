@@ -95,10 +95,10 @@ export default function WelcomeClient({ mascotEnabled: serverMascotEnabled }: We
       )}
 
       <div
-        className={`animate-fade-in opacity-0 flex-shrink-0 ${mascotEnabled ? "mt-6" : ""}`}
+        className={`animate-fade-in opacity-0 flex-shrink-0 ${mascotEnabled ? "mt-8" : ""}`}
         style={{ animationDelay: "0.2s" }}
       >
-        <div className="flex justify-center mb-6">
+        <div className="flex justify-center mb-8">
           <Image
             src={brand.logoPath}
             alt={brand.logoAlt}
@@ -108,10 +108,10 @@ export default function WelcomeClient({ mascotEnabled: serverMascotEnabled }: We
             priority
           />
         </div>
-        <h1 className="hero-title text-accent mb-2">
+        <h1 className="hero-title text-accent mb-3">
           Welcome to {brand.name}
         </h1>
-        <p className="hero-subtitle mb-8">
+        <p className="hero-subtitle mb-10">
           {brand.tagline}
         </p>
       </div>
@@ -120,7 +120,7 @@ export default function WelcomeClient({ mascotEnabled: serverMascotEnabled }: We
         className="quiz-card animate-scale-in opacity-0 mb-8"
         style={{ animationDelay: "0.3s" }}
       >
-        <h2 className="text-xl font-bold text-white mb-2">
+        <h2 className="text-xl font-bold text-white mb-2 tracking-tight">
           What brings you here?
         </h2>
         <p className="text-muted text-sm mb-6">
@@ -132,7 +132,7 @@ export default function WelcomeClient({ mascotEnabled: serverMascotEnabled }: We
               key={value}
               type="button"
               onClick={() => handleToggle(value)}
-              className={`motion-heavy animate-fade-in opacity-0 rounded-xl border-2 px-4 py-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-[var(--brand-lime)] ${
+              className={`welcome-intent-btn motion-heavy animate-fade-in opacity-0 rounded-xl border-2 px-4 py-3 text-left focus:outline-none ${
                 selectedIntents.includes(value)
                   ? "border-[var(--brand-lime)] bg-[var(--brand-lime)]/15"
                   : "border-[var(--border)] bg-[var(--surface)]/60 hover:border-[var(--brand-lime)] hover:bg-[var(--surface)]"

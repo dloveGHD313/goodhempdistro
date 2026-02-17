@@ -256,6 +256,7 @@ footer {
 
 /* Phase 0: UI primitives for welcome/entry */
 .welcome-hero {
+  position: relative;
   min-height: 70vh;
   display: flex;
   flex-direction: column;
@@ -264,13 +265,45 @@ footer {
   text-align: center;
   padding: 2rem 1.5rem;
 }
+.welcome-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(ellipse 100% 80% at 50% -20%, color-mix(in srgb, var(--brand-lime) 8%, transparent), transparent 50%),
+    radial-gradient(ellipse 80% 60% at 80% 50%, color-mix(in srgb, var(--brand-teal) 6%, transparent), transparent 45%);
+  animation: welcome-gradient-shift 18s ease-in-out infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+  .welcome-hero::before {
+    animation: none;
+  }
+}
+@keyframes welcome-gradient-shift {
+  from { opacity: 0.85; }
+  to { opacity: 1; }
+}
 .quiz-card {
   background: linear-gradient(140deg, var(--glass) 0%, color-mix(in srgb, var(--bg) 85%, transparent) 100%);
   border: 1px solid var(--border);
   border-radius: 1rem;
-  padding: 1.5rem 2rem;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(14px);
+  padding: 1.75rem 2rem;
+  box-shadow: var(--shadow), 0 0 0 1px color-mix(in srgb, var(--surface) 40%, transparent);
+  backdrop-filter: blur(20px);
+}
+.welcome-intent-btn {
+  transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+.welcome-intent-btn:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 20px color-mix(in srgb, var(--brand-lime) 18%, transparent);
+}
+.welcome-intent-btn:active {
+  transform: scale(0.99);
+}
+.welcome-intent-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--brand-lime);
 }
 .animate-fade-in {
   animation: phase0-fade-in var(--motion-heavy-duration) var(--motion-heavy-ease) forwards;
@@ -298,13 +331,18 @@ footer {
 
 .hero-title {
   font-size: clamp(2.5rem, 5vw, 4.25rem);
-  line-height: 1.05;
-  letter-spacing: -0.02em;
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  font-weight: 700;
 }
 
 .hero-subtitle {
   font-size: clamp(1.05rem, 2vw, 1.35rem);
   color: var(--muted);
+  letter-spacing: 0.01em;
+  max-width: 28ch;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .feed-shell {
