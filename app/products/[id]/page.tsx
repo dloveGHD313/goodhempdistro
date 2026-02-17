@@ -3,7 +3,7 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import BuyButton from "./BuyButton";
-import { getDelta8WarningText, requiresWarning } from "@/lib/compliance";
+import { getDelta8WarningText, requiresCOA, requiresWarning } from "@/lib/compliance";
 import FavoriteButton from "@/components/engagement/FavoriteButton";
 import ReviewSection from "@/components/engagement/ReviewSection";
 import Footer from "@/components/Footer";
@@ -27,6 +27,7 @@ type Product = {
   coa_object_path?: string | null;
   coa_verified?: boolean;
   coa_public_url?: string | null;
+  category_requires_coa?: boolean;
   created_at?: string;
 };
 
@@ -95,6 +96,29 @@ async function getProduct(id: string): Promise<ProductFetchResult> {
     }
   }
 
+  // Category COA requirement (for display: View COA vs COA required badge)
+  let categoryRequiresCoa = true;
+  if (data.category_id) {
+    const { data: category } = await supabase
+      .from("categories")
+      .select("id, name, slug, parent_id")
+      .eq("id", data.category_id)
+      .maybeSingle();
+    if (category) {
+      categoryRequiresCoa = requiresCOA({ slug: category.slug, name: category.name });
+      if (category.parent_id && categoryRequiresCoa) {
+        const { data: parent } = await supabase
+          .from("categories")
+          .select("slug, name")
+          .eq("id", category.parent_id)
+          .maybeSingle();
+        if (parent && !requiresCOA({ slug: parent.slug, name: parent.name })) {
+          categoryRequiresCoa = false;
+        }
+      }
+    }
+  }
+
   return {
     product: {
       ...data,
@@ -105,6 +129,7 @@ async function getProduct(id: string): Promise<ProductFetchResult> {
           ? "gated"
           : "ungated",
       coa_public_url: coaPublicUrl,
+      category_requires_coa: categoryRequiresCoa,
     },
     supabaseErrorMessage: null,
   };
@@ -357,20 +382,28 @@ export default async function ProductDetailPage(props: Props) {
                 </div>
               )}
 
-              {product.coa_public_url && (
+              {(product.coa_public_url || (product.category_requires_coa && !hasCoa)) && (
                 <div className="card-glass p-6">
                   <h3 className="text-lg font-semibold mb-2">Certificate of Analysis (COA)</h3>
-                  <a
-                    href={product.coa_public_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-accent hover:text-accent/80 underline"
-                  >
-                    View Full Panel COA →
-                  </a>
-                  {product.coa_verified && (
-                    <span className="ml-3 px-2 py-1 bg-green-600 text-white rounded text-xs">
-                      Verified
+                  {product.coa_public_url ? (
+                    <>
+                      <a
+                        href={product.coa_public_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-accent hover:text-accent/80 underline"
+                      >
+                        View COA →
+                      </a>
+                      {product.coa_verified && (
+                        <span className="ml-3 px-2 py-1 bg-green-600 text-white rounded text-xs">
+                          Verified
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span className="inline-block px-2 py-1 bg-amber-600/80 text-white rounded text-sm">
+                      COA required
                     </span>
                   )}
                 </div>

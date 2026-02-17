@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
+import { HeroShell } from "@/components/ui/HeroShell";
 import EventsList from "./EventsList";
 import { Metadata } from "next";
 
@@ -77,17 +79,37 @@ export default async function EventsPage({
   return (
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
+        <section className="welcome-hero py-10 px-4 futuristic-glow">
+          <HeroShell cinematic glassPanel={false} contentClassName="max-w-3xl">
+            <p className="text-xs uppercase tracking-[0.35em] text-muted mb-2">Community</p>
+            <h1 className="hero-title text-accent mb-2">Events</h1>
+            <p className="hero-subtitle">
+              Discover hemp industry events, meetups, and vendor booths. Browse upcoming events or host your own.
+            </p>
+          </HeroShell>
+        </section>
+
         <section className="section-shell">
-          <h1 className="text-4xl font-bold mb-6 text-accent">
+          <h2 className="text-2xl font-bold mb-6 text-accent">
             {vendorName ? `Events from ${vendorName}` : "Upcoming Events"}
-          </h1>
-          <p className="text-muted mb-12">
+          </h2>
+          <p className="text-muted mb-8">
             {vendorName
               ? "Explore approved events hosted by this vendor."
               : "Join us for exciting hemp industry events and networking opportunities."}
           </p>
 
           <EventsList initialEvents={events} />
+
+          <div className="surface-glass rounded-[var(--radius-xl)] p-6 sm:p-8 mt-12 max-w-2xl">
+            <h3 className="text-lg font-semibold text-foreground mb-2">Hosting an event or selling booths?</h3>
+            <p className="text-muted text-sm mb-4">
+              Apply to become a vendor to create events and sell tickets or vendor booth slots.
+            </p>
+            <Link href="/vendor-registration" className="btn-primary inline-block">
+              Go to vendor registration
+            </Link>
+          </div>
         </section>
       </main>
       <Footer />

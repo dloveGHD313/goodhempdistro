@@ -373,6 +373,7 @@ export async function POST(req: NextRequest) {
       coa_url,
       coa_object_path,
       delta8_disclaimer_ack,
+      hemp_derived_attestation,
     } = body;
 
     const nameValue = typeof name === "string" ? name.trim() : "";
@@ -574,6 +575,7 @@ export async function POST(req: NextRequest) {
     const normalizedCoaObjectPath = normalizeCoaObjectPath(coa_object_path, requestedProductId);
 
     const delta8Ack = delta8_disclaimer_ack === true;
+    const hempDerivedAttestation = hemp_derived_attestation === true;
 
     const complianceErrors = validateProductCompliance({
       product_type: normalizedProductType,
@@ -581,6 +583,7 @@ export async function POST(req: NextRequest) {
       coa_object_path: normalizedCoaObjectPath,
       delta8_disclaimer_ack: delta8Ack,
       category_requires_coa: effectiveRequiresCoa,
+      hemp_derived_attestation: hempDerivedAttestation,
     });
 
     if (complianceErrors.length > 0) {
@@ -604,6 +607,7 @@ export async function POST(req: NextRequest) {
       status: "draft", // Always start as draft
       active: false,
       product_type: normalizedProductType,
+      hemp_derived_attestation: hempDerivedAttestation,
     };
 
     const payloadKeys = Object.keys(baseInsertPayload);
@@ -683,6 +687,9 @@ export async function POST(req: NextRequest) {
     }
     if (delta8_disclaimer_ack !== undefined) {
       optionalUpdates.delta8_disclaimer_ack = delta8Ack;
+    }
+    if (hemp_derived_attestation !== undefined) {
+      optionalUpdates.hemp_derived_attestation = hempDerivedAttestation;
     }
 
     let optionalUpdateError:

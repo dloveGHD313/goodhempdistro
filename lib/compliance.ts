@@ -36,6 +36,8 @@ export interface ProductCompliancePayload {
   coa_object_path?: string | null;
   delta8_disclaimer_ack?: boolean;
   category_requires_coa?: boolean;
+  /** Required: must be true for all products (hemp-derived attestation). */
+  hemp_derived_attestation?: boolean;
 }
 
 export interface ComplianceErrors {
@@ -100,12 +102,30 @@ export function getDelta8WarningText(): string {
 
 /**
  * Validate product compliance rules.
- * Phase 2: COA never blocks product create/update; submit route enforces COA before pending_review for vendors.
+ * Server-side: hemp_derived_attestation required; COA required when category_requires_coa.
  */
 export function validateProductCompliance(payload: ProductCompliancePayload): ComplianceErrors[] {
   const errors: ComplianceErrors[] = [];
 
-  // COA is not enforced here: create/edit must never block. Submit route enforces COA for vendors when required.
+  // All products must attest hemp-derived
+  if (payload.hemp_derived_attestation !== true) {
+    errors.push({
+      field: "hemp_derived_attestation",
+      message: "You must confirm this product is hemp-derived.",
+    });
+  }
+
+  // COA required for ingestible/inhalable categories (server-enforced)
+  if (payload.category_requires_coa) {
+    const hasCoaUrl = typeof payload.coa_url === "string" && payload.coa_url.trim().length > 0;
+    const hasCoaPath = typeof payload.coa_object_path === "string" && payload.coa_object_path.trim().length > 0;
+    if (!hasCoaUrl && !hasCoaPath) {
+      errors.push({
+        field: "coa",
+        message: "A COA (Certificate of Analysis) upload or link is required for this category.",
+      });
+    }
+  }
 
   // Recreational (intoxicating) products are only allowed until cutoff date
   if (payload.product_type === "intoxicating" && !isIntoxicatingAllowedNow()) {

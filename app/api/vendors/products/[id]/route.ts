@@ -9,7 +9,7 @@ import { writeAdminActionLog } from "@/lib/adminActionLog";
 
 /** Full select for product edit + admin detail (status, review fields) */
 const PRODUCT_EDIT_SELECT_FULL =
-  "id, name, description, price_cents, category_id, active, product_type, coa_url, coa_object_path, delta8_disclaimer_ack, vendor_id, owner_user_id, status, submitted_at, reviewed_at, rejection_reason";
+  "id, name, description, price_cents, category_id, active, product_type, coa_url, coa_object_path, delta8_disclaimer_ack, hemp_derived_attestation, vendor_id, owner_user_id, status, submitted_at, reviewed_at, rejection_reason";
 
 /** Minimal select for product edit when full select fails (schema mismatch / optional columns absent) */
 const PRODUCT_EDIT_SELECT_MINIMAL =
@@ -189,6 +189,7 @@ export async function PUT(
       coa_url,
       coa_object_path,
       delta8_disclaimer_ack,
+      hemp_derived_attestation,
     } = await req.json();
 
     const normalizeCoaObjectPath = (value: unknown) => {
@@ -247,7 +248,7 @@ export async function PUT(
     // Get current product to merge compliance fields for validation
     const { data: currentProduct } = await supabase
       .from("products")
-      .select("product_type, coa_url, coa_object_path, delta8_disclaimer_ack, category_id")
+      .select("product_type, coa_url, coa_object_path, delta8_disclaimer_ack, hemp_derived_attestation, category_id")
       .eq("id", id)
       .single();
 
@@ -284,15 +285,18 @@ export async function PUT(
       }
     }
 
+    const hempDerivedAttestation =
+      hemp_derived_attestation !== undefined ? hemp_derived_attestation === true : currentProduct?.hemp_derived_attestation === true;
     const compliancePayload = {
       product_type: product_type !== undefined ? product_type : (currentProduct?.product_type || "non_intoxicating"),
       coa_url: coa_url !== undefined ? coa_url : currentProduct?.coa_url,
       coa_object_path:
         coa_object_path !== undefined ? normalizedCoaObjectPath : currentProduct?.coa_object_path,
       delta8_disclaimer_ack: delta8_disclaimer_ack !== undefined ? delta8_disclaimer_ack : currentProduct?.delta8_disclaimer_ack,
+      hemp_derived_attestation: hempDerivedAttestation,
     };
 
-    // Validate compliance (COA only when effectiveRequiresCoa; admin bypass)
+    // Validate compliance (hemp_derived_attestation + COA when effectiveRequiresCoa; admin bypass)
     const complianceErrors = validateProductCompliance({
       ...compliancePayload,
       category_requires_coa: effectiveRequiresCoa,
@@ -318,6 +322,7 @@ export async function PUT(
     if (coa_url !== undefined) updates.coa_url = coa_url?.trim() || null;
     if (coa_object_path !== undefined) updates.coa_object_path = normalizedCoaObjectPath;
     if (delta8_disclaimer_ack !== undefined) updates.delta8_disclaimer_ack = delta8_disclaimer_ack === true;
+    if (hemp_derived_attestation !== undefined) updates.hemp_derived_attestation = hempDerivedAttestation;
 
     const { data: updatedProduct, error: updateError } = await supabase
       .from("products")

@@ -8,6 +8,7 @@ import {
   setWorkoutFlowState,
   clearWorkoutFlowState,
   getRedirectForStartPath,
+  getPublicRedirectForStartPath,
   getEffectiveWorkoutPath,
   type StartPathId,
 } from "@/lib/phase2-workout-flow";
@@ -17,6 +18,7 @@ const PATHS: { id: StartPathId; label: string; promise: string; icon: string }[]
   { id: "shopper", label: "Shopper / Community", promise: "Discover products and join the community.", icon: "🛍️" },
   { id: "vendor", label: "Vendor", promise: "Sell products and grow your brand.", icon: "🏪" },
   { id: "events", label: "Events", promise: "Host events and sell tickets or vendor booths.", icon: "🎟️" },
+  { id: "service_provider", label: "Service Provider", promise: "Offer services, get leads, and grow your business.", icon: "🛠️" },
   { id: "logistics", label: "Logistics / Driver", promise: "Apply to deliver and offer services.", icon: "🚚" },
   { id: "builder", label: "Builder / Contractor", promise: "Hemp construction and professional services.", icon: "🏗️" },
   { id: "affiliate", label: "Affiliate", promise: "Earn rewards by referring others to the community.", icon: "💰" },
@@ -47,7 +49,7 @@ export default function StartFlowClient() {
   const handleContinueWithoutAccount = () => {
     if (!path) return;
     setWorkoutFlowState({ lastStepCompleted: 2 });
-    router.push(getRedirectForStartPath(path));
+    router.push(getPublicRedirectForStartPath(path));
   };
 
   const handleSignUpFirst = () => {

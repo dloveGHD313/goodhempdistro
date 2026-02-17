@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import useAuthUser from "@/components/engagement/useAuthUser";
+import { getAuthRequiredRedirect } from "@/lib/client/requireAuthAction";
 import { getDisplayName } from "@/lib/identity";
 import type { PostDTO } from "@/lib/types";
 import CommentsDrawer from "@/components/comments/CommentsDrawer";
@@ -80,6 +82,7 @@ function FeedCard({ post }: { post: FeedPost }) {
 // TODO: Later phases will personalize feed ranking based on welcome intents.
 // Use getWelcomeIntents() from @/lib/phase0-storage to weight/sort posts.
 export default function FeedExperience({ variant = "feed" }: { variant?: "feed" | "landing" }) {
+  const pathname = usePathname();
   const { userId, loading: authLoading } = useAuthUser();
   const [activeFilter, setActiveFilter] = useState<(typeof filters)[number]["id"]>("all");
   const [posts, setPosts] = useState<FeedPost[]>([]);
@@ -235,11 +238,7 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
 
   const handleDelete = async (postId: string) => {
     if (!userId) {
-      dispatchMascotEvent({
-        message: "Sign in to manage posts.",
-        mood: "BLOCKED",
-        move: "attention_pop",
-      });
+      window.location.href = getAuthRequiredRedirect(pathname ?? "/newsfeed");
       return;
     }
     if (!confirm("Delete this post? This removes it from the feed.")) return;
@@ -268,11 +267,7 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
 
   const handleFlag = async (postId: string) => {
     if (!userId) {
-      dispatchMascotEvent({
-        message: "Sign in to report posts.",
-        mood: "BLOCKED",
-        move: "attention_pop",
-      });
+      window.location.href = getAuthRequiredRedirect(pathname ?? "/newsfeed");
       return;
     }
     const reason = prompt("Report this post (optional reason):", "") || "";
@@ -313,11 +308,7 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
 
   const toggleLike = async (postId: string) => {
     if (!userId) {
-      dispatchMascotEvent({
-        message: "Sign in to like posts.",
-        mood: "BLOCKED",
-        move: "attention_pop",
-      });
+      window.location.href = getAuthRequiredRedirect(pathname ?? "/newsfeed");
       return;
     }
 
@@ -548,6 +539,10 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
                     type="button"
                     className="btn-ghost"
                     onClick={() => {
+                      if (!userId) {
+                        window.location.href = getAuthRequiredRedirect(pathname ?? "/newsfeed");
+                        return;
+                      }
                       if (commentsPostId === post.id) {
                         return;
                       }
