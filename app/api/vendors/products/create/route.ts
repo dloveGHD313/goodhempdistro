@@ -555,14 +555,17 @@ export async function POST(req: NextRequest) {
     const delta8Ack = delta8_disclaimer_ack === true;
     const hempDerivedAttestation = hemp_derived_attestation === true;
 
-    const complianceErrors = validateProductCompliance({
-      product_type: normalizedProductType,
-      coa_url: coaUrlValue,
-      coa_object_path: normalizedCoaObjectPath,
-      delta8_disclaimer_ack: delta8Ack,
-      category_requires_coa: effectiveRequiresCoa,
-      hemp_derived_attestation: hempDerivedAttestation,
-    });
+    const complianceErrors = validateProductCompliance(
+      {
+        product_type: normalizedProductType,
+        coa_url: coaUrlValue,
+        coa_object_path: normalizedCoaObjectPath,
+        delta8_disclaimer_ack: delta8Ack,
+        category_requires_coa: effectiveRequiresCoa,
+        hemp_derived_attestation: hempDerivedAttestation,
+      },
+      { mode: "draft" }
+    );
 
     if (complianceErrors.length > 0) {
       return NextResponse.json(

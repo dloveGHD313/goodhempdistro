@@ -278,11 +278,11 @@ export async function PUT(
       hemp_derived_attestation: hempDerivedAttestation,
     };
 
-    // Validate compliance (hemp_derived_attestation + COA when effectiveRequiresCoa; admin bypass)
-    const complianceErrors = validateProductCompliance({
-      ...compliancePayload,
-      category_requires_coa: effectiveRequiresCoa,
-    });
+    // Validate compliance (draft mode: do not block on COA; hemp_derived_attestation required)
+    const complianceErrors = validateProductCompliance(
+      { ...compliancePayload, category_requires_coa: effectiveRequiresCoa },
+      { mode: "draft" }
+    );
 
     if (complianceErrors.length > 0) {
       return NextResponse.json(

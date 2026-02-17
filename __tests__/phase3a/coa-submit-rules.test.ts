@@ -9,24 +9,27 @@ import {
   validateProductCompliance,
 } from "@/lib/compliance";
 
+const baseDraftPayload = {
+  product_type: "non_intoxicating" as const,
+  hemp_derived_attestation: true,
+};
+
 describe("Phase 3A: COA compliance rules", () => {
   describe("Non-blocking create/save (Phase 2)", () => {
-    it("validateProductCompliance never returns COA error for create/update", () => {
-      const errors = validateProductCompliance({
-        product_type: "non_intoxicating",
-        category_requires_coa: true,
-      });
-      expect(errors.filter((e) => e.field === "coa_url")).toHaveLength(0);
+    it("validateProductCompliance never returns COA error for create/update (draft mode)", () => {
+      const errors = validateProductCompliance(
+        { ...baseDraftPayload, category_requires_coa: true },
+        { mode: "draft" }
+      );
+      expect(errors.filter((e) => e.field === "coa" || e.field === "coa_url")).toHaveLength(0);
     });
 
-    it("validateProductCompliance allows save with no COA when category requires COA", () => {
-      const errors = validateProductCompliance({
-        product_type: "non_intoxicating",
-        category_requires_coa: true,
-        coa_url: "",
-        coa_object_path: "",
-      });
-      expect(errors.filter((e) => e.field === "coa_url")).toHaveLength(0);
+    it("validateProductCompliance allows save with no COA when category requires COA (draft mode)", () => {
+      const errors = validateProductCompliance(
+        { ...baseDraftPayload, category_requires_coa: true, coa_url: "", coa_object_path: "" },
+        { mode: "draft" }
+      );
+      expect(errors.filter((e) => e.field === "coa" || e.field === "coa_url")).toHaveLength(0);
     });
   });
 

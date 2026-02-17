@@ -85,12 +85,24 @@ export function getRedirectForStartPath(selectedPath: string | null | undefined)
 
 /**
  * Public destination when "Continue without account".
- * Events → /events; service_provider → /discover (TODO: replace with /services when implemented).
+ * MUST only return public routes (no auth/onboarding gates). Never vendor-registration, affiliate dashboard, etc.
  */
+const PUBLIC_START_REDIRECTS: Record<string, string> = {
+  events: "/events",
+  education: "/education",
+  shopper: "/discover",
+  vendor: "/discover",
+  logistics: "/discover",
+  builder: "/discover",
+  affiliate: "/discover",
+  service_provider: "/discover",
+};
+
 export function getPublicRedirectForStartPath(selectedPath: string | null | undefined): string {
-  if (selectedPath === "events") return "/events";
-  if (selectedPath === "service_provider") return "/discover"; // TODO: Replace with /services when implemented.
-  return getRedirectForStartPath(selectedPath);
+  if (typeof selectedPath === "string" && selectedPath.length > 0 && PUBLIC_START_REDIRECTS[selectedPath] !== undefined) {
+    return PUBLIC_START_REDIRECTS[selectedPath];
+  }
+  return "/discover";
 }
 
 /** Resolve workout_path to persist / pass as role param (events + service_provider → vendor). */

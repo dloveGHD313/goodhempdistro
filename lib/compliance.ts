@@ -45,6 +45,12 @@ export interface ComplianceErrors {
   message: string;
 }
 
+/** "draft" = create/update must not block on COA; "submit" = enforce COA before publish. */
+export type ValidateProductComplianceMode = "draft" | "submit";
+export interface ValidateProductComplianceOptions {
+  mode?: ValidateProductComplianceMode;
+}
+
 /**
  * Single source of truth: does this product category/type require a full-panel COA?
  * Returns true for hemp-derived, consumable, topical, inhalable, CBD/wellness, recreational, industrial.
@@ -102,12 +108,17 @@ export function getDelta8WarningText(): string {
 
 /**
  * Validate product compliance rules.
- * Server-side: hemp_derived_attestation required; COA required when category_requires_coa.
+ * mode "draft": create/update — do NOT block on COA (Phase 2). Hemp-derived attestation still required.
+ * mode "submit": publish/submit — enforce COA when category_requires_coa.
  */
-export function validateProductCompliance(payload: ProductCompliancePayload): ComplianceErrors[] {
+export function validateProductCompliance(
+  payload: ProductCompliancePayload,
+  options?: ValidateProductComplianceOptions
+): ComplianceErrors[] {
+  const mode = options?.mode ?? "draft";
   const errors: ComplianceErrors[] = [];
 
-  // All products must attest hemp-derived
+  // All products must attest hemp-derived (create/update)
   if (payload.hemp_derived_attestation !== true) {
     errors.push({
       field: "hemp_derived_attestation",
@@ -115,8 +126,8 @@ export function validateProductCompliance(payload: ProductCompliancePayload): Co
     });
   }
 
-  // COA required for ingestible/inhalable categories (server-enforced)
-  if (payload.category_requires_coa) {
+  // COA blocking only in submit mode (Phase 2: create/update must not block on COA)
+  if (mode === "submit" && payload.category_requires_coa) {
     const hasCoaUrl = typeof payload.coa_url === "string" && payload.coa_url.trim().length > 0;
     const hasCoaPath = typeof payload.coa_object_path === "string" && payload.coa_object_path.trim().length > 0;
     if (!hasCoaUrl && !hasCoaPath) {

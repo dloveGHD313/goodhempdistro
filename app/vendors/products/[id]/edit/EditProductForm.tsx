@@ -46,7 +46,7 @@ export default function EditProductForm({ productId, initialProduct, initialCate
   const [coaObjectPath, setCoaObjectPath] = useState(initialProduct.coa_object_path || "");
   const [useManualUrl, setUseManualUrl] = useState(!!initialProduct.coa_url);
   const [delta8DisclaimerAck, setDelta8DisclaimerAck] = useState(initialProduct.delta8_disclaimer_ack || false);
-  const [hempDerivedAttestation, setHempDerivedAttestation] = useState(initialProduct.hemp_derived_attestation ?? false);
+  const [hempDerivedAttestation, setHempDerivedAttestation] = useState(initialProduct.hemp_derived_attestation ?? true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
