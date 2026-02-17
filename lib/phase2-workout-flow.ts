@@ -73,13 +73,34 @@ export const WORKOUT_REDIRECTS: Record<WorkoutPath, string> = {
   affiliate: "/affiliate",
 };
 
-/** Default route for a stored profile role (used for logged-in home redirect). */
-export function getDefaultRouteForRole(role?: string | null): string {
-  if (!role) return "/discover";
-  if (role in WORKOUT_REDIRECTS) {
-    return WORKOUT_REDIRECTS[role as WorkoutPath];
+/** Type guard: true if path is a valid workout path key. */
+export function isValidWorkoutPath(path: string | null | undefined): path is WorkoutPath {
+  return typeof path === "string" && path.length > 0 && Object.prototype.hasOwnProperty.call(WORKOUT_REDIRECTS, path);
+}
+
+export type GetDefaultRouteForUserOpts = {
+  accountRole?: string | null;
+  workoutPath?: string | null;
+};
+
+/**
+ * Default route for logged-in home redirect.
+ * Priority: workout_path (Start flow) => account role (admin => /dashboard) => /discover.
+ */
+export function getDefaultRouteForUser(opts: GetDefaultRouteForUserOpts): string {
+  const { accountRole, workoutPath } = opts;
+  if (isValidWorkoutPath(workoutPath)) {
+    return WORKOUT_REDIRECTS[workoutPath];
+  }
+  if (accountRole === "admin") {
+    return "/dashboard";
   }
   return "/discover";
+}
+
+/** @deprecated Use getDefaultRouteForUser({ workoutPath }) when param is workout path. Kept for URL param back-compat. */
+export function getDefaultRouteForRole(role?: string | null): string {
+  return getDefaultRouteForUser({ workoutPath: role ?? undefined });
 }
 
 const MAX_NEXT_LENGTH = 2048;

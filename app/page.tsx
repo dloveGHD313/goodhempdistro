@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { brand } from "@/lib/brand";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import StartFlowClient from "./start/StartFlowClient";
-import { getDefaultRouteForRole } from "@/lib/phase2-workout-flow";
+import { getDefaultRouteForUser } from "@/lib/phase2-workout-flow";
 
 export const dynamic = "force-dynamic";
 
@@ -20,15 +20,17 @@ export default async function HomePage() {
     return <StartFlowClient />;
   }
 
-  // If logged in → fetch role and redirect
+  // If logged in → fetch account role + workout_path and redirect
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, workout_path")
     .eq("id", user.id)
     .maybeSingle();
 
-  const role = profile?.role ?? null;
-  const defaultRoute = getDefaultRouteForRole(role);
+  const defaultRoute = getDefaultRouteForUser({
+    accountRole: profile?.role ?? null,
+    workoutPath: profile?.workout_path ?? null,
+  });
 
   redirect(defaultRoute);
 }

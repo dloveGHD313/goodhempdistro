@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
-import { getDefaultRouteForRole, isSafeNextPath, sanitizeNextPath } from "@/lib/phase2-workout-flow";
+import { getDefaultRouteForUser, isSafeNextPath, sanitizeNextPath } from "@/lib/phase2-workout-flow";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -41,7 +41,7 @@ export default function LoginForm() {
       if (data.user) {
         setMessage("Login successful! Redirecting...");
         if (next || role) {
-          router.push(sanitizeNextPath(next, getDefaultRouteForRole(role)));
+          router.push(sanitizeNextPath(next, getDefaultRouteForUser({ workoutPath: role })));
         } else {
           const res = await fetch("/api/auth/post-login-route", { credentials: "include" });
           const { redirectTo } = (await res.json()) as { redirectTo: "/onboarding" | "/dashboard" };

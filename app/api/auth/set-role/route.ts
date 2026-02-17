@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
-import { WORKOUT_REDIRECTS, type WorkoutPath } from "@/lib/phase2-workout-flow";
-
-const VALID_ROLES = new Set<string>(Object.keys(WORKOUT_REDIRECTS));
+import { isValidWorkoutPath, type WorkoutPath } from "@/lib/phase2-workout-flow";
 
 /**
- * POST: Set profile.role for the current user (workout path only).
- * Used after signup when ?role= was passed from Start flow.
+ * POST: Set profile.workout_path for the current user (Start flow selection).
+ * Body: { workoutPath } or { role } (back-compat; role treated as workoutPath).
+ * Does NOT update profiles.role (account type remains consumer/admin).
  */
 export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient();
@@ -16,10 +15,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, code: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  const body = (await req.json().catch(() => ({}))) as { role?: string };
-  const role = typeof body.role === "string" ? body.role.trim() : null;
+  const body = (await req.json().catch(() => ({}))) as { role?: string; workoutPath?: string };
+  const raw = typeof body.workoutPath === "string" ? body.workoutPath : typeof body.role === "string" ? body.role : null;
+  const workoutPath = typeof raw === "string" ? raw.trim() : null;
 
-  if (!role || !VALID_ROLES.has(role)) {
+  if (!workoutPath || !isValidWorkoutPath(workoutPath)) {
     return NextResponse.json({ ok: false, code: "INVALID_ROLE" }, { status: 400 });
   }
 
@@ -28,24 +28,24 @@ export async function POST(req: NextRequest) {
     .upsert(
       {
         id: user.id,
-        role: role as WorkoutPath,
+        workout_path: workoutPath as WorkoutPath,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "id" }
     )
-    .select("id, role")
+    .select("id, workout_path")
     .single();
 
   if (error) {
     return NextResponse.json({ ok: false, code: "UPDATE_FAILED", message: error.message }, { status: 500 });
   }
 
-  if (data == null || data.role !== role) {
+  if (data == null || data.workout_path !== workoutPath) {
     return NextResponse.json(
       { ok: false, code: "ROLE_NOT_PERSISTED", message: "Role was not persisted" },
       { status: 500 }
     );
   }
 
-  return NextResponse.json({ ok: true, role: data.role });
+  return NextResponse.json({ ok: true, workoutPath: data.workout_path });
 }

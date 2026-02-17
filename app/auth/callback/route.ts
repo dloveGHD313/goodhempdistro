@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getPostLoginRoute, type PostLoginProfile } from "@/lib/routing/postLoginRoute";
-import { getDefaultRouteForRole, isSafeNextPath, WORKOUT_REDIRECTS, type WorkoutPath } from "@/lib/phase2-workout-flow";
+import { getDefaultRouteForUser, isSafeNextPath, isValidWorkoutPath, type WorkoutPath } from "@/lib/phase2-workout-flow";
 
 /**
  * Handle Supabase auth callback
@@ -54,16 +54,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // Success - ensure profile exists and apply workout role if provided
+    // Success - ensure profile exists (account role stays consumer); persist workout_path if provided
     const user = data.session?.user;
     const nextParam = requestUrl.searchParams.get("next");
     const roleParam = requestUrl.searchParams.get("role");
-    const validRoles = new Set<string>(Object.keys(WORKOUT_REDIRECTS));
+    const pathParam = requestUrl.searchParams.get("workoutPath") ?? requestUrl.searchParams.get("path") ?? roleParam;
+    const workoutPathParam = typeof pathParam === "string" && isValidWorkoutPath(pathParam) ? (pathParam as WorkoutPath) : null;
 
     if (user?.id) {
       const { getSupabaseAdminClient } = await import("@/lib/supabaseAdmin");
       const admin = getSupabaseAdminClient();
-      const initialRole = roleParam && validRoles.has(roleParam) ? (roleParam as WorkoutPath) : "consumer";
       try {
         await admin
           .from("profiles")
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
             {
               id: user.id,
               email: user.email ?? null,
-              role: initialRole,
+              role: "consumer",
               display_name: user.user_metadata?.display_name ?? user.email ?? null,
               updated_at: new Date().toISOString(),
             },
@@ -82,15 +82,15 @@ export async function GET(req: NextRequest) {
           console.debug("[auth/callback] profile upsert:", profileErr);
         }
       }
-      if (roleParam && validRoles.has(roleParam)) {
+      if (workoutPathParam) {
         try {
           await admin
             .from("profiles")
-            .update({ role: roleParam as WorkoutPath, updated_at: new Date().toISOString() })
+            .update({ workout_path: workoutPathParam, updated_at: new Date().toISOString() })
             .eq("id", user.id);
-        } catch (roleErr) {
+        } catch (pathErr) {
           if (process.env.NODE_ENV !== "production") {
-            console.debug("[auth/callback] set role:", roleErr);
+            console.debug("[auth/callback] set workout_path:", pathErr);
           }
         }
       }
@@ -104,13 +104,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // For other flows (e.g. email confirm): honor next/role then fall back to post-login rule (never external redirect)
+    // For other flows (e.g. email confirm): honor next then workout_path then post-login rule (never external redirect)
     const safeNext = isSafeNextPath(nextParam) ? nextParam : null;
     let redirectPath: string;
     if (safeNext) {
       redirectPath = safeNext;
-    } else if (roleParam && validRoles.has(roleParam)) {
-      redirectPath = getDefaultRouteForRole(roleParam);
+    } else if (workoutPathParam) {
+      redirectPath = getDefaultRouteForUser({ workoutPath: workoutPathParam });
     } else {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       let profile: PostLoginProfile = null;
