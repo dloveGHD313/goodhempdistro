@@ -9,8 +9,9 @@ import { getDefaultRouteForRole } from "@/lib/phase2-workout-flow";
 export default function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next");
-  const role = searchParams.get("role");
+  const next = searchParams.get("next") ?? undefined;
+  const role = searchParams.get("role") ?? undefined;
+  const callbackPath = "/auth/callback";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -38,11 +39,15 @@ export default function SignupForm() {
 
     try {
       const supabase = createSupabaseBrowserClient();
+      const origin = window.location.origin;
+      const url = new URL(origin + callbackPath);
+      if (next) url.searchParams.set("next", next);
+      if (role) url.searchParams.set("role", role);
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: url.toString(),
         },
       });
 
@@ -77,11 +82,14 @@ export default function SignupForm() {
             router.push(redirectTo);
           }
         } else {
-          // Email confirmation required
-          setMessage("Account created! Please check your email to verify your account before logging in.");
-          // Redirect to login after showing message
+          // Email confirmation required — preserve next/role so callback or login can use them
+          setMessage("Check your email to confirm your account.");
+          const loginUrl = new URL(origin + "/login");
+          if (next) loginUrl.searchParams.set("next", next);
+          if (role) loginUrl.searchParams.set("role", role);
+          loginUrl.searchParams.set("confirm", "1");
           setTimeout(() => {
-            router.push("/login?message=Please check your email to verify your account");
+            router.push(loginUrl.pathname + loginUrl.search);
           }, 5000);
         }
       }

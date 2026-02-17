@@ -2,6 +2,11 @@ import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getPostLoginRoute, type PostLoginProfile } from "@/lib/routing/postLoginRoute";
+import { getDefaultRouteForRole, WORKOUT_REDIRECTS, type WorkoutPath } from "@/lib/phase2-workout-flow";
+
+function isSafeNextPath(p: string): boolean {
+  return p.startsWith("/") && !p.startsWith("//") && !p.includes("://");
+}
 
 /**
  * Handle Supabase auth callback
@@ -53,19 +58,24 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // Success - ensure profile exists (idempotent; handle_new_user trigger may have raced or failed)
+    // Success - ensure profile exists and apply workout role if provided
     const user = data.session?.user;
+    const nextParam = requestUrl.searchParams.get("next");
+    const roleParam = requestUrl.searchParams.get("role");
+    const validRoles = new Set<string>(Object.keys(WORKOUT_REDIRECTS));
+
     if (user?.id) {
+      const { getSupabaseAdminClient } = await import("@/lib/supabaseAdmin");
+      const admin = getSupabaseAdminClient();
+      const initialRole = roleParam && validRoles.has(roleParam) ? (roleParam as WorkoutPath) : "consumer";
       try {
-        const { getSupabaseAdminClient } = await import("@/lib/supabaseAdmin");
-        const admin = getSupabaseAdminClient();
         await admin
           .from("profiles")
           .upsert(
             {
               id: user.id,
               email: user.email ?? null,
-              role: "consumer",
+              role: initialRole,
               display_name: user.user_metadata?.display_name ?? user.email ?? null,
               updated_at: new Date().toISOString(),
             },
@@ -74,6 +84,18 @@ export async function GET(req: NextRequest) {
       } catch (profileErr) {
         if (process.env.NODE_ENV !== "production") {
           console.debug("[auth/callback] profile upsert:", profileErr);
+        }
+      }
+      if (roleParam && validRoles.has(roleParam)) {
+        try {
+          await admin
+            .from("profiles")
+            .update({ role: roleParam as WorkoutPath, updated_at: new Date().toISOString() })
+            .eq("id", user.id);
+        } catch (roleErr) {
+          if (process.env.NODE_ENV !== "production") {
+            console.debug("[auth/callback] set role:", roleErr);
+          }
         }
       }
     }
@@ -86,24 +108,31 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // For other flows (e.g. email confirm): use post-login routing rule (first-time -> /onboarding)
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-    let profile: PostLoginProfile = null;
-    if (authUser?.id) {
-      const { data: row } = await supabase
-        .from("profiles")
-        .select("role, onboarding_completed_at, consumer_onboarding_completed")
-        .eq("id", authUser.id)
-        .maybeSingle();
-      profile = row
-        ? {
-            role: row.role ?? null,
-            onboarding_completed_at: row.onboarding_completed_at ?? null,
-            consumer_onboarding_completed: row.consumer_onboarding_completed ?? null,
-          }
-        : null;
+    // For other flows (e.g. email confirm): honor next/role then fall back to post-login rule
+    let redirectPath: string;
+    if (nextParam && isSafeNextPath(nextParam)) {
+      redirectPath = nextParam;
+    } else if (roleParam && validRoles.has(roleParam)) {
+      redirectPath = getDefaultRouteForRole(roleParam);
+    } else {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      let profile: PostLoginProfile = null;
+      if (authUser?.id) {
+        const { data: row } = await supabase
+          .from("profiles")
+          .select("role, onboarding_completed_at, consumer_onboarding_completed")
+          .eq("id", authUser.id)
+          .maybeSingle();
+        profile = row
+          ? {
+              role: row.role ?? null,
+              onboarding_completed_at: row.onboarding_completed_at ?? null,
+              consumer_onboarding_completed: row.consumer_onboarding_completed ?? null,
+            }
+          : null;
+      }
+      redirectPath = getPostLoginRoute(profile);
     }
-    const redirectPath = getPostLoginRoute(profile);
     const redirectUrl = new URL(redirectPath, requestUrl.origin);
     return NextResponse.redirect(redirectUrl);
   }

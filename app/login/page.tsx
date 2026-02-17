@@ -10,12 +10,14 @@ export const metadata: Metadata = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ message?: string; error?: string }>;
+  searchParams: Promise<{ message?: string; error?: string; confirm?: string }>;
 }) {
   const params = await searchParams;
   const successMessage = params.message === "password_reset_success"
     ? "Password reset successful! You can now log in with your new password."
-    : null;
+    : params.confirm === "1"
+      ? "Check your email to confirm your account."
+      : null;
   const errorMessage = params.error === "invalid_reset_link"
     ? "Invalid or expired reset link. Please request a new password reset."
     : params.error === "missing_code"
