@@ -112,7 +112,7 @@ export default function StartFlowClient() {
   }
 
   const pathMeta = PATHS.find((p) => p.id === path);
-  const destination = path ? getRedirectForStartPath(path) : "#";
+  const destination = path ? getPublicRedirectForStartPath(path) : "#";
 
   return (
     <main className="welcome-hero py-10 px-4" aria-label="Next step">
