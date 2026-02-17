@@ -54,16 +54,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    // Success - ensure profile exists (account role stays consumer); persist workout_path if provided
+    // Success - ensure profile exists (account role stays consumer); persist workout_path if provided (best-effort; redirect still happens if admin fails)
     const user = data.session?.user;
     const nextParam = requestUrl.searchParams.get("next");
     const roleParam = requestUrl.searchParams.get("role");
     const pathParam = requestUrl.searchParams.get("workoutPath") ?? requestUrl.searchParams.get("path") ?? roleParam;
     const workoutPathParam = typeof pathParam === "string" && isValidWorkoutPath(pathParam) ? (pathParam as WorkoutPath) : null;
 
-    if (user?.id) {
-      const { getSupabaseAdminClient } = await import("@/lib/supabaseAdmin");
-      const admin = getSupabaseAdminClient();
+    let admin: ReturnType<typeof import("@/lib/supabaseAdmin").getSupabaseAdminClient> | null = null;
+    try {
+      const mod = await import("@/lib/supabaseAdmin");
+      admin = mod.getSupabaseAdminClient();
+    } catch (err) {
+      console.error("[auth/callback] admin client init failed (non-blocking)", err);
+      admin = null;
+    }
+
+    if (admin && user?.id) {
       try {
         await admin
           .from("profiles")
@@ -78,9 +85,7 @@ export async function GET(req: NextRequest) {
             { onConflict: "id", ignoreDuplicates: true }
           );
       } catch (profileErr) {
-        if (process.env.NODE_ENV !== "production") {
-          console.debug("[auth/callback] profile upsert:", profileErr);
-        }
+        console.error("[auth/callback] profile update failed (non-blocking)", profileErr);
       }
       if (workoutPathParam) {
         try {
@@ -89,9 +94,7 @@ export async function GET(req: NextRequest) {
             .update({ workout_path: workoutPathParam, updated_at: new Date().toISOString() })
             .eq("id", user.id);
         } catch (pathErr) {
-          if (process.env.NODE_ENV !== "production") {
-            console.debug("[auth/callback] set workout_path:", pathErr);
-          }
+          console.error("[auth/callback] profile update failed (non-blocking)", pathErr);
         }
       }
     }

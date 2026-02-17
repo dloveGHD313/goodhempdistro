@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   getWorkoutFlowState,
   setWorkoutFlowState,
+  clearWorkoutFlowState,
   getRedirectForStartPath,
   getEffectiveWorkoutPath,
   type StartPathId,
@@ -55,6 +56,13 @@ export default function StartFlowClient() {
     const redirect = getRedirectForStartPath(path);
     const role = getEffectiveWorkoutPath(path);
     router.push(`/signup?next=${encodeURIComponent(redirect)}&role=${encodeURIComponent(role)}`);
+  };
+
+  const handleChooseDifferentPath = (e: React.MouseEvent) => {
+    e.preventDefault();
+    clearWorkoutFlowState();
+    setPath(null);
+    setStep(1);
   };
 
   if (!mounted) {
@@ -135,7 +143,7 @@ export default function StartFlowClient() {
         </p>
         <button
           type="button"
-          onClick={() => setStep(1)}
+          onClick={handleChooseDifferentPath}
           className="text-muted text-sm mt-4 hover:text-foreground underline"
         >
           Choose a different path
