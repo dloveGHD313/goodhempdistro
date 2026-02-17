@@ -21,7 +21,7 @@ export default function MascotAssetCard({ filename, src }: Props) {
           alt={filename}
           width={RENDER_SIZE}
           height={RENDER_SIZE}
-          sizes={`${RENDER_SIZE}px`}
+          sizes="160px"
           quality={90}
           className="object-contain w-full h-full"
           onLoad={(e) => {
