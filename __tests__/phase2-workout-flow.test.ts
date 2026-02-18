@@ -28,13 +28,16 @@ describe("getPublicRedirectForStartPath", () => {
     expect(getPublicRedirectForStartPath("education")).toBe("/education");
   });
 
-  it("returns /discover for vendor, shopper, logistics, builder, affiliate, service_provider", () => {
+  it("returns /services for service_provider", () => {
+    expect(getPublicRedirectForStartPath("service_provider")).toBe("/services");
+  });
+
+  it("returns /discover for vendor, shopper, logistics, builder, affiliate", () => {
     expect(getPublicRedirectForStartPath("vendor")).toBe("/discover");
     expect(getPublicRedirectForStartPath("shopper")).toBe("/discover");
     expect(getPublicRedirectForStartPath("logistics")).toBe("/discover");
     expect(getPublicRedirectForStartPath("builder")).toBe("/discover");
     expect(getPublicRedirectForStartPath("affiliate")).toBe("/discover");
-    expect(getPublicRedirectForStartPath("service_provider")).toBe("/discover");
   });
 
   it("returns /discover for unknown or null path", () => {

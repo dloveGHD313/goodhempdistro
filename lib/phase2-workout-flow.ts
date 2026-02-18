@@ -95,7 +95,7 @@ const PUBLIC_START_REDIRECTS: Record<string, string> = {
   logistics: "/discover",
   builder: "/discover",
   affiliate: "/discover",
-  service_provider: "/discover",
+  service_provider: "/services",
 };
 
 export function getPublicRedirectForStartPath(selectedPath: string | null | undefined): string {

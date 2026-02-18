@@ -65,6 +65,21 @@
 - **Previous bypass:** LoginForm and SignupForm, when `next` or `role` was present, redirected client-side (using next if safe, else default route for role) without calling the post-login API, so onboarding was skipped.
 - **Fix:** Clients always call `POST /api/auth/post-login-route` with `{ next, workoutPath, role }`; the API returns `redirectTo` after applying onboarding-first logic. Callback uses the same order: mandatory post-login route, then safe next, then workout default.
 
+## Phase 3A: Public browsing + conversion gates
+
+### What changed
+
+- **Public browsing:** Events (`/events`), Shop (`/products`), and Services (`/services`) are accessible without an account. Feed (`/newsfeed`) is viewable without login; interactions (like, comment, post, flag) require auth and redirect to signup/login with a safe `next` when unauthenticated.
+- **Start flow — Service Provider:** "Continue without account" for Service Provider now routes to the **public `/services`** page (was `/discover`). "Sign me up, then take me there" still goes to vendor onboarding; `workout_path` is persisted as `vendor` (service_provider is a UI alias only).
+- **Start flow — Events:** "Continue without account" routes to `/events` (public). Signup intent remains vendor (role/vendor).
+- **Public `/services` page:** New landing at `/services` (no auth gate): hero "Services" / "Find help in the hemp industry", category placeholder cards (Logistics, Compliance, Marketing, Construction, Processing), and primary CTA "Become a Service Provider" → `/signup?next=/vendor-registration&role=vendor` (next validated via `isSafeNextPath`). Services layout no longer uses `requireConsumerOnboarding`.
+- **Consistency:** Start flow UI shows both destinations: "After you sign up: …" and "Continue without account: …" so displayed text matches actual behavior for both actions.
+
+### Verification
+
+- `getPublicRedirectForStartPath("service_provider")` → `/services`; `"events"` → `/events`; others → `/discover` or `/education` as before.
+- Unit tests in `__tests__/phase2-workout-flow.test.ts` cover public redirects; no gated route is ever returned for any Start path.
+
 ## Follow-ups (not in this PR)
 
 - Optional: migrate welcome/feed CTAs to `components/ui/Button` per check:ui-regressions (advisory).
