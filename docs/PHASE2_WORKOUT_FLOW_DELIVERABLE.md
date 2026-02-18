@@ -80,6 +80,29 @@
 - `getPublicRedirectForStartPath("service_provider")` → `/services`; `"events"` → `/events`; others → `/discover` or `/education` as before.
 - Unit tests in `__tests__/phase2-workout-flow.test.ts` cover public redirects; no gated route is ever returned for any Start path.
 
+## Phase 3B: Public shop rules + conversion gates + compliance-safe product rules
+
+### What changed
+
+- **Public Events:** `/events` remains public (no auth redirect). Start flow "Continue without account" for Events → `/events`; "Sign me up…" → vendor onboarding (unchanged).
+- **Public Shop (logged-out limited):** `/products` remains public (no redirect to login). Logged-out users see only products in categories that do **not** require COA (e.g. apparel/merch). Products in COA-required categories are **hidden** from the list when not signed in. Data-driven: uses existing `getCategoryCoaRequirement` / `getCategoriesCoaRequirementMap` and category slug/name rules (no new laws; configurable via categories).
+- **Product detail (COA-required + logged out):** If a logged-out user opens a direct link to a product whose category requires COA, they see a **locked** view: title, category, vendor, short description, and a CTA **"Sign in to view / buy"** linking to `/login?next=/products/[id]` (safe next only). No price, COA, or purchase; checkout is not allowed.
+- **Feed:** Unchanged from Phase 3A: public read; like/comment/post/flag require auth and redirect with safe `next`.
+- **Vendor product compliance:** Unchanged: create/update use draft mode (COA does not block); submit enforces COA when `category_requires_coa`; `hemp_derived_attestation` required.
+- **Start flow:** Destination text still shows both "After you sign up: …" and "Continue without account: …" (no misleading copy).
+
+### New/updated code
+
+- `lib/compliance.ts`: `getCategoriesCoaRequirementMap(supabase, categoryIds)` for batch COA-by-category (used by products list).
+- `app/products/page.tsx`: When `!user`, `getProducts(…, publicShopOnly: true)` filters out products whose category requires COA.
+- `app/products/[id]/page.tsx`: When `!user && product.category_requires_coa`, render locked view with login CTA and safe `next`.
+
+### Verification
+
+- Logged out: `/products` shows only non–COA-required categories; `/products/[id]` for a COA-required product shows locked view and "Sign in to view / buy".
+- Logged in: full product list and full detail with buy.
+- No new schema/migrations for Phase 3B.
+
 ## Follow-ups (not in this PR)
 
 - Optional: migrate welcome/feed CTAs to `components/ui/Button` per check:ui-regressions (advisory).

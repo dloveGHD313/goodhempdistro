@@ -200,3 +200,55 @@ export async function getCategoryCoaRequirement(
   }
   return result;
 }
+
+/**
+ * Batch version: returns a map of category id -> whether that category requires COA.
+ * Uses at most 2 queries (categories + parents). Unknown/missing IDs are treated as requiring COA (safe default).
+ * Use for filtering or tagging product lists (e.g. Phase 3B: hide COA-required from logged-out shop).
+ *
+ * @param supabase - Supabase client (server or route handler)
+ * @param categoryIds - non-null category IDs to look up
+ */
+export async function getCategoriesCoaRequirementMap(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- avoids deep Supabase generic instantiation
+  supabase: any,
+  categoryIds: string[]
+): Promise<Record<string, boolean>> {
+  const unique = Array.from(new Set(categoryIds.filter((id) => typeof id === "string" && id.trim().length > 0)));
+  if (unique.length === 0) return {};
+
+  const { data: categories } = await supabase
+    .from("categories")
+    .select("id, name, slug, parent_id")
+    .in("id", unique);
+
+  const list = (categories || []) as { id: string; name?: string | null; slug?: string | null; parent_id?: string | null }[];
+  const parentIds = Array.from(
+    new Set(list.map((c) => c.parent_id).filter((id): id is string => typeof id === "string" && id.trim().length > 0))
+  );
+  let parents: { id: string; slug?: string | null; name?: string | null }[] = [];
+  if (parentIds.length > 0) {
+    const { data: parentRows } = await supabase
+      .from("categories")
+      .select("id, slug, name")
+      .in("id", parentIds);
+    parents = (parentRows || []) as { id: string; slug?: string | null; name?: string | null }[];
+  }
+  const parentMap = Object.fromEntries(parents.map((p) => [p.id, p]));
+
+  const map: Record<string, boolean> = {};
+  for (const id of unique) {
+    map[id] = true; // default when category not in list
+  }
+  for (const cat of list) {
+    let result = requiresCOA({ slug: cat.slug, name: cat.name });
+    if (cat.parent_id && result) {
+      const parent = parentMap[cat.parent_id];
+      if (parent && !requiresCOA({ slug: parent.slug, name: parent.name })) {
+        result = false;
+      }
+    }
+    map[cat.id] = result;
+  }
+  return map;
+}

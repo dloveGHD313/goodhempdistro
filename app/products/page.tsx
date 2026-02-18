@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getUserVerificationStatus } from "@/lib/server/idVerification";
+import { getCategoriesCoaRequirementMap } from "@/lib/compliance";
 import Footer from "@/components/Footer";
 import ProductsList from "./ProductsList";
 import MarketSwitcher from "@/components/market/MarketSwitcher";
@@ -25,11 +26,15 @@ type Product = {
   description?: string | null;
   vendor_id?: string | null;
   vendor_name?: string | null;
+  /** When true, category requires COA (Phase 3B: logged-out shop hides these). */
+  category_requires_coa?: boolean;
 };
 
 async function getProducts(
   vendorId?: string | null,
-  includeGated = false
+  includeGated = false,
+  /** When true, only return products whose category does NOT require COA (Phase 3B: public shop). */
+  publicShopOnly = false
 ): Promise<{
   products: Product[];
   vendorName?: string | null;
@@ -103,19 +108,37 @@ async function getProducts(
       ? withVendor.filter((p) => p.vendor_id && activeVendorIds.has(p.vendor_id))
       : withVendor;
 
-    const products = visibleProducts.map((product) => {
+    const categoryIds = Array.from(
+      new Set(
+        visibleProducts
+          .map((p) => p.category_id)
+          .filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+      )
+    );
+    const coaMap = await getCategoriesCoaRequirementMap(supabase, categoryIds);
+
+    let products = visibleProducts.map((product) => {
       const marketMode: "gated" | "ungated" =
         product.is_gated ||
         product.market_category === "RECREATIONAL" ||
         product.market_category === "INTOXICATING"
           ? "gated"
           : "ungated";
+      const categoryRequiresCoa =
+        product.category_id != null && product.category_id.trim() !== ""
+          ? coaMap[product.category_id] ?? true
+          : true;
       return {
         ...product,
         market_mode: marketMode,
         vendor_name: vendorName || (product.vendor_id ? vendorMap[product.vendor_id] : null) || null,
+        category_requires_coa: categoryRequiresCoa,
       };
     });
+
+    if (publicShopOnly) {
+      products = products.filter((p) => p.category_requires_coa !== true);
+    }
 
     return { products, vendorName };
   } catch (err) {
@@ -148,7 +171,8 @@ export default async function ProductsPage({
   const { data: { user } } = await supabase.auth.getUser();
   const verification = await getUserVerificationStatus(user?.id ?? null);
   const includeGated = verification.status === "approved";
-  const { products, vendorName } = await getProducts(vendorId, includeGated);
+  const publicShopOnly = !user;
+  const { products, vendorName } = await getProducts(vendorId, includeGated, publicShopOnly);
 
   return (
     <div className="min-h-screen text-white flex flex-col">

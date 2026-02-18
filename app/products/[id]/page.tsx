@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import BuyButton from "./BuyButton";
 import { getCategoryCoaRequirement, getDelta8WarningText, requiresWarning } from "@/lib/compliance";
+import { isSafeNextPath } from "@/lib/phase2-workout-flow";
 import FavoriteButton from "@/components/engagement/FavoriteButton";
 import ReviewSection from "@/components/engagement/ReviewSection";
 import Footer from "@/components/Footer";
@@ -268,6 +269,48 @@ export default async function ProductDetailPage(props: Props) {
         </div>
       );
     }
+  }
+
+  // Phase 3B: Logged-out users cannot view/purchase COA-required products; show locked CTA with safe next
+  if (!user && product.category_requires_coa) {
+    const categoryNameLocked = await getCategoryName(product.category_id);
+    const vendorNameLocked = await getVendorName(product.vendor_id);
+    const productNameLocked = product.name?.trim() || "Product";
+    const descriptionLocked =
+      product.description && product.description.trim().length > 0
+        ? product.description.trim().slice(0, 200) + (product.description.trim().length > 200 ? "…" : "")
+        : "Product details are available after you sign in.";
+    const nextPath = `/products/${params.id}`;
+    const loginHref = isSafeNextPath(nextPath) ? `/login?next=${encodeURIComponent(nextPath)}` : "/login";
+    return (
+      <div className="min-h-screen text-white flex flex-col">
+        <main className="flex-1">
+          <section className="section-shell">
+            <Link href="/products" className="text-accent hover:text-accent/80 transition mb-6 inline-block">
+              ← Back to Products
+            </Link>
+            <div className="max-w-2xl mx-auto card-glass p-8 space-y-6 text-center">
+              <div className="text-6xl text-muted mb-3">🔒</div>
+              <h1 className="text-3xl font-bold text-accent">{productNameLocked}</h1>
+              <p className="text-muted">
+                Category: {categoryNameLocked || "Uncategorized"}
+                {vendorNameLocked ? ` · Vendor: ${vendorNameLocked}` : ""}
+              </p>
+              <p className="text-muted text-sm leading-relaxed max-w-lg mx-auto">{descriptionLocked}</p>
+              <div className="card-glass p-4 border border-amber-500/40 text-amber-200">
+                <p className="text-sm mb-3">
+                  This category requires a Certificate of Analysis. Sign in to view full details and purchase.
+                </p>
+                <Link href={loginHref} className="btn-primary inline-block">
+                  Sign in to view / buy
+                </Link>
+              </div>
+            </div>
+          </section>
+        </main>
+        <Footer />
+      </div>
+    );
   }
 
   const categoryName = await getCategoryName(product.category_id);
