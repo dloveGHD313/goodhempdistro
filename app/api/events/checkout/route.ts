@@ -4,24 +4,65 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import type { TicketPurchase } from "@/lib/events.types";
 
+/** Normalize email for guest checkout */
+function parseEmail(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+  if (trimmed.length > 512) return null;
+  return trimmed;
+}
+
 /**
- * Create Stripe checkout session for event tickets
- * Prevents overselling by checking inventory before creating order
+ * Create Stripe checkout session for event tickets.
+ * Public: allows guest checkout when purchaser_email and age_confirmed_21 are provided.
+ * Prevents overselling by checking inventory before creating order.
  */
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient();
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { event_id, tickets }: { event_id: string; tickets: TicketPurchase[] } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const event_id = typeof body?.event_id === "string" ? body.event_id.trim() : null;
+    const tickets = Array.isArray(body?.tickets) ? body.tickets : null;
+    const purchaser_email = parseEmail(body?.purchaser_email);
+    const age_confirmed_21 = body?.age_confirmed_21 === true;
 
     if (!event_id || !tickets || tickets.length === 0) {
       return NextResponse.json(
         { error: "event_id and tickets array are required" },
+        { status: 400 }
+      );
+    }
+
+    const isGuest = !user;
+    if (!age_confirmed_21) {
+      return NextResponse.json(
+        { error: "You must confirm you are 21 or older to purchase event tickets" },
+        { status: 400 }
+      );
+    }
+    if (isGuest) {
+      if (!purchaser_email) {
+        return NextResponse.json(
+          { error: "Guest checkout requires purchaser_email" },
+          { status: 400 }
+        );
+      }
+    }
+
+    const normalizedTickets: TicketPurchase[] = tickets
+      .filter((t: unknown) => t && typeof t === "object" && typeof (t as { ticket_type_id?: unknown }).ticket_type_id === "string" && typeof (t as { quantity?: unknown }).quantity === "number")
+      .map((t: { ticket_type_id: string; quantity: number }) => ({
+        ticket_type_id: (t.ticket_type_id as string).trim(),
+        quantity: Math.floor(Number((t as { quantity: number }).quantity)) || 0,
+      }))
+      .filter((t: TicketPurchase) => t.quantity > 0);
+
+    if (normalizedTickets.length === 0) {
+      return NextResponse.json(
+        { error: "At least one ticket with quantity > 0 is required" },
         { status: 400 }
       );
     }
@@ -46,7 +87,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch ticket types and check inventory
-    const ticketTypeIds = tickets.map((t) => t.ticket_type_id);
+    const ticketTypeIds = normalizedTickets.map((t) => t.ticket_type_id);
     const { data: ticketTypes, error: ticketTypesError } = await admin
       .from("event_ticket_types")
       .select("id, name, price_cents, quantity, sold")
@@ -60,7 +101,7 @@ export async function POST(req: NextRequest) {
     const ticketTypeMap = new Map(ticketTypes.map((tt) => [tt.id, tt]));
     let totalCents = 0;
 
-    for (const purchase of tickets) {
+    for (const purchase of normalizedTickets) {
       const ticketType = ticketTypeMap.get(purchase.ticket_type_id);
       if (!ticketType) {
         return NextResponse.json(
@@ -94,15 +135,21 @@ export async function POST(req: NextRequest) {
       totalCents += ticketType.price_cents * purchase.quantity;
     }
 
-    // Create pending event order
+    const orderUserId = user?.id ?? null;
+    const orderEmail = isGuest ? purchaser_email : null;
+
+    // Create pending event order (guest: user_id null, purchaser_email set)
+    const insertPayload: { user_id: string | null; event_id: string; total_cents: number; status: string; purchaser_email?: string | null } = {
+      user_id: orderUserId,
+      event_id: event_id,
+      total_cents: totalCents,
+      status: "pending",
+    };
+    if (orderEmail) insertPayload.purchaser_email = orderEmail;
+
     const { data: eventOrder, error: orderError } = await admin
       .from("event_orders")
-      .insert({
-        user_id: user.id,
-        event_id: event_id,
-        total_cents: totalCents,
-        status: "pending",
-      })
+      .insert(insertPayload)
       .select("id")
       .single();
 
@@ -115,7 +162,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create order items
-    const orderItems = tickets.map((purchase) => {
+    const orderItems = normalizedTickets.map((purchase) => {
       const ticketType = ticketTypeMap.get(purchase.ticket_type_id)!;
       return {
         event_order_id: eventOrder.id,
@@ -141,7 +188,7 @@ export async function POST(req: NextRequest) {
 
     // Create Stripe checkout session
     const siteUrl = getSiteUrl(req);
-    const lineItems = tickets.map((purchase) => {
+    const lineItems = normalizedTickets.map((purchase) => {
       const ticketType = ticketTypeMap.get(purchase.ticket_type_id)!;
       return {
         price_data: {
@@ -160,13 +207,14 @@ export async function POST(req: NextRequest) {
       payment_method_types: ["card"],
       line_items: lineItems,
       success_url: `${siteUrl}/events/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/orders/cancel`,
+      cancel_url: `${siteUrl}/events/checkout/cancel`,
       metadata: {
         event_id: event_id,
         order_id: eventOrder.id,
-        user_id: user.id,
         order_type: "event",
+        ...(orderUserId ? { user_id: orderUserId } : {}),
       },
+      ...(orderEmail ? { customer_email: orderEmail } : {}),
     });
 
     // Update order with session ID

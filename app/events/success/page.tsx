@@ -8,6 +8,9 @@ import Footer from "@/components/Footer";
 type Confirmation = {
   orderId?: string | null;
   eventId?: string | null;
+  eventTitle?: string | null;
+  totalQuantity?: number;
+  purchaserEmail?: string | null;
   status?: string | null;
 };
 
@@ -40,6 +43,9 @@ export default function EventSuccessPage() {
         setConfirmation({
           orderId: data.orderId,
           eventId: data.eventId,
+          eventTitle: data.eventTitle,
+          totalQuantity: data.totalQuantity,
+          purchaserEmail: data.purchaserEmail,
           status: data.status,
         });
       } catch (err) {
@@ -63,8 +69,17 @@ export default function EventSuccessPage() {
             ) : error ? (
               <p className="text-red-400 mb-6">{error}</p>
             ) : (
-              <div className="text-muted mb-6 space-y-2">
+              <div className="text-muted mb-6 space-y-2 text-left max-w-md mx-auto">
                 <p>Your tickets have been successfully purchased.</p>
+                {confirmation?.eventTitle && (
+                  <p className="font-medium text-foreground">Event: {confirmation.eventTitle}</p>
+                )}
+                {confirmation?.totalQuantity != null && confirmation.totalQuantity > 0 && (
+                  <p>Quantity: {confirmation.totalQuantity} ticket{confirmation.totalQuantity !== 1 ? "s" : ""}</p>
+                )}
+                {confirmation?.purchaserEmail && (
+                  <p className="text-sm">Confirmation will be sent to: {confirmation.purchaserEmail}</p>
+                )}
                 {confirmation?.orderId && (
                   <p className="text-xs text-muted">Order: {confirmation.orderId}</p>
                 )}
@@ -73,12 +88,12 @@ export default function EventSuccessPage() {
                 )}
               </div>
             )}
-            <div className="flex gap-4 justify-center">
+            <div className="flex flex-wrap gap-4 justify-center">
               <Link href="/events" className="btn-primary">
                 Browse More Events
               </Link>
-              <Link href="/dashboard" className="btn-secondary">
-                Go to Dashboard
+              <Link href="/" className="btn-secondary">
+                Home
               </Link>
             </div>
           </div>

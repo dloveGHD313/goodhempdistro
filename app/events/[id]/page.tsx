@@ -2,15 +2,15 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import Footer from "@/components/Footer";
 import type { EventWithTicketTypes, TicketPurchase } from "@/lib/events.types";
 import FavoriteButton from "@/components/engagement/FavoriteButton";
 import ReviewSection from "@/components/engagement/ReviewSection";
 import EventEngagementButtons from "@/components/engagement/EventEngagementButtons";
+import useAuthUser from "@/components/engagement/useAuthUser";
 
 export default function EventDetailPage({ params }: { params: { id: string } }) {
-  const router = useRouter();
+  const { userId, email: userEmail, loading: authLoading } = useAuthUser();
   const [event, setEvent] = useState<EventWithTicketTypes | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -18,6 +18,8 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
   const [checkingOut, setCheckingOut] = useState(false);
   const [rsvpLoading, setRsvpLoading] = useState(false);
   const [rsvpMessage, setRsvpMessage] = useState<string | null>(null);
+  const [ageConfirmed21, setAgeConfirmed21] = useState(false);
+  const [guestEmail, setGuestEmail] = useState("");
 
   useEffect(() => {
     loadEvent();
@@ -60,17 +62,31 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
       return;
     }
 
+    const isGuest = !userId;
+    if (isGuest && !guestEmail.trim()) {
+      setError("Please enter your email for ticket confirmation.");
+      return;
+    }
+    if (!ageConfirmed21) {
+      setError("You must confirm you are 21 or older to purchase event tickets.");
+      return;
+    }
+
     setCheckingOut(true);
     setError(null);
+
+    const body: { event_id: string; tickets: TicketPurchase[]; age_confirmed_21: boolean; purchaser_email?: string } = {
+      event_id: params.id,
+      tickets: purchases,
+      age_confirmed_21: true,
+    };
+    if (isGuest) body.purchaser_email = guestEmail.trim();
 
     try {
       const response = await fetch("/api/events/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          event_id: params.id,
-          tickets: purchases,
-        }),
+        body: JSON.stringify(body),
       });
 
       const data = await response.json();
@@ -267,6 +283,37 @@ export default function EventDetailPage({ params }: { params: { id: string } }) 
                     </span>
                   </div>
                 </div>
+              )}
+
+              {!isFreeEvent && (
+                <>
+                  <label className="flex items-start gap-3 cursor-pointer mb-4">
+                    <input
+                      type="checkbox"
+                      checked={ageConfirmed21}
+                      onChange={(e) => setAgeConfirmed21(e.target.checked)}
+                      className="mt-1 w-4 h-4 accent-accent"
+                    />
+                    <span className="text-sm text-muted">
+                      I confirm I am 21 years of age or older (required for ticket purchase).
+                    </span>
+                  </label>
+                  {!userId && (
+                    <div className="mb-4">
+                      <label htmlFor="guest-email" className="block text-sm font-medium mb-2">
+                        Email for ticket confirmation <span className="text-red-400">*</span>
+                      </label>
+                      <input
+                        id="guest-email"
+                        type="email"
+                        value={guestEmail}
+                        onChange={(e) => setGuestEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
+                      />
+                    </div>
+                  )}
+                </>
               )}
 
               {error && (
