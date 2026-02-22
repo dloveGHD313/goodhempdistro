@@ -3,6 +3,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
 import ServiceDetailClient from "./ServiceDetailClient";
+import { Section } from "@/components/motion";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -84,7 +85,7 @@ export default async function ServiceDetailPage({
     return (
       <div className="min-h-screen text-white flex flex-col">
         <main className="flex-1">
-          <section className="section-shell">
+          <Section className="section-shell">
             <div className="max-w-2xl mx-auto text-center">
               <h1 className="text-3xl font-bold mb-4 text-accent">Service Not Available</h1>
               <p className="text-muted mb-6">
@@ -94,7 +95,7 @@ export default async function ServiceDetailPage({
                 Browse All Services
               </a>
             </div>
-          </section>
+          </Section>
         </main>
         <Footer />
       </div>
@@ -104,9 +105,9 @@ export default async function ServiceDetailPage({
   return (
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
-        <section className="section-shell">
+        <Section className="section-shell">
           <ServiceDetailClient service={service} />
-        </section>
+        </Section>
       </main>
       <Footer />
     </div>
