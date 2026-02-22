@@ -5,4 +5,6 @@ export { ScrollReveal } from "./ScrollReveal";
 export { Stagger, StaggerChild } from "./Stagger";
 export { PageTransition } from "./PageTransition";
 export { HoverLift } from "./HoverLift";
+export { HeroParallax } from "./HeroParallax";
+export { Section } from "./Section";
 export * from "./tokens";

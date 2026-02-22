@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { brand } from "@/lib/brand";
 import BrandLogo from "@/components/BrandLogo";
+import { HoverLift } from "@/components/motion";
 
 const primaryLinks = [
   { label: "👋 Welcome", href: "/welcome" },
@@ -240,9 +241,11 @@ export default function Nav() {
       {/* Desktop nav - hidden on mobile */}
       <div className="hidden lg:flex items-center gap-6">
         {primaryLinks.map((link) => (
-          <Link key={link.href} href={link.href} className="nav-link text-sm">
-            {link.label}
-          </Link>
+          <HoverLift key={link.href} as="span">
+            <Link href={link.href} className="nav-link text-sm">
+              {link.label}
+            </Link>
+          </HoverLift>
         ))}
 
         <div className="relative group">
@@ -251,9 +254,11 @@ export default function Nav() {
           </button>
           <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[200px]">
             {communityLinks.map((link) => (
-              <Link key={link.href} href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
-                {link.label}
-              </Link>
+              <HoverLift key={link.href} as="span">
+                <Link href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                  {link.label}
+                </Link>
+              </HoverLift>
             ))}
           </div>
         </div>
@@ -264,75 +269,103 @@ export default function Nav() {
           </button>
           <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[220px]">
             {businessLinks.map((link) => (
-              <Link key={link.href} href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
-                {link.label}
-              </Link>
+              <HoverLift key={link.href} as="span">
+                <Link href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                  {link.label}
+                </Link>
+              </HoverLift>
             ))}
           </div>
         </div>
 
         {isAdmin && (
           <div className="relative group">
-            <Link href="/admin/vendors" className="nav-link text-sm flex items-center gap-1">
-              ⚙️ Admin
-              <span className="text-xs">▼</span>
-            </Link>
+            <HoverLift as="span">
+              <Link href="/admin/vendors" className="nav-link text-sm flex items-center gap-1">
+                ⚙️ Admin
+                <span className="text-xs">▼</span>
+              </Link>
+            </HoverLift>
             <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[180px]">
-              <Link href="/admin/vendors" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
-                👥 Vendor Applications
-              </Link>
-              <Link href="/admin/products" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
-                📦 Product Review
-              </Link>
-              <Link href="/admin/events" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
-                📅 Event Review
-              </Link>
-              <Link href="/admin/services" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
-                🛠️ Service Review
-              </Link>
-              <Link href="/admin/inquiries" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
-                💬 Service Inquiries
-              </Link>
-              <Link href="/admin/categories" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
-                📁 Categories
-              </Link>
-              <Link href="/admin/drivers" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
-                🚗 Drivers
-              </Link>
+              <HoverLift as="span">
+                <Link href="/admin/vendors" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                  👥 Vendor Applications
+                </Link>
+              </HoverLift>
+              <HoverLift as="span">
+                <Link href="/admin/products" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                  📦 Product Review
+                </Link>
+              </HoverLift>
+              <HoverLift as="span">
+                <Link href="/admin/events" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                  📅 Event Review
+                </Link>
+              </HoverLift>
+              <HoverLift as="span">
+                <Link href="/admin/services" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                  🛠️ Service Review
+                </Link>
+              </HoverLift>
+              <HoverLift as="span">
+                <Link href="/admin/inquiries" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                  💬 Service Inquiries
+                </Link>
+              </HoverLift>
+              <HoverLift as="span">
+                <Link href="/admin/categories" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                  📁 Categories
+                </Link>
+              </HoverLift>
+              <HoverLift as="span">
+                <Link href="/admin/drivers" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                  🚗 Drivers
+                </Link>
+              </HoverLift>
             </div>
           </div>
         )}
 
         {isLoggedIn ? (
           <div className="relative group">
-            <Link href={accountHref} className="nav-link text-sm flex items-center gap-1">
-              Account
-              <span className="text-xs">▼</span>
-            </Link>
+            <HoverLift as="span">
+              <Link href={accountHref} className="nav-link text-sm flex items-center gap-1">
+                Account
+                <span className="text-xs">▼</span>
+              </Link>
+            </HoverLift>
             <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[200px]">
               {accountLinks.map((link) => (
-                <Link key={link.href} href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
-                  {link.label}
-                </Link>
+                <HoverLift key={link.href} as="span">
+                  <Link href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                    {link.label}
+                  </Link>
+                </HoverLift>
               ))}
             </div>
           </div>
         ) : (
-          <Link href={accountHref} className="nav-link text-sm">
-            Account
-          </Link>
+          <HoverLift as="span">
+            <Link href={accountHref} className="nav-link text-sm">
+              Account
+            </Link>
+          </HoverLift>
         )}
       </div>
 
       {/* Mobile/Tablet: CTA + Account + Menu Hamburger */}
       <div className="flex items-center gap-2 lg:hidden">
-        <Link href={primaryCta.href} className="btn-primary text-sm py-2 px-4">
-          {primaryCta.label}
-        </Link>
-        {isLoggedIn && (
-          <Link href={accountHref} className="btn-ghost text-sm py-2 px-3">
-            Account
+        <HoverLift as="span">
+          <Link href={primaryCta.href} className="btn-primary text-sm py-2 px-4">
+            {primaryCta.label}
           </Link>
+        </HoverLift>
+        {isLoggedIn && (
+          <HoverLift as="span">
+            <Link href={accountHref} className="btn-ghost text-sm py-2 px-3">
+              Account
+            </Link>
+          </HoverLift>
         )}
         <button
           type="button"
@@ -357,13 +390,17 @@ export default function Nav() {
           </button>
         )}
         {secondaryCta && (
-          <Link href={secondaryCta.href} className="btn-ghost text-sm py-2 px-4">
-            {secondaryCta.label}
-          </Link>
+          <HoverLift as="span">
+            <Link href={secondaryCta.href} className="btn-ghost text-sm py-2 px-4">
+              {secondaryCta.label}
+            </Link>
+          </HoverLift>
         )}
-        <Link href={primaryCta.href} className="btn-primary text-sm py-2 px-4">
-          {primaryCta.label}
-        </Link>
+        <HoverLift as="span">
+          <Link href={primaryCta.href} className="btn-primary text-sm py-2 px-4">
+            {primaryCta.label}
+          </Link>
+        </HoverLift>
       </div>
 
       {/* Mobile drawer - full screen overlay style */}

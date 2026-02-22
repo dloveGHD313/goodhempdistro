@@ -8,6 +8,7 @@ import { HeroShell } from "@/components/ui/HeroShell";
 import { FeatureSection } from "@/components/ui/FeatureSection";
 import ServicesList from "./ServicesList";
 import MarketSwitcher from "@/components/market/MarketSwitcher";
+import { Reveal, Section, Stagger, StaggerChild, HoverLift } from "@/components/motion";
 
 export const metadata: Metadata = {
   title: "Services | Good Hemp Distro",
@@ -103,11 +104,13 @@ export default async function ServicesPage({
       <main className="flex-1">
         <section className="welcome-hero py-10 px-4 futuristic-glow">
           <HeroShell cinematic glassPanel={false} contentClassName="max-w-3xl">
-            <p className="text-xs uppercase tracking-[0.35em] text-muted mb-2">Directory</p>
-            <h1 className="hero-title text-accent mb-2">Services</h1>
-            <p className="hero-subtitle">
-              Find help in the hemp industry — logistics, compliance, marketing, construction, and more.
-            </p>
+            <Reveal>
+              <p className="text-xs uppercase tracking-[0.35em] text-muted mb-2">Directory</p>
+              <h1 className="hero-title text-accent mb-2">Services</h1>
+              <p className="hero-subtitle">
+                Find help in the hemp industry — logistics, compliance, marketing, construction, and more.
+              </p>
+            </Reveal>
           </HeroShell>
         </section>
 
@@ -118,29 +121,30 @@ export default async function ServicesPage({
           contentClassName="px-4"
           gradient
         >
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Stagger className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {SERVICE_CATEGORIES.map((cat) => (
-              <div
-                key={cat.id}
-                className="surface-glass rounded-[var(--radius-xl)] p-6 border border-[var(--border)]"
-              >
-                <h3 className="text-lg font-semibold text-foreground mb-2">{cat.label}</h3>
-                <p className="text-muted text-sm">{cat.description}</p>
-              </div>
+              <StaggerChild key={cat.id}>
+                <HoverLift as="div" className="surface-glass rounded-[var(--radius-xl)] p-6 border border-[var(--border)]">
+                  <h3 className="text-lg font-semibold text-foreground mb-2">{cat.label}</h3>
+                  <p className="text-muted text-sm">{cat.description}</p>
+                </HoverLift>
+              </StaggerChild>
             ))}
-          </div>
+          </Stagger>
           <div className="surface-glass rounded-[var(--radius-xl)] p-6 sm:p-8 mt-8 max-w-2xl">
             <h3 className="text-lg font-semibold text-foreground mb-2">Become a Service Provider</h3>
             <p className="text-muted text-sm mb-4">
               Offer services, get leads, and grow your business. Sign up as a vendor to list your services.
             </p>
-            <Link href={becomeProviderHref} className="btn-primary inline-block">
-              Become a Service Provider
-            </Link>
+            <HoverLift as="span">
+              <Link href={becomeProviderHref} className="btn-primary inline-block">
+                Become a Service Provider
+              </Link>
+            </HoverLift>
           </div>
         </FeatureSection>
 
-        <section className="section-shell">
+        <Section className="section-shell">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-6">
             <div>
               <h2 className="text-2xl font-bold mb-3 text-accent">
@@ -162,7 +166,7 @@ export default async function ServicesPage({
           )}
 
           <ServicesList initialServices={services} />
-        </section>
+        </Section>
       </main>
       <Footer />
     </div>

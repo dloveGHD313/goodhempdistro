@@ -5,6 +5,7 @@ import { getCategoriesCoaRequirementMap } from "@/lib/compliance";
 import Footer from "@/components/Footer";
 import ProductsList from "./ProductsList";
 import MarketSwitcher from "@/components/market/MarketSwitcher";
+import { Reveal, Section, HoverLift, HeroParallax } from "@/components/motion";
 
 export const metadata: Metadata = {
   title: "Products | Good Hemp Distro",
@@ -177,28 +178,34 @@ export default async function ProductsPage({
   return (
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
-        <section className="section-shell">
-          <div className="shop-hero card-glass p-6 mb-10">
+        <Section className="section-shell">
+          <HeroParallax as="div" className="shop-hero card-glass p-6 mb-10">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-              <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-muted mb-2">Local-first Shop</p>
-                <h1 className="text-4xl font-bold mb-3 text-accent">
-                  {vendorName ? `Products from ${vendorName}` : "Local Hemp Discovery, Verified & Smooth"}
-                </h1>
-                <p className="text-muted max-w-2xl">
-                  {vendorName
-                    ? "Explore approved products from this vendor."
-                    : "See what is deliverable near you, compare vendors, and order from verified listings."}
-                </p>
-              </div>
+              <Reveal>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-muted mb-2">Local-first Shop</p>
+                  <h1 className="text-4xl font-bold mb-3 text-accent">
+                    {vendorName ? `Products from ${vendorName}` : "Local Hemp Discovery, Verified & Smooth"}
+                  </h1>
+                  <p className="text-muted max-w-2xl">
+                    {vendorName
+                      ? "Explore approved products from this vendor."
+                      : "See what is deliverable near you, compare vendors, and order from verified listings."}
+                  </p>
+                </div>
+              </Reveal>
               <div className="flex flex-col items-start gap-4">
                 <div className="flex flex-wrap gap-3">
-                  <button type="button" className="btn-secondary">
-                    📍 Set delivery location
-                  </button>
-                  <button type="button" className="btn-ghost">
-                    ⚡ Fastest delivery
-                  </button>
+                  <HoverLift as="span">
+                    <button type="button" className="btn-secondary">
+                      📍 Set delivery location
+                    </button>
+                  </HoverLift>
+                  <HoverLift as="span">
+                    <button type="button" className="btn-ghost">
+                      ⚡ Fastest delivery
+                    </button>
+                  </HoverLift>
                 </div>
                 <MarketSwitcher />
               </div>
@@ -215,10 +222,10 @@ export default async function ProductsPage({
                 </div>
               ))}
             </div>
-          </div>
+          </HeroParallax>
 
           <ProductsList initialProducts={products} />
-        </section>
+        </Section>
       </main>
       <Footer />
     </div>
