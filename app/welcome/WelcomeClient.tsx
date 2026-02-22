@@ -67,7 +67,7 @@ export default function WelcomeClient({ mascotEnabled: serverMascotEnabled }: We
 
       <Reveal delay={HERO_DELAYS.ctaRow} className="flex flex-wrap gap-3">
         <HoverLift as="span">
-          <Link href="/" className="btn-primary motion-medium inline-block">
+          <Link href="/get-started" className="btn-primary motion-medium inline-block">
             Start here
           </Link>
         </HoverLift>
