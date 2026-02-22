@@ -372,9 +372,9 @@ export default function PricingPage() {
                   </StaggerChild>
                 ))}
                 {!hasVendorPlans && (
-                  <StaggerChild>
-                    <div className="col-span-3 card-glass p-6 text-center text-muted">
-                      Vendor plans coming soon.
+                  <StaggerChild className="col-span-3">
+                    <div className="card-glass p-6 text-center text-muted">
+                      No vendor plans available.
                     </div>
                   </StaggerChild>
                 )}
