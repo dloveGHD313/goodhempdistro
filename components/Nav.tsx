@@ -27,7 +27,7 @@ const businessLinksBase = [
   { label: "🏢 Wholesale", href: "/wholesale" },
   { label: "🚚 Logistics", href: "/logistics" },
   { label: "🚗 Driver Network", href: "/logistics/apply" },
-  { label: "💰 Affiliate Portal", href: "/affiliate/portal" },
+  { label: "Affiliate Portal", href: "/affiliate/portal" },
   { label: "🤝 Vendor Registration", href: "/vendor-registration" },
 ];
 
@@ -204,12 +204,12 @@ export default function Nav() {
       : null;
 
   const affiliateLink = {
-    label: isAffiliate ? "Affiliate Portal" : "💰 Affiliate",
+    label: isAffiliate ? "Affiliate Portal" : "Affiliate",
     href: isAffiliate ? "/affiliate/portal" : "/affiliate",
   };
   const businessLinks = [
     ...businessLinksBase
-      .filter((link) => link.label !== "💰 Affiliate Portal")
+      .filter((link) => link.label !== "Affiliate Portal")
       .concat(affiliateLink)
       .filter((link) => link.href !== vendorLink.href),
     ...vendorLinks,
