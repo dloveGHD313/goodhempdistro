@@ -1,23 +1,44 @@
 # Mascot asset surfaces
 
-Each JAX/Ask Jack surface uses a dedicated asset to avoid bad cropping and white borders. All paths are under `/public/brand/` (served as `/brand/`).
+JAX uses a **single master** and **one generator pipeline** under `/public/assets/jax/`.
 
-| Surface | File path | Expected dimensions / aspect | Used in |
-|--------|-----------|------------------------------|--------|
-| Welcome hero | `/brand/mascot-hero.png` | ~600px wide max, transparent, tightly cropped | `components/mascot/JaxWelcomeHero.tsx` — hero on `/welcome` |
-| Floating Ask JAX avatar | `/brand/mascot-avatar.png` | 384×384 (head/shoulders), transparent | `components/mascot/spec/jaxSpec.ts` (avatarSources); `components/mascot/config.ts` (JAX idleSrc/fallbackSrc); MascotWidget, MascotPanel, MascotAvatar |
-| Onboarding small icon | `/brand/mascot-icon.png` | 512×512 square, transparent | `components/onboarding/JaxOnboardingGuide.tsx` — small icon in guidance bubble |
-| Onboarding watermark | `/brand/mascot-watermark.png` | ~420px wide max, transparent (opacity via CSS) | `components/onboarding/JaxOnboardingGuide.tsx` — decorative watermark behind card |
-| Social thumbnail | `/brand/mascot-social.png` | 1024×1024 square, transparent or clean edges | Reserved for og:image / social sharing |
+## Master (do not delete)
 
-**Legacy:** `mascot.png` remains in `public/brand/` for backward compatibility but is no longer referenced by the above surfaces.
+- `public/assets/jax/jax-master-base.png` — sole source for all JAX derivatives.
 
-**Regenerating assets:** From repo root run:
+## Generated outputs (in `public/assets/jax/`)
+
+| File | Dimensions | Use |
+|------|------------|-----|
+| `jax-hero.png` / `jax-hero.webp` | 1800×1800, contain | Welcome hero, onboarding watermark, social |
+| `jax-floating.png` / `jax-floating.webp` | 512×512, contain | Floating Ask JAX avatar, onboarding icon |
+| `jax-hero@2x.webp` | 2400×2400, contain | Optional high-DPI hero |
+
+## Runtime references
+
+| Surface | Asset path | Component |
+|--------|------------|-----------|
+| Welcome hero | `/assets/jax/jax-hero.webp` | `components/mascot/JaxWelcomeHero.tsx` |
+| Floating Ask JAX avatar | `/assets/jax/jax-floating.webp` | `jaxSpec.ts` avatarSources; `config.ts` JAX idleSrc/fallbackSrc |
+| Onboarding icon | `/assets/jax/jax-floating.webp` | `components/onboarding/JaxOnboardingGuide.tsx` |
+| Onboarding watermark | `/assets/jax/jax-hero.webp` | `components/onboarding/JaxOnboardingGuide.tsx` |
+
+## Regenerating assets
+
 ```bash
-npm run generate:mascot-assets
-# or with custom source (only derivatives are written; master is not overwritten):
-node scripts/generate-mascot-assets.mjs --source path/to/image.png
-# to also overwrite public/brand/mascot.png with normalized output from custom source:
-node scripts/generate-mascot-assets.mjs --source path/to/image.png --write-master
+npm run generate:jax
 ```
-Default source: `public/brand/mascot.png`. Outputs the five derivative files; when using the default source, the master is normalized and overwritten. Requires `sharp` (devDependency).
+
+Requires `jax-master-base.png` in `public/assets/jax/`. Fails loudly if master is missing. Writes all derivatives into `public/assets/jax/`. Requires `sharp` (devDependency).
+
+## Validation
+
+```bash
+npm run check:jax
+```
+
+Verifies master and all output files exist and file sizes are within limits.
+
+## Legacy
+
+Old per-surface assets (`mascot-hero.png`, `mascot-avatar.png`, etc.) previously under `/public/brand/` have been moved to `public/assets/jax/_archive/` and are no longer referenced. The legacy generator `npm run generate:mascot-assets` (writes to `public/brand/`) remains for backward compatibility but is not used by JAX surfaces.

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getReferralCode } from "@/lib/referral";
 import Footer from "@/components/Footer";
+import { ScrollReveal, Stagger, StaggerChild, HoverLift } from "@/components/motion";
 
 type VendorPlan = {
   key: string;
@@ -220,143 +221,169 @@ export default function PricingPage() {
   return (
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
-        <section className="section-shell">
-          <h1 className="text-4xl font-bold mb-6 text-accent">Pricing Plans</h1>
-          <p className="text-muted mb-12">Choose the plan that's right for you</p>
+        <ScrollReveal>
+          <section className="section-shell">
+            <h1 className="text-4xl font-bold mb-6 text-accent">Pricing Plans</h1>
+            <p className="text-muted mb-12">Choose the plan that&apos;s right for you</p>
 
-          <div className="mb-8 flex gap-4 justify-center">
-            <button
-              onClick={() => setActiveTab("consumer")}
-              className={`px-6 py-3 rounded-lg font-semibold transition ${
-                activeTab === "consumer"
-                  ? "bg-accent text-white"
-                  : "bg-[var(--surface)] text-muted hover:bg-[var(--surface)]/80"
-              }`}
-            >
-              Consumer Plans
-            </button>
-            <button
-              onClick={() => setActiveTab("vendor")}
-              className={`px-6 py-3 rounded-lg font-semibold transition ${
-                activeTab === "vendor"
-                  ? "bg-accent text-white"
-                  : "bg-[var(--surface)] text-muted hover:bg-[var(--surface)]/80"
-              }`}
-            >
-              Vendor Plans
-            </button>
-          </div>
-
-          {activeTab === "consumer" && (
-            <div className="grid gap-6 md:grid-cols-3">
-              {consumerPlans.map((plan) => (
-                <div key={plan.planKey} className="card-glass p-6 text-center">
-                  <div className="mb-4 overflow-hidden rounded-xl">
-                    <Image
-                      src={plan.imageUrl}
-                      alt={plan.imageAlt || `${plan.displayName} plan`}
-                      width={640}
-                      height={360}
-                      className="h-40 w-full object-cover"
-                    />
-                  </div>
-                  <h3 className="text-2xl font-bold mb-2">{plan.displayName}</h3>
-                  <p className="text-4xl font-bold text-accent mb-4">
-                    {plan.priceText}
-                  </p>
-                  <ul className="text-sm text-muted mb-6 text-left min-h-[120px] space-y-2">
-                    {(plan.bullets || []).map((bullet, index) => (
-                      <li key={index} className="flex items-start gap-2">
-                        <span className="text-accent">•</span>
-                        <span>{bullet}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <button
-                    onClick={() => handleSubscribe("consumer", plan.planKey)}
-                    className="btn-primary w-full"
-                  >
-                    Subscribe
-                  </button>
-                </div>
-              ))}
-              {consumerPlans.length === 0 && (
-                <div className="col-span-3 card-glass p-6 text-center text-muted">
-                  {consumerError || "Consumer plans are unavailable right now. Please check back soon."}
-                  {consumerIsAdmin && consumerMissingEnv.length > 0 && (
-                    <p className="text-xs text-yellow-200 mt-2">
-                      Missing env: {consumerMissingEnv.join(", ")}
-                    </p>
-                  )}
-                </div>
-              )}
+            <div className="mb-8 flex gap-4 justify-center">
+              <HoverLift as="span" disabled={activeTab === "consumer"}>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("consumer")}
+                  className={`px-6 py-3 rounded-lg font-semibold transition ${
+                    activeTab === "consumer"
+                      ? "bg-accent text-white"
+                      : "bg-[var(--surface)] text-muted hover:bg-[var(--surface)]/80"
+                  }`}
+                >
+                  Consumer Plans
+                </button>
+              </HoverLift>
+              <HoverLift as="span" disabled={activeTab === "vendor"}>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("vendor")}
+                  className={`px-6 py-3 rounded-lg font-semibold transition ${
+                    activeTab === "vendor"
+                      ? "bg-accent text-white"
+                      : "bg-[var(--surface)] text-muted hover:bg-[var(--surface)]/80"
+                  }`}
+                >
+                  Vendor Plans
+                </button>
+              </HoverLift>
             </div>
-          )}
 
-          {activeTab === "vendor" && (
-            <div className="grid gap-6 md:grid-cols-3">
-              {vendorPlans.map((plan) => (
-                <div key={plan.key} className="card-glass p-6 text-left">
-                  <div className="mb-4 overflow-hidden rounded-xl">
-                    <Image
-                      src={plan.imageUrl}
-                      alt={plan.imageAlt || `${plan.displayName} plan`}
-                      width={640}
-                      height={360}
-                      className="h-40 w-full object-cover"
-                    />
-                  </div>
-                  <h3 className="text-2xl font-bold mb-2">{plan.displayName}</h3>
-                  <p className="text-4xl font-bold text-accent mb-2">
-                    {plan.headlinePriceText}
-                  </p>
-                  {plan.subPriceNote && (
-                    <p className="text-sm text-muted mb-4">{plan.subPriceNote}</p>
-                  )}
-                  <div className="text-sm text-muted mb-4 space-y-1">
-                    <p>{plan.commissionText}</p>
-                    <p>{plan.productLimitText}</p>
-                  </div>
-                  <div className="mb-4">
-                    <p className="text-sm font-semibold text-white mb-2">What&apos;s included</p>
-                    <ul className="space-y-2 text-left">
-                      {(plan.includedBullets || []).map((perk, idx) => (
-                        <li key={idx} className="flex items-start gap-2 text-sm">
-                          <span className="text-accent">✓</span>
-                          <span>{perk}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  {plan.limitationBullets?.length > 0 && (
-                    <div className="mb-6">
-                      <p className="text-sm font-semibold text-white mb-2">Limitations</p>
-                      <ul className="space-y-2 text-left">
-                        {plan.limitationBullets.map((limitation, idx) => (
-                          <li key={idx} className="flex items-start gap-2 text-sm">
-                            <span className="text-orange-300">•</span>
-                            <span>{limitation}</span>
-                          </li>
-                        ))}
-                      </ul>
+            {activeTab === "consumer" && (
+              <Stagger className="grid gap-6 md:grid-cols-3">
+                {consumerPlans.map((plan) => (
+                  <StaggerChild key={plan.planKey}>
+                    <HoverLift className="h-full">
+                      <div className="card-glass p-6 text-center h-full flex flex-col">
+                        <div className="mb-4 overflow-hidden rounded-xl">
+                          <Image
+                            src={plan.imageUrl}
+                            alt={plan.imageAlt || `${plan.displayName} plan`}
+                            width={640}
+                            height={360}
+                            className="h-40 w-full object-cover"
+                          />
+                        </div>
+                        <h3 className="text-2xl font-bold mb-2">{plan.displayName}</h3>
+                        <p className="text-4xl font-bold text-accent mb-4">
+                          {plan.priceText}
+                        </p>
+                        <ul className="text-sm text-muted mb-6 text-left min-h-[120px] space-y-2">
+                          {(plan.bullets || []).map((bullet, index) => (
+                            <li key={index} className="flex items-start gap-2">
+                              <span className="text-accent">•</span>
+                              <span>{bullet}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        <HoverLift as="span" className="mt-auto">
+                          <button
+                            type="button"
+                            onClick={() => handleSubscribe("consumer", plan.planKey)}
+                            className="btn-primary w-full"
+                          >
+                            Subscribe
+                          </button>
+                        </HoverLift>
+                      </div>
+                    </HoverLift>
+                  </StaggerChild>
+                ))}
+                {consumerPlans.length === 0 && (
+                  <StaggerChild className="col-span-3">
+                    <div className="card-glass p-6 text-center text-muted">
+                      {consumerError || "Consumer plans are unavailable right now. Please check back soon."}
+                      {consumerIsAdmin && consumerMissingEnv.length > 0 && (
+                        <p className="text-xs text-yellow-200 mt-2">
+                          Missing env: {consumerMissingEnv.join(", ")}
+                        </p>
+                      )}
                     </div>
-                  )}
-                  <button
-                    onClick={() => startVendorCheckout(plan)}
-                    className="btn-primary w-full"
-                  >
-                    Start checkout
-                  </button>
-                </div>
-              ))}
-              {!hasVendorPlans && (
-                <div className="col-span-3 card-glass p-6 text-center text-muted">
-                  Vendor plans coming soon.
-                </div>
-              )}
-            </div>
-          )}
-        </section>
+                  </StaggerChild>
+                )}
+              </Stagger>
+            )}
+
+            {activeTab === "vendor" && (
+              <Stagger className="grid gap-6 md:grid-cols-3">
+                {vendorPlans.map((plan) => (
+                  <StaggerChild key={plan.key}>
+                    <HoverLift className="h-full">
+                      <div className="card-glass p-6 text-left h-full flex flex-col">
+                        <div className="mb-4 overflow-hidden rounded-xl">
+                          <Image
+                            src={plan.imageUrl}
+                            alt={plan.imageAlt || `${plan.displayName} plan`}
+                            width={640}
+                            height={360}
+                            className="h-40 w-full object-cover"
+                          />
+                        </div>
+                        <h3 className="text-2xl font-bold mb-2">{plan.displayName}</h3>
+                        <p className="text-4xl font-bold text-accent mb-2">
+                          {plan.headlinePriceText}
+                        </p>
+                        {plan.subPriceNote && (
+                          <p className="text-sm text-muted mb-4">{plan.subPriceNote}</p>
+                        )}
+                        <div className="text-sm text-muted mb-4 space-y-1">
+                          <p>{plan.commissionText}</p>
+                          <p>{plan.productLimitText}</p>
+                        </div>
+                        <div className="mb-4">
+                          <p className="text-sm font-semibold text-white mb-2">What&apos;s included</p>
+                          <ul className="space-y-2 text-left">
+                            {(plan.includedBullets || []).map((perk, idx) => (
+                              <li key={idx} className="flex items-start gap-2 text-sm">
+                                <span className="text-accent">✓</span>
+                                <span>{perk}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        {plan.limitationBullets?.length > 0 && (
+                          <div className="mb-6">
+                            <p className="text-sm font-semibold text-white mb-2">Limitations</p>
+                            <ul className="space-y-2 text-left">
+                              {plan.limitationBullets.map((limitation, idx) => (
+                                <li key={idx} className="flex items-start gap-2 text-sm">
+                                  <span className="text-orange-300">•</span>
+                                  <span>{limitation}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        <HoverLift as="span" className="mt-auto">
+                          <button
+                            type="button"
+                            onClick={() => startVendorCheckout(plan)}
+                            className="btn-primary w-full"
+                          >
+                            Start checkout
+                          </button>
+                        </HoverLift>
+                      </div>
+                    </HoverLift>
+                  </StaggerChild>
+                ))}
+                {!hasVendorPlans && (
+                  <StaggerChild className="col-span-3">
+                    <div className="card-glass p-6 text-center text-muted">
+                      No vendor plans available.
+                    </div>
+                  </StaggerChild>
+                )}
+              </Stagger>
+            )}
+          </section>
+        </ScrollReveal>
       </main>
       <Footer />
     </div>

@@ -56,7 +56,7 @@ export default function JaxOnboardingGuide({
           aria-hidden
         >
           <Image
-            src="/brand/mascot-watermark.png"
+            src="/assets/jax/jax-hero.webp"
             alt=""
             width={420}
             height={420}
@@ -80,7 +80,7 @@ export default function JaxOnboardingGuide({
         aria-label="Onboarding guidance"
       >
         <Image
-          src="/brand/mascot-icon.png"
+          src="/assets/jax/jax-floating.webp"
           alt=""
           width={48}
           height={48}

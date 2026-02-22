@@ -20,6 +20,9 @@ const MASCOT_PATTERNS = [
   "mascot-watermark",
   "mascot-social",
   "mascot.png",
+  "/assets/jax",
+  "jax-hero",
+  "jax-floating",
 ];
 
 function hasMascotRef(line) {
