@@ -178,21 +178,13 @@ export default function PricingPage() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const reason = data.errorReason ?? "error";
-        const message = data.error ?? "Checkout failed.";
-        const ref = data.requestId ? ` Reference: ${data.requestId}` : "";
-        const userMessage =
-          message.includes("Billing") || message.includes("billing")
-            ? `Billing system unavailable. Please try again.${ref}`
-            : `${message}${ref}`;
         console.error("[pricing] Vendor checkout failed", {
           status: response.status,
-          errorReason: reason,
-          error: message,
+          errorReason: data.errorReason ?? "error",
+          error: data.error ?? "Checkout failed.",
           requestId: data.requestId,
-          payload: data,
         });
-        alert(userMessage);
+        alert(`Checkout failed. Reference: ${data.requestId ?? "unknown"}`);
         return;
       }
       if (data.url) {
@@ -200,7 +192,7 @@ export default function PricingPage() {
       }
     } catch (error) {
       console.error("Error starting vendor checkout:", error);
-      alert("Failed to create checkout session. Reference: unknown");
+      alert("Checkout failed. Reference: unknown");
     }
   };
 
