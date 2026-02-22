@@ -296,14 +296,16 @@ export default function PricingPage() {
                   </StaggerChild>
                 ))}
                 {consumerPlans.length === 0 && (
-                  <div className="col-span-3 card-glass p-6 text-center text-muted">
-                    {consumerError || "Consumer plans are unavailable right now. Please check back soon."}
-                    {consumerIsAdmin && consumerMissingEnv.length > 0 && (
-                      <p className="text-xs text-yellow-200 mt-2">
-                        Missing env: {consumerMissingEnv.join(", ")}
-                      </p>
-                    )}
-                  </div>
+                  <StaggerChild className="col-span-3">
+                    <div className="card-glass p-6 text-center text-muted">
+                      {consumerError || "Consumer plans are unavailable right now. Please check back soon."}
+                      {consumerIsAdmin && consumerMissingEnv.length > 0 && (
+                        <p className="text-xs text-yellow-200 mt-2">
+                          Missing env: {consumerMissingEnv.join(", ")}
+                        </p>
+                      )}
+                    </div>
+                  </StaggerChild>
                 )}
               </Stagger>
             )}
@@ -372,9 +374,9 @@ export default function PricingPage() {
                   </StaggerChild>
                 ))}
                 {!hasVendorPlans && (
-                  <StaggerChild>
-                    <div className="col-span-3 card-glass p-6 text-center text-muted">
-                      Vendor plans coming soon.
+                  <StaggerChild className="col-span-3">
+                    <div className="card-glass p-6 text-center text-muted">
+                      No vendor plans available.
                     </div>
                   </StaggerChild>
                 )}

@@ -16,10 +16,10 @@ const PILLARS = [
 ] as const;
 
 const TRACKS = [
-  { title: "Hemp Building", description: "From materials to codes — build with hemp.", anchor: "#topics", icon: "🏗️" },
-  { title: "Hemp Business", description: "Selling, marketing, and scaling in the hemp economy.", anchor: "#topics", icon: "💼" },
-  { title: "Hemp Science", description: "Quality, testing, and the science behind hemp products.", anchor: "#topics", icon: "🔬" },
-  { title: "Hemp Lifestyle", description: "Consumer guides, wellness, and everyday hemp.", anchor: "#topics", icon: "✨" },
+  { title: "Hemp Building", description: "From materials to codes — build with hemp.", comingSoon: true, icon: "🏗️" },
+  { title: "Hemp Business", description: "Selling, marketing, and scaling in the hemp economy.", comingSoon: true, icon: "💼" },
+  { title: "Hemp Science", description: "Quality, testing, and the science behind hemp products.", comingSoon: true, icon: "🔬" },
+  { title: "Hemp Lifestyle", description: "Consumer guides, wellness, and everyday hemp.", comingSoon: true, icon: "✨" },
 ] as const;
 
 const hoverTransition = { duration: 0.18 };
@@ -167,7 +167,11 @@ export default function LearningWithJaxMotion() {
                     <span className="text-3xl mb-3 block" aria-hidden="true">{t.icon}</span>
                     <h3 className="text-lg font-semibold text-foreground mb-2">{t.title}</h3>
                     <p className="text-muted text-sm flex-1 mb-4">{t.description}</p>
-                    <Link href={t.anchor} className="text-accent font-semibold text-sm hover:underline">Start here →</Link>
+                    {t.comingSoon ? (
+                      <span className="text-xs text-muted font-medium">Coming soon</span>
+                    ) : (
+                      <Link href={(t as { anchor?: string }).anchor ?? "#"} className="text-accent font-semibold text-sm hover:underline">Start here →</Link>
+                    )}
                   </motion.div>
                 </StaggerChild>
               ))}
