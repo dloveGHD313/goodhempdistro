@@ -26,3 +26,7 @@
 
 - Feed/newsfeed: only hero and filter bar are animated; post list is static.
 - Home/learning-with-jax/pricing: Stagger is used for bounded grids (features, community links, services, pillars, tracks, plan cards), not for unbounded feeds.
+
+## Newsletter signup (Learning with JAX)
+
+- Form at `/learning-with-jax` (#newsletter) POSTs to `/api/newsletter/subscribe`; email is persisted to `newsletter_signups` (Supabase). Success UI only after `ok: true`; errors shown inline. Duplicate email is idempotent (returns success).

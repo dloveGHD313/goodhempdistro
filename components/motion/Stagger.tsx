@@ -7,6 +7,15 @@ import { MOTION_DISTANCES, STAGGER_DEFAULTS, VIEWPORT_DEFAULTS } from "./tokens"
 
 const STAGGER_CHILD_MARKER = Symbol.for("StaggerChild");
 
+const CHILD_VARIANTS_ANIMATED: Variants = {
+  hidden: { opacity: 0, y: MOTION_DISTANCES.ySmall },
+  visible: { opacity: 1, y: 0 },
+};
+const CHILD_VARIANTS_REDUCED: Variants = {
+  hidden: { opacity: 1, y: 0 },
+  visible: { opacity: 1, y: 0 },
+};
+
 type StaggerProps = {
   children: React.ReactNode;
   className?: string;
@@ -50,13 +59,6 @@ export function Stagger({
         },
       };
 
-  const child: Variants = reducedMotion
-    ? { hidden: { opacity: 1, y: 0 }, visible: { opacity: 1, y: 0 } }
-    : {
-        hidden: { opacity: 0, y: MOTION_DISTANCES.ySmall },
-        visible: { opacity: 1, y: 0 },
-      };
-
   const Component = motion[as] as typeof motion.div;
 
   return (
@@ -83,9 +85,7 @@ function StaggerChildImpl({
   as?: keyof typeof motion;
 }) {
   const { reducedMotion } = useMotion();
-  const variants = reducedMotion
-    ? { hidden: { opacity: 1, y: 0 }, visible: { opacity: 1, y: 0 } }
-    : { hidden: { opacity: 0, y: MOTION_DISTANCES.ySmall }, visible: { opacity: 1, y: 0 } };
+  const variants = reducedMotion ? CHILD_VARIANTS_REDUCED : CHILD_VARIANTS_ANIMATED;
   const Component = motion[as] as typeof motion.div;
   return <Component variants={variants} className={className}>{children}</Component>;
 }
