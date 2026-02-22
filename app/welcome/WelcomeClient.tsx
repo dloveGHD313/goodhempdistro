@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { brand } from "@/lib/brand";
 import JaxWelcomeHero from "@/components/mascot/JaxWelcomeHero";
+import { Reveal, HoverLift, HERO_DELAYS } from "@/components/motion";
 
 type WelcomeClientProps = {
   /** When provided (from server), mascot shows only when both NEXT_PUBLIC_MASCOT_ENABLED and MASCOT_AI_ENABLED are true */
@@ -36,15 +37,14 @@ export default function WelcomeClient({ mascotEnabled: serverMascotEnabled }: We
   return (
     <div className="max-w-2xl w-full mx-auto flex flex-col">
       {mascotEnabled && (
-        <section aria-label="JAX mascot greeting" className="flex-shrink-0">
-          <JaxWelcomeHero selectedCount={0} />
-        </section>
+        <Reveal delay={HERO_DELAYS.title} className="flex-shrink-0">
+          <section aria-label="JAX mascot greeting">
+            <JaxWelcomeHero selectedCount={0} />
+          </section>
+        </Reveal>
       )}
 
-      <div
-        className={`animate-fade-in opacity-0 flex-shrink-0 ${mascotEnabled ? "mt-8" : ""}`}
-        style={{ animationDelay: "0.2s" }}
-      >
+      <Reveal delay={HERO_DELAYS.title} className={`flex-shrink-0 ${mascotEnabled ? "mt-8" : ""}`}>
         <div className="flex justify-center mb-8">
           <Image
             src={brand.logoPath}
@@ -58,29 +58,29 @@ export default function WelcomeClient({ mascotEnabled: serverMascotEnabled }: We
         <h1 className="hero-title text-accent mb-3">
           Welcome to {brand.name}
         </h1>
+      </Reveal>
+      <Reveal delay={HERO_DELAYS.subtitle}>
         <p className="hero-subtitle mb-10">
           {brand.tagline}
         </p>
-      </div>
+      </Reveal>
 
-      <div
-        className="animate-scale-in opacity-0 flex flex-wrap gap-3"
-        style={{ animationDelay: "0.3s" }}
-      >
-        <Link href="/" className="btn-primary motion-medium">
-          Start here
-        </Link>
-      </div>
+      <Reveal delay={HERO_DELAYS.ctaRow} className="flex flex-wrap gap-3">
+        <HoverLift as="span">
+          <Link href="/" className="btn-primary motion-medium inline-block">
+            Start here
+          </Link>
+        </HoverLift>
+      </Reveal>
 
-      <p
-        className="text-muted text-sm mt-6 animate-fade-in opacity-0"
-        style={{ animationDelay: "0.4s" }}
-      >
-        Already have an account?{" "}
-        <Link href="/login" className="text-accent hover:underline">
-          Sign in
-        </Link>
-      </p>
+      <Reveal delay={HERO_DELAYS.secondary}>
+        <p className="text-muted text-sm mt-6">
+          Already have an account?{" "}
+          <Link href="/login" className="text-accent hover:underline">
+            Sign in
+          </Link>
+        </p>
+      </Reveal>
     </div>
   );
 }

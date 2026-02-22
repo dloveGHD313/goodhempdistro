@@ -27,7 +27,7 @@ export default function JaxWelcomeHero({ selectedCount }: Props) {
       >
         <div className="hero-mascot-halo relative w-[140px] sm:w-[160px] md:w-[180px] h-[140px] sm:h-[160px] md:h-[180px] flex-shrink-0 mb-4" aria-hidden="true">
           <Image
-            src="/brand/mascot-social.png"
+            src="/assets/jax/jax-hero.webp"
             alt="Good Hemp Distro mascot"
             width={180}
             height={180}

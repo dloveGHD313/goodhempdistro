@@ -12,6 +12,7 @@ import CommentsDrawer from "@/components/comments/CommentsDrawer";
 import PostComposer from "./PostComposer";
 import ProfileCard from "@/components/profile/ProfileCard";
 import ProfileChip from "@/components/profile/ProfileChip";
+import { Reveal, ScrollReveal, HoverLift } from "@/components/motion";
 
 type FeedPost = PostDTO;
 
@@ -357,7 +358,8 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
 
   return (
     <section className="section-shell section-shell--tight feed-shell" aria-label="Community feed">
-      <div className="feed-hero card-glass p-6 sm:p-8 mb-10">
+      <Reveal>
+        <div className="feed-hero card-glass p-6 sm:p-8 mb-10">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 max-w-4xl mx-auto">
           <div>
             <p className="text-xs uppercase tracking-[0.35em] text-muted mb-2">Good Hemp Social</p>
@@ -375,16 +377,20 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
           <div className="flex flex-wrap gap-3">
             {authLoading ? null : userId ? (
               <>
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={() => composerRef.current?.scrollIntoView({ behavior: "smooth" })}
-                >
-                  Create post
-                </button>
-                <Link href="/newsfeed" className="btn-secondary">
-                  Go to feed
-                </Link>
+                <HoverLift as="span">
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => composerRef.current?.scrollIntoView({ behavior: "smooth" })}
+                  >
+                    Create post
+                  </button>
+                </HoverLift>
+                <HoverLift as="span">
+                  <Link href="/newsfeed" className="btn-secondary">
+                    Go to feed
+                  </Link>
+                </HoverLift>
                 {!isPaidUser && (
                   <button
                     type="button"
@@ -409,17 +415,22 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
               </>
             ) : (
               <>
-                <Link href="/" className="btn-primary">
-                  Join
-                </Link>
-                <Link href="/login" className="btn-secondary">
-                  Sign in
-                </Link>
+                <HoverLift as="span">
+                  <Link href="/" className="btn-primary">
+                    Join
+                  </Link>
+                </HoverLift>
+                <HoverLift as="span">
+                  <Link href="/login" className="btn-secondary">
+                    Sign in
+                  </Link>
+                </HoverLift>
               </>
             )}
           </div>
         </div>
       </div>
+      </Reveal>
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-8">
         <div className="space-y-6">
@@ -446,18 +457,20 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
             </div>
           )}
 
-          <div className="feed-filter-bar">
-            {filters.map((filter) => (
-              <button
-                key={filter.id}
-                type="button"
-                onClick={() => setActiveFilter(filter.id)}
-                className={`filter-chip ${activeFilter === filter.id ? "filter-chip--active" : ""}`}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
+          <ScrollReveal>
+            <div className="feed-filter-bar">
+              {filters.map((filter) => (
+                <button
+                  key={filter.id}
+                  type="button"
+                  onClick={() => setActiveFilter(filter.id)}
+                  className={`filter-chip ${activeFilter === filter.id ? "filter-chip--active" : ""}`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+          </ScrollReveal>
 
           {loading && (
             <div className="card-glass p-8 text-center">

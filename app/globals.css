@@ -406,6 +406,20 @@ footer {
     0 0 40px color-mix(in srgb, var(--brand-lime) 8%, transparent);
 }
 
+/* Learning with JAX hero: slow float for mascot image */
+.jax-hero-float {
+  animation: jax-hero-float 8s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .jax-hero-float {
+    animation: none;
+  }
+}
+@keyframes jax-hero-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
 .feed-shell {
   padding-top: 3.5rem;
 }

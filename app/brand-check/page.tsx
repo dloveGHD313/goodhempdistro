@@ -2,13 +2,12 @@ import Image from "next/image";
 import { brand } from "@/lib/brand";
 import MascotAssetCard from "./MascotAssetCard";
 
-const MASCOT_ASSETS = [
-  "mascot.png",
-  "mascot-hero.png",
-  "mascot-avatar.png",
-  "mascot-icon.png",
-  "mascot-watermark.png",
-  "mascot-social.png",
+const JAX_ASSETS = [
+  { filename: "jax-hero.webp", src: "/assets/jax/jax-hero.webp" },
+  { filename: "jax-hero.png", src: "/assets/jax/jax-hero.png" },
+  { filename: "jax-floating.webp", src: "/assets/jax/jax-floating.webp" },
+  { filename: "jax-floating.png", src: "/assets/jax/jax-floating.png" },
+  { filename: "jax-hero@2x.webp", src: "/assets/jax/jax-hero@2x.webp" },
 ] as const;
 
 export default function BrandCheckPage() {
@@ -39,13 +38,13 @@ export default function BrandCheckPage() {
         </section>
 
         <section className="card p-6 space-y-4">
-          <h2 className="text-xl font-semibold">Mascot assets (QA)</h2>
+          <h2 className="text-xl font-semibold">JAX mascot assets (QA)</h2>
           <p className="text-sm text-gray-400">
-            All 6 mascot files from /public/brand. Rendered size fixed; natural size from image on load.
+            Standardized JAX assets from /public/assets/jax. Rendered size fixed; natural size from image on load.
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {MASCOT_ASSETS.map((filename) => (
-              <MascotAssetCard key={filename} filename={filename} src={`/brand/${filename}`} />
+            {JAX_ASSETS.map(({ filename, src }) => (
+              <MascotAssetCard key={filename} filename={filename} src={src} />
             ))}
           </div>
         </section>

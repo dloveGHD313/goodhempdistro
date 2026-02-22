@@ -18,7 +18,9 @@
     "audit:prod": "playwright test -c playwright.audit.config.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "generate:mascot-assets": "node scripts/generate-mascot-assets.mjs",
+    "generate:jax": "node scripts/generate-jax-assets.mjs",
     "check:mascot-img": "node scripts/check-no-mascot-img.mjs",
+    "check:jax": "node scripts/validate-jax-assets.mjs",
     "check:ui-regressions": "node scripts/check-ui-regressions.mjs"
   },
   "dependencies": {

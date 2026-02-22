@@ -11,6 +11,7 @@ import MascotGate from "@/components/mascot/MascotGate";
 import PersistWelcomeIntents from "@/components/PersistWelcomeIntents";
 import Phase15Gate from "@/components/Phase15Gate";
 import { MarketModeProvider } from "@/lib/marketMode";
+import { MotionProvider, PageTransition } from "@/components/motion";
 
 // Validate environment variables at startup (logs warnings, doesn't throw)
 if (typeof window === "undefined") {
@@ -88,7 +89,11 @@ export default function RootLayout({
               <Nav />
             </div>
           </header>
-          {children}
+          <MotionProvider>
+            <PageTransition>
+              {children}
+            </PageTransition>
+          </MotionProvider>
           <PersistWelcomeIntents />
           <Phase15Gate />
           <MascotGate />
