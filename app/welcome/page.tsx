@@ -3,8 +3,8 @@ import { getMascotFlagStatus } from "@/lib/mascotFlags";
 import WelcomeClient from "./WelcomeClient";
 
 export const metadata = {
-  title: `Welcome · ${brand.name}`,
-  description: "Find your path in the Good Hemp community.",
+  title: brand.name,
+  description: "Welcome to Good Hemp Distros.",
 };
 
 /**
