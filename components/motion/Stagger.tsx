@@ -49,9 +49,8 @@ export function Stagger({
   const container: Variants = reducedMotion
     ? { hidden: {}, visible: { transition: { staggerChildren: 0, delayChildren: 0 } } }
     : {
-        hidden: { opacity: 0 },
+        hidden: {},
         visible: {
-          opacity: 1,
           transition: {
             staggerChildren,
             delayChildren,
