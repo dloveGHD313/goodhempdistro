@@ -5,11 +5,11 @@ type Payload = {
   version?: string;
   role?: string;
   roles?: string[];
-  answers?: Record<string, string>;
+  answers?: Record<string, string | string[]>;
   driver_mode?: string;
 };
 
-const VALID_ROLES = ["vendor", "consumer", "driver", "affiliate", "industrial", "builder", "educator"];
+const VALID_ROLES = ["vendor", "consumer", "driver", "affiliate", "industrial", "builder", "educator", "events"];
 
 /**
  * Phase 1.5: Persist questionnaire answers and set onboarding_completed_at.
@@ -83,6 +83,7 @@ export async function POST(req: NextRequest) {
     const { error } = await supabase.from("profiles").insert({
       id: user.id,
       role: "consumer",
+      roles,
       onboarding_answers: payload,
       onboarding_completed_at: now,
       updated_at: now,

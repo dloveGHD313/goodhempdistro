@@ -1,104 +1,52 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Image from "next/image";
-import Link from "next/link";
+import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Footer from "@/components/Footer";
 import OnboardingShell from "@/components/onboarding/OnboardingShell";
-import { getReferralCode } from "@/lib/referral";
+import { getQuestionsForRole } from "@/lib/onboarding/questions";
 import type { OnboardingRole } from "@/lib/onboarding/role";
+import type { Question } from "@/lib/onboarding/questions";
 
+// Events last per CEO vision; order otherwise: consumer, vendor, affiliate, driver, builder, educator, industrial, events
 const ROLE_OPTIONS: { id: OnboardingRole; label: string; icon: string }[] = [
   { id: "consumer", label: "Consumer / Shopper", icon: "🛍️" },
   { id: "vendor", label: "Vendor", icon: "🏪" },
-  { id: "driver", label: "Driver / Logistics", icon: "🚚" },
   { id: "affiliate", label: "Affiliate", icon: "💰" },
+  { id: "driver", label: "Driver / Logistics", icon: "🚚" },
   { id: "builder", label: "Builder / Contractor", icon: "🏗️" },
   { id: "educator", label: "Educator / Learning", icon: "🎓" },
   { id: "industrial", label: "Industrial / Wholesale", icon: "🏢" },
+  { id: "events", label: "Events", icon: "🎪" },
 ];
 
-type ConsumerPlan = {
-  planKey: string;
-  displayName: string;
-  priceText: string;
-  imageUrl: string;
-  imageAlt: string;
-  cadence: "monthly" | "annual";
-  billingInterval: "month" | "year";
-  bullets: string[];
-};
-
-type View = "loading" | "role-select" | "questionnaire" | "plans";
+type View = "loading" | "role-select" | "questionnaire";
 
 export default function GetStartedClient() {
+  const router = useRouter();
   const [view, setView] = useState<View>("loading");
   const [selectedRoles, setSelectedRoles] = useState<OnboardingRole[]>([]);
   const [primaryRole, setPrimaryRole] = useState<OnboardingRole>("consumer");
-  const [plans, setPlans] = useState<ConsumerPlan[]>([]);
-  const [plansLoading, setPlansLoading] = useState(true);
-  const [plansError, setPlansError] = useState<string | null>(null);
-  const [missingEnv, setMissingEnv] = useState<string[]>([]);
-  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const res = await fetch("/api/onboarding/status", { cache: "no-store" });
-        const data = (await res.json().catch(() => ({}))) as { completed?: boolean };
+        const data = (await res.json().catch(() => ({}))) as { completed?: boolean; authenticated?: boolean };
         if (cancelled) return;
         if (data.completed) {
-          setView("plans");
-        } else {
-          setView("role-select");
+          router.replace("/newsfeed");
+          return;
         }
+        setView("role-select");
       } catch {
         if (!cancelled) setView("role-select");
       }
     })();
     return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
-    if (view !== "plans") return;
-    let cancelled = false;
-    (async () => {
-      setPlansLoading(true);
-      try {
-        const response = await fetch("/api/pricing/consumer-plans", { cache: "no-store" });
-        const payload = await response.json();
-        if (cancelled) return;
-        if (response.ok) {
-          setPlans(payload.plans || []);
-          setPlansError(null);
-          setMissingEnv([]);
-        } else {
-          setPlans([]);
-          setPlansError(payload?.error || "Consumer packages are unavailable right now.");
-          setMissingEnv(payload?.missingEnv || []);
-          try {
-            const statusResponse = await fetch("/api/consumer/status", { cache: "no-store" });
-            if (statusResponse.ok) {
-              const statusPayload = await statusResponse.json();
-              setIsAdmin(Boolean(statusPayload?.isAdmin));
-            }
-          } catch {
-            // ignore
-          }
-        }
-      } catch {
-        if (!cancelled) {
-          setPlans([]);
-          setPlansError("Consumer packages are unavailable right now.");
-        }
-      } finally {
-        if (!cancelled) setPlansLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [view]);
+  }, [router]);
 
   const handleRoleToggle = (id: OnboardingRole) => {
     setSelectedRoles((prev) => {
@@ -108,39 +56,28 @@ export default function GetStartedClient() {
     });
   };
 
-  const handleRoleSelectNext = () => {
+  const handleRoleSelectNext = async () => {
     if (selectedRoles.length === 0) return;
+    try {
+      const res = await fetch("/api/onboarding/status", { cache: "no-store" });
+      const data = (await res.json().catch(() => ({}))) as { authenticated?: boolean };
+      if (data.authenticated !== true) {
+        window.location.href = "/signup?next=/get-started";
+        return;
+      }
+    } catch {
+      window.location.href = "/signup?next=/get-started";
+      return;
+    }
     setPrimaryRole(selectedRoles[0]);
     setView("questionnaire");
   };
 
-  const handleSubscribe = async (planKey: string) => {
-    const affiliateCode = getReferralCode();
-    try {
-      const response = await fetch("/api/subscriptions/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planKey, affiliateCode: affiliateCode || undefined }),
-      });
-      const payload = await response.json();
-      if (response.status === 401) {
-        window.location.href = "/login?redirect=/pricing?tab=consumer";
-        return;
-      }
-      if (!response.ok) {
-        alert(payload?.error || "Failed to start checkout.");
-        return;
-      }
-      if (payload?.url) {
-        window.location.href = payload.url;
-      }
-    } catch {
-      alert("Failed to start checkout. Please try again.");
-    }
-  };
-
-  const hasConsumer = selectedRoles.includes("consumer");
-  const onSuccessRedirect = hasConsumer ? () => setView("plans") : undefined;
+  const flatQuestions = useMemo((): Question[] => {
+    return selectedRoles.flatMap((role) =>
+      getQuestionsForRole(role).map((q) => ({ ...q, id: `${role}_${q.id}` }))
+    );
+  }, [selectedRoles]);
 
   if (view === "loading") {
     return (
@@ -216,7 +153,7 @@ export default function GetStartedClient() {
             <OnboardingShell
               role={primaryRole}
               roles={selectedRoles}
-              onSuccessRedirect={onSuccessRedirect}
+              flatQuestions={flatQuestions}
             />
           </section>
         </main>
@@ -225,70 +162,5 @@ export default function GetStartedClient() {
     );
   }
 
-  // view === "plans"
-  return (
-    <div className="min-h-screen text-white flex flex-col">
-      <main className="flex-1">
-        <section className="section-shell">
-          <div className="max-w-3xl mx-auto surface-card p-8 text-center">
-            <h1 className="text-4xl font-bold mb-4 text-accent">Get Started</h1>
-            <p className="text-muted mb-8">Create an account to access the full community and marketplace.</p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/login" className="btn-secondary">Login</Link>
-              <Link href="/signup" className="btn-primary">Sign Up</Link>
-            </div>
-          </div>
-        </section>
-
-        <section className="section-shell section-shell--tight">
-          <h2 className="text-3xl font-bold mb-10 text-center text-accent">
-            Choose a Consumer Package
-          </h2>
-          <div className="grid gap-6 md:grid-cols-3">
-            {(plansLoading ? [] : plans).map((plan) => (
-              <div key={plan.planKey} className="surface-card p-6 text-center">
-                <div className="mb-4 overflow-hidden rounded-xl">
-                  <Image
-                    src={plan.imageUrl}
-                    alt={plan.imageAlt || `${plan.displayName} plan`}
-                    width={640}
-                    height={360}
-                    className="h-40 w-full object-cover"
-                  />
-                </div>
-                <h3 className="text-xl font-bold mb-2">{plan.displayName}</h3>
-                <p className="text-3xl font-bold text-accent mb-3">{plan.priceText}</p>
-                <ul className="text-sm text-muted mb-6 text-left space-y-2">
-                  {(plan.bullets || []).map((bullet, index) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <span className="text-accent">•</span>
-                      <span>{bullet}</span>
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  type="button"
-                  onClick={() => handleSubscribe(plan.planKey)}
-                  className="btn-primary w-full"
-                >
-                  Subscribe
-                </button>
-              </div>
-            ))}
-          </div>
-          {!plansLoading && plans.length === 0 && (
-            <div className="surface-card p-6 text-center text-muted">
-              {plansError || "Consumer packages are unavailable right now. Please check back soon."}
-              {isAdmin && missingEnv.length > 0 && (
-                <p className="text-xs text-yellow-200 mt-2">
-                  Missing env: {missingEnv.join(", ")}
-                </p>
-              )}
-            </div>
-          )}
-        </section>
-      </main>
-      <Footer />
-    </div>
-  );
+  return null;
 }

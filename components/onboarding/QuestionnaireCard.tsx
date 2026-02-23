@@ -6,7 +6,7 @@ import type { Question, QuestionOption } from "@/lib/onboarding/questions";
 
 type Props = {
   question: Question;
-  selected: string | null;
+  selected: string | string[] | null;
   onSelect: (value: string) => void;
   stepIndex: number;
   disabled?: boolean;
@@ -85,36 +85,41 @@ export default function QuestionnaireCard({
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {question.options.map((opt: QuestionOption) => (
-            <motion.button
-              key={opt.value}
-              type="button"
-              onClick={() => !disabled && onSelect(opt.value)}
-              disabled={disabled}
-              whileHover={!disabled && !reducedMotion ? { scale: 1.02 } : undefined}
-              whileTap={!disabled && !reducedMotion ? { scale: 0.98 } : undefined}
-              className={`relative rounded-xl border-2 px-4 py-3 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--brand-lime)] focus:ring-offset-2 focus:ring-offset-[var(--bg)] ${
-                disabled ? "cursor-not-allowed opacity-80" : "cursor-pointer"
-              } ${
-                selected === opt.value
-                  ? "border-[var(--brand-lime)] bg-[var(--brand-lime)]/15"
-                  : "border-[var(--border)] bg-[var(--surface)]/60 hover:border-[var(--brand-lime)]/70 hover:bg-[var(--surface)]"
-              }`}
-            >
-              {selected === opt.value && !reducedMotion && (
-                <motion.span
-                  layoutId={`glow-${question.id}-${opt.value}`}
-                  className="absolute inset-0 rounded-xl border-2 border-[var(--brand-lime)] pointer-events-none"
-                  initial={false}
-                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                  style={{
-                    boxShadow: "0 0 12px rgba(102, 209, 30, 0.25)",
-                  }}
-                />
-              )}
-              <span className="relative font-medium text-white">{opt.label}</span>
-            </motion.button>
-          ))}
+          {question.options.map((opt: QuestionOption) => {
+            const isSelected = Array.isArray(selected)
+              ? selected.includes(opt.value)
+              : selected === opt.value;
+            return (
+              <motion.button
+                key={opt.value}
+                type="button"
+                onClick={() => !disabled && onSelect(opt.value)}
+                disabled={disabled}
+                whileHover={!disabled && !reducedMotion ? { scale: 1.02 } : undefined}
+                whileTap={!disabled && !reducedMotion ? { scale: 0.98 } : undefined}
+                className={`relative rounded-xl border-2 px-4 py-3 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--brand-lime)] focus:ring-offset-2 focus:ring-offset-[var(--bg)] ${
+                  disabled ? "cursor-not-allowed opacity-80" : "cursor-pointer"
+                } ${
+                  isSelected
+                    ? "border-[var(--brand-lime)] bg-[var(--brand-lime)]/15"
+                    : "border-[var(--border)] bg-[var(--surface)]/60 hover:border-[var(--brand-lime)]/70 hover:bg-[var(--surface)]"
+                }`}
+              >
+                {isSelected && !reducedMotion && (
+                  <motion.span
+                    layoutId={`glow-${question.id}-${opt.value}`}
+                    className="absolute inset-0 rounded-xl border-2 border-[var(--brand-lime)] pointer-events-none"
+                    initial={false}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    style={{
+                      boxShadow: "0 0 12px rgba(102, 209, 30, 0.25)",
+                    }}
+                  />
+                )}
+                <span className="relative font-medium text-white">{opt.label}</span>
+              </motion.button>
+            );
+          })}
         </div>
       </div>
     </motion.div>

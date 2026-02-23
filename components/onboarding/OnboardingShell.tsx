@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useSafeReducedMotion } from "@/lib/useSafeReducedMotion";
 import type { OnboardingRole } from "@/lib/onboarding/role";
+import type { Question } from "@/lib/onboarding/questions";
 import type { OnboardingStepStatus } from "./QuestionnaireFlow";
 import QuestionnaireFlow from "./QuestionnaireFlow";
 import JaxOnboardingGuide from "./JaxOnboardingGuide";
@@ -11,6 +12,7 @@ import JaxOnboardingGuide from "./JaxOnboardingGuide";
 type Props = {
   role: OnboardingRole;
   roles?: string[];
+  flatQuestions?: Question[];
   onSuccessRedirect?: () => void;
 };
 
@@ -19,7 +21,7 @@ type Props = {
  * Defers motion and QuestionnaireFlow until after client mount to avoid SSR crash
  * when framer-motion useReducedMotion (matchMedia) runs without window.
  */
-function OnboardingShellWithMotion({ role, roles, onSuccessRedirect }: Props) {
+function OnboardingShellWithMotion({ role, roles, flatQuestions, onSuccessRedirect }: Props) {
   const reducedMotion = useSafeReducedMotion();
   const [stepStatus, setStepStatus] = useState({
     stepIndex: 0,
@@ -67,6 +69,7 @@ function OnboardingShellWithMotion({ role, roles, onSuccessRedirect }: Props) {
         <QuestionnaireFlow
           role={role}
           roles={roles}
+          flatQuestions={flatQuestions}
           reducedMotion={reducedMotion}
           onStepStatusChange={handleStepStatusChange}
           onSuccessRedirect={onSuccessRedirect}
@@ -76,7 +79,7 @@ function OnboardingShellWithMotion({ role, roles, onSuccessRedirect }: Props) {
   );
 }
 
-export default function OnboardingShell({ role, roles, onSuccessRedirect }: Props) {
+export default function OnboardingShell({ role, roles, flatQuestions, onSuccessRedirect }: Props) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -101,5 +104,12 @@ export default function OnboardingShell({ role, roles, onSuccessRedirect }: Prop
     );
   }
 
-  return <OnboardingShellWithMotion role={role} roles={roles} onSuccessRedirect={onSuccessRedirect} />;
+  return (
+    <OnboardingShellWithMotion
+      role={role}
+      roles={roles}
+      flatQuestions={flatQuestions}
+      onSuccessRedirect={onSuccessRedirect}
+    />
+  );
 }

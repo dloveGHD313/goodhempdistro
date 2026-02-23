@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { brand } from "@/lib/brand";
 import BrandLogo from "@/components/BrandLogo";
@@ -32,8 +32,16 @@ const businessLinksBase = [
   { label: "🤝 Vendor Registration", href: "/vendor-registration" },
 ];
 
+const HIDE_NAV_PATHS = ["/signup", "/login", "/get-started", "/onboarding"];
+
+function shouldHideNav(pathname: string | null): boolean {
+  if (!pathname) return false;
+  return HIDE_NAV_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
+}
+
 export default function Nav() {
   const router = useRouter();
+  const pathname = usePathname();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -238,6 +246,8 @@ export default function Nav() {
     ...(isLoggedIn && !isAffiliate ? [{ label: "Become an Affiliate", href: "/affiliate" }] : []),
   ];
 
+  if (shouldHideNav(pathname)) return null;
+
   return (
     <nav aria-label="Main Navigation" className="flex items-center justify-between w-full">
       {/* Logo/Brand - Visible on all sizes */}
@@ -353,6 +363,15 @@ export default function Nav() {
                   </Link>
                 </HoverLift>
               ))}
+              <div className="border-t border-[var(--border)]">
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="block w-full text-left px-4 py-2 hover:bg-[var(--surface)]/80 text-sm nav-logout"
+                >
+                  Logout
+                </button>
+              </div>
             </div>
           </div>
         ) : (
@@ -389,17 +408,8 @@ export default function Nav() {
         </button>
       </div>
 
-      {/* Desktop: CTA / Logout — flex-wrap and gap to prevent overlap */}
-      <div className="hidden lg:flex items-center flex-wrap gap-2 max-w-[340px] justify-end">
-        {isLoggedIn && (
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="text-sm hover:opacity-80 transition nav-logout shrink-0"
-          >
-            Logout
-          </button>
-        )}
+      {/* Desktop: CTA — flex-wrap and gap to prevent overlap; Logout is inside Account dropdown */}
+      <div className="hidden lg:flex items-center flex-wrap gap-2 min-w-0 justify-end">
         {secondaryCta && (
           <HoverLift as="span" className="shrink-0">
             <Link href={secondaryCta.href} className="btn-ghost text-sm py-2 px-4">
