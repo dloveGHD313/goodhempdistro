@@ -169,6 +169,13 @@ export default function Nav() {
   }, []);
 
   const handleLogout = useCallback(async () => {
+    setDrawerOpen(false);
+    setIsLoggedIn(false);
+    setIsAdmin(false);
+    setVendorStatus({ isVendor: false, isSubscribed: false, isAdmin: false });
+    setConsumerStatus({ isSubscribed: false, isAdmin: false });
+    setDriverStatus({ hasAccess: false, isApproved: false });
+    setIsAffiliate(false);
     const supabase = createSupabaseBrowserClient();
     try {
       await supabase.auth.signOut();
@@ -179,13 +186,6 @@ export default function Nav() {
     } catch {
       // Ignore errors – still redirect
     }
-    setDrawerOpen(false);
-    setIsLoggedIn(false);
-    setVendorStatus({ isVendor: false, isSubscribed: false, isAdmin: false });
-    setConsumerStatus({ isSubscribed: false, isAdmin: false });
-    setIsAdmin(false);
-    setDriverStatus({ hasAccess: false, isApproved: false });
-    setIsAffiliate(false);
     router.replace("/");
     router.refresh();
   }, [router]);
@@ -206,25 +206,7 @@ export default function Nav() {
     if (driverStatus.hasAccess) dashboardLinks.push({ label: "Driver Portal", href: "/driver/dashboard" });
     if (isAffiliate) dashboardLinks.push({ label: "Affiliate Portal", href: "/affiliate/portal" });
   }
-  const useDashboardDropdown = isLoggedIn && dashboardLinks.length > 1;
-
-  function getPrimaryCta(): { label: string; href: string } {
-    if (!isLoggedIn) return { label: "Join Free", href: "/get-started" };
-    if (useDashboardDropdown && dashboardLinks[0]) return { label: "Dashboard", href: dashboardLinks[0].href };
-    if (isVendorUser) return { label: "Vendor Dashboard", href: "/vendors/dashboard" };
-    if (driverStatus.hasAccess) return { label: "Driver Portal", href: "/driver/dashboard" };
-    if (isAffiliate) return { label: "Affiliate Portal", href: "/affiliate/portal" };
-    return { label: "Go to Feed", href: "/newsfeed" };
-  }
-  const primaryCta = getPrimaryCta();
-
-  const secondaryCta =
-    isLoggedIn && primaryCta.href !== "/newsfeed" && !useDashboardDropdown
-      ? { label: "Go to Feed", href: "/newsfeed" }
-      : null;
-
-
-  const accountLinks = [
+  const accountLinksRaw = [
     { label: "Account Overview", href: "/account" },
     ...dashboardLinks,
     ...(isLoggedIn ? [{ label: "Go to Feed", href: "/newsfeed" }] : []),
@@ -239,6 +221,12 @@ export default function Nav() {
       : []),
     ...(isLoggedIn && !isAffiliate ? [{ label: "Become an Affiliate", href: "/affiliate" }] : []),
   ];
+  const seenHref = new Set<string>();
+  const accountLinks = accountLinksRaw.filter((link) => {
+    if (seenHref.has(link.href)) return false;
+    seenHref.add(link.href);
+    return true;
+  });
 
   const navPrimaryLinks = isLoggedIn ? primaryLinks.filter((l) => l.href !== "/welcome") : primaryLinks;
 
@@ -373,19 +361,27 @@ export default function Nav() {
         )}
       </div>
 
-      {/* Mobile/Tablet: CTA + Account + Menu Hamburger */}
-      <div className="flex items-center gap-2 lg:hidden">
-        <HoverLift as="span">
-          <Link href={primaryCta.href} className="btn-primary text-sm py-2 px-4">
-            {primaryCta.label}
-          </Link>
-        </HoverLift>
-        {isLoggedIn && (
-          <HoverLift as="span">
-            <Link href={accountHref} className="btn-ghost text-sm py-2 px-3">
+      {/* Mobile/Tablet: when logged in only Account + Menu; when logged out Join Free + Sign in + Menu */}
+      <div className="flex items-center gap-3 lg:hidden shrink-0">
+        {isLoggedIn ? (
+          <HoverLift as="span" className="shrink-0">
+            <Link href={accountHref} className="btn-ghost text-sm py-2 px-4 whitespace-nowrap">
               Account
             </Link>
           </HoverLift>
+        ) : (
+          <>
+            <HoverLift as="span" className="shrink-0">
+              <Link href="/get-started" className="btn-primary text-sm py-2 px-4 whitespace-nowrap">
+                Join Free
+              </Link>
+            </HoverLift>
+            <HoverLift as="span" className="shrink-0">
+              <Link href="/login" className="btn-ghost text-sm py-2 px-4 whitespace-nowrap">
+                Sign in
+              </Link>
+            </HoverLift>
+          </>
         )}
         <button
           type="button"
@@ -445,22 +441,32 @@ export default function Nav() {
 
             {/* Drawer Content */}
             <div className="p-6 flex flex-col gap-2">
-              {/* Prominent CTA in drawer */}
-              <Link
-                href={primaryCta.href}
-                className="btn-primary text-center py-3 mb-3 font-bold"
-                onClick={() => setDrawerOpen(false)}
-              >
-                🚀 {primaryCta.label}
-              </Link>
-              {secondaryCta && (
+              {/* Prominent CTA in drawer: when logged in single Account hub; when logged out Join Free + Sign in */}
+              {isLoggedIn ? (
                 <Link
-                  href={secondaryCta.href}
-                  className="btn-ghost text-center py-2 mb-4 font-semibold"
+                  href="/account"
+                  className="btn-primary text-center py-3 mb-3 font-bold"
                   onClick={() => setDrawerOpen(false)}
                 >
-                  {secondaryCta.label}
+                  Account
                 </Link>
+              ) : (
+                <>
+                  <Link
+                    href="/get-started"
+                    className="btn-primary text-center py-3 mb-3 font-bold"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    Join Free
+                  </Link>
+                  <Link
+                    href="/login"
+                    className="btn-ghost text-center py-2 mb-4 font-semibold"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    Sign in
+                  </Link>
+                </>
               )}
 
               <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Primary</div>

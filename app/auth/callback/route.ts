@@ -72,18 +72,37 @@ export async function GET(req: NextRequest) {
 
     if (admin && user?.id) {
       try {
-        await admin
+        const displayName =
+          user.user_metadata?.display_name?.trim()
+          || (user.email ? user.email.split("@")[0] : null)
+          || null;
+        const username = user.user_metadata?.username?.trim() || null;
+        const { data: existing } = await admin
           .from("profiles")
-          .upsert(
-            {
-              id: user.id,
-              email: user.email ?? null,
-              role: "consumer",
-              display_name: user.user_metadata?.display_name ?? user.email ?? null,
+          .select("id")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (existing) {
+          await admin
+            .from("profiles")
+            .update({
+              ...(user.email != null && { email: user.email }),
+              ...(displayName != null && { display_name: displayName }),
+              ...(username != null && { username }),
               updated_at: new Date().toISOString(),
-            },
-            { onConflict: "id", ignoreDuplicates: true }
-          );
+            })
+            .eq("id", user.id);
+        } else {
+          await admin.from("profiles").insert({
+            id: user.id,
+            email: user.email ?? null,
+            role: "consumer",
+            display_name: displayName,
+            username: username ?? null,
+            market_mode_preference: "CBD_WELLNESS",
+            updated_at: new Date().toISOString(),
+          });
+        }
       } catch (profileErr) {
         console.error("[auth/callback] profile update failed (non-blocking)", profileErr);
       }

@@ -13,6 +13,8 @@ type Props = {
   role: OnboardingRole;
   roles?: string[];
   flatQuestions?: Question[];
+  /** Optional seed answers (e.g. consumer_consumer_use_type when branching). */
+  initialAnswers?: Record<string, string | string[]>;
   onSuccessRedirect?: () => void;
 };
 
@@ -21,7 +23,7 @@ type Props = {
  * Defers motion and QuestionnaireFlow until after client mount to avoid SSR crash
  * when framer-motion useReducedMotion (matchMedia) runs without window.
  */
-function OnboardingShellWithMotion({ role, roles, flatQuestions, onSuccessRedirect }: Props) {
+function OnboardingShellWithMotion({ role, roles, flatQuestions, initialAnswers, onSuccessRedirect }: Props) {
   const reducedMotion = useSafeReducedMotion();
   const [stepStatus, setStepStatus] = useState({
     stepIndex: 0,
@@ -77,6 +79,7 @@ function OnboardingShellWithMotion({ role, roles, flatQuestions, onSuccessRedire
           role={role}
           roles={roles}
           flatQuestions={flatQuestions}
+          initialAnswers={initialAnswers}
           reducedMotion={reducedMotion}
           onStepStatusChange={handleStepStatusChange}
           onSuccessRedirect={onSuccessRedirect}
@@ -86,7 +89,7 @@ function OnboardingShellWithMotion({ role, roles, flatQuestions, onSuccessRedire
   );
 }
 
-export default function OnboardingShell({ role, roles, flatQuestions, onSuccessRedirect }: Props) {
+export default function OnboardingShell({ role, roles, flatQuestions, initialAnswers, onSuccessRedirect }: Props) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -116,6 +119,7 @@ export default function OnboardingShell({ role, roles, flatQuestions, onSuccessR
       role={role}
       roles={roles}
       flatQuestions={flatQuestions}
+      initialAnswers={initialAnswers}
       onSuccessRedirect={onSuccessRedirect}
     />
   );

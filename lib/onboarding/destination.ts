@@ -75,6 +75,9 @@ export function getDestinationForRoles(
   if (set.has("builder")) return "/services";
   if (set.has("educator")) return "/learning-with-jax";
   if (set.has("industrial")) return "/discover";
-  if (set.has("wholesale")) return "/wholesale";
+  if (set.has("wholesale")) {
+    // TODO: Future wholesale certificate upload + verification; Stripe gating for tax-free purchase if required.
+    return "/wholesale";
+  }
   return "/newsfeed";
 }

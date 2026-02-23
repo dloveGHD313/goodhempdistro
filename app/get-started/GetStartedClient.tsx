@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Footer from "@/components/Footer";
 import OnboardingShell from "@/components/onboarding/OnboardingShell";
-import { getQuestionsForRole } from "@/lib/onboarding/questions";
+import {
+  getQuestionsForRole,
+  getConsumerFollowUpQuestions,
+  CONSUMER_USE_TYPE_QUESTION,
+} from "@/lib/onboarding/questions";
 import type { OnboardingRole } from "@/lib/onboarding/role";
 import type { Question } from "@/lib/onboarding/questions";
 
@@ -21,13 +25,14 @@ const ROLE_OPTIONS: { id: OnboardingRole; label: string; icon: string }[] = [
   { id: "events", label: "Events", icon: "🎪" },
 ];
 
-type View = "loading" | "role-select" | "questionnaire";
+type View = "loading" | "role-select" | "consumer-use-type" | "questionnaire";
 
 export default function GetStartedClient() {
   const router = useRouter();
   const [view, setView] = useState<View>("loading");
   const [selectedRoles, setSelectedRoles] = useState<OnboardingRole[]>([]);
   const [primaryRole, setPrimaryRole] = useState<OnboardingRole>("consumer");
+  const [consumerUseType, setConsumerUseType] = useState<"personal" | "business">("personal");
 
   useEffect(() => {
     let cancelled = false;
@@ -70,14 +75,22 @@ export default function GetStartedClient() {
       return;
     }
     setPrimaryRole(selectedRoles[0]);
+    if (selectedRoles.length === 1 && selectedRoles[0] === "consumer") {
+      setView("consumer-use-type");
+      return;
+    }
     setView("questionnaire");
   };
 
   const flatQuestions = useMemo((): Question[] => {
+    if (view === "questionnaire" && primaryRole === "consumer" && selectedRoles.length === 1) {
+      const followUp = getConsumerFollowUpQuestions(consumerUseType);
+      return followUp.map((q) => ({ ...q, id: `consumer_${q.id}` }));
+    }
     return selectedRoles.flatMap((role) =>
       getQuestionsForRole(role).map((q) => ({ ...q, id: `${role}_${q.id}` }))
     );
-  }, [selectedRoles]);
+  }, [selectedRoles, primaryRole, view, consumerUseType]);
 
   if (view === "loading") {
     return (
@@ -145,7 +158,60 @@ export default function GetStartedClient() {
     );
   }
 
+  if (view === "consumer-use-type") {
+    const useTypeQuestion = { ...CONSUMER_USE_TYPE_QUESTION, id: "consumer_consumer_use_type" };
+    return (
+      <div className="min-h-screen text-white flex flex-col">
+        <main className="flex-1 section-shell">
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            className="max-w-2xl mx-auto"
+          >
+            <h1 className="text-2xl md:text-3xl font-bold text-accent mb-2 text-center">
+              {useTypeQuestion.prompt}
+            </h1>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-8 mb-8">
+              {useTypeQuestion.options.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setConsumerUseType(opt.value === "business" ? "business" : "personal")}
+                  className={`surface-card p-4 text-left rounded-xl border-2 transition-colors ${
+                    (opt.value === "business" && consumerUseType === "business") ||
+                    (opt.value === "personal" && consumerUseType === "personal")
+                      ? "border-[var(--brand-lime)] bg-[var(--surface)]/80"
+                      : "border-[var(--border)] hover:border-[var(--brand-lime)]/50"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setView("questionnaire");
+                }}
+                className="btn-primary px-8 py-3"
+              >
+                Continue
+              </button>
+            </div>
+          </motion.div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   if (view === "questionnaire") {
+    const initialAnswers =
+      primaryRole === "consumer" && selectedRoles.length === 1
+        ? { consumer_consumer_use_type: consumerUseType }
+        : undefined;
     return (
       <div className="min-h-screen text-white flex flex-col">
         <main className="flex-1">
@@ -154,6 +220,7 @@ export default function GetStartedClient() {
               role={primaryRole}
               roles={selectedRoles}
               flatQuestions={flatQuestions}
+              initialAnswers={initialAnswers}
             />
           </section>
         </main>

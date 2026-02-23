@@ -33,7 +33,8 @@ export function getAnswer(
 }
 
 /**
- * Tries keys in order: ${role}_${id}, ${id}, ${role}_${role}_${id} (double-prefix defensive).
+ * Tries keys in order: ${role}_${id}, ${id}, ${role}_${role}_${id}, then defensive scan
+ * for any key starting with role_ and ending with _${id} (handles triple-prefix etc).
  * Returns normalized string or undefined.
  */
 export function getRoleAnswer(
@@ -44,11 +45,17 @@ export function getRoleAnswer(
   if (!answers) return undefined;
   const prefixed = `${role}_${id}`;
   const doublePrefixed = `${role}_${role}_${id}`;
-  const value =
-    answers[prefixed] ??
-    answers[id] ??
-    answers[doublePrefixed];
-  return normalizeString(value);
+  const value = answers[prefixed] ?? answers[id] ?? answers[doublePrefixed];
+  if (value !== undefined && value !== null) return normalizeString(value);
+  const suffix = `_${id}`;
+  for (const key of Object.keys(answers)) {
+    if (key.startsWith(`${role}_`) && key.endsWith(suffix)) {
+      const v = answers[key];
+      const out = normalizeString(v);
+      if (out !== undefined) return out;
+    }
+  }
+  return undefined;
 }
 
 /** Keys to try for consumer use type (personal vs business/wholesale). */
@@ -60,13 +67,20 @@ export const CONSUMER_USE_TYPE_KEYS = [
 
 /**
  * Resolves consumer use-type answer from onboarding answers (prefixed or unprefixed).
+ * Tries role-prefixed keys, then raw keys including defensive triple-prefix.
  * Use for both redirect logic and server-side rolesToWrite.
  */
 export function getConsumerUseType(answers: OnboardingAnswers | undefined): string | undefined {
-  const fromRole = getRoleAnswer(answers, "consumer", "consumer_use_type")
+  const fromRole =
+    getRoleAnswer(answers, "consumer", "consumer_use_type")
     ?? getRoleAnswer(answers, "consumer", "use_type");
   if (fromRole !== undefined) return fromRole;
-  return getAnswer(answers, ["consumer_use_type", "consumer_consumer_use_type", "use_type"]);
+  return getAnswer(answers, [
+    "consumer_use_type",
+    "consumer_consumer_use_type",
+    "consumer_consumer_consumer_use_type",
+    "use_type",
+  ]);
 }
 
 /** True if useType indicates business/wholesale (case-insensitive). */

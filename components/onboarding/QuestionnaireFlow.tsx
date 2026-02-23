@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSafeReducedMotion } from "@/lib/useSafeReducedMotion";
 import { getQuestionsForRole } from "@/lib/onboarding/questions";
-import { getDestinationForRole, getDestinationForRoles } from "@/lib/onboarding/destination";
+import { getDestinationForRoles } from "@/lib/onboarding/destination";
 import { getConsumerUseType, isConsumerWholesaleChoice } from "@/lib/onboarding/answers";
 import type { Question } from "@/lib/onboarding/questions";
 import { logEvent } from "@/lib/telemetry/client";
@@ -20,6 +20,8 @@ type Props = {
   roles?: string[];
   /** When provided, use instead of getQuestionsForRole(role) for multi-role flow. */
   flatQuestions?: Question[];
+  /** Optional seed answers (e.g. consumer_consumer_use_type when branching from get-started). */
+  initialAnswers?: Record<string, string | string[]>;
   reducedMotion?: boolean;
   onStepStatusChange?: (stepIndex: number, totalSteps: number, status: OnboardingStepStatus) => void;
   /** If provided, called on success instead of redirecting. */
@@ -32,6 +34,7 @@ export default function QuestionnaireFlow({
   role,
   roles: rolesProp,
   flatQuestions: flatQuestionsProp,
+  initialAnswers: initialAnswersProp,
   reducedMotion: reducedMotionProp,
   onStepStatusChange,
   onSuccessRedirect,
@@ -45,7 +48,9 @@ export default function QuestionnaireFlow({
     : getQuestionsForRole(role);
   const totalSteps = questions.length;
   const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
+  const [answers, setAnswers] = useState<Record<string, string | string[]>>(
+    () => (initialAnswersProp && Object.keys(initialAnswersProp).length > 0 ? { ...initialAnswersProp } : {})
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -163,10 +168,7 @@ export default function QuestionnaireFlow({
             ) {
               rolesForDest.push("wholesale");
             }
-            const dest =
-              rolesForDest.length > 0
-                ? getDestinationForRoles(rolesForDest, answers)
-                : getDestinationForRole(role, driver_mode);
+            const dest = getDestinationForRoles(rolesForDest, answers);
             router.replace(dest);
           }
         }, SUCCESS_DELAY_MS);
