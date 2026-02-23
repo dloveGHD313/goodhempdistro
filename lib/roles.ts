@@ -23,18 +23,25 @@ export type ProfileWithRoles = {
 
 const ALLOWED_SET = new Set(ALLOWED_ROLES as unknown as string[]);
 
-/** Returns normalized roles array (never null, never empty). Internal helper used by hasRole. */
+/** Returns normalized roles array (never null, never empty). Merges legacy `role` with `roles` so admin set only via SQL is still recognized. */
 function getRoles(profile: ProfileWithRoles | null | undefined): string[] {
   if (!profile) return ["consumer"];
+  const merged = new Set<string>();
+
+  // From roles array
   if (Array.isArray(profile.roles) && profile.roles.length > 0) {
-    const normalized = profile.roles
-      .filter((x): x is string => typeof x === "string")
-      .map((x) => x.trim().toLowerCase())
-      .filter((x) => x.length > 0 && ALLOWED_SET.has(x));
-    if (normalized.length > 0) return normalized;
+    for (const x of profile.roles) {
+      if (typeof x !== "string") continue;
+      const n = x.trim().toLowerCase();
+      if (n && ALLOWED_SET.has(n)) merged.add(n);
+    }
   }
+
+  // Legacy role: merge in so admin created via SQL (role = 'admin' only) is not ignored
   const single = profile.role && String(profile.role).trim().toLowerCase();
-  if (single && ALLOWED_SET.has(single)) return [single];
+  if (single && ALLOWED_SET.has(single)) merged.add(single);
+
+  if (merged.size > 0) return Array.from(merged);
   return ["consumer"];
 }
 
