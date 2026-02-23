@@ -330,6 +330,7 @@ export async function POST(req: NextRequest) {
         cadence: normalizedCadence,
         priceIdSuffix: priceId.slice(-6),
         stripeCustomerId: stripeCustomerId?.slice(-8) ?? null,
+        userId: userId ?? null,
         stripeErrorCode: se?.code ?? null,
         stripeErrorType: se?.type ?? null,
         stripeRequestId: se?.requestId ?? null,
@@ -381,6 +382,7 @@ export async function POST(req: NextRequest) {
     console.error("[stripe/checkout]", JSON.stringify({
       requestId,
       route: ROUTE_NAME,
+      userId: userId ?? null,
       errName: err?.name ?? (error instanceof Error ? error.name : null),
       errorType: err?.type ?? null,
       errorCode: err?.code ?? null,
