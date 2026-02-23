@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { ALLOWED_ROLES } from "@/lib/roles";
 
 type Payload = {
   version?: string;
@@ -9,7 +10,12 @@ type Payload = {
   driver_mode?: string;
 };
 
-const VALID_ROLES = ["vendor", "consumer", "driver", "affiliate", "industrial", "builder", "educator", "events"];
+/** Onboarding request may only send these roles (subset of ALLOWED_ROLES; no admin). */
+const ONBOARDING_ROLES = ALLOWED_ROLES.filter((r) => r !== "admin");
+
+function isAllowedOnboardingRole(r: string): boolean {
+  return (ONBOARDING_ROLES as readonly string[]).includes(r);
+}
 
 /**
  * Phase 1.5: Persist questionnaire answers and set onboarding_completed_at.
@@ -29,11 +35,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, code: "INVALID_BODY" }, { status: 400 });
   }
 
-  const role = typeof body?.role === "string" && VALID_ROLES.includes(body.role)
+  const role = typeof body?.role === "string" && isAllowedOnboardingRole(body.role)
     ? body.role
     : "consumer";
   const rolesArray = Array.isArray(body?.roles)
-    ? body.roles.filter((r): r is string => typeof r === "string" && VALID_ROLES.includes(r))
+    ? body.roles.filter((r): r is string => typeof r === "string" && isAllowedOnboardingRole(r))
     : [role];
   const roles = rolesArray.length > 0 ? rolesArray : [role];
   const answers = body?.answers && typeof body.answers === "object" ? body.answers : {};

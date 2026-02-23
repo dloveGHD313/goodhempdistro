@@ -152,7 +152,7 @@ export default function QuestionnaireFlow({
           } else {
             const dest =
               Array.isArray(rolesProp) && rolesProp.length > 0
-                ? getDestinationForRoles(rolesProp)
+                ? getDestinationForRoles(rolesProp, answers)
                 : getDestinationForRole(role, driver_mode);
             router.replace(dest);
           }

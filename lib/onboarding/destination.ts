@@ -1,9 +1,31 @@
 /**
  * Phase 1.5: Route destination after questionnaire completion.
  * Multi-role: prioritize setup-required (vendor/events → pricing), then dashboards, then feed.
+ * Driver role respects driver_mode answer (vendor-type → pricing; else → logistics/apply).
  */
 
 import type { OnboardingRole } from "./role";
+
+/** driver_mode values that mean "offer own services / vendor-listed" → route to vendor pricing */
+const DRIVER_MODE_VENDOR_PATH = new Set([
+  "vendor_listed",
+  "offer_own_services",
+  "self_provider",
+  "independent",
+  "both",
+]);
+
+function normalizeDriverMode(answers: Record<string, string | string[] | undefined> | undefined): string | undefined {
+  if (!answers) return undefined;
+  const raw =
+    answers["driver_driver_mode"] ??
+    answers["driver_mode"];
+  if (raw === undefined) return undefined;
+  if (typeof raw === "string") return raw.trim() || undefined;
+  if (Array.isArray(raw) && raw.length > 0 && typeof raw[0] === "string")
+    return raw[0].trim() || undefined;
+  return undefined;
+}
 
 export function getDestinationForRole(
   role: OnboardingRole,
@@ -14,8 +36,8 @@ export function getDestinationForRole(
     case "events":
       return "/pricing?tab=vendor";
     case "driver":
-      return driverMode === "vendor_listed"
-        ? "/vendor-registration"
+      return driverMode != null && DRIVER_MODE_VENDOR_PATH.has(driverMode)
+        ? "/pricing?tab=vendor"
         : "/logistics/apply";
     case "industrial":
       return "/discover";
@@ -31,25 +53,27 @@ export function getDestinationForRole(
   }
 }
 
-/** Priority order for multi-role routing: first match wins. */
-const DESTINATION_PRIORITY: { roles: OnboardingRole[]; path: string }[] = [
-  { roles: ["vendor", "events"], path: "/pricing?tab=vendor" },
-  { roles: ["affiliate"], path: "/affiliate/portal" },
-  { roles: ["driver"], path: "/logistics/apply" },
-  { roles: ["builder"], path: "/services" },
-  { roles: ["educator"], path: "/learning-with-jax" },
-  { roles: ["industrial"], path: "/discover" },
-  { roles: ["consumer"], path: "/newsfeed" },
-];
-
 /**
- * Post-onboarding destination from roles array.
- * Vendor/events → vendor pricing; affiliate → portal; consumer-only → feed; etc.
+ * Post-onboarding destination from roles array and optional answers.
+ * When roles includes "driver", driver_mode from answers (keys driver_driver_mode or driver_mode)
+ * is used: vendor-type values → /pricing?tab=vendor; else → /logistics/apply.
  */
-export function getDestinationForRoles(roles: string[]): string {
+export function getDestinationForRoles(
+  roles: string[],
+  answers?: Record<string, string | string[]>
+): string {
   const set = new Set(roles.map((r) => r.toLowerCase()));
-  for (const { roles: checkRoles, path } of DESTINATION_PRIORITY) {
-    if (checkRoles.some((r) => set.has(r))) return path;
+
+  if (set.has("vendor") || set.has("events")) return "/pricing?tab=vendor";
+  if (set.has("affiliate")) return "/affiliate/portal";
+  if (set.has("driver")) {
+    const driverMode = normalizeDriverMode(answers);
+    return driverMode != null && DRIVER_MODE_VENDOR_PATH.has(driverMode)
+      ? "/pricing?tab=vendor"
+      : "/logistics/apply";
   }
+  if (set.has("builder")) return "/services";
+  if (set.has("educator")) return "/learning-with-jax";
+  if (set.has("industrial")) return "/discover";
   return "/newsfeed";
 }

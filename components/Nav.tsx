@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { hasRole } from "@/lib/roles";
 import { brand } from "@/lib/brand";
 import BrandLogo from "@/components/BrandLogo";
 import { HoverLift } from "@/components/motion";
@@ -136,6 +137,21 @@ export default function Nav() {
       } catch (err) {
         console.warn("[Nav] affiliate lookup failed", err);
         setIsAffiliate(false);
+      }
+
+      try {
+        const profileRes = await fetch("/api/profile", { cache: "no-store" });
+        if (active && profileRes.ok) {
+          const data = (await profileRes.json()) as { profile?: { role?: string; roles?: string[] } };
+          const p = data?.profile;
+          const profile =
+            p && (p.role != null || Array.isArray(p.roles))
+              ? { role: p.role ?? null, roles: p.roles ?? null }
+              : null;
+          if (profile && hasRole(profile, "admin")) setIsAdmin(true);
+        }
+      } catch (err) {
+        console.warn("[Nav] profile fetch failed", err);
       }
     };
 
