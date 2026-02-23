@@ -416,7 +416,7 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
             ) : (
               <>
                 <HoverLift as="span">
-                  <Link href="/" className="btn-primary">
+                  <Link href="/get-started" className="btn-primary">
                     Join
                   </Link>
                 </HoverLift>

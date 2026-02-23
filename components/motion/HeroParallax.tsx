@@ -29,23 +29,22 @@ export function HeroParallax({
 
   const clampedStrength = Number.isFinite(strength) && strength > 0 ? Math.min(strength, 1.5) : 1;
 
-  if (reducedMotion) {
-    const StaticComponent = motion[as] as typeof motion.div;
-    return (
-      <StaticComponent ref={ref} className={className}>
-        {children}
-      </StaticComponent>
-    );
-  }
-
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ["start 85%", "end 15%"],
   });
 
   const maxY = -MOTION_DISTANCES.ySmall * clampedStrength;
-  const y = useTransform(scrollYProgress, [0, 1], [0, maxY]);
-  const scale = useTransform(scrollYProgress, [0, 1], [1, 1 + 0.01 * clampedStrength]);
+  const y = useTransform(
+    scrollYProgress,
+    [0, 1],
+    reducedMotion ? [0, 0] : [0, maxY]
+  );
+  const scale = useTransform(
+    scrollYProgress,
+    [0, 1],
+    reducedMotion ? [1, 1] : [1, 1 + 0.01 * clampedStrength]
+  );
 
   const Component = motion[as] as typeof motion.div;
 

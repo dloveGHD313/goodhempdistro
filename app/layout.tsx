@@ -84,12 +84,12 @@ export default function RootLayout({
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <MarketModeProvider>
           <div className="app-bg" aria-hidden="true" />
-          <header className="topbar">
-            <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between w-full">
-              <Nav />
-            </div>
-          </header>
           <MotionProvider>
+            <header className="topbar">
+              <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between w-full">
+                <Nav />
+              </div>
+            </header>
             <PageTransition>
               {children}
             </PageTransition>
