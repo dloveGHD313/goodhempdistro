@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
+import { flushSync } from "react-dom";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
@@ -169,13 +170,15 @@ export default function Nav() {
   }, []);
 
   const handleLogout = useCallback(async () => {
-    setDrawerOpen(false);
-    setIsLoggedIn(false);
-    setIsAdmin(false);
-    setVendorStatus({ isVendor: false, isSubscribed: false, isAdmin: false });
-    setConsumerStatus({ isSubscribed: false, isAdmin: false });
-    setDriverStatus({ hasAccess: false, isApproved: false });
-    setIsAffiliate(false);
+    flushSync(() => {
+      setDrawerOpen(false);
+      setIsLoggedIn(false);
+      setIsAdmin(false);
+      setVendorStatus({ isVendor: false, isSubscribed: false, isAdmin: false });
+      setConsumerStatus({ isSubscribed: false, isAdmin: false });
+      setDriverStatus({ hasAccess: false, isApproved: false });
+      setIsAffiliate(false);
+    });
     const supabase = createSupabaseBrowserClient();
     try {
       await supabase.auth.signOut();

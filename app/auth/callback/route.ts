@@ -76,7 +76,9 @@ export async function GET(req: NextRequest) {
           user.user_metadata?.display_name?.trim()
           || (user.email ? user.email.split("@")[0] : null)
           || null;
-        const username = user.user_metadata?.username?.trim() || null;
+        const emailPrefix = user.email ? user.email.split("@")[0] : "";
+        const sanitizedPrefix = emailPrefix ? emailPrefix.replace(/[^a-zA-Z0-9_.-]/g, "_").slice(0, 64) || null : null;
+        const username = user.user_metadata?.username?.trim() || sanitizedPrefix || null;
         const { data: existing } = await admin
           .from("profiles")
           .select("id")
