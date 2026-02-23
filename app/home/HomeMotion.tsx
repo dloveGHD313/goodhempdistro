@@ -58,7 +58,7 @@ export default function HomeMotion({ featuredServices }: { featuredServices: Ser
               </Reveal>
               <Reveal delay={HERO_DELAYS.ctaRow} className="flex flex-col md:flex-row gap-4 justify-center">
                 <HoverLift as="span">
-                  <Link href="/" className="btn-primary text-base md:text-lg py-4 px-8 inline-block">
+                  <Link href="/get-started" className="btn-primary text-base md:text-lg py-4 px-8 inline-block">
                     🚀 Get Started Now
                   </Link>
                 </HoverLift>
@@ -173,7 +173,7 @@ export default function HomeMotion({ featuredServices }: { featuredServices: Ser
                 Start exploring premium hemp products and connect with our community.
               </p>
               <HoverLift as="span">
-                <Link href="/" className="btn-primary text-base md:text-lg py-3 px-8 inline-block">
+                <Link href="/get-started" className="btn-primary text-base md:text-lg py-3 px-8 inline-block">
                   🚀 Get Started
                 </Link>
               </HoverLift>
