@@ -28,7 +28,7 @@ export async function GET() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, email, role, display_name, avatar_url, banner_url, border_style")
+    .select("id, email, role, roles, display_name, avatar_url, banner_url, border_style")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -74,6 +74,8 @@ export async function GET() {
 
   const displayName = getDisplayName(profile, user);
 
+  const roles = (profile?.roles as string[] | null) ?? (role ? [role] : ["consumer"]);
+
   return NextResponse.json({
     ok: true,
     profile: {
@@ -81,6 +83,7 @@ export async function GET() {
       email: profile?.email || user.email,
       display_name: displayName,
       role,
+      roles,
       tier,
       avatar_url: profile?.avatar_url || null,
       banner_url: profile?.banner_url || null,

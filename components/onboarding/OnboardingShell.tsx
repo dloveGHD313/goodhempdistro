@@ -10,6 +10,8 @@ import JaxOnboardingGuide from "./JaxOnboardingGuide";
 
 type Props = {
   role: OnboardingRole;
+  roles?: string[];
+  onSuccessRedirect?: () => void;
 };
 
 /**
@@ -17,7 +19,7 @@ type Props = {
  * Defers motion and QuestionnaireFlow until after client mount to avoid SSR crash
  * when framer-motion useReducedMotion (matchMedia) runs without window.
  */
-function OnboardingShellWithMotion({ role }: Props) {
+function OnboardingShellWithMotion({ role, roles, onSuccessRedirect }: Props) {
   const reducedMotion = useSafeReducedMotion();
   const [stepStatus, setStepStatus] = useState({
     stepIndex: 0,
@@ -64,15 +66,17 @@ function OnboardingShellWithMotion({ role }: Props) {
         </p>
         <QuestionnaireFlow
           role={role}
+          roles={roles}
           reducedMotion={reducedMotion}
           onStepStatusChange={handleStepStatusChange}
+          onSuccessRedirect={onSuccessRedirect}
         />
       </motion.div>
     </div>
   );
 }
 
-export default function OnboardingShell({ role }: Props) {
+export default function OnboardingShell({ role, roles, onSuccessRedirect }: Props) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -97,5 +101,5 @@ export default function OnboardingShell({ role }: Props) {
     );
   }
 
-  return <OnboardingShellWithMotion role={role} />;
+  return <OnboardingShellWithMotion role={role} roles={roles} onSuccessRedirect={onSuccessRedirect} />;
 }

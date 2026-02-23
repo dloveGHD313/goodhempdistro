@@ -13,6 +13,7 @@ const primaryLinks = [
   { label: "🛍️ Shop", href: "/products" },
   { label: "🧭 Discover", href: "/discover" },
   { label: "🎪 Events", href: "/events" },
+  { label: "📺 Episodes", href: "/learning-with-jax" },
 ];
 
 const communityLinks = [
@@ -188,18 +189,28 @@ export default function Nav() {
       ? { label: "⭐ My Subscription", href: "/account/subscription" }
       : { label: "⬆️ Upgrade", href: "/pricing?tab=consumer" };
 
+  const dashboardLinks: { label: string; href: string }[] = [];
+  if (isLoggedIn) {
+    if (isVendorUser) dashboardLinks.push({ label: "Vendor Dashboard", href: "/vendors/dashboard" });
+    if (driverStatus.hasAccess) dashboardLinks.push({ label: "Driver Portal", href: "/driver/dashboard" });
+    if (isAffiliate) dashboardLinks.push({ label: "Affiliate Portal", href: "/affiliate/portal" });
+  }
+  const useDashboardDropdown = isLoggedIn && dashboardLinks.length > 1;
+
   const primaryCta = isLoggedIn
-    ? isVendorUser
-      ? { label: "Vendor Dashboard", href: "/vendors/dashboard" }
-      : driverStatus.hasAccess
-        ? { label: "Driver Portal", href: "/driver/dashboard" }
-        : isAffiliate
-          ? { label: "Affiliate Portal", href: "/affiliate/portal" }
-          : { label: "Go to Feed", href: "/newsfeed" }
+    ? useDashboardDropdown
+      ? { label: "Dashboard", href: dashboardLinks[0].href }
+      : isVendorUser
+        ? { label: "Vendor Dashboard", href: "/vendors/dashboard" }
+        : driverStatus.hasAccess
+          ? { label: "Driver Portal", href: "/driver/dashboard" }
+          : isAffiliate
+            ? { label: "Affiliate Portal", href: "/affiliate/portal" }
+            : { label: "Go to Feed", href: "/newsfeed" }
     : { label: "Join Free", href: "/get-started" };
 
   const secondaryCta =
-    isLoggedIn && primaryCta.href !== "/newsfeed"
+    isLoggedIn && primaryCta.href !== "/newsfeed" && !useDashboardDropdown
       ? { label: "Go to Feed", href: "/newsfeed" }
       : null;
 
@@ -378,29 +389,51 @@ export default function Nav() {
         </button>
       </div>
 
-      {/* Desktop: CTA / Logout */}
-      <div className="hidden lg:flex items-center gap-4">
+      {/* Desktop: CTA / Logout — flex-wrap and gap to prevent overlap */}
+      <div className="hidden lg:flex items-center flex-wrap gap-2 max-w-[340px] justify-end">
         {isLoggedIn && (
           <button
             type="button"
             onClick={handleLogout}
-            className="text-sm hover:opacity-80 transition nav-logout"
+            className="text-sm hover:opacity-80 transition nav-logout shrink-0"
           >
             Logout
           </button>
         )}
         {secondaryCta && (
-          <HoverLift as="span">
+          <HoverLift as="span" className="shrink-0">
             <Link href={secondaryCta.href} className="btn-ghost text-sm py-2 px-4">
               {secondaryCta.label}
             </Link>
           </HoverLift>
         )}
-        <HoverLift as="span">
-          <Link href={primaryCta.href} className="btn-primary text-sm py-2 px-4">
-            {primaryCta.label}
-          </Link>
-        </HoverLift>
+        {useDashboardDropdown ? (
+          <div className="relative group shrink-0">
+            <button type="button" className="btn-primary text-sm py-2 px-4 flex items-center gap-1">
+              Dashboard <span className="text-xs">▼</span>
+            </button>
+            <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[180px]">
+              {dashboardLinks.map((link) => (
+                <HoverLift key={link.href} as="span">
+                  <Link href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                    {link.label}
+                  </Link>
+                </HoverLift>
+              ))}
+              <HoverLift as="span">
+                <Link href="/newsfeed" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm border-t border-[var(--border)]">
+                  Go to Feed
+                </Link>
+              </HoverLift>
+            </div>
+          </div>
+        ) : (
+          <HoverLift as="span" className="shrink-0">
+            <Link href={primaryCta.href} className="btn-primary text-sm py-2 px-4">
+              {primaryCta.label}
+            </Link>
+          </HoverLift>
+        )}
       </div>
 
       {/* Mobile drawer - full screen overlay style */}

@@ -8,7 +8,9 @@ export type OnboardingRole =
   | "consumer"
   | "driver"
   | "affiliate"
-  | "industrial";
+  | "industrial"
+  | "builder"
+  | "educator";
 
 const INTENT_PRIORITY: [string, OnboardingRole][] = [
   ["sell", "vendor"],

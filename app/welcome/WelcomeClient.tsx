@@ -35,16 +35,16 @@ export default function WelcomeClient({ mascotEnabled: serverMascotEnabled }: We
   }
 
   return (
-    <div className="max-w-2xl w-full mx-auto flex flex-col">
+    <div className="max-w-2xl w-full mx-auto flex flex-col items-center text-center">
       {mascotEnabled && (
-        <Reveal delay={HERO_DELAYS.title} className="flex-shrink-0">
-          <section aria-label="JAX mascot greeting">
+        <Reveal delay={HERO_DELAYS.title} className="flex-shrink-0 w-full flex justify-center">
+          <section aria-label="JAX mascot greeting" className="flex justify-center">
             <JaxWelcomeHero selectedCount={0} />
           </section>
         </Reveal>
       )}
 
-      <Reveal delay={HERO_DELAYS.title} className={`flex-shrink-0 ${mascotEnabled ? "mt-8" : ""}`}>
+      <Reveal delay={HERO_DELAYS.title} className={`flex-shrink-0 w-full flex flex-col items-center ${mascotEnabled ? "mt-8" : ""}`}>
         <div className="flex justify-center mb-8">
           <Image
             src={brand.logoPath}
@@ -59,21 +59,21 @@ export default function WelcomeClient({ mascotEnabled: serverMascotEnabled }: We
           Welcome to {brand.name}
         </h1>
       </Reveal>
-      <Reveal delay={HERO_DELAYS.subtitle}>
-        <p className="hero-subtitle mb-10">
+      <Reveal delay={HERO_DELAYS.subtitle} className="w-full flex justify-center">
+        <p className="hero-subtitle mb-10 max-w-xl">
           {brand.tagline}
         </p>
       </Reveal>
 
-      <Reveal delay={HERO_DELAYS.ctaRow} className="flex flex-wrap gap-3">
-        <HoverLift as="span">
-          <Link href="/get-started" className="btn-primary motion-medium inline-block">
+      <Reveal delay={HERO_DELAYS.ctaRow} className="flex justify-center w-full">
+        <HoverLift as="span" className="inline-block">
+          <Link href="/get-started" className="btn-primary motion-medium inline-block text-center min-w-[200px] py-3 px-8">
             Start here
           </Link>
         </HoverLift>
       </Reveal>
 
-      <Reveal delay={HERO_DELAYS.secondary}>
+      <Reveal delay={HERO_DELAYS.secondary} className="w-full flex justify-center">
         <p className="text-muted text-sm mt-6">
           Already have an account?{" "}
           <Link href="/login" className="text-accent hover:underline">

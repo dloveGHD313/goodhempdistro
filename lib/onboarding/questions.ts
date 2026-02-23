@@ -45,6 +45,16 @@ const AFFILIATE_QUESTIONS: QuestionSet = [
   { id: "affiliate_goals", prompt: "What are your goals?", options: [{ value: "income", label: "Earn income" }, { value: "support", label: "Support brands I love" }, { value: "both", label: "Both" }] },
 ];
 
+const BUILDER_QUESTIONS: QuestionSet = [
+  { id: "builder_focus", prompt: "What's your focus?", options: [{ value: "construction", label: "Hemp construction" }, { value: "contractor", label: "Contractor services" }, { value: "both", label: "Both" }] },
+  { id: "builder_scale", prompt: "Project scale?", options: [{ value: "small", label: "Small projects" }, { value: "large", label: "Large-scale" }, { value: "exploring", label: "Exploring" }] },
+];
+
+const EDUCATOR_QUESTIONS: QuestionSet = [
+  { id: "educator_focus", prompt: "What do you want to learn?", options: [{ value: "basics", label: "Hemp basics" }, { value: "compliance", label: "Compliance & regulations" }, { value: "business", label: "Business & sales" }] },
+  { id: "educator_format", prompt: "Preferred format?", options: [{ value: "episodes", label: "Episodes / video" }, { value: "guides", label: "Guides & articles" }, { value: "both", label: "Both" }] },
+];
+
 export function getQuestionsForRole(role: OnboardingRole): QuestionSet {
   switch (role) {
     case "vendor":
@@ -57,6 +67,10 @@ export function getQuestionsForRole(role: OnboardingRole): QuestionSet {
       return INDUSTRIAL_QUESTIONS;
     case "affiliate":
       return AFFILIATE_QUESTIONS;
+    case "builder":
+      return BUILDER_QUESTIONS;
+    case "educator":
+      return EDUCATOR_QUESTIONS;
     default:
       return CONSUMER_QUESTIONS;
   }

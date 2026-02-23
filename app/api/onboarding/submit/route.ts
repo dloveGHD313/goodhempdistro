@@ -4,11 +4,12 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 type Payload = {
   version?: string;
   role?: string;
+  roles?: string[];
   answers?: Record<string, string>;
   driver_mode?: string;
 };
 
-const VALID_ROLES = ["vendor", "consumer", "driver", "affiliate", "industrial"];
+const VALID_ROLES = ["vendor", "consumer", "driver", "affiliate", "industrial", "builder", "educator"];
 
 /**
  * Phase 1.5: Persist questionnaire answers and set onboarding_completed_at.
@@ -31,6 +32,10 @@ export async function POST(req: NextRequest) {
   const role = typeof body?.role === "string" && VALID_ROLES.includes(body.role)
     ? body.role
     : "consumer";
+  const rolesArray = Array.isArray(body?.roles)
+    ? body.roles.filter((r): r is string => typeof r === "string" && VALID_ROLES.includes(r))
+    : [role];
+  const roles = rolesArray.length > 0 ? rolesArray : [role];
   const answers = body?.answers && typeof body.answers === "object" ? body.answers : {};
   const driver_mode = typeof body?.driver_mode === "string" ? body.driver_mode : undefined;
 
@@ -64,6 +69,7 @@ export async function POST(req: NextRequest) {
         onboarding_answers: payload,
         onboarding_completed_at: now,
         updated_at: now,
+        roles,
       })
       .eq("id", user.id);
 

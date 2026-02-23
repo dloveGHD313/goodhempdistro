@@ -19,6 +19,10 @@ export function getDestinationForRole(
       return "/wholesale";
     case "affiliate":
       return "/affiliate";
+    case "builder":
+      return "/services";
+    case "educator":
+      return "/learning-with-jax";
     case "consumer":
     default:
       return "/";

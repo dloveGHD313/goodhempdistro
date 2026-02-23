@@ -15,16 +15,21 @@ export type OnboardingStepStatus = "idle" | "submitting" | "error" | "success";
 
 type Props = {
   role: OnboardingRole;
+  roles?: string[];
   reducedMotion?: boolean;
   onStepStatusChange?: (stepIndex: number, totalSteps: number, status: OnboardingStepStatus) => void;
+  /** If provided, called on success instead of redirecting (e.g. get-started then show plans). */
+  onSuccessRedirect?: () => void;
 };
 
 const SUCCESS_DELAY_MS = 550;
 
 export default function QuestionnaireFlow({
   role,
+  roles: rolesProp,
   reducedMotion: reducedMotionProp,
   onStepStatusChange,
+  onSuccessRedirect,
 }: Props) {
   const router = useRouter();
   const systemReduced = useSafeReducedMotion();
@@ -94,6 +99,7 @@ export default function QuestionnaireFlow({
         body: JSON.stringify({
           version: "1.5",
           role,
+          roles: Array.isArray(rolesProp) && rolesProp.length > 0 ? rolesProp : [role],
           answers,
           driver_mode: driver_mode ?? null,
         }),
@@ -102,14 +108,25 @@ export default function QuestionnaireFlow({
 
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; role?: string };
 
+      if (res.status === 401) {
+        emit("error");
+        setSubmitting(false);
+        router.replace("/signup?next=" + encodeURIComponent("/get-started"));
+        return;
+      }
+
       if (res.ok && data.ok) {
         logEvent("onboarding_submit_success", { role, stepCount: questions.length });
         setSuccess(true);
         emit("success");
-        const dest = getDestinationForRole(role, driver_mode);
         if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
         navTimeoutRef.current = setTimeout(() => {
-          router.replace(dest);
+          if (onSuccessRedirect) {
+            onSuccessRedirect();
+          } else {
+            const dest = getDestinationForRole(role, driver_mode);
+            router.replace(dest);
+          }
         }, SUCCESS_DELAY_MS);
       } else {
         emit("error");
@@ -143,7 +160,7 @@ export default function QuestionnaireFlow({
     } finally {
       setSubmitting(false);
     }
-  }, [submitting, role, answers, questions.length, router, emit]);
+  }, [submitting, role, rolesProp, answers, questions.length, router, emit, onSuccessRedirect]);
 
   const handleNext = useCallback(() => {
     if (!canProceed || submitting) return;
