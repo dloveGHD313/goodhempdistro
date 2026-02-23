@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { hasRole } from "@/lib/roles";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -41,7 +42,7 @@ export default function AdminPage() {
 
         setProfile(profileData);
 
-        if (profileData?.role === "admin") {
+        if (hasRole(profileData ?? undefined, "admin")) {
           // Load packages
           const { data: vp } = await supabase.from("vendor_packages").select("*");
           const { data: cp } = await supabase.from("consumer_packages").select("*");

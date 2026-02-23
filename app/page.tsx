@@ -1,11 +1,12 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { hasRole } from "@/lib/roles";
 
 /**
  * Root routing (CEO vision):
  * - Not authenticated → /welcome
  * - Authenticated, onboarding not completed → /get-started
- * - Authenticated, onboarding completed → /newsfeed (feed)
+ * - Authenticated, onboarding completed (or admin) → /newsfeed (feed)
  */
 export default async function HomePage() {
   const supabase = await createSupabaseServerClient();
@@ -17,11 +18,11 @@ export default async function HomePage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("onboarding_completed_at, role")
+    .select("onboarding_completed_at, role, roles")
     .eq("id", user.id)
     .maybeSingle();
 
-  const completed = !!profile?.onboarding_completed_at || profile?.role === "admin";
+  const completed = !!profile?.onboarding_completed_at || hasRole(profile ?? undefined, "admin");
 
   if (completed) {
     redirect("/newsfeed");

@@ -1,5 +1,6 @@
 import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { hasRole } from "@/lib/roles";
 
 /**
  * Phase 1.5: Require post-auth questionnaire completion.
@@ -11,11 +12,11 @@ export async function requirePhase15Complete(userId: string | null): Promise<str
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase
     .from("profiles")
-    .select("onboarding_completed_at, role")
+    .select("onboarding_completed_at, role, roles")
     .eq("id", userId)
     .maybeSingle();
 
-  if (data?.role === "admin") return null;
+  if (hasRole(data ?? undefined, "admin")) return null;
   if (data?.onboarding_completed_at) return null;
   return "/onboarding";
 }

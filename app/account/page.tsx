@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { hasRole } from "@/lib/roles";
 import type { Metadata } from "next";
 import { type PostAuthorRole, type PostAuthorTier } from "@/lib/postPriority";
 import { getBadgeForContext, isVerifiedVendor } from "@/lib/badges";
@@ -28,7 +29,7 @@ export default async function AccountPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, display_name, email, avatar_url")
+    .select("role, roles, display_name, email, avatar_url")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -45,7 +46,7 @@ export default async function AccountPage() {
     .maybeSingle();
 
   let authorRole: PostAuthorRole = "consumer";
-  if (profile?.role === "admin") {
+  if (hasRole(profile ?? undefined, "admin")) {
     authorRole = "admin";
   } else if (vendor?.id) {
     authorRole = "vendor";

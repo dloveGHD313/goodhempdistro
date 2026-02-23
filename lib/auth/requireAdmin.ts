@@ -1,10 +1,11 @@
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { hasRole } from "@/lib/roles";
 
 export type RequireAdminResult = {
   user: { id: string; email?: string } | null;
   isAdmin: boolean;
   reason: string;
-  profile: { id: string; role?: string | null; is_admin?: boolean | null } | null;
+  profile: { id: string; role?: string | null; roles?: string[] | null; is_admin?: boolean | null } | null;
 };
 
 const normalizeEmail = (email: string | undefined | null) =>
@@ -42,8 +43,8 @@ const isAdminByAllowlist = (email: string | undefined | null): { ok: boolean; re
   return { ok: false, reason: "allowlist_no_match" };
 };
 
-const isAdminByProfile = (profile: { role?: string | null; is_admin?: boolean | null } | null) => {
-  return profile?.is_admin === true || profile?.role === "admin";
+const isAdminByProfile = (profile: { role?: string | null; roles?: string[] | null; is_admin?: boolean | null } | null) => {
+  return profile?.is_admin === true || hasRole(profile ?? undefined, "admin");
 };
 
 export async function requireAdmin(): Promise<RequireAdminResult> {
@@ -69,10 +70,10 @@ export async function requireAdmin(): Promise<RequireAdminResult> {
       .maybeSingle();
   };
 
-  const primary = await attemptProfileSelect("id, role, is_admin");
+  const primary = await attemptProfileSelect("id, role, roles, is_admin");
   if (primary.error) {
     if (/column .* does not exist/i.test(primary.error.message || "")) {
-      const fallback = await attemptProfileSelect("id, role");
+      const fallback = await attemptProfileSelect("id, role, roles");
       if (fallback.error) {
         console.error("[requireAdmin] profile_fetch_error", {
           code: fallback.error.code,

@@ -1,5 +1,6 @@
 import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { hasRole } from "@/lib/roles";
 
 type GateOk = { ok: true };
 type GateError = {
@@ -51,11 +52,11 @@ export async function requireGatedAccess(
   const supabase = await createSupabaseServerClient();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, age_verified, id_verification_status")
+    .select("role, roles, age_verified, id_verification_status")
     .eq("id", userId)
     .maybeSingle();
 
-  if (profile?.role === "admin") {
+  if (hasRole(profile ?? undefined, "admin")) {
     return { ok: true };
   }
 
