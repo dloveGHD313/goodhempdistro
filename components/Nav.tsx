@@ -250,6 +250,8 @@ export default function Nav() {
 
   const accountLinks = [
     { label: "Account Overview", href: "/account" },
+    ...dashboardLinks,
+    ...(isLoggedIn ? [{ label: "Go to Feed", href: "/newsfeed" }] : []),
     { label: "Favorites", href: "/account/favorites" },
     ...(consumerStatus.isSubscribed || consumerStatus.isAdmin
       ? [{ label: "Rewards", href: "/account/subscription" }]
@@ -260,12 +262,14 @@ export default function Nav() {
     ...(isLoggedIn && !isAffiliate ? [{ label: "Become an Affiliate", href: "/affiliate" }] : []),
   ];
 
+  const navPrimaryLinks = isLoggedIn ? primaryLinks.filter((l) => l.href !== "/welcome") : primaryLinks;
+
   if (shouldHideNav(pathname)) return null;
 
   return (
-    <nav aria-label="Main Navigation" className="flex items-center justify-between w-full">
+    <nav aria-label="Main Navigation" className="flex items-center justify-between w-full gap-4">
       {/* Logo/Brand - Visible on all sizes */}
-      <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition">
+      <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition shrink-0">
         <BrandLogo size={44} className="hidden sm:block" />
         <BrandLogo size={36} className="sm:hidden" />
         <span className="font-bold text-xs sm:text-sm brand-title">
@@ -273,9 +277,9 @@ export default function Nav() {
         </span>
       </Link>
 
-      {/* Desktop nav - hidden on mobile */}
-      <div className="hidden lg:flex items-center gap-6">
-        {primaryLinks.map((link) => (
+      {/* Desktop nav - hidden on mobile; Welcome excluded when logged in */}
+      <div className="hidden lg:flex items-center gap-6 min-w-0 flex-1 justify-center">
+        {navPrimaryLinks.map((link) => (
           <HoverLift key={link.href} as="span">
             <Link href={link.href} className="nav-link text-sm">
               {link.label}
@@ -422,38 +426,11 @@ export default function Nav() {
         </button>
       </div>
 
-      {/* Desktop: CTA — flex-wrap and gap to prevent overlap; Logout is inside Account dropdown */}
-      <div className="hidden lg:flex items-center flex-wrap gap-2 min-w-0 justify-end">
-        {secondaryCta && (
-          <HoverLift as="span" className="shrink-0">
-            <Link href={secondaryCta.href} className="btn-ghost text-sm py-2 px-4">
-              {secondaryCta.label}
-            </Link>
-          </HoverLift>
-        )}
-        {useDashboardDropdown ? (
-          <div className="relative group shrink-0">
-            <button type="button" className="btn-primary text-sm py-2 px-4 flex items-center gap-1">
-              Dashboard <span className="text-xs">▼</span>
-            </button>
-            <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[180px]">
-              {dashboardLinks.map((link) => (
-                <HoverLift key={link.href} as="span">
-                  <Link href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
-                    {link.label}
-                  </Link>
-                </HoverLift>
-              ))}
-              <HoverLift as="span">
-                <Link href="/newsfeed" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm border-t border-[var(--border)]">
-                  Go to Feed
-                </Link>
-              </HoverLift>
-            </div>
-          </div>
-        ) : (
-          <HoverLift as="span" className="shrink-0">
-            <Link href={primaryCta.href} className="btn-primary text-sm py-2 px-4">
+      {/* Desktop right: when logged out, Join Free with spacing; when logged in, dashboard/CTA live in Account dropdown */}
+      <div className="hidden lg:flex items-center gap-3 shrink-0 ml-2">
+        {isLoggedIn ? null : (
+          <HoverLift as="span">
+            <Link href={primaryCta.href} className="btn-primary text-sm py-2 px-4 whitespace-nowrap">
               {primaryCta.label}
             </Link>
           </HoverLift>
@@ -508,7 +485,7 @@ export default function Nav() {
               )}
 
               <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Primary</div>
-              {primaryLinks.map((link) => (
+              {navPrimaryLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}

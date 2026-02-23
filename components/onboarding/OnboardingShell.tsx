@@ -46,26 +46,33 @@ function OnboardingShellWithMotion({ role, roles, flatQuestions, onSuccessRedire
 
   return (
     <div className="relative">
-      <JaxOnboardingGuide
-        stepIndex={stepStatus.stepIndex}
-        totalSteps={stepStatus.totalSteps}
-        status={stepStatus.status}
-        reducedMotion={reducedMotion}
-        position="top-left"
-        showWatermark
-      />
       <motion.div
         initial={reducedMotion ? undefined : { opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: reducedMotion ? 0.1 : 0.5, ease: [0.22, 1, 0.36, 1] }}
-        className="relative z-10 pt-20 md:pt-24 space-y-6"
+        className="relative z-10 space-y-6 max-w-2xl mx-auto px-4"
       >
-        <h1 className="text-2xl md:text-3xl font-bold text-accent mb-2 text-center max-w-2xl mx-auto">
-          Let&apos;s tailor your experience
-        </h1>
-        <p className="text-muted text-center mb-8">
-          Answer a few quick questions — no typing.
-        </p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-4">
+          <div className="shrink-0">
+            <JaxOnboardingGuide
+              stepIndex={stepStatus.stepIndex}
+              totalSteps={stepStatus.totalSteps}
+              status={stepStatus.status}
+              reducedMotion={reducedMotion}
+              position="top-left"
+              showWatermark
+              inline
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-2xl md:text-3xl font-bold text-accent mb-2 text-left">
+              Let&apos;s tailor your experience
+            </h1>
+            <p className="text-muted text-left mb-8">
+              Answer a few quick questions — no typing.
+            </p>
+          </div>
+        </div>
         <QuestionnaireFlow
           role={role}
           roles={roles}
