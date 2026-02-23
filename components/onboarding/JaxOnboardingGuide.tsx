@@ -15,6 +15,8 @@ type Props = {
   reducedMotion?: boolean;
   position?: JaxGuidePosition;
   showWatermark?: boolean;
+  /** When true, render in-flow (relative) for alignment inside onboarding card header; otherwise fixed to viewport. */
+  inline?: boolean;
 };
 
 const STEP_MESSAGES: Record<number, string> = {
@@ -43,6 +45,7 @@ export default function JaxOnboardingGuide({
   reducedMotion,
   position = JAX_GUIDE_POSITION,
   showWatermark = true,
+  inline = false,
 }: Props) {
   const message = getMessage(stepIndex, totalSteps, status);
   const isRight = position === "top-right";
@@ -67,14 +70,18 @@ export default function JaxOnboardingGuide({
         </div>
       )}
 
-      {/* Guide: fixed to viewport so it does not bounce with questionnaire animation */}
+      {/* Guide: inline = in-flow for card header; otherwise fixed to viewport */}
       <motion.div
         initial={reducedMotion ? { opacity: 0 } : { opacity: 0, x: isRight ? 12 : -12 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: reducedMotion ? 0.15 : 0.3, ease: [0.22, 1, 0.36, 1] }}
-        className={`fixed top-4 z-50 flex max-w-[min(280px,calc(100vw-2rem))] ${
-          isRight ? "right-4 flex-row-reverse" : "left-4"
-        }`}
+        className={
+          inline
+            ? `flex max-w-[min(280px,calc(100vw-2rem))] ${isRight ? "flex-row-reverse" : ""}`
+            : `fixed top-4 z-50 flex max-w-[min(280px,calc(100vw-2rem))] ${
+                isRight ? "right-4 flex-row-reverse" : "left-4"
+              }`
+        }
         role="complementary"
         aria-live="polite"
         aria-label="Onboarding guidance"

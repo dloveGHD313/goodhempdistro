@@ -1,11 +1,13 @@
 import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { hasRole } from "@/lib/roles";
 
 type GateResult = { allow: true } | { redirectTo: string };
 
 type ProfileRow = {
   id: string;
   role: string | null;
+  roles: string[] | null;
   vendor_status: string | null;
   consumer_onboarding_completed: boolean | null;
 };
@@ -33,7 +35,7 @@ const logDev = (message: string, detail?: Record<string, unknown>) => {
 async function loadProfile(supabase: SupabaseClient, userId: string) {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, role, consumer_onboarding_completed, vendor_status")
+    .select("id, role, roles, consumer_onboarding_completed, vendor_status")
     .eq("id", userId)
     .maybeSingle();
 
@@ -73,8 +75,7 @@ export async function requireConsumerOnboarding(userId: string | null): Promise<
   }
 
   const profile = await loadProfile(supabase, userId);
-  const isAdmin = profile?.role === "admin";
-  if (isAdmin) {
+  if (hasRole(profile ?? undefined, "admin")) {
     return { allow: true };
   }
 
@@ -96,8 +97,7 @@ export async function requireVendorOnboarding(userId: string | null): Promise<Ga
   }
 
   const profile = await loadProfile(supabase, userId);
-  const isAdmin = profile?.role === "admin";
-  if (isAdmin) {
+  if (hasRole(profile ?? undefined, "admin")) {
     return { allow: true };
   }
 

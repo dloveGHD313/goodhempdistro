@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { hasRole } from "@/lib/roles";
 import { isAdminEmail } from "@/lib/admin";
 import { isConsumerSubscriptionActive } from "@/lib/consumer-access";
 import { getPostPriorityRank, type PostAuthorRole, type PostAuthorTier } from "@/lib/postPriority";
@@ -407,11 +408,11 @@ export async function POST(req: NextRequest) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, role, display_name, username, avatar_url")
+    .select("id, role, roles, display_name, username, avatar_url")
     .eq("id", user.id)
     .maybeSingle();
 
-  const isAdmin = profile?.role === "admin" || isAdminEmail(user.email);
+  const isAdmin = hasRole(profile ?? undefined, "admin") || isAdminEmail(user.email);
 
   const { data: vendor } = await supabase
     .from("vendors")

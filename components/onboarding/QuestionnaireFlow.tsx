@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSafeReducedMotion } from "@/lib/useSafeReducedMotion";
 import { getQuestionsForRole } from "@/lib/onboarding/questions";
-import { getDestinationForRole } from "@/lib/onboarding/destination";
+import { getDestinationForRoles } from "@/lib/onboarding/destination";
+import { getConsumerUseType, isConsumerWholesaleChoice } from "@/lib/onboarding/answers";
+import type { Question } from "@/lib/onboarding/questions";
 import { logEvent } from "@/lib/telemetry/client";
 import type { OnboardingRole } from "@/lib/onboarding/role";
 import QuestionnaireCard from "./QuestionnaireCard";
@@ -15,25 +17,40 @@ export type OnboardingStepStatus = "idle" | "submitting" | "error" | "success";
 
 type Props = {
   role: OnboardingRole;
+  roles?: string[];
+  /** When provided, use instead of getQuestionsForRole(role) for multi-role flow. */
+  flatQuestions?: Question[];
+  /** Optional seed answers (e.g. consumer_consumer_use_type when branching from get-started). */
+  initialAnswers?: Record<string, string | string[]>;
   reducedMotion?: boolean;
   onStepStatusChange?: (stepIndex: number, totalSteps: number, status: OnboardingStepStatus) => void;
+  /** If provided, called on success instead of redirecting. */
+  onSuccessRedirect?: () => void;
 };
 
 const SUCCESS_DELAY_MS = 550;
 
 export default function QuestionnaireFlow({
   role,
+  roles: rolesProp,
+  flatQuestions: flatQuestionsProp,
+  initialAnswers: initialAnswersProp,
   reducedMotion: reducedMotionProp,
   onStepStatusChange,
+  onSuccessRedirect,
 }: Props) {
   const router = useRouter();
   const systemReduced = useSafeReducedMotion();
   const reducedMotion = reducedMotionProp ?? systemReduced ?? false;
 
-  const questions = getQuestionsForRole(role);
+  const questions = (flatQuestionsProp && flatQuestionsProp.length > 0)
+    ? flatQuestionsProp
+    : getQuestionsForRole(role);
   const totalSteps = questions.length;
   const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [answers, setAnswers] = useState<Record<string, string | string[]>>(
+    () => (initialAnswersProp && Object.keys(initialAnswersProp).length > 0 ? { ...initialAnswersProp } : {})
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -62,15 +79,33 @@ export default function QuestionnaireFlow({
   }, [step, totalSteps, emit]);
 
   const currentQuestion = questions[step];
-  const selected = currentQuestion ? answers[currentQuestion.id] ?? null : null;
-  const canProceed = selected !== null;
+  const rawSelected = currentQuestion ? answers[currentQuestion.id] ?? null : null;
+  const isMulti = !!currentQuestion?.multiSelect;
+  const selected =
+    rawSelected === null
+      ? null
+      : Array.isArray(rawSelected)
+        ? rawSelected
+        : [rawSelected];
+  const canProceed = isMulti
+    ? Array.isArray(selected) && selected.length > 0
+    : selected !== null && (Array.isArray(selected) ? selected.length === 1 : true);
   const isLast = step === questions.length - 1;
 
   const handleSelect = useCallback(
     (value: string) => {
       if (!currentQuestion || submitting) return;
       setError(null);
-      setAnswers((prev) => ({ ...prev, [currentQuestion.id]: value }));
+      if (currentQuestion.multiSelect) {
+        setAnswers((prev) => {
+          const current = prev[currentQuestion.id];
+          const arr = Array.isArray(current) ? current : current != null ? [current] : [];
+          const next = arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
+          return { ...prev, [currentQuestion.id]: next };
+        });
+      } else {
+        setAnswers((prev) => ({ ...prev, [currentQuestion.id]: value }));
+      }
     },
     [currentQuestion, submitting]
   );
@@ -80,8 +115,10 @@ export default function QuestionnaireFlow({
     if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
     navTimeoutRef.current = null;
 
+    const driver_modeRaw =
+      answers["driver_mode"] ?? answers["driver_driver_mode"];
     const driver_mode =
-      role === "driver" && answers["driver_mode"] ? answers["driver_mode"] : undefined;
+      typeof driver_modeRaw === "string" ? driver_modeRaw : undefined;
 
     emit("submitting");
     setSubmitting(true);
@@ -94,6 +131,7 @@ export default function QuestionnaireFlow({
         body: JSON.stringify({
           version: "1.5",
           role,
+          roles: Array.isArray(rolesProp) && rolesProp.length > 0 ? rolesProp : [role],
           answers,
           driver_mode: driver_mode ?? null,
         }),
@@ -102,14 +140,37 @@ export default function QuestionnaireFlow({
 
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; role?: string };
 
+      if (res.status === 401) {
+        emit("error");
+        setSubmitting(false);
+        router.replace("/signup?next=" + encodeURIComponent("/get-started"));
+        return;
+      }
+
       if (res.ok && data.ok) {
         logEvent("onboarding_submit_success", { role, stepCount: questions.length });
         setSuccess(true);
         emit("success");
-        const dest = getDestinationForRole(role, driver_mode);
         if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
         navTimeoutRef.current = setTimeout(() => {
-          router.replace(dest);
+          if (onSuccessRedirect) {
+            onSuccessRedirect();
+          } else {
+            const rolesForDest =
+              Array.isArray(rolesProp) && rolesProp.length > 0
+                ? [...rolesProp]
+                : [role];
+            const useType = getConsumerUseType(answers);
+            if (
+              isConsumerWholesaleChoice(useType) &&
+              rolesForDest.includes("consumer") &&
+              !rolesForDest.includes("wholesale")
+            ) {
+              rolesForDest.push("wholesale");
+            }
+            const dest = getDestinationForRoles(rolesForDest, answers);
+            router.replace(dest);
+          }
         }, SUCCESS_DELAY_MS);
       } else {
         emit("error");
@@ -143,7 +204,7 @@ export default function QuestionnaireFlow({
     } finally {
       setSubmitting(false);
     }
-  }, [submitting, role, answers, questions.length, router, emit]);
+  }, [submitting, role, rolesProp, answers, questions.length, router, emit, onSuccessRedirect]);
 
   const handleNext = useCallback(() => {
     if (!canProceed || submitting) return;
@@ -209,7 +270,7 @@ export default function QuestionnaireFlow({
         <QuestionnaireCard
           key={currentQuestion.id}
           question={currentQuestion}
-          selected={selected}
+          selected={isMulti ? (Array.isArray(selected) ? selected : []) : (Array.isArray(selected) ? selected[0] ?? null : selected)}
           onSelect={handleSelect}
           stepIndex={step}
           disabled={submitting}

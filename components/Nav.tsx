@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
+import { flushSync } from "react-dom";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { hasRole } from "@/lib/roles";
 import { brand } from "@/lib/brand";
 import BrandLogo from "@/components/BrandLogo";
 import { HoverLift } from "@/components/motion";
@@ -13,6 +15,7 @@ const primaryLinks = [
   { label: "🛍️ Shop", href: "/products" },
   { label: "🧭 Discover", href: "/discover" },
   { label: "🎪 Events", href: "/events" },
+  { label: "📺 Episodes", href: "/learning-with-jax" },
 ];
 
 const communityLinks = [
@@ -21,18 +24,26 @@ const communityLinks = [
   { label: "📝 Blog", href: "/blog" },
 ];
 
-const businessLinksBase = [
+/** Business dropdown: vertical navigation only. No Vendor Dashboard, Vendor Plans, or Affiliate Portal (those live in Account). */
+const businessLinks = [
   { label: "🏪 Vendors", href: "/vendors" },
   { label: "🛠️ Services", href: "/services" },
   { label: "🏢 Wholesale", href: "/wholesale" },
   { label: "🚚 Logistics", href: "/logistics" },
   { label: "🚗 Driver Network", href: "/logistics/apply" },
-  { label: "Affiliate Portal", href: "/affiliate/portal" },
   { label: "🤝 Vendor Registration", href: "/vendor-registration" },
 ];
 
+const HIDE_NAV_PATHS = ["/signup", "/login", "/get-started", "/onboarding"];
+
+function shouldHideNav(pathname: string | null): boolean {
+  if (!pathname) return false;
+  return HIDE_NAV_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
+}
+
 export default function Nav() {
   const router = useRouter();
+  const pathname = usePathname();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -128,6 +139,21 @@ export default function Nav() {
         console.warn("[Nav] affiliate lookup failed", err);
         setIsAffiliate(false);
       }
+
+      try {
+        const profileRes = await fetch("/api/profile", { cache: "no-store" });
+        if (active && profileRes.ok) {
+          const data = (await profileRes.json()) as { profile?: { role?: string; roles?: string[] } };
+          const p = data?.profile;
+          const profile =
+            p && (p.role != null || Array.isArray(p.roles))
+              ? { role: p.role ?? null, roles: p.roles ?? null }
+              : null;
+          if (profile && hasRole(profile, "admin")) setIsAdmin(true);
+        }
+      } catch (err) {
+        console.warn("[Nav] profile fetch failed", err);
+      }
     };
 
     supabase.auth.getUser().then(({ data }) => refreshStatus(data.user ?? null));
@@ -144,6 +170,15 @@ export default function Nav() {
   }, []);
 
   const handleLogout = useCallback(async () => {
+    flushSync(() => {
+      setDrawerOpen(false);
+      setIsLoggedIn(false);
+      setIsAdmin(false);
+      setVendorStatus({ isVendor: false, isSubscribed: false, isAdmin: false });
+      setConsumerStatus({ isSubscribed: false, isAdmin: false });
+      setDriverStatus({ hasAccess: false, isApproved: false });
+      setIsAffiliate(false);
+    });
     const supabase = createSupabaseBrowserClient();
     try {
       await supabase.auth.signOut();
@@ -154,13 +189,6 @@ export default function Nav() {
     } catch {
       // Ignore errors – still redirect
     }
-    setDrawerOpen(false);
-    setIsLoggedIn(false);
-    setVendorStatus({ isVendor: false, isSubscribed: false, isAdmin: false });
-    setConsumerStatus({ isSubscribed: false, isAdmin: false });
-    setIsAdmin(false);
-    setDriverStatus({ hasAccess: false, isApproved: false });
-    setIsAffiliate(false);
     router.replace("/");
     router.refresh();
   }, [router]);
@@ -170,67 +198,47 @@ export default function Nav() {
   const isVendorUser = vendorStatus.isVendor || vendorStatus.isAdmin;
   const isVendorSubscribed = vendorStatus.isSubscribed || vendorStatus.isAdmin;
 
-  const vendorLink = isVendorUser
-    ? { label: "🏪 Vendor Dashboard", href: "/vendors/dashboard" }
-    : { label: "🤝 Vendor Registration", href: "/vendor-registration" };
-
-  const vendorLinks = isVendorUser
-    ? [
-        vendorLink,
-        ...(isVendorSubscribed
-          ? []
-          : [{ label: "💳 Vendor Plans", href: "/pricing?tab=vendor&reason=subscription_required" }]),
-      ]
-    : [vendorLink];
-
   const consumerLink =
     consumerStatus.isSubscribed || consumerStatus.isAdmin
       ? { label: "⭐ My Subscription", href: "/account/subscription" }
       : { label: "⬆️ Upgrade", href: "/pricing?tab=consumer" };
 
-  const primaryCta = isLoggedIn
-    ? isVendorUser
-      ? { label: "Vendor Dashboard", href: "/vendors/dashboard" }
-      : driverStatus.hasAccess
-        ? { label: "Driver Portal", href: "/driver/dashboard" }
-        : isAffiliate
-          ? { label: "Affiliate Portal", href: "/affiliate/portal" }
-          : { label: "Go to Feed", href: "/newsfeed" }
-    : { label: "Join Free", href: "/get-started" };
-
-  const secondaryCta =
-    isLoggedIn && primaryCta.href !== "/newsfeed"
-      ? { label: "Go to Feed", href: "/newsfeed" }
-      : null;
-
-  const affiliateLink = {
-    label: isAffiliate ? "Affiliate Portal" : "Affiliate",
-    href: isAffiliate ? "/affiliate/portal" : "/affiliate",
-  };
-  const businessLinks = [
-    ...businessLinksBase
-      .filter((link) => link.label !== "Affiliate Portal")
-      .concat(affiliateLink)
-      .filter((link) => link.href !== vendorLink.href),
-    ...vendorLinks,
-  ];
-
-  const accountLinks = [
+  const dashboardLinks: { label: string; href: string }[] = [];
+  if (isLoggedIn) {
+    if (isVendorUser) dashboardLinks.push({ label: "Vendor Dashboard", href: "/vendors/dashboard" });
+    if (driverStatus.hasAccess) dashboardLinks.push({ label: "Driver Portal", href: "/driver/dashboard" });
+    if (isAffiliate) dashboardLinks.push({ label: "Affiliate Portal", href: "/affiliate/portal" });
+  }
+  const accountLinksRaw = [
     { label: "Account Overview", href: "/account" },
+    ...dashboardLinks,
+    ...(isLoggedIn ? [{ label: "Go to Feed", href: "/newsfeed" }] : []),
     { label: "Favorites", href: "/account/favorites" },
     ...(consumerStatus.isSubscribed || consumerStatus.isAdmin
       ? [{ label: "Rewards", href: "/account/subscription" }]
       : []),
     ...(showBilling ? [{ label: "Billing", href: "/vendors/billing" }] : []),
     ...(isLoggedIn ? [consumerLink] : []),
-    ...(isAffiliate ? [{ label: "Affiliate Portal", href: "/affiliate/portal" }] : []),
+    ...(isLoggedIn && isVendorUser && !isVendorSubscribed
+      ? [{ label: "Upgrade", href: "/pricing?tab=vendor" }]
+      : []),
     ...(isLoggedIn && !isAffiliate ? [{ label: "Become an Affiliate", href: "/affiliate" }] : []),
   ];
+  const seenHref = new Set<string>();
+  const accountLinks = accountLinksRaw.filter((link) => {
+    if (seenHref.has(link.href)) return false;
+    seenHref.add(link.href);
+    return true;
+  });
+
+  const navPrimaryLinks = isLoggedIn ? primaryLinks.filter((l) => l.href !== "/welcome") : primaryLinks;
+
+  if (shouldHideNav(pathname)) return null;
 
   return (
-    <nav aria-label="Main Navigation" className="flex items-center justify-between w-full">
+    <nav aria-label="Main Navigation" className="flex items-center justify-between w-full gap-4">
       {/* Logo/Brand - Visible on all sizes */}
-      <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition">
+      <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition shrink-0">
         <BrandLogo size={44} className="hidden sm:block" />
         <BrandLogo size={36} className="sm:hidden" />
         <span className="font-bold text-xs sm:text-sm brand-title">
@@ -238,9 +246,9 @@ export default function Nav() {
         </span>
       </Link>
 
-      {/* Desktop nav - hidden on mobile */}
-      <div className="hidden lg:flex items-center gap-6">
-        {primaryLinks.map((link) => (
+      {/* Desktop nav - hidden on mobile; Welcome excluded when logged in */}
+      <div className="hidden lg:flex items-center gap-6 min-w-0 flex-1 justify-center">
+        {navPrimaryLinks.map((link) => (
           <HoverLift key={link.href} as="span">
             <Link href={link.href} className="nav-link text-sm">
               {link.label}
@@ -326,7 +334,7 @@ export default function Nav() {
           </div>
         )}
 
-        {isLoggedIn ? (
+        {isLoggedIn && (
           <div className="relative group">
             <HoverLift as="span">
               <Link href={accountHref} className="nav-link text-sm flex items-center gap-1">
@@ -342,30 +350,41 @@ export default function Nav() {
                   </Link>
                 </HoverLift>
               ))}
+              <div className="border-t border-[var(--border)]">
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="block w-full text-left px-4 py-2 hover:bg-[var(--surface)]/80 text-sm nav-logout"
+                >
+                  Logout
+                </button>
+              </div>
             </div>
           </div>
-        ) : (
-          <HoverLift as="span">
-            <Link href={accountHref} className="nav-link text-sm">
-              Account
-            </Link>
-          </HoverLift>
         )}
       </div>
 
-      {/* Mobile/Tablet: CTA + Account + Menu Hamburger */}
-      <div className="flex items-center gap-2 lg:hidden">
-        <HoverLift as="span">
-          <Link href={primaryCta.href} className="btn-primary text-sm py-2 px-4">
-            {primaryCta.label}
-          </Link>
-        </HoverLift>
-        {isLoggedIn && (
-          <HoverLift as="span">
-            <Link href={accountHref} className="btn-ghost text-sm py-2 px-3">
+      {/* Mobile/Tablet: when logged in only Account + Menu; when logged out Join Free + Sign in + Menu */}
+      <div className="flex items-center gap-3 lg:hidden shrink-0">
+        {isLoggedIn ? (
+          <HoverLift as="span" className="shrink-0">
+            <Link href={accountHref} className="btn-ghost text-sm py-2 px-4 whitespace-nowrap">
               Account
             </Link>
           </HoverLift>
+        ) : (
+          <>
+            <HoverLift as="span" className="shrink-0">
+              <Link href="/get-started" className="btn-primary text-sm py-2 px-4 whitespace-nowrap">
+                Join Free
+              </Link>
+            </HoverLift>
+            <HoverLift as="span" className="shrink-0">
+              <Link href="/login" className="btn-ghost text-sm py-2 px-4 whitespace-nowrap">
+                Sign in
+              </Link>
+            </HoverLift>
+          </>
         )}
         <button
           type="button"
@@ -378,29 +397,22 @@ export default function Nav() {
         </button>
       </div>
 
-      {/* Desktop: CTA / Logout */}
-      <div className="hidden lg:flex items-center gap-4">
-        {isLoggedIn && (
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="text-sm hover:opacity-80 transition nav-logout"
-          >
-            Logout
-          </button>
+      {/* Desktop right: when logged out, Join Free + Sign in with gap; when logged in, single Account only (no extra CTA) */}
+      <div className="hidden lg:flex items-center gap-4 shrink-0 ml-2">
+        {isLoggedIn ? null : (
+          <>
+            <HoverLift as="span" className="shrink-0">
+              <Link href="/get-started" className="btn-primary text-sm py-2 px-4 whitespace-nowrap">
+                Join Free
+              </Link>
+            </HoverLift>
+            <HoverLift as="span" className="shrink-0">
+              <Link href="/login" className="btn-ghost text-sm py-2 px-4 whitespace-nowrap">
+                Sign in
+              </Link>
+            </HoverLift>
+          </>
         )}
-        {secondaryCta && (
-          <HoverLift as="span">
-            <Link href={secondaryCta.href} className="btn-ghost text-sm py-2 px-4">
-              {secondaryCta.label}
-            </Link>
-          </HoverLift>
-        )}
-        <HoverLift as="span">
-          <Link href={primaryCta.href} className="btn-primary text-sm py-2 px-4">
-            {primaryCta.label}
-          </Link>
-        </HoverLift>
       </div>
 
       {/* Mobile drawer - full screen overlay style */}
@@ -432,26 +444,36 @@ export default function Nav() {
 
             {/* Drawer Content */}
             <div className="p-6 flex flex-col gap-2">
-              {/* Prominent CTA in drawer */}
-              <Link
-                href={primaryCta.href}
-                className="btn-primary text-center py-3 mb-3 font-bold"
-                onClick={() => setDrawerOpen(false)}
-              >
-                🚀 {primaryCta.label}
-              </Link>
-              {secondaryCta && (
+              {/* Prominent CTA in drawer: when logged in single Account hub; when logged out Join Free + Sign in */}
+              {isLoggedIn ? (
                 <Link
-                  href={secondaryCta.href}
-                  className="btn-ghost text-center py-2 mb-4 font-semibold"
+                  href="/account"
+                  className="btn-primary text-center py-3 mb-3 font-bold"
                   onClick={() => setDrawerOpen(false)}
                 >
-                  {secondaryCta.label}
+                  Account
                 </Link>
+              ) : (
+                <>
+                  <Link
+                    href="/get-started"
+                    className="btn-primary text-center py-3 mb-3 font-bold"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    Join Free
+                  </Link>
+                  <Link
+                    href="/login"
+                    className="btn-ghost text-center py-2 mb-4 font-semibold"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    Sign in
+                  </Link>
+                </>
               )}
 
               <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Primary</div>
-              {primaryLinks.map((link) => (
+              {navPrimaryLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}

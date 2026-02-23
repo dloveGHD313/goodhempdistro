@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { hasRole } from "@/lib/roles";
 import { extractStoragePath, createSignedUrl } from "@/lib/storageSignedUrls";
 
 /**
@@ -27,11 +28,11 @@ export async function POST(req: NextRequest) {
     // Check if user is admin
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, roles")
       .eq("id", user.id)
       .single();
 
-    const isAdmin = profile?.role === "admin";
+    const isAdmin = hasRole(profile ?? undefined, "admin");
 
     // For private buckets, check ownership unless admin
     if (bucket === "driver-docs" || bucket === "logistics-docs") {

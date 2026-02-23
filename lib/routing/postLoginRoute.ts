@@ -4,8 +4,11 @@
  * Returning users who completed onboarding may go to /dashboard.
  */
 
+import { hasRole } from "@/lib/roles";
+
 export type PostLoginProfile = {
   role?: string | null;
+  roles?: string[] | null;
   onboarding_completed_at?: string | null;
   consumer_onboarding_completed?: boolean | null;
 } | null;
@@ -21,7 +24,7 @@ export function getPostLoginRoute(profile: PostLoginProfile): "/onboarding" | "/
   if (!profile) {
     return "/onboarding";
   }
-  if (profile.role === "admin") {
+  if (hasRole(profile, "admin")) {
     return "/dashboard";
   }
   const phase15Done = !!profile.onboarding_completed_at;

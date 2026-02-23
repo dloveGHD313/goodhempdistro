@@ -1,8 +1,12 @@
-import Link from "next/link";
 import Footer from "@/components/Footer";
+import { createSupabaseServerClient } from "@/lib/supabase";
+import EmptyStateCta from "@/components/EmptyStateCta";
 
-export default function ForumsPage() {
+export default async function ForumsPage() {
   const topics: Array<{ id: number; title: string; description: string }> = [];
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const isLoggedIn = !!user?.id;
 
   return (
     <div className="min-h-screen text-white flex flex-col">
@@ -34,10 +38,11 @@ export default function ForumsPage() {
               </div>
             )}
 
-            <div className="flex gap-3 flex-wrap">
-              <Link href="/login" className="btn-primary">Sign in</Link>
-              <Link href="/get-started" className="btn-secondary">Get Started</Link>
-            </div>
+            <EmptyStateCta
+              isLoggedIn={isLoggedIn}
+              createLabel="Create Topic"
+              createHref={null}
+            />
           </div>
         </section>
       </main>

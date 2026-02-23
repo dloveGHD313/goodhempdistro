@@ -1,8 +1,12 @@
 import Link from "next/link";
 import Footer from "@/components/Footer";
+import { createSupabaseServerClient } from "@/lib/supabase";
 
-export default function WholesalePage() {
+export default async function WholesalePage() {
   const opportunities: Array<{ id: number; title: string; summary: string }> = [];
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const isLoggedIn = !!user?.id;
 
   return (
     <div className="min-h-screen text-white flex flex-col">
@@ -34,10 +38,12 @@ export default function WholesalePage() {
               </div>
             )}
 
-            <div className="flex gap-3 flex-wrap">
-              <Link href="/login" className="btn-primary">Sign in</Link>
-              <Link href="/get-started" className="btn-secondary">Get Started</Link>
-            </div>
+            {!isLoggedIn && (
+              <div className="flex gap-3 flex-wrap">
+                <Link href="/login" className="btn-primary">Sign in</Link>
+                <Link href="/get-started" className="btn-secondary">Get Started</Link>
+              </div>
+            )}
           </div>
         </section>
       </main>

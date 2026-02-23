@@ -374,7 +374,7 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
               Live updates enabled
             </div>
           </div>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-4">
             {authLoading ? null : userId ? (
               <>
                 <HoverLift as="span">
@@ -415,13 +415,13 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
               </>
             ) : (
               <>
-                <HoverLift as="span">
-                  <Link href="/get-started" className="btn-primary">
+                <HoverLift as="span" className="shrink-0">
+                  <Link href="/get-started" className="btn-primary whitespace-nowrap">
                     Join
                   </Link>
                 </HoverLift>
-                <HoverLift as="span">
-                  <Link href="/login" className="btn-secondary">
+                <HoverLift as="span" className="shrink-0">
+                  <Link href="/login" className="btn-secondary whitespace-nowrap">
                     Sign in
                   </Link>
                 </HoverLift>

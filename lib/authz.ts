@@ -1,9 +1,11 @@
 import { createSupabaseServerClient } from "@/lib/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { hasRole } from "@/lib/roles";
 
 export type UserProfile = {
   id: string;
   role: string | null;
+  roles?: string[] | null;
   display_name: string | null;
 };
 
@@ -30,7 +32,7 @@ export async function getCurrentUserProfile(
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("id, role, display_name")
+      .select("id, role, roles, display_name")
       .eq("id", user.id)
       .single();
 
@@ -49,7 +51,7 @@ export async function getCurrentUserProfile(
  * Check if user is an admin
  */
 export function isAdmin(profile: UserProfile | null): boolean {
-  return profile?.role === "admin";
+  return hasRole(profile ?? undefined, "admin");
 }
 
 /**
