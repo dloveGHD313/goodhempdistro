@@ -90,12 +90,6 @@ export default function RootLayout({
                 <Nav />
               </div>
             </header>
-          <header className="topbar">
-            <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between w-full">
-              <Nav />
-            </div>
-          </header>
-          <MotionProvider>
             <PageTransition>
               {children}
             </PageTransition>
