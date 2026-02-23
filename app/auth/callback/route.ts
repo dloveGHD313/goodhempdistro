@@ -85,15 +85,8 @@ export async function GET(req: NextRequest) {
           .eq("id", user.id)
           .maybeSingle();
         if (existing) {
-          await admin
-            .from("profiles")
-            .update({
-              ...(user.email != null && { email: user.email }),
-              ...(displayName != null && { display_name: displayName }),
-              ...(username != null && { username }),
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", user.id);
+          // Do not update existing profiles: preserve user-customized display_name and username.
+          // Old behavior was upsert with ignoreDuplicates (insert-only for new users).
         } else {
           await admin.from("profiles").insert({
             id: user.id,
