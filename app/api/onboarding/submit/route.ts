@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { ALLOWED_ROLES, hasRole } from "@/lib/roles";
+import { getConsumerUseType, isConsumerWholesaleChoice } from "@/lib/onboarding/answers";
 
 type Payload = {
   version?: string;
@@ -90,13 +91,10 @@ export async function POST(req: NextRequest) {
     existingAdmin
       ? normalizeRolesList(["admin", ...baseRoles])
       : baseRoles;
-  // Consumer + Business/Wholesale selection → add wholesale role and route to /wholesale
-  const useType = answers?.consumer_use_type;
-  const isConsumerWholesale =
-    typeof useType === "string" &&
-    (useType.toLowerCase() === "business" || useType.toLowerCase() === "wholesale");
+  // Consumer + Business/Wholesale selection → add wholesale role (prefixed or unprefixed answer key)
+  const useType = getConsumerUseType(answers);
   if (
-    isConsumerWholesale &&
+    isConsumerWholesaleChoice(useType) &&
     rolesToWrite.includes("consumer") &&
     !rolesToWrite.includes("wholesale")
   ) {

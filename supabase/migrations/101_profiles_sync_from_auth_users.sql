@@ -51,13 +51,14 @@ BEGIN
   END IF;
   p_username := TRIM(COALESCE(NEW.raw_user_meta_data->>'username', ''));
 
-  INSERT INTO public.profiles (id, email, display_name, username, role, created_at, updated_at)
+  INSERT INTO public.profiles (id, email, display_name, username, role, market_mode_preference, created_at, updated_at)
   VALUES (
     NEW.id,
     NULLIF(p_email, ''),
     NULLIF(p_display_name, ''),
     NULLIF(p_username, ''),
     'consumer',
+    'CBD_WELLNESS',
     NOW(),
     NOW()
   )
@@ -86,8 +87,9 @@ CREATE TRIGGER on_auth_user_updated
   WHEN (OLD.email IS DISTINCT FROM NEW.email OR OLD.raw_user_meta_data IS DISTINCT FROM NEW.raw_user_meta_data)
   EXECUTE FUNCTION public.handle_auth_user_profile_sync();
 
--- Backfill: upsert existing auth.users into profiles (email, display_name, username)
-INSERT INTO public.profiles (id, email, display_name, username, role, created_at, updated_at)
+-- Backfill: upsert existing auth.users into profiles (email, display_name, username).
+-- Set market_mode_preference explicitly to satisfy profiles_market_mode_check (CBD_WELLNESS | INDUSTRIAL | SERVICES | RECREATIONAL).
+INSERT INTO public.profiles (id, email, display_name, username, role, market_mode_preference, created_at, updated_at)
 SELECT
   au.id,
   au.email,
@@ -97,6 +99,10 @@ SELECT
   ),
   NULLIF(TRIM(au.raw_user_meta_data->>'username'), ''),
   COALESCE(p.role, 'consumer'),
+  CASE
+    WHEN p.market_mode_preference IN ('CBD_WELLNESS', 'INDUSTRIAL', 'SERVICES', 'RECREATIONAL') THEN p.market_mode_preference
+    ELSE 'CBD_WELLNESS'
+  END,
   COALESCE(p.created_at, NOW()),
   NOW()
 FROM auth.users au

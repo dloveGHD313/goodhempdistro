@@ -33,10 +33,10 @@ export default function AdminPage() {
       setUser(data.user);
 
       if (data.user) {
-        // Load profile to check role
+        // Load profile to check admin (role + roles for hasRole)
         const { data: profileData } = await supabase
           .from("profiles")
-          .select("*")
+          .select("id, role, roles")
           .eq("id", data.user.id)
           .single();
 
@@ -78,7 +78,7 @@ export default function AdminPage() {
     );
   }
 
-  if (!user || profile?.role !== "admin") {
+  if (!user || !hasRole(profile ?? undefined, "admin")) {
     return (
       <main className="min-h-screen text-white">
         <div className="max-w-6xl mx-auto px-6 py-16">

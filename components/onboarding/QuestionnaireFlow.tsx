@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useSafeReducedMotion } from "@/lib/useSafeReducedMotion";
 import { getQuestionsForRole } from "@/lib/onboarding/questions";
 import { getDestinationForRole, getDestinationForRoles } from "@/lib/onboarding/destination";
+import { getConsumerUseType, isConsumerWholesaleChoice } from "@/lib/onboarding/answers";
 import type { Question } from "@/lib/onboarding/questions";
 import { logEvent } from "@/lib/telemetry/client";
 import type { OnboardingRole } from "@/lib/onboarding/role";
@@ -154,10 +155,9 @@ export default function QuestionnaireFlow({
               Array.isArray(rolesProp) && rolesProp.length > 0
                 ? [...rolesProp]
                 : [role];
-            const useType = answers?.consumer_use_type;
+            const useType = getConsumerUseType(answers);
             if (
-              typeof useType === "string" &&
-              (useType === "business" || useType === "wholesale") &&
+              isConsumerWholesaleChoice(useType) &&
               rolesForDest.includes("consumer") &&
               !rolesForDest.includes("wholesale")
             ) {
