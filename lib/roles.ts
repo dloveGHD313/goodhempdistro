@@ -1,5 +1,5 @@
 /**
- * Multi-role helpers. Profiles may have roles: consumer, admin, vendor, driver, affiliate, builder, educator, industrial.
+ * Multi-role helpers. Profiles may have roles: consumer, admin, vendor, driver, affiliate, builder, educator, industrial, events.
  */
 
 export const ALLOWED_ROLES = [
@@ -11,6 +11,7 @@ export const ALLOWED_ROLES = [
   "builder",
   "educator",
   "industrial",
+  "events",
 ] as const;
 
 export type ProfileRole = (typeof ALLOWED_ROLES)[number];

@@ -205,24 +205,15 @@ export default function Nav() {
   }
   const useDashboardDropdown = isLoggedIn && dashboardLinks.length > 1;
 
-  const primaryCta = isLoggedIn
-    ? useDashboardDropdown
-      ? { label: "Dashboard", href: dashboardLinks[0].href }
-      : isVendorUser
-        ? { label: "Vendor Dashboard", href: "/vendors/dashboard" }
-        : driverStatus.hasAccess
-          ? { label: "Driver Portal", href: "/driver/dashboard" }
-          : isAffiliate
-            ? { label: "Affiliate Portal", href: "/affiliate/portal" }
-            : { label: "Go to Feed", href: "/newsfeed" }
-    ? isVendorUser
-      ? { label: "Vendor Dashboard", href: "/vendors/dashboard" }
-      : driverStatus.hasAccess
-        ? { label: "Driver Portal", href: "/driver/dashboard" }
-        : isAffiliate
-          ? { label: "Affiliate Portal", href: "/affiliate/portal" }
-          : { label: "Go to Feed", href: "/newsfeed" }
-    : { label: "Join Free", href: "/get-started" };
+  function getPrimaryCta(): { label: string; href: string } {
+    if (!isLoggedIn) return { label: "Join Free", href: "/get-started" };
+    if (useDashboardDropdown && dashboardLinks[0]) return { label: "Dashboard", href: dashboardLinks[0].href };
+    if (isVendorUser) return { label: "Vendor Dashboard", href: "/vendors/dashboard" };
+    if (driverStatus.hasAccess) return { label: "Driver Portal", href: "/driver/dashboard" };
+    if (isAffiliate) return { label: "Affiliate Portal", href: "/affiliate/portal" };
+    return { label: "Go to Feed", href: "/newsfeed" };
+  }
+  const primaryCta = getPrimaryCta();
 
   const secondaryCta =
     isLoggedIn && primaryCta.href !== "/newsfeed" && !useDashboardDropdown
