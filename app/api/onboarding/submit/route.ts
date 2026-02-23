@@ -119,10 +119,24 @@ export async function POST(req: NextRequest) {
       );
     }
   } else {
+    const email = user.email ?? null;
+    const emailPrefix = email ? email.split("@")[0] : "";
+    const displayName =
+      (typeof user.user_metadata?.display_name === "string" && user.user_metadata.display_name.trim()) ||
+      emailPrefix ||
+      null;
+    const username =
+      (typeof user.user_metadata?.username === "string" && user.user_metadata.username.trim()) ||
+      (emailPrefix ? emailPrefix.replace(/[^a-zA-Z0-9_.-]/g, "_").slice(0, 64) || null : null) ||
+      null;
+
     const { error } = await supabase.from("profiles").insert({
       id: user.id,
+      email,
       role: "consumer",
       roles: rolesToWrite,
+      display_name: displayName,
+      username,
       onboarding_answers: payload,
       onboarding_completed_at: now,
       updated_at: now,

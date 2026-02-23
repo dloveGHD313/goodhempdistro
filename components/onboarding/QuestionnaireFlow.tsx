@@ -62,6 +62,7 @@ export default function QuestionnaireFlow({
   const [direction, setDirection] = useState(0);
   const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onStepStatusChangeRef = useRef<Props["onStepStatusChange"]>(onStepStatusChange);
+  const emptyLoggedRef = useRef(false);
   useEffect(() => {
     onStepStatusChangeRef.current = onStepStatusChange;
   }, [onStepStatusChange]);
@@ -265,7 +266,28 @@ export default function QuestionnaireFlow({
     );
   }
 
-  if (!currentQuestion) return null;
+  if (!currentQuestion) {
+    if (typeof window !== "undefined" && totalSteps === 0 && !emptyLoggedRef.current) {
+      emptyLoggedRef.current = true;
+      console.warn("[onboarding] QuestionnaireFlow: empty question set", { role, answersKeys: Object.keys(answers) });
+    }
+    return (
+      <div className="max-w-2xl mx-auto surface-card p-8 space-y-4 text-center">
+        <h2 className="text-xl font-bold text-accent">No questions right now</h2>
+        <p className="text-muted">
+          We couldn&apos;t load the questionnaire for your selection. You can continue to the feed or start over.
+        </p>
+        <div className="flex flex-wrap gap-3 justify-center">
+          <a href="/newsfeed" className="btn-primary">
+            Go to Feed
+          </a>
+          <a href="/get-started" className="btn-secondary">
+            Get started
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

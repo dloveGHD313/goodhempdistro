@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { execFile } from "node:child_process";
+import { execFile, exec } from "node:child_process";
 import { promisify } from "node:util";
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -11,6 +11,7 @@ CallToolRequestSchema
 } from "@modelcontextprotocol/sdk/types.js";
 
 const execFileAsync = promisify(execFile);
+const execAsync = promisify(exec);
 
 const REPO_ROOT = path.normalize(path.resolve(process.cwd()));
 
@@ -139,27 +140,48 @@ return { content: [{ type: "text", text: stdout }] };
 if (name === "npm_run") {
 const script = String(args.script);
 
-// Explicit allowlist of safe scripts
+// Explicit allowlist of safe scripts (verification infrastructure for auth/onboarding fixes)
 const ALLOWED_SCRIPTS = new Set([
-"build",
-"dev",
-"check:mascot-img",
-"check:ui-regressions",
-"test"
+  "build",
+  "dev",
+  "check:mascot-img",
+  "check:ui-regressions",
+  "test",
+  "verify:env",
+  "verify:discovery",
+  "verify:consumer-onboarding",
+  "verify:phase3d",
 ]);
 
 if (!ALLOWED_SCRIPTS.has(script)) {
-throw new Error(`Script "${script}" is not allowed by MCP policy.`);
+  throw new Error(`Script "${script}" is not allowed by MCP policy.`);
 }
 
-const { stdout, stderr } = await execFileAsync("npm", ["run", script], {
-cwd: REPO_ROOT
-});
+// Run via shell so PATH is used (fixes "spawn npm ENOENT" when MCP process has no PATH).
+// Restart MCP server after changing this file if scripts still fail.
+let stdout = "";
+let stderr = "";
+try {
+  const result = await execAsync(`npm run ${script}`, {
+    cwd: REPO_ROOT,
+    shell: true,
+    timeout: 300000,
+  });
+  stdout = result.stdout || "";
+  stderr = result.stderr || "";
+} catch (err) {
+  if (err.code === "ENOENT" || (err.message && err.message.includes("npm"))) {
+    throw new Error(
+      `MCP npm_run: npm not found. Ensure npm is on PATH for the process that runs the MCP server. Restart the MCP server after changing scripts/mcp/goodhemp-mcp.mjs. Original: ${err.message}`
+    );
+  }
+  stdout = err.stdout || "";
+  stderr = err.stderr || "";
+  throw new Error(`MCP npm_run failed (${script}): ${err.message}\nstdout: ${stdout}\nstderr: ${stderr}`);
+}
 
 return {
-content: [
-{ type: "text", text: stdout + (stderr ? "\n" + stderr : "") }
-]
+  content: [{ type: "text", text: stdout + (stderr ? "\n" + stderr : "") }],
 };
 }
 

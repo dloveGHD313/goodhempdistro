@@ -88,12 +88,13 @@ export async function GET(req: NextRequest) {
           .maybeSingle();
 
         if (existing) {
-          // Only fill missing fields to avoid overwriting user-customized profile values (e.g. display_name).
-          const hasEmail = typeof existing.email === "string" && existing.email.trim() !== "";
+          // Email is auth-authoritative and must sync when changed; display_name/username are user-customizable and must not be overwritten (only fill when missing).
           const hasDisplayName = typeof existing.display_name === "string" && existing.display_name.trim() !== "";
           const hasUsername = typeof existing.username === "string" && existing.username.trim() !== "";
+          const existingEmailNorm = typeof existing.email === "string" ? existing.email.trim().toLowerCase() : "";
+          const incomingEmailNorm = incomingEmail ? incomingEmail.trim().toLowerCase() : "";
           const updatePatch: Record<string, string> = {};
-          if (!hasEmail && incomingEmail) updatePatch.email = incomingEmail;
+          if (incomingEmail && existingEmailNorm !== incomingEmailNorm) updatePatch.email = incomingEmail;
           if (!hasDisplayName && incomingDisplayName) updatePatch.display_name = incomingDisplayName;
           if (!hasUsername && incomingUsername) updatePatch.username = incomingUsername;
           if (Object.keys(updatePatch).length > 0) {
