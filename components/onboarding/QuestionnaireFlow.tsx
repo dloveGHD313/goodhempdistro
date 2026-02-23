@@ -43,14 +43,19 @@ export default function QuestionnaireFlow({
   const systemReduced = useSafeReducedMotion();
   const reducedMotion = reducedMotionProp ?? systemReduced ?? false;
 
-  const questions = (flatQuestionsProp && flatQuestionsProp.length > 0)
-    ? flatQuestionsProp
-    : getQuestionsForRole(role);
+  const questions =
+    Array.isArray(flatQuestionsProp) && flatQuestionsProp.length > 0
+      ? flatQuestionsProp
+      : getQuestionsForRole(role);
   const totalSteps = questions.length;
   const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, string | string[]>>(
-    () => (initialAnswersProp && Object.keys(initialAnswersProp).length > 0 ? { ...initialAnswersProp } : {})
-  );
+  const [answers, setAnswers] = useState<Record<string, string | string[]>>(() => {
+    const ia = initialAnswersProp;
+    if (ia != null && typeof ia === "object" && !Array.isArray(ia) && Object.keys(ia).length > 0) {
+      return { ...ia };
+    }
+    return {};
+  });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
