@@ -23,13 +23,13 @@ const communityLinks = [
   { label: "📝 Blog", href: "/blog" },
 ];
 
-const businessLinksBase = [
+/** Business dropdown: vertical navigation only. No Vendor Dashboard, Vendor Plans, or Affiliate Portal (those live in Account). */
+const businessLinks = [
   { label: "🏪 Vendors", href: "/vendors" },
   { label: "🛠️ Services", href: "/services" },
   { label: "🏢 Wholesale", href: "/wholesale" },
   { label: "🚚 Logistics", href: "/logistics" },
   { label: "🚗 Driver Network", href: "/logistics/apply" },
-  { label: "Affiliate Portal", href: "/affiliate/portal" },
   { label: "🤝 Vendor Registration", href: "/vendor-registration" },
 ];
 
@@ -195,19 +195,6 @@ export default function Nav() {
   const isVendorUser = vendorStatus.isVendor || vendorStatus.isAdmin;
   const isVendorSubscribed = vendorStatus.isSubscribed || vendorStatus.isAdmin;
 
-  const vendorLink = isVendorUser
-    ? { label: "🏪 Vendor Dashboard", href: "/vendors/dashboard" }
-    : { label: "🤝 Vendor Registration", href: "/vendor-registration" };
-
-  const vendorLinks = isVendorUser
-    ? [
-        vendorLink,
-        ...(isVendorSubscribed
-          ? []
-          : [{ label: "💳 Vendor Plans", href: "/pricing?tab=vendor&reason=subscription_required" }]),
-      ]
-    : [vendorLink];
-
   const consumerLink =
     consumerStatus.isSubscribed || consumerStatus.isAdmin
       ? { label: "⭐ My Subscription", href: "/account/subscription" }
@@ -236,17 +223,6 @@ export default function Nav() {
       ? { label: "Go to Feed", href: "/newsfeed" }
       : null;
 
-  const affiliateLink = {
-    label: isAffiliate ? "Affiliate Portal" : "Affiliate",
-    href: isAffiliate ? "/affiliate/portal" : "/affiliate",
-  };
-  const businessLinks = [
-    ...businessLinksBase
-      .filter((link) => link.label !== "Affiliate Portal")
-      .concat(affiliateLink)
-      .filter((link) => link.href !== vendorLink.href),
-    ...vendorLinks,
-  ];
 
   const accountLinks = [
     { label: "Account Overview", href: "/account" },
@@ -258,6 +234,9 @@ export default function Nav() {
       : []),
     ...(showBilling ? [{ label: "Billing", href: "/vendors/billing" }] : []),
     ...(isLoggedIn ? [consumerLink] : []),
+    ...(isLoggedIn && isVendorUser && !isVendorSubscribed
+      ? [{ label: "Upgrade", href: "/pricing?tab=vendor" }]
+      : []),
     ...(isLoggedIn && !isAffiliate ? [{ label: "Become an Affiliate", href: "/affiliate" }] : []),
   ];
 
@@ -364,7 +343,7 @@ export default function Nav() {
           </div>
         )}
 
-        {isLoggedIn ? (
+        {isLoggedIn && (
           <div className="relative group">
             <HoverLift as="span">
               <Link href={accountHref} className="nav-link text-sm flex items-center gap-1">
@@ -391,12 +370,6 @@ export default function Nav() {
               </div>
             </div>
           </div>
-        ) : (
-          <HoverLift as="span">
-            <Link href={accountHref} className="nav-link text-sm">
-              Account
-            </Link>
-          </HoverLift>
         )}
       </div>
 
@@ -425,14 +398,21 @@ export default function Nav() {
         </button>
       </div>
 
-      {/* Desktop right: when logged out, Join Free with spacing; when logged in, dashboard/CTA live in Account dropdown */}
-      <div className="hidden lg:flex items-center gap-3 shrink-0 ml-2">
+      {/* Desktop right: when logged out, Join Free + Sign in with gap; when logged in, single Account only (no extra CTA) */}
+      <div className="hidden lg:flex items-center gap-4 shrink-0 ml-2">
         {isLoggedIn ? null : (
-          <HoverLift as="span">
-            <Link href={primaryCta.href} className="btn-primary text-sm py-2 px-4 whitespace-nowrap">
-              {primaryCta.label}
-            </Link>
-          </HoverLift>
+          <>
+            <HoverLift as="span" className="shrink-0">
+              <Link href="/get-started" className="btn-primary text-sm py-2 px-4 whitespace-nowrap">
+                Join Free
+              </Link>
+            </HoverLift>
+            <HoverLift as="span" className="shrink-0">
+              <Link href="/login" className="btn-ghost text-sm py-2 px-4 whitespace-nowrap">
+                Sign in
+              </Link>
+            </HoverLift>
+          </>
         )}
       </div>
 

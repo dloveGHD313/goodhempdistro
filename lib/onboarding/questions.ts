@@ -67,7 +67,60 @@ const VENDOR_QUESTIONS: QuestionSet = [
   },
 ];
 
+/** Consumer: personal vs business (wholesale). When "business" we add wholesale role and route to /wholesale. */
+const CONSUMER_USE_TYPE_QUESTION: Question = {
+  id: "consumer_use_type",
+  prompt: "Are you purchasing for personal use or for a business?",
+  options: [
+    { value: "personal", label: "Personal / Retail" },
+    { value: "business", label: "Business / Wholesale" },
+  ],
+};
+
+/** Business/wholesale follow-up (stored in onboarding_answers). N/A for personal users. */
+const CONSUMER_WHOLESALE_QUESTIONS_INLINE: QuestionSet = [
+  {
+    id: "wholesale_business_type",
+    prompt: "What type of business? (or N/A for personal)",
+    multiSelect: true,
+    options: [
+      { value: "na", label: "N/A – personal use" },
+      { value: "hotel", label: "Hotel" },
+      { value: "apartment", label: "Apartment / Multifamily" },
+      { value: "retail", label: "Retail store" },
+      { value: "restaurant", label: "Restaurant" },
+      { value: "distributor", label: "Distributor" },
+      { value: "other", label: "Other" },
+    ],
+  },
+  {
+    id: "wholesale_company_size",
+    prompt: "Company size?",
+    options: [
+      { value: "na", label: "N/A" },
+      { value: "1-5", label: "1–5" },
+      { value: "6-25", label: "6–25" },
+      { value: "26-100", label: "26–100" },
+      { value: "100+", label: "100+" },
+    ],
+  },
+  {
+    id: "wholesale_products",
+    prompt: "What products are you sourcing?",
+    multiSelect: true,
+    options: [
+      { value: "cbd", label: "CBD / wellness" },
+      { value: "building", label: "Hemp building" },
+      { value: "food", label: "Food & beverage" },
+      { value: "textiles", label: "Textiles" },
+      { value: "other", label: "Other" },
+    ],
+  },
+];
+
 const CONSUMER_QUESTIONS: QuestionSet = [
+  CONSUMER_USE_TYPE_QUESTION,
+  ...CONSUMER_WHOLESALE_QUESTIONS_INLINE,
   {
     id: "consumer_interest",
     prompt: "What interests you?",

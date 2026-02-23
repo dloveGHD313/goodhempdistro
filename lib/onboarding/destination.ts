@@ -75,5 +75,6 @@ export function getDestinationForRoles(
   if (set.has("builder")) return "/services";
   if (set.has("educator")) return "/learning-with-jax";
   if (set.has("industrial")) return "/discover";
+  if (set.has("wholesale")) return "/wholesale";
   return "/newsfeed";
 }

@@ -12,6 +12,7 @@ export const ALLOWED_ROLES = [
   "educator",
   "industrial",
   "events",
+  "wholesale",
 ] as const;
 
 export type ProfileRole = (typeof ALLOWED_ROLES)[number];

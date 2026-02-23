@@ -150,9 +150,22 @@ export default function QuestionnaireFlow({
           if (onSuccessRedirect) {
             onSuccessRedirect();
           } else {
-            const dest =
+            const rolesForDest =
               Array.isArray(rolesProp) && rolesProp.length > 0
-                ? getDestinationForRoles(rolesProp, answers)
+                ? [...rolesProp]
+                : [role];
+            const useType = answers?.consumer_use_type;
+            if (
+              typeof useType === "string" &&
+              (useType === "business" || useType === "wholesale") &&
+              rolesForDest.includes("consumer") &&
+              !rolesForDest.includes("wholesale")
+            ) {
+              rolesForDest.push("wholesale");
+            }
+            const dest =
+              rolesForDest.length > 0
+                ? getDestinationForRoles(rolesForDest, answers)
                 : getDestinationForRole(role, driver_mode);
             router.replace(dest);
           }

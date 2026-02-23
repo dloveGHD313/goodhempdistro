@@ -86,10 +86,22 @@ export async function POST(req: NextRequest) {
   }
 
   const existingAdmin = existingProfile ? hasRole(existingProfile, "admin") : false;
-  const rolesToWrite =
+  let rolesToWrite =
     existingAdmin
       ? normalizeRolesList(["admin", ...baseRoles])
       : baseRoles;
+  // Consumer + Business/Wholesale selection → add wholesale role and route to /wholesale
+  const useType = answers?.consumer_use_type;
+  const isConsumerWholesale =
+    typeof useType === "string" &&
+    (useType.toLowerCase() === "business" || useType.toLowerCase() === "wholesale");
+  if (
+    isConsumerWholesale &&
+    rolesToWrite.includes("consumer") &&
+    !rolesToWrite.includes("wholesale")
+  ) {
+    rolesToWrite = normalizeRolesList([...rolesToWrite, "wholesale"]);
+  }
 
   if (existingProfile?.id) {
     const { error } = await supabase
