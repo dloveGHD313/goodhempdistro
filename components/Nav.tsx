@@ -215,6 +215,13 @@ export default function Nav() {
           : isAffiliate
             ? { label: "Affiliate Portal", href: "/affiliate/portal" }
             : { label: "Go to Feed", href: "/newsfeed" }
+    ? isVendorUser
+      ? { label: "Vendor Dashboard", href: "/vendors/dashboard" }
+      : driverStatus.hasAccess
+        ? { label: "Driver Portal", href: "/driver/dashboard" }
+        : isAffiliate
+          ? { label: "Affiliate Portal", href: "/affiliate/portal" }
+          : { label: "Go to Feed", href: "/newsfeed" }
     : { label: "Join Free", href: "/get-started" };
 
   const secondaryCta =
