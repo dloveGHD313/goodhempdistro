@@ -73,17 +73,32 @@ export async function requireAdmin(): Promise<RequireAdminResult> {
   const primary = await attemptProfileSelect("id, role, roles, is_admin");
   if (primary.error) {
     if (/column .* does not exist/i.test(primary.error.message || "")) {
-      const fallback = await attemptProfileSelect("id, role, roles");
-      if (fallback.error) {
+      const fallbackWithRoles = await attemptProfileSelect("id, role, roles");
+      if (fallbackWithRoles.error && /column .* does not exist/i.test(fallbackWithRoles.error.message || "")) {
+        const fallbackLegacy = await attemptProfileSelect("id, role");
+        if (fallbackLegacy.error) {
+          console.error("[requireAdmin] profile_fetch_error", {
+            code: fallbackLegacy.error.code,
+            message: fallbackLegacy.error.message,
+            details: fallbackLegacy.error.details,
+            hint: fallbackLegacy.error.hint,
+          });
+          profileReason = "profile_fetch_error";
+        } else {
+          const fallbackData = (fallbackLegacy.data as RequireAdminResult["profile"]) || null;
+          profile = fallbackData;
+          profileReason = profile ? "profile_loaded_legacy_no_roles_column" : "profile_missing";
+        }
+      } else if (fallbackWithRoles.error) {
         console.error("[requireAdmin] profile_fetch_error", {
-          code: fallback.error.code,
-          message: fallback.error.message,
-          details: fallback.error.details,
-          hint: fallback.error.hint,
+          code: fallbackWithRoles.error.code,
+          message: fallbackWithRoles.error.message,
+          details: fallbackWithRoles.error.details,
+          hint: fallbackWithRoles.error.hint,
         });
         profileReason = "profile_fetch_error";
       } else {
-        const fallbackData = (fallback.data as RequireAdminResult["profile"]) || null;
+        const fallbackData = (fallbackWithRoles.data as RequireAdminResult["profile"]) || null;
         profile = fallbackData;
         profileReason = profile ? "profile_loaded_without_is_admin" : "profile_missing";
       }
