@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     const safeName = filename.replace(SANITIZE_FILENAME, "_").slice(0, 200) || "file";
     const path = `${user.id}/${Date.now()}-${safeName}`;
 
-    const result = await createSignedUploadUrl(BUCKET, path, 600);
+    const result = await createSignedUploadUrl(BUCKET, path);
     if (!result) {
       return NextResponse.json(
         { error: "Failed to create upload URL" },

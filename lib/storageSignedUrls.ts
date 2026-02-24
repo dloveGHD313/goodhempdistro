@@ -91,14 +91,14 @@ const SANITIZE_FILENAME = /[^a-zA-Z0-9._-]/g;
 /**
  * Create a signed upload URL for storage (server-only).
  * Client should PUT the file to signedUrl with Content-Type header.
+ * Note: Supabase storage-js createSignedUploadUrl does not support configurable expiry; URL lifetime is server-defined.
+ *
  * @param bucket - Storage bucket name
  * @param path - Object path within bucket (e.g. userId/timestamp-filename.pdf)
- * @param expiresInSeconds - URL expiration (default 600)
  */
 export async function createSignedUploadUrl(
   bucket: string,
-  path: string,
-  _expiresInSeconds: number = 600
+  path: string
 ): Promise<{ signedUrl: string; path: string } | null> {
   try {
     const admin = getSupabaseAdminClient();
