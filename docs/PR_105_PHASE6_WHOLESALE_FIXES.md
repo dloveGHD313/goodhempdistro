@@ -37,11 +37,14 @@ This PR fixes all five issues flagged in the Phase 6 wholesale PR review so the 
 **Issue 8 (MED):** When `application.status === "approved"` but the user's profile lacked the wholesale role (`hasWholesaleAccess` false), the `isLoggedIn && !hasWholesaleAccess` block rendered but none of the sub-conditions (pending, rejected, !application) matched, producing an empty card-glass div with no text or actions. Edge case can occur from pre-existing data or if role grant failed before the atomic-approval fix.  
 **Fix 8:** Added an explicit sub-case for `application?.status === "approved"` inside the non-wholesale block: show "Your application has been approved. Your account access is being set up — please refresh in a moment or contact support if this persists." No apply/re-apply button. Order of conditionals: pending → approved → rejected → !application.
 
+**RLS USING revert (MED):** The user UPDATE policy's USING clause only checked ownership (`user_id = auth.uid()`), so a user could target an approved row via direct Supabase REST and revert it to pending/rejected — bypassing the app-layer guard and creating inconsistent state (profile keeps wholesale role, application shows pending).  
+**Fix:** USING clause now includes `AND status IN ('pending', 'rejected')` so approved rows are not targetable at all. Admin UPDATE policy unchanged. Submit route L44–49: guard `existing?.status === 'approved'` already present before UPDATE; 0-row check after UPDATE already present — no API change (defense-in-depth confirmed).
+
 ---
 
 ## Files changed (exact paths)
 
-- `supabase/migrations/103_wholesale_applications.sql` — add user UPDATE policy
+- `supabase/migrations/103_wholesale_applications.sql` — add user UPDATE policy; tighten user UPDATE USING to status IN ('pending','rejected')
 - `app/api/wholesale/applications/submit/route.ts` — check update row count, return 403 when 0 rows
 - `app/api/admin/wholesale/applications/[id]/route.ts` — atomic approval (role grant first), return 500 on role grant failure
 - `app/dashboard/admin/wholesale/WholesaleAdminClient.tsx` — surface `data.detail` in error message
@@ -61,7 +64,7 @@ This PR fixes all five issues flagged in the Phase 6 wholesale PR review so the 
 | `npm run build`           | **PASS** (0 errors) |
 | `npm run verify:discovery`| **PASS** (DISCOVERY_BASE_URL not set, skip live checks) |
 | `npm run verify:consumer-onboarding` | **SKIP** (env: SUPABASE_URL / NEXT_PUBLIC_SUPABASE_URL not set in run environment) |
-| `npm run verify:phase3d`  | **NOT RUN TO COMPLETION** in this session (invokes build; build passed separately) |
+| `npm run verify:phase3d`  | **FAIL** (lock contention on `.next/lock` when run; standalone `npm run build` **PASS**) |
 
 ---
 
@@ -87,3 +90,4 @@ This PR fixes all five issues flagged in the Phase 6 wholesale PR review so the 
 - `npm run build` passes with 0 errors.
 - No new console.error-only error handling in wholesale routes; failures return proper HTTP status and body.
 - No empty card-glass div for any application status; approved-but-no-role users see explicit setup/sync message with no misleading buttons (Issue 8).
+- RLS USING restricts user UPDATE to rows with status IN ('pending','rejected'); approved rows cannot be targeted via direct REST (revert fix).

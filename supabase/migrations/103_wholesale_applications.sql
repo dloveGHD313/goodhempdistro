@@ -59,7 +59,10 @@ CREATE POLICY "wholesale_applications: user select own" ON public.wholesale_appl
 DROP POLICY IF EXISTS "wholesale_applications: user update own" ON public.wholesale_applications;
 CREATE POLICY "wholesale_applications: user update own" ON public.wholesale_applications
   FOR UPDATE TO authenticated
-  USING (user_id = auth.uid())
+  USING (
+    user_id = auth.uid()
+    AND status IN ('pending', 'rejected')
+  )
   WITH CHECK (
     user_id = auth.uid()
     AND status IN ('pending', 'rejected')
