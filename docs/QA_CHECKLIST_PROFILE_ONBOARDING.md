@@ -37,3 +37,8 @@ Use this after deploying the auth/profile and onboarding fixes.
 
 - If the MCP server is restarted and uses the updated `scripts/mcp/goodhemp-mcp.mjs`, run via MCP: `npm run verify:discovery`, `npm run verify:consumer-onboarding`, `npm run verify:phase3d`, `npm run build`. All should report success.
 - If Cursor still reports “Script not allowed by MCP policy,” the block may be in Cursor’s MCP configuration rather than the repo; run the same scripts in a terminal and document that verification was done via terminal.
+
+## CursorBot follow-up fixes (this PR)
+
+- **Profile derivation**: All profile field derivation (email, display_name, username from auth user) is centralized in `lib/profile-utils.ts` (`deriveProfileFieldsFromUser`). Used by auth callback, onboarding submit, and age/verify so logic stays consistent and fixes apply in one place.
+- **MCP npm errors**: Only ENOENT or "npm not found" messages are classified as "npm not found"; real script failures (e.g. build/test failure) now report "Script failed" with stdout/stderr instead of the misleading "npm not found" message.

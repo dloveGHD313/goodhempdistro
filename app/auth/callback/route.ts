@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getPostLoginRoute, type PostLoginProfile } from "@/lib/routing/postLoginRoute";
 import { getDefaultRouteForUser, isSafeNextPath, isValidWorkoutPath, type WorkoutPath } from "@/lib/phase2-workout-flow";
+import { deriveProfileFieldsFromUser } from "@/lib/profile-utils";
 
 /**
  * Handle Supabase auth callback
@@ -72,14 +73,8 @@ export async function GET(req: NextRequest) {
 
     if (admin && user?.id) {
       try {
-        const emailPrefix = user.email ? user.email.split("@")[0] : "";
-        const incomingEmail = user.email ?? null;
-        const incomingDisplayName =
-          user.user_metadata?.display_name?.trim()
-          || (emailPrefix || null)
-          || null;
-        const sanitizedPrefix = emailPrefix ? emailPrefix.replace(/[^a-zA-Z0-9_.-]/g, "_").slice(0, 64) || null : null;
-        const incomingUsername = user.user_metadata?.username?.trim() || sanitizedPrefix || null;
+        const { email: incomingEmail, displayName: incomingDisplayName, username: incomingUsername } =
+          deriveProfileFieldsFromUser(user);
 
         const { data: existing } = await admin
           .from("profiles")

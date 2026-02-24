@@ -170,14 +170,18 @@ try {
   stdout = result.stdout || "";
   stderr = result.stderr || "";
 } catch (err) {
-  if (err.code === "ENOENT" || (err.message && err.message.includes("npm"))) {
+  const isNpmNotFound =
+    err.code === "ENOENT" ||
+    (err.message && err.message.includes("npm: not found")) ||
+    (err.message && err.message.includes("npm not found"));
+  if (isNpmNotFound) {
     throw new Error(
       `MCP npm_run: npm not found. Ensure npm is on PATH for the process that runs the MCP server. Restart the MCP server after changing scripts/mcp/goodhemp-mcp.mjs. Original: ${err.message}`
     );
   }
-  stdout = err.stdout || "";
-  stderr = err.stderr || "";
-  throw new Error(`MCP npm_run failed (${script}): ${err.message}\nstdout: ${stdout}\nstderr: ${stderr}`);
+  stdout = err.stdout ?? "";
+  stderr = err.stderr ?? "";
+  throw new Error(`Script failed: ${err.message}\nstdout: ${stdout}\nstderr: ${stderr}`);
 }
 
 return {

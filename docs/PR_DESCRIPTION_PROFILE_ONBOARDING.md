@@ -20,7 +20,12 @@
 - **Onboarding submit** (`app/api/onboarding/submit/route.ts`): When inserting a new profile, sets `email`, `display_name`, `username` from the current auth user (meta or email prefix / sanitized prefix).
 - **Age verify** (`app/api/age/verify/route.ts`): When inserting a new profile, sets `email`, `display_name`, `username`, `market_mode_preference`, `updated_at` so no NULL-only rows are created.
 - **QuestionnaireFlow** (`components/onboarding/QuestionnaireFlow.tsx`): When there is no `currentQuestion` (e.g. empty question set), renders a fallback card (“No questions right now”) with “Go to Feed” and “Get started” links and a one-time `console.warn` with role and answer keys instead of returning `null`.
-- **MCP** (`scripts/mcp/goodhemp-mcp.mjs`): Uses `exec(..., { shell: true })` for `npm run <script>` so PATH is used; adds `verify:env` to allowlist; improves error message when npm is not found; 5-minute timeout.
+- **MCP** (`scripts/mcp/goodhemp-mcp.mjs`): Uses `exec(..., { shell: true })` for `npm run <script>` so PATH is used; adds `verify:env` to allowlist; improves error message when npm is not found; 5-minute timeout. CursorBot fix: only ENOENT or "npm not found" strings trigger the "npm not found" error; other failures report "Script failed" with stdout/stderr.
+
+**CursorBot follow-up fixes:**
+
+- **Triplicated profile derivation**: Added `lib/profile-utils.ts` with `deriveProfileFieldsFromUser(user)` returning `{ email, emailPrefix, displayName, username }`. Replaced copy-pasted logic in auth callback, onboarding submit, and age/verify so derivation is consistent and single-source.
+- **MCP npm error misclassification**: The condition `err.message.includes("npm")` matched every failed npm run (e.g. "Command failed: npm run build"). Now only `err.code === "ENOENT"` or message containing "npm: not found" / "npm not found" triggers the "npm not found" message; all other failures throw "Script failed" with stdout/stderr.
 
 ## Files changed
 
@@ -34,6 +39,7 @@
 | `scripts/mcp/goodhemp-mcp.mjs` | npm run via shell; allowlist + timeout; better errors. |
 | `docs/QA_CHECKLIST_PROFILE_ONBOARDING.md` | Manual QA steps. |
 | `docs/PR_DESCRIPTION_PROFILE_ONBOARDING.md` | This PR description. |
+| `lib/profile-utils.ts` | Shared `deriveProfileFieldsFromUser(user)` for auth callback, onboarding submit, age/verify (CursorBot dedupe). |
 
 ## MCP verification results (terminal)
 
