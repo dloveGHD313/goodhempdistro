@@ -58,6 +58,34 @@ export function getRoleAnswer(
   return undefined;
 }
 
+/**
+ * Returns an array of values for multi-select role-prefixed answers (e.g. wholesale_products).
+ * Tries keys in order: ${role}_${id}, ${id}, ${role}_${role}_${id}.
+ * Does NOT collapse to first element — preserves full array for multi-select prefill.
+ */
+export function getRoleAnswerArray(
+  answers: Record<string, unknown> | null | undefined,
+  role: string,
+  id: string
+): string[] | undefined {
+  if (!answers) return undefined;
+  const keys = [`${role}_${id}`, id, `${role}_${role}_${id}`];
+  for (const key of keys) {
+    const val = answers[key];
+    if (val === undefined || val === null) continue;
+    if (Array.isArray(val)) {
+      const normalized = val
+        .map((v) => (typeof v === "string" ? v.trim().toLowerCase() : ""))
+        .filter(Boolean);
+      return normalized.length > 0 ? normalized : undefined;
+    }
+    if (typeof val === "string" && val.trim()) {
+      return [val.trim().toLowerCase()];
+    }
+  }
+  return undefined;
+}
+
 /** Keys to try for consumer use type (personal vs business/wholesale). */
 export const CONSUMER_USE_TYPE_KEYS = [
   "consumer_consumer_use_type",

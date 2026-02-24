@@ -1,12 +1,25 @@
 import Link from "next/link";
 import Footer from "@/components/Footer";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { hasRole } from "@/lib/roles";
 
 export default async function WholesalePage() {
-  const opportunities: Array<{ id: number; title: string; summary: string }> = [];
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   const isLoggedIn = !!user?.id;
+
+  let profile: { role?: string | null; roles?: string[] | null } | null = null;
+  let application: { status: string; submitted_at?: string } | null = null;
+  if (user?.id) {
+    const [profileRes, appRes] = await Promise.all([
+      supabase.from("profiles").select("role, roles").eq("id", user.id).single(),
+      supabase.from("wholesale_applications").select("status, submitted_at").eq("user_id", user.id).order("submitted_at", { ascending: false }).limit(1).maybeSingle(),
+    ]);
+    profile = profileRes.data ?? null;
+    application = appRes.data ?? null;
+  }
+
+  const hasWholesaleAccess = isLoggedIn && hasRole(profile ?? undefined, "wholesale");
 
   return (
     <div className="min-h-screen text-white flex flex-col">
@@ -20,28 +33,56 @@ export default async function WholesalePage() {
               </p>
             </div>
 
-            {opportunities.length === 0 ? (
-              <div className="card-glass p-8 text-center">
-                <p className="text-muted">Wholesale listings are coming soon.</p>
-                <p className="text-xs text-muted mt-2">
-                  Apply for access now to receive launch notifications.
-                </p>
-              </div>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2">
-                {opportunities.map((item) => (
-                  <div key={item.id} className="surface-card p-6">
-                    <h2 className="text-lg font-semibold">{item.title}</h2>
-                    <p className="text-muted mt-2">{item.summary}</p>
-                  </div>
-                ))}
+            {/* A: Not logged in */}
+            {!isLoggedIn && (
+              <div className="card-glass p-8 text-center space-y-4">
+                <p className="text-muted">Sign in or create an account to apply for wholesale access.</p>
+                <div className="flex gap-3 flex-wrap justify-center">
+                  <Link href="/login" className="btn-primary">Sign in</Link>
+                  <Link href="/get-started" className="btn-secondary">Get Started</Link>
+                </div>
               </div>
             )}
 
-            {!isLoggedIn && (
-              <div className="flex gap-3 flex-wrap">
-                <Link href="/login" className="btn-primary">Sign in</Link>
-                <Link href="/get-started" className="btn-secondary">Get Started</Link>
+            {/* B/C: Logged in, no wholesale access — four sub-states: pending, approved-but-no-role, rejected, no app */}
+            {isLoggedIn && !hasWholesaleAccess && (
+              <div className="card-glass p-8 space-y-4">
+                {application?.status === "pending" && (
+                  <>
+                    <p className="text-muted">Your application is under review. We&apos;ll notify you once it&apos;s processed.</p>
+                    {application.submitted_at && (
+                      <p className="text-muted text-sm">Submitted {new Date(application.submitted_at).toLocaleDateString()}.</p>
+                    )}
+                  </>
+                )}
+                {application?.status === "approved" && (
+                  <p className="text-muted">Your application has been approved. Your account access is being set up — please refresh in a moment or contact support if this persists.</p>
+                )}
+                {application?.status === "rejected" && (
+                  <>
+                    <p className="text-muted">Your previous application was not approved. You may re-apply with updated information.</p>
+                    <p className="text-muted text-sm">Apply for wholesale access by submitting your business details and resale/wholesale certificate.</p>
+                    <div className="flex gap-3 flex-wrap">
+                      <Link href="/wholesale/apply" className="btn-primary">Re-apply for access</Link>
+                    </div>
+                  </>
+                )}
+                {!application && (
+                  <>
+                    <p className="text-muted">Apply for wholesale access by submitting your business details and resale/wholesale certificate.</p>
+                    <div className="flex gap-3 flex-wrap">
+                      <Link href="/wholesale/apply" className="btn-primary">Apply for access</Link>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* D: Wholesale access approved */}
+            {hasWholesaleAccess && (
+              <div className="card-glass p-8 text-center space-y-4">
+                <p className="text-accent font-semibold">Wholesale Access Approved</p>
+                <p className="text-muted">Wholesale listings are coming soon. You&apos;ll be notified when they&apos;re available.</p>
               </div>
             )}
           </div>
