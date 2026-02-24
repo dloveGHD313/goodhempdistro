@@ -39,33 +39,20 @@ export async function PATCH(
   }
 
   if (status === "approved") {
-    // Step 1: Grant wholesale role FIRST (atomic: fail fast if role grant fails)
-    const { data: profile, error: profileFetchError } = await admin
-      .from("profiles")
-      .select("roles")
-      .eq("id", application.user_id)
-      .single();
+    // Step 1: Grant wholesale role FIRST via atomic DB update.
+    const { error: roleGrantError } = await admin.rpc("admin_grant_wholesale_role", {
+      p_profile_id: application.user_id,
+      p_admin_user_id: adminCheck.user.id,
+    });
 
-    if (profileFetchError || !profile) {
+    if (roleGrantError) {
+      const code = roleGrantError.code ?? "";
+      const message = roleGrantError.message ?? "Failed to grant wholesale role";
+      const isNotFound = code === "P0001" || message.includes("profile not found");
+      const isForbidden = message.includes("not admin");
       return NextResponse.json(
-        { ok: false, error: "Failed to load applicant profile", detail: profileFetchError?.message },
-        { status: 500 }
-      );
-    }
-
-    const currentRoles: string[] = Array.isArray(profile.roles) ? profile.roles : [];
-    const normalized = currentRoles.map((r) => (typeof r === "string" ? r.trim().toLowerCase() : "")).filter(Boolean);
-    const newRoles = [...new Set([...normalized, "wholesale"])];
-
-    const { error: profileError } = await admin
-      .from("profiles")
-      .update({ roles: newRoles, updated_at: new Date().toISOString() })
-      .eq("id", application.user_id);
-
-    if (profileError) {
-      return NextResponse.json(
-        { ok: false, error: "Failed to grant wholesale role", detail: profileError.message },
-        { status: 500 }
+        { ok: false, error: isNotFound ? "Applicant profile not found" : "Failed to grant wholesale role", detail: message },
+        { status: isForbidden ? 403 : isNotFound ? 404 : 500 }
       );
     }
 
