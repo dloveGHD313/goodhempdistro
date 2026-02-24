@@ -39,30 +39,16 @@ export async function PATCH(
   }
 
   if (status === "approved") {
-    // Step 1: Grant wholesale role FIRST (atomic: fail fast if role grant fails)
-    const { data: profile, error: profileFetchError } = await admin
-      .from("profiles")
-      .select("roles")
-      .eq("id", application.user_id)
-      .single();
-
-    if (profileFetchError || !profile) {
-      return NextResponse.json(
-        { ok: false, error: "Failed to load applicant profile", detail: profileFetchError?.message },
-        { status: 500 }
-      );
-    }
-
-    const currentRoles: string[] = Array.isArray(profile.roles) ? profile.roles : [];
-    const normalized = currentRoles.map((r) => (typeof r === "string" ? r.trim().toLowerCase() : "")).filter(Boolean);
-    const newRoles = [...new Set([...normalized, "wholesale"])];
-
-    const { error: profileError } = await admin
-      .from("profiles")
-      .update({ roles: newRoles, updated_at: new Date().toISOString() })
-      .eq("id", application.user_id);
+    // Step 1: Grant wholesale role atomically (RPC appends in SQL; no read-modify-write race)
+    const { error: profileError } = await admin.rpc("admin_append_wholesale_role", {
+      p_user_id: application.user_id,
+      p_admin_user_id: adminCheck.user.id,
+    });
 
     if (profileError) {
+      if (profileError.message?.includes("not admin")) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
       return NextResponse.json(
         { ok: false, error: "Failed to grant wholesale role", detail: profileError.message },
         { status: 500 }
