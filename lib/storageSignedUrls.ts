@@ -84,3 +84,35 @@ export async function createSignedUrl(
     return null;
   }
 }
+
+const ALLOWED_UPLOAD_EXT = /\.(pdf|png|jpe?g|webp)$/i;
+const SANITIZE_FILENAME = /[^a-zA-Z0-9._-]/g;
+
+/**
+ * Create a signed upload URL for storage (server-only).
+ * Client should PUT the file to signedUrl with Content-Type header.
+ * @param bucket - Storage bucket name
+ * @param path - Object path within bucket (e.g. userId/timestamp-filename.pdf)
+ * @param expiresInSeconds - URL expiration (default 600)
+ */
+export async function createSignedUploadUrl(
+  bucket: string,
+  path: string,
+  _expiresInSeconds: number = 600
+): Promise<{ signedUrl: string; path: string } | null> {
+  try {
+    const admin = getSupabaseAdminClient();
+    const { data, error } = await admin.storage.from(bucket).createSignedUploadUrl(path, { upsert: true });
+    if (error) {
+      console.error("Error creating signed upload URL:", error);
+      return null;
+    }
+    if (!data?.signedUrl || !data?.path) return null;
+    return { signedUrl: data.signedUrl, path: data.path };
+  } catch (error) {
+    console.error("Error in createSignedUploadUrl:", error);
+    return null;
+  }
+}
+
+export { ALLOWED_UPLOAD_EXT, SANITIZE_FILENAME };
