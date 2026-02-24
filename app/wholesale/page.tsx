@@ -9,11 +9,11 @@ export default async function WholesalePage() {
   const isLoggedIn = !!user?.id;
 
   let profile: { role?: string | null; roles?: string[] | null } | null = null;
-  let application: { status: string } | null = null;
+  let application: { status: string; submitted_at?: string } | null = null;
   if (user?.id) {
     const [profileRes, appRes] = await Promise.all([
       supabase.from("profiles").select("role, roles").eq("id", user.id).single(),
-      supabase.from("wholesale_applications").select("status").eq("user_id", user.id).order("submitted_at", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("wholesale_applications").select("status, submitted_at").eq("user_id", user.id).order("submitted_at", { ascending: false }).limit(1).maybeSingle(),
     ]);
     profile = profileRes.data ?? null;
     application = appRes.data ?? null;
@@ -44,23 +44,34 @@ export default async function WholesalePage() {
               </div>
             )}
 
-            {/* B/C: Logged in, no wholesale access — Apply or Re-apply + status */}
+            {/* B/C: Logged in, no wholesale access — three sub-states: pending (no apply link), rejected (re-apply), no app (apply) */}
             {isLoggedIn && !hasWholesaleAccess && (
               <div className="card-glass p-8 space-y-4">
                 {application?.status === "pending" && (
-                  <p className="text-muted">Your application is under review. We&apos;ll notify you once it&apos;s processed.</p>
+                  <>
+                    <p className="text-muted">Your application is under review. We&apos;ll notify you once it&apos;s processed.</p>
+                    {application.submitted_at && (
+                      <p className="text-muted text-sm">Submitted {new Date(application.submitted_at).toLocaleDateString()}.</p>
+                    )}
+                  </>
                 )}
                 {application?.status === "rejected" && (
-                  <p className="text-muted">Your previous application was not approved. You may re-apply with updated information.</p>
+                  <>
+                    <p className="text-muted">Your previous application was not approved. You may re-apply with updated information.</p>
+                    <p className="text-muted text-sm">Apply for wholesale access by submitting your business details and resale/wholesale certificate.</p>
+                    <div className="flex gap-3 flex-wrap">
+                      <Link href="/wholesale/apply" className="btn-primary">Re-apply for access</Link>
+                    </div>
+                  </>
                 )}
-                {(!application || application.status === "rejected") && (
-                  <p className="text-muted">Apply for wholesale access by submitting your business details and resale/wholesale certificate.</p>
+                {!application && (
+                  <>
+                    <p className="text-muted">Apply for wholesale access by submitting your business details and resale/wholesale certificate.</p>
+                    <div className="flex gap-3 flex-wrap">
+                      <Link href="/wholesale/apply" className="btn-primary">Apply for access</Link>
+                    </div>
+                  </>
                 )}
-                <div className="flex gap-3 flex-wrap">
-                  <Link href="/wholesale/apply" className="btn-primary">
-                    {application?.status === "rejected" ? "Re-apply for access" : "Apply for access"}
-                  </Link>
-                </div>
               </div>
             )}
 

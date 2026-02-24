@@ -23,19 +23,41 @@ export default async function WholesaleApplyPage() {
     redirect("/get-started?next=/wholesale/apply");
   }
 
-  const profileRes = await supabase.from("profiles").select("role, roles, onboarding_answers").eq("id", user.id).single();
+  const [profileRes, appRes] = await Promise.all([
+    supabase.from("profiles").select("role, roles, onboarding_answers").eq("id", user.id).single(),
+    supabase.from("wholesale_applications").select("status, business_name, business_type, company_size, products_sourcing").eq("user_id", user.id).order("submitted_at", { ascending: false }).limit(1).maybeSingle(),
+  ]);
   const profile = profileRes.data;
+  const application = appRes.data ?? null;
 
   if (hasRole(profile ?? undefined, "wholesale")) {
     redirect("/wholesale");
   }
 
+  if (application?.status === "pending") {
+    redirect("/wholesale");
+  }
+
   const answers = (profile as { onboarding_answers?: Record<string, unknown> } | null)?.onboarding_answers as Record<string, string | string[] | undefined> | undefined;
-  const prefill = {
+  const fromOnboarding = {
     business_name: getRoleAnswer(answers, "consumer", "wholesale_business_name") ?? undefined,
     business_type: mapOnboardingBusinessType(getRoleAnswer(answers, "consumer", "wholesale_business_type") ?? undefined),
     company_size: getRoleAnswer(answers, "consumer", "wholesale_company_size") ?? undefined,
     products_sourcing: getRoleAnswerArray(answers as Record<string, unknown>, "consumer", "wholesale_products") ?? undefined,
+  };
+  const fromApplication = application?.status === "rejected" && application
+    ? {
+        business_name: application.business_name ?? undefined,
+        business_type: application.business_type ?? undefined,
+        company_size: application.company_size ?? undefined,
+        products_sourcing: Array.isArray(application.products_sourcing) ? application.products_sourcing : undefined,
+      }
+    : {};
+  const prefill = {
+    business_name: fromApplication.business_name ?? fromOnboarding.business_name,
+    business_type: fromApplication.business_type ?? fromOnboarding.business_type,
+    company_size: fromApplication.company_size ?? fromOnboarding.company_size,
+    products_sourcing: (fromApplication.products_sourcing?.length ? fromApplication.products_sourcing : fromOnboarding.products_sourcing) ?? undefined,
   };
 
   return (
