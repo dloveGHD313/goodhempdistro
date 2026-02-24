@@ -4,7 +4,7 @@ import Footer from "@/components/Footer";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { hasRole } from "@/lib/roles";
 import WholesaleApplyForm from "./WholesaleApplyForm";
-import { getRoleAnswer } from "@/lib/onboarding/answers";
+import { getRoleAnswer, getRoleAnswerArray } from "@/lib/onboarding/answers";
 
 function mapOnboardingBusinessType(v: string | undefined): string {
   if (!v) return "";
@@ -35,12 +35,7 @@ export default async function WholesaleApplyPage() {
     business_name: getRoleAnswer(answers, "consumer", "wholesale_business_name") ?? undefined,
     business_type: mapOnboardingBusinessType(getRoleAnswer(answers, "consumer", "wholesale_business_type") ?? undefined),
     company_size: getRoleAnswer(answers, "consumer", "wholesale_company_size") ?? undefined,
-    products_sourcing: (() => {
-      const v = getRoleAnswer(answers, "consumer", "wholesale_products");
-      if (typeof v === "string") return v ? [v] : undefined;
-      if (Array.isArray(answers?.wholesale_products)) return answers.wholesale_products.filter((x): x is string => typeof x === "string");
-      return undefined;
-    })(),
+    products_sourcing: getRoleAnswerArray(answers as Record<string, unknown>, "consumer", "wholesale_products") ?? undefined,
   };
 
   return (
