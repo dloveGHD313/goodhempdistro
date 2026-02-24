@@ -34,6 +34,9 @@ This PR fixes all five issues flagged in the Phase 6 wholesale PR review so the 
 **Issue 7 (LOW):** `createSignedUploadUrl` accepted `_expiresInSeconds` and JSDoc documented it, but Supabase storage-js `createSignedUploadUrl` does not support configurable expiry (only `{ upsert: boolean }`). The value was silently ignored.  
 **Fix 7:** Removed the unused parameter from `createSignedUploadUrl(bucket, path)`; updated JSDoc to note that Supabase signed upload URLs do not support configurable expiry; removed the `600` argument from the upload-url route; added a short code comment in the helper.
 
+**Issue 8 (MED):** When `application.status === "approved"` but the user's profile lacked the wholesale role (`hasWholesaleAccess` false), the `isLoggedIn && !hasWholesaleAccess` block rendered but none of the sub-conditions (pending, rejected, !application) matched, producing an empty card-glass div with no text or actions. Edge case can occur from pre-existing data or if role grant failed before the atomic-approval fix.  
+**Fix 8:** Added an explicit sub-case for `application?.status === "approved"` inside the non-wholesale block: show "Your application has been approved. Your account access is being set up — please refresh in a moment or contact support if this persists." No apply/re-apply button. Order of conditionals: pending → approved → rejected → !application.
+
 ---
 
 ## Files changed (exact paths)
@@ -44,7 +47,7 @@ This PR fixes all five issues flagged in the Phase 6 wholesale PR review so the 
 - `app/dashboard/admin/wholesale/WholesaleAdminClient.tsx` — surface `data.detail` in error message
 - `lib/onboarding/answers.ts` — add `getRoleAnswerArray()`
 - `app/wholesale/apply/page.tsx` — use `getRoleAnswerArray` for `products_sourcing`, reject-case prefill from existing application, redirect when pending
-- `app/wholesale/page.tsx` — three sub-states for non-wholesale (pending: no apply link; rejected: re-apply; no app: apply), optional submitted_at
+- `app/wholesale/page.tsx` — four sub-states for non-wholesale (pending, approved-but-no-role, rejected, no app), optional submitted_at
 - `lib/storageSignedUrls.ts` — remove unused `_expiresInSeconds` from `createSignedUploadUrl`, update JSDoc
 - `app/api/wholesale/applications/upload-url/route.ts` — stop passing 600 to `createSignedUploadUrl`
 - `docs/PR_105_PHASE6_WHOLESALE_FIXES.md` — this PR description
@@ -71,6 +74,7 @@ This PR fixes all five issues flagged in the Phase 6 wholesale PR review so the 
 5. **Pending application UX** — Submit application so status is pending; return to `/wholesale` and confirm **no** apply/re-apply button is visible, only the "Your application is under review" (and optional submitted date) message.
 6. **Direct nav to apply while pending** — With status pending, navigate directly to `/wholesale/apply` and confirm redirect to `/wholesale`.
 7. **Upload URL after expiry param fix** — Confirm certificate upload (upload-url then PUT) still works end-to-end for wholesale apply.
+8. **Approved-but-no-role** — Simulate state (e.g. set application status=approved in DB without granting wholesale role in profile); navigate to `/wholesale`; confirm a clear setup/sync message renders, no empty card, no apply button.
 
 ---
 
@@ -82,3 +86,4 @@ This PR fixes all five issues flagged in the Phase 6 wholesale PR review so the 
 - No `getRoleAnswer` regressions for single-value onboarding fields (only `getRoleAnswerArray` added; single-value call sites unchanged).
 - `npm run build` passes with 0 errors.
 - No new console.error-only error handling in wholesale routes; failures return proper HTTP status and body.
+- No empty card-glass div for any application status; approved-but-no-role users see explicit setup/sync message with no misleading buttons (Issue 8).

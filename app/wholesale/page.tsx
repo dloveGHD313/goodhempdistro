@@ -44,7 +44,7 @@ export default async function WholesalePage() {
               </div>
             )}
 
-            {/* B/C: Logged in, no wholesale access — three sub-states: pending (no apply link), rejected (re-apply), no app (apply) */}
+            {/* B/C: Logged in, no wholesale access — four sub-states: pending, approved-but-no-role, rejected, no app */}
             {isLoggedIn && !hasWholesaleAccess && (
               <div className="card-glass p-8 space-y-4">
                 {application?.status === "pending" && (
@@ -54,6 +54,9 @@ export default async function WholesalePage() {
                       <p className="text-muted text-sm">Submitted {new Date(application.submitted_at).toLocaleDateString()}.</p>
                     )}
                   </>
+                )}
+                {application?.status === "approved" && (
+                  <p className="text-muted">Your application has been approved. Your account access is being set up — please refresh in a moment or contact support if this persists.</p>
                 )}
                 {application?.status === "rejected" && (
                   <>
