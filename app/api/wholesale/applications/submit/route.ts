@@ -64,13 +64,21 @@ export async function POST(req: NextRequest) {
     };
 
     if (existing) {
-      const { error } = await supabase
+      const { data: updated, error } = await supabase
         .from("wholesale_applications")
         .update(row)
-        .eq("id", existing.id);
+        .eq("id", existing.id)
+        .select("id")
+        .maybeSingle();
       if (error) {
         console.error("[wholesale/submit] update error", error);
         return NextResponse.json({ error: "Failed to submit application" }, { status: 500 });
+      }
+      if (!updated) {
+        return NextResponse.json(
+          { error: "Update blocked — application may not exist or access denied" },
+          { status: 403 }
+        );
       }
       return NextResponse.json({ ok: true, id: existing.id });
     }

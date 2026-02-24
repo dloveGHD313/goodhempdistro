@@ -56,6 +56,15 @@ CREATE POLICY "wholesale_applications: user select own" ON public.wholesale_appl
   FOR SELECT TO authenticated
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "wholesale_applications: user update own" ON public.wholesale_applications;
+CREATE POLICY "wholesale_applications: user update own" ON public.wholesale_applications
+  FOR UPDATE TO authenticated
+  USING (user_id = auth.uid())
+  WITH CHECK (
+    user_id = auth.uid()
+    AND status IN ('pending', 'rejected')
+  );
+
 DROP POLICY IF EXISTS "wholesale_applications: admin select all" ON public.wholesale_applications;
 CREATE POLICY "wholesale_applications: admin select all" ON public.wholesale_applications
   FOR SELECT TO authenticated
