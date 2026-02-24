@@ -66,7 +66,10 @@ export default function WholesaleAdminClient() {
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Update failed");
+      if (!res.ok) {
+        const msg = data.detail ? `${data.error || "Update failed"}: ${data.detail}` : (data.error || "Update failed");
+        throw new Error(msg);
+      }
       setNotesById((prev) => {
         const next = { ...prev };
         delete next[id];

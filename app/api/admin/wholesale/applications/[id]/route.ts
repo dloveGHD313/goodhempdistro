@@ -18,28 +18,15 @@ export async function PATCH(
   const status = body?.status as string | undefined;
   const notes = typeof body?.notes === "string" ? body.notes : undefined;
 
-  const updates: Record<string, unknown> = {};
-  if (status) {
-    if (!VALID_STATUSES.includes(status as (typeof VALID_STATUSES)[number])) {
-      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
-    }
-    updates.status = status;
-    updates.reviewed_at = new Date().toISOString();
-    updates.reviewed_by = adminCheck.user.id;
-  }
-  if (notes !== undefined) {
-    updates.notes = notes;
-  }
-
-  if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+  if (!status || !VALID_STATUSES.includes(status as (typeof VALID_STATUSES)[number])) {
+    return NextResponse.json({ error: "Invalid or missing status" }, { status: 400 });
   }
 
   const admin = getSupabaseAdminClient();
 
   const { data: application, error: fetchError } = await admin
     .from("wholesale_applications")
-    .select("id, user_id")
+    .select("id, user_id, status")
     .eq("id", id)
     .single();
 
@@ -47,34 +34,82 @@ export async function PATCH(
     return NextResponse.json({ error: "Application not found" }, { status: 404 });
   }
 
-  const { error: updateError } = await admin
-    .from("wholesale_applications")
-    .update(updates)
-    .eq("id", id);
-
-  if (updateError) {
-    console.error("[admin/wholesale/applications] update error", updateError);
-    return NextResponse.json({ error: "Failed to update application" }, { status: 500 });
+  if (application.status === "approved") {
+    return NextResponse.json({ error: "Application already approved" }, { status: 400 });
   }
 
   if (status === "approved") {
-    const { data: profile } = await admin
+    // Step 1: Grant wholesale role FIRST (atomic: fail fast if role grant fails)
+    const { data: profile, error: profileFetchError } = await admin
       .from("profiles")
       .select("roles")
       .eq("id", application.user_id)
       .single();
 
-    const currentRoles: string[] = Array.isArray(profile?.roles) ? profile.roles : [];
-    if (!currentRoles.includes("wholesale")) {
-      const newRoles = [...currentRoles, "wholesale"];
-      const { error: profileError } = await admin
-        .from("profiles")
-        .update({ roles: newRoles })
-        .eq("id", application.user_id);
-      if (profileError) {
-        console.error("[admin/wholesale/applications] profile roles update error", profileError);
-      }
+    if (profileFetchError || !profile) {
+      return NextResponse.json(
+        { ok: false, error: "Failed to load applicant profile", detail: profileFetchError?.message },
+        { status: 500 }
+      );
     }
+
+    const currentRoles: string[] = Array.isArray(profile.roles) ? profile.roles : [];
+    const normalized = currentRoles.map((r) => (typeof r === "string" ? r.trim().toLowerCase() : "")).filter(Boolean);
+    const newRoles = [...new Set([...normalized, "wholesale"])];
+
+    const { error: profileError } = await admin
+      .from("profiles")
+      .update({ roles: newRoles })
+      .eq("id", application.user_id);
+
+    if (profileError) {
+      return NextResponse.json(
+        { ok: false, error: "Failed to grant wholesale role", detail: profileError.message },
+        { status: 500 }
+      );
+    }
+
+    // Step 2: Mark application approved (role already granted)
+    const updates = {
+      status: "approved" as const,
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: adminCheck.user.id,
+      ...(notes !== undefined ? { notes } : {}),
+    };
+
+    const { error: updateError } = await admin
+      .from("wholesale_applications")
+      .update(updates)
+      .eq("id", id);
+
+    if (updateError) {
+      console.error("[admin/wholesale/applications] application status update failed after role grant", updateError);
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Role granted but application status update failed — manual review required",
+          detail: updateError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ ok: true });
+  }
+
+  // Reject: only update application
+  const updates = {
+    status: "rejected" as const,
+    reviewed_at: new Date().toISOString(),
+    reviewed_by: adminCheck.user.id,
+    ...(notes !== undefined ? { notes } : {}),
+  };
+
+  const { error: updateError } = await admin.from("wholesale_applications").update(updates).eq("id", id);
+
+  if (updateError) {
+    console.error("[admin/wholesale/applications] reject update error", updateError);
+    return NextResponse.json({ error: "Failed to update application" }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });
