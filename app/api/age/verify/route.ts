@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { deriveProfileFieldsFromUser } from "@/lib/profile-utils";
 
 export async function POST() {
   try {
@@ -11,17 +12,26 @@ export async function POST() {
       return NextResponse.json({ ok: true, message: "no user" }, { status: 200 });
     }
 
-    // Ensure profiles row exists
-    const { data: profileExists } = await supabase
+    const { data: existing } = await supabase
       .from("profiles")
       .select("id")
       .eq("id", user.id)
-      .single();
+      .maybeSingle();
 
-    if (!profileExists) {
-      await supabase.from("profiles").insert({ id: user.id, age_verified: true, role: "consumer" });
+    if (!existing?.id) {
+      const { email, displayName, username } = deriveProfileFieldsFromUser(user);
+      await supabase.from("profiles").insert({
+        id: user.id,
+        email,
+        role: "consumer",
+        display_name: displayName,
+        username,
+        age_verified: true,
+        market_mode_preference: "CBD_WELLNESS",
+        updated_at: new Date().toISOString(),
+      });
     } else {
-      await supabase.from("profiles").update({ age_verified: true }).eq("id", user.id);
+      await supabase.from("profiles").update({ age_verified: true, updated_at: new Date().toISOString() }).eq("id", user.id);
     }
 
     return NextResponse.json({ ok: true }, { status: 200 });

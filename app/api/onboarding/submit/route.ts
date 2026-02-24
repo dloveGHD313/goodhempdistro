@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { ALLOWED_ROLES, hasRole } from "@/lib/roles";
 import { getConsumerUseType, isConsumerWholesaleChoice } from "@/lib/onboarding/answers";
+import { deriveProfileFieldsFromUser } from "@/lib/profile-utils";
 
 type Payload = {
   version?: string;
@@ -119,10 +120,15 @@ export async function POST(req: NextRequest) {
       );
     }
   } else {
+    const { email, displayName, username } = deriveProfileFieldsFromUser(user);
+
     const { error } = await supabase.from("profiles").insert({
       id: user.id,
+      email,
       role: "consumer",
       roles: rolesToWrite,
+      display_name: displayName,
+      username,
       onboarding_answers: payload,
       onboarding_completed_at: now,
       updated_at: now,

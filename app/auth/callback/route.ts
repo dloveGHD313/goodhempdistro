@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getPostLoginRoute, type PostLoginProfile } from "@/lib/routing/postLoginRoute";
 import { getDefaultRouteForUser, isSafeNextPath, isValidWorkoutPath, type WorkoutPath } from "@/lib/phase2-workout-flow";
+import { deriveProfileFieldsFromUser } from "@/lib/profile-utils";
 
 /**
  * Handle Supabase auth callback
@@ -72,35 +73,36 @@ export async function GET(req: NextRequest) {
 
     if (admin && user?.id) {
       try {
-        const displayName =
-          user.user_metadata?.display_name?.trim()
-          || (user.email ? user.email.split("@")[0] : null)
-          || null;
-        const emailPrefix = user.email ? user.email.split("@")[0] : "";
-        const sanitizedPrefix = emailPrefix ? emailPrefix.replace(/[^a-zA-Z0-9_.-]/g, "_").slice(0, 64) || null : null;
-        const username = user.user_metadata?.username?.trim() || sanitizedPrefix || null;
+        const { email: incomingEmail, displayName: incomingDisplayName, username: incomingUsername } =
+          deriveProfileFieldsFromUser(user);
+
         const { data: existing } = await admin
           .from("profiles")
-          .select("id")
+          .select("id, email, display_name, username")
           .eq("id", user.id)
           .maybeSingle();
+
         if (existing) {
-          await admin
-            .from("profiles")
-            .update({
-              ...(user.email != null && { email: user.email }),
-              ...(displayName != null && { display_name: displayName }),
-              ...(username != null && { username }),
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", user.id);
+          // Email is auth-authoritative and must sync when changed; display_name/username are user-customizable and must not be overwritten (only fill when missing).
+          const hasDisplayName = typeof existing.display_name === "string" && existing.display_name.trim() !== "";
+          const hasUsername = typeof existing.username === "string" && existing.username.trim() !== "";
+          const existingEmailNorm = typeof existing.email === "string" ? existing.email.trim().toLowerCase() : "";
+          const incomingEmailNorm = incomingEmail ? incomingEmail.trim().toLowerCase() : "";
+          const updatePatch: Record<string, string> = {};
+          if (incomingEmail && existingEmailNorm !== incomingEmailNorm) updatePatch.email = incomingEmail;
+          if (!hasDisplayName && incomingDisplayName) updatePatch.display_name = incomingDisplayName;
+          if (!hasUsername && incomingUsername) updatePatch.username = incomingUsername;
+          if (Object.keys(updatePatch).length > 0) {
+            updatePatch.updated_at = new Date().toISOString();
+            await admin.from("profiles").update(updatePatch).eq("id", user.id);
+          }
         } else {
           await admin.from("profiles").insert({
             id: user.id,
-            email: user.email ?? null,
+            email: incomingEmail,
             role: "consumer",
-            display_name: displayName,
-            username: username ?? null,
+            display_name: incomingDisplayName,
+            username: incomingUsername,
             market_mode_preference: "CBD_WELLNESS",
             updated_at: new Date().toISOString(),
           });
