@@ -59,7 +59,7 @@ export async function PATCH(
 
     const { error: profileError } = await admin
       .from("profiles")
-      .update({ roles: newRoles })
+      .update({ roles: newRoles, updated_at: new Date().toISOString() })
       .eq("id", application.user_id);
 
     if (profileError) {
