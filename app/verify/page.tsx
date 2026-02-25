@@ -50,7 +50,6 @@ export default async function VerifyStartPage() {
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               {approved ? (
-                {/* FIXED: Use Link for client-side navigation */}
                 <Link href="/products" className="btn-primary">
                   Browse Products
                 </Link>
