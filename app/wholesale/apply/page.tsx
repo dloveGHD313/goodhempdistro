@@ -38,7 +38,15 @@ export default async function WholesaleApplyPage() {
     redirect("/wholesale");
   }
 
-  const answers = (profile as { onboarding_answers?: Record<string, unknown> } | null)?.onboarding_answers as Record<string, string | string[] | undefined> | undefined;
+  const onboardingAnswersRaw = (profile as { onboarding_answers?: unknown } | null)?.onboarding_answers;
+  const answersSource =
+    onboardingAnswersRaw && typeof onboardingAnswersRaw === "object" && "answers" in onboardingAnswersRaw
+      ? (onboardingAnswersRaw as { answers?: unknown }).answers
+      : onboardingAnswersRaw;
+  const answers =
+    answersSource && typeof answersSource === "object"
+      ? (answersSource as Record<string, string | string[] | undefined>)
+      : undefined;
   const fromOnboarding = {
     business_name: getRoleAnswer(answers, "consumer", "wholesale_business_name") ?? undefined,
     business_type: mapOnboardingBusinessType(getRoleAnswer(answers, "consumer", "wholesale_business_type") ?? undefined),
