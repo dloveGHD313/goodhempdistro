@@ -8,38 +8,14 @@ import { hasRole } from "@/lib/roles";
 import { brand } from "@/lib/brand";
 import BrandLogo from "@/components/BrandLogo";
 import { HoverLift } from "@/components/motion";
-
-const primaryLinks = [
-  { label: "👋 Welcome", href: "/welcome" },
-  { label: "🏠 Feed", href: "/newsfeed" },
-  { label: "🛍️ Shop", href: "/products" },
-  { label: "🧭 Discover", href: "/discover" },
-  { label: "🎪 Events", href: "/events" },
-  { label: "📺 Episodes", href: "/learning-with-jax" },
-];
-
-const communityLinks = [
-  { label: "👥 Groups", href: "/groups" },
-  { label: "💬 Forums", href: "/forums" },
-  { label: "📝 Blog", href: "/blog" },
-];
-
-/** Business dropdown: vertical navigation only. No Vendor Dashboard, Vendor Plans, or Affiliate Portal (those live in Account). */
-const businessLinks = [
-  { label: "🏪 Vendors", href: "/vendors" },
-  { label: "🛠️ Services", href: "/services" },
-  { label: "🏢 Wholesale", href: "/wholesale" },
-  { label: "🚚 Logistics", href: "/logistics" },
-  { label: "🚗 Driver Network", href: "/logistics/apply" },
-  { label: "🤝 Vendor Registration", href: "/vendor-registration" },
-];
-
-const HIDE_NAV_PATHS = ["/signup", "/login", "/get-started", "/onboarding"];
-
-function shouldHideNav(pathname: string | null): boolean {
-  if (!pathname) return false;
-  return HIDE_NAV_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
-}
+import {
+  NAV_PRIMARY,
+  NAV_COMMUNITY,
+  NAV_BUSINESS,
+  NAV_ADMIN,
+  NAV_PUBLIC,
+  shouldHideNav,
+} from "@/lib/nav";
 
 export default function Nav() {
   const router = useRouter();
@@ -169,6 +145,15 @@ export default function Nav() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDrawerOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [drawerOpen]);
+
   const handleLogout = useCallback(async () => {
     flushSync(() => {
       setDrawerOpen(false);
@@ -231,7 +216,7 @@ export default function Nav() {
     return true;
   });
 
-  const navPrimaryLinks = isLoggedIn ? primaryLinks.filter((l) => l.href !== "/welcome") : primaryLinks;
+  const navPrimaryLinks = isLoggedIn ? NAV_PRIMARY.filter((l) => l.href !== "/welcome") : NAV_PRIMARY;
 
   if (shouldHideNav(pathname)) return null;
 
@@ -247,7 +232,7 @@ export default function Nav() {
       </Link>
 
       {/* Desktop nav - hidden on mobile; Welcome excluded when logged in */}
-      <div className="hidden lg:flex items-center gap-6 min-w-0 flex-1 justify-center">
+      <div className="hidden md:flex items-center gap-6 min-w-0 flex-1 justify-center">
         {navPrimaryLinks.map((link) => (
           <HoverLift key={link.href} as="span">
             <Link href={link.href} className="nav-link text-sm">
@@ -261,7 +246,7 @@ export default function Nav() {
             Community <span className="text-xs">▼</span>
           </button>
           <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[200px]">
-            {communityLinks.map((link) => (
+            {NAV_COMMUNITY.map((link) => (
               <HoverLift key={link.href} as="span">
                 <Link href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
                   {link.label}
@@ -276,7 +261,7 @@ export default function Nav() {
             Business <span className="text-xs">▼</span>
           </button>
           <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[220px]">
-            {businessLinks.map((link) => (
+            {NAV_BUSINESS.map((link) => (
               <HoverLift key={link.href} as="span">
                 <Link href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
                   {link.label}
@@ -295,41 +280,13 @@ export default function Nav() {
               </Link>
             </HoverLift>
             <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[180px]">
-              <HoverLift as="span">
-                <Link href="/admin/vendors" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
-                  👥 Vendor Applications
-                </Link>
-              </HoverLift>
-              <HoverLift as="span">
-                <Link href="/admin/products" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
-                  📦 Product Review
-                </Link>
-              </HoverLift>
-              <HoverLift as="span">
-                <Link href="/admin/events" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
-                  📅 Event Review
-                </Link>
-              </HoverLift>
-              <HoverLift as="span">
-                <Link href="/admin/services" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
-                  🛠️ Service Review
-                </Link>
-              </HoverLift>
-              <HoverLift as="span">
-                <Link href="/admin/inquiries" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
-                  💬 Service Inquiries
-                </Link>
-              </HoverLift>
-              <HoverLift as="span">
-                <Link href="/admin/categories" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
-                  📁 Categories
-                </Link>
-              </HoverLift>
-              <HoverLift as="span">
-                <Link href="/admin/drivers" className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
-                  🚗 Drivers
-                </Link>
-              </HoverLift>
+              {NAV_ADMIN.map((link) => (
+                <HoverLift key={link.href} as="span">
+                  <Link href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                    {link.label}
+                  </Link>
+                </HoverLift>
+              ))}
             </div>
           </div>
         )}
@@ -364,8 +321,8 @@ export default function Nav() {
         )}
       </div>
 
-      {/* Mobile/Tablet: when logged in only Account + Menu; when logged out Join Free + Sign in + Menu */}
-      <div className="flex items-center gap-3 lg:hidden shrink-0">
+      {/* Mobile: hamburger + Account/Join/Sign in */}
+      <div className="flex md:hidden items-center gap-3 shrink-0">
         {isLoggedIn ? (
           <HoverLift as="span" className="shrink-0">
             <Link href={accountHref} className="btn-ghost text-sm py-2 px-4 whitespace-nowrap">
@@ -397,8 +354,8 @@ export default function Nav() {
         </button>
       </div>
 
-      {/* Desktop right: when logged out, Join Free + Sign in with gap; when logged in, single Account only (no extra CTA) */}
-      <div className="hidden lg:flex items-center gap-4 shrink-0 ml-2">
+      {/* Desktop right: when logged out, Join Free + Sign in; when logged in, single Account only */}
+      <div className="hidden md:flex items-center gap-4 shrink-0 ml-2">
         {isLoggedIn ? null : (
           <>
             <HoverLift as="span" className="shrink-0">
@@ -415,11 +372,14 @@ export default function Nav() {
         )}
       </div>
 
-      {/* Mobile drawer - full screen overlay style */}
+      {/* Mobile drawer - full-height slide-in panel */}
       {drawerOpen && (
-        <div 
-          className="fixed inset-0 z-50 lg:hidden nav-overlay"
+        <div
+          className="fixed inset-0 z-50 md:hidden nav-overlay"
           onClick={() => setDrawerOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Navigation menu"
         >
           <div
             className="fixed left-0 top-0 bottom-0 w-72 shadow-2xl overflow-y-auto transform transition-transform nav-drawer"
@@ -442,13 +402,13 @@ export default function Nav() {
               </button>
             </div>
 
-            {/* Drawer Content */}
+            {/* Drawer Content — same links as desktop, 44px min tap target */}
             <div className="p-6 flex flex-col gap-2">
-              {/* Prominent CTA in drawer: when logged in single Account hub; when logged out Join Free + Sign in */}
+              {/* Prominent CTA: when logged in Account hub; when logged out Join Free + Sign in */}
               {isLoggedIn ? (
                 <Link
                   href="/account"
-                  className="btn-primary text-center py-3 mb-3 font-bold"
+                  className="btn-primary text-center py-3 mb-3 font-bold min-h-[44px] flex items-center justify-center"
                   onClick={() => setDrawerOpen(false)}
                 >
                   Account
@@ -457,14 +417,14 @@ export default function Nav() {
                 <>
                   <Link
                     href="/get-started"
-                    className="btn-primary text-center py-3 mb-3 font-bold"
+                    className="btn-primary text-center py-3 mb-3 font-bold min-h-[44px] flex items-center justify-center"
                     onClick={() => setDrawerOpen(false)}
                   >
                     Join Free
                   </Link>
                   <Link
                     href="/login"
-                    className="btn-ghost text-center py-2 mb-4 font-semibold"
+                    className="btn-ghost text-center py-3 mb-4 font-semibold min-h-[44px] flex items-center justify-center"
                     onClick={() => setDrawerOpen(false)}
                   >
                     Sign in
@@ -472,12 +432,26 @@ export default function Nav() {
                 </>
               )}
 
-              <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Primary</div>
+              <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Public</div>
+              {NAV_PUBLIC.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
+                  onClick={() => setDrawerOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              ))}
+
+              <div className="border-t mt-2 pt-2 nav-drawer-header">
+                <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Primary</div>
+              </div>
               {navPrimaryLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="px-4 py-3 rounded-lg text-base drawer-link"
+                  className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
                   onClick={() => setDrawerOpen(false)}
                 >
                   {link.label}
@@ -487,11 +461,11 @@ export default function Nav() {
               <div className="border-t mt-2 pt-2 nav-drawer-header">
                 <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Community</div>
               </div>
-              {communityLinks.map((link) => (
+              {NAV_COMMUNITY.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="px-4 py-3 rounded-lg text-base drawer-link"
+                  className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
                   onClick={() => setDrawerOpen(false)}
                 >
                   {link.label}
@@ -501,115 +475,60 @@ export default function Nav() {
               <div className="border-t mt-2 pt-2 nav-drawer-header">
                 <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Business</div>
               </div>
-              {businessLinks.map((link) => (
+              {NAV_BUSINESS.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="px-4 py-3 rounded-lg text-base drawer-link"
+                  className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
                   onClick={() => setDrawerOpen(false)}
                 >
                   {link.label}
                 </Link>
               ))}
 
-              {/* Admin links */}
               {isAdmin && (
                 <>
                   <div className="border-t mt-2 pt-2 nav-drawer-header">
                     <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Admin</div>
                   </div>
-                  <Link
-                    href="/admin/vendors"
-                    className="px-4 py-3 rounded-lg text-base drawer-link"
-                    onClick={() => setDrawerOpen(false)}
-                  >
-                    👥 Vendor Applications
-                  </Link>
-                  <Link
-                    href="/admin/vendors/integrity"
-                    className="px-4 py-3 rounded-lg text-base drawer-link"
-                    onClick={() => setDrawerOpen(false)}
-                  >
-                    🔍 Vendor Integrity
-                  </Link>
-                  <Link
-                    href="/admin/products"
-                    className="px-4 py-3 rounded-lg text-base drawer-link"
-                    onClick={() => setDrawerOpen(false)}
-                  >
-                    📦 Product Review
-                  </Link>
-                  <Link
-                    href="/admin/events"
-                    className="px-4 py-3 rounded-lg text-base drawer-link"
-                    onClick={() => setDrawerOpen(false)}
-                  >
-                    📅 Event Review
-                  </Link>
-                  <Link
-                    href="/admin/services"
-                    className="px-4 py-3 rounded-lg text-base drawer-link"
-                    onClick={() => setDrawerOpen(false)}
-                  >
-                    🛠️ Service Review
-                  </Link>
-                  <Link
-                    href="/admin/inquiries"
-                    className="px-4 py-3 rounded-lg text-base drawer-link"
-                    onClick={() => setDrawerOpen(false)}
-                  >
-                    💬 Service Inquiries
-                  </Link>
-                  <Link
-                    href="/admin/categories"
-                    className="px-4 py-3 rounded-lg text-base drawer-link"
-                    onClick={() => setDrawerOpen(false)}
-                  >
-                    📁 Categories
-                  </Link>
+                  {NAV_ADMIN.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
+                      onClick={() => setDrawerOpen(false)}
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
                 </>
               )}
 
-              {/* Account & Logout */}
               <div className="border-t mt-4 pt-4 nav-drawer-header">
+                <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Account</div>
+              </div>
+              {accountLinks.map((link) => (
                 <Link
-                  href={accountHref}
-                  className="px-4 py-3 rounded-lg text-base block drawer-link"
+                  key={link.href}
+                  href={link.href}
+                  className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
                   onClick={() => setDrawerOpen(false)}
                 >
-                  {isLoggedIn ? "👤 Account" : "🔐 Login"}
+                  {link.label}
                 </Link>
-                {isLoggedIn && (
-                  <Link
-                    href="/account/favorites"
-                    className="px-4 py-3 rounded-lg text-base block drawer-link"
-                    onClick={() => setDrawerOpen(false)}
-                  >
-                    ⭐ Favorites
-                  </Link>
-                )}
-                {isLoggedIn && showBilling && (
-                  <Link
-                    href="/vendors/billing"
-                    className="px-4 py-3 rounded-lg text-base block drawer-link"
-                    onClick={() => setDrawerOpen(false)}
-                  >
-                    💳 Billing
-                  </Link>
-                )}
-                {isLoggedIn && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleLogout();
-                      setDrawerOpen(false);
-                    }}
-                    className="w-full text-left px-4 py-3 rounded-lg text-base mt-2 nav-logout"
-                  >
-                    🚪 Logout
-                  </button>
-                )}
-              </div>
+              ))}
+              {isLoggedIn && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleLogout();
+                    setDrawerOpen(false);
+                  }}
+                  className="w-full text-left px-4 py-3 rounded-lg text-base nav-logout min-h-[44px] flex items-center"
+                >
+                  🚪 Logout
+                </button>
+              )}
             </div>
           </div>
         </div>
