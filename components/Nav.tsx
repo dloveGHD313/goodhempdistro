@@ -447,16 +447,18 @@ export default function Nav() {
               <div className="border-t mt-2 pt-2 nav-drawer-header">
                 <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Primary</div>
               </div>
-              {navPrimaryLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
-                  onClick={() => setDrawerOpen(false)}
-                >
-                  {link.label}
-                </Link>
-              ))}
+              {navPrimaryLinks
+                .filter((link) => !NAV_PUBLIC.some((p) => p.href === link.href))
+                .map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
 
               <div className="border-t mt-2 pt-2 nav-drawer-header">
                 <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Community</div>
@@ -504,30 +506,32 @@ export default function Nav() {
                 </>
               )}
 
-              <div className="border-t mt-4 pt-4 nav-drawer-header">
-                <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Account</div>
-              </div>
-              {accountLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
-                  onClick={() => setDrawerOpen(false)}
-                >
-                  {link.label}
-                </Link>
-              ))}
               {isLoggedIn && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleLogout();
-                    setDrawerOpen(false);
-                  }}
-                  className="w-full text-left px-4 py-3 rounded-lg text-base nav-logout min-h-[44px] flex items-center"
-                >
-                  🚪 Logout
-                </button>
+                <>
+                  <div className="border-t mt-4 pt-4 nav-drawer-header">
+                    <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Account</div>
+                  </div>
+                  {accountLinks.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
+                      onClick={() => setDrawerOpen(false)}
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleLogout();
+                      setDrawerOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-3 rounded-lg text-base nav-logout min-h-[44px] flex items-center"
+                  >
+                    🚪 Logout
+                  </button>
+                </>
               )}
             </div>
           </div>

@@ -14,11 +14,10 @@ export const NAV_PUBLIC: NavItem[] = [
   { label: "Contact", href: "/contact" },
 ];
 
-/** Primary nav — Welcome, Feed, Shop, Discover, Events, Episodes */
+/** Primary nav — Welcome, Feed, Discover, Events, Episodes (Shop/Marketplace in NAV_PUBLIC) */
 export const NAV_PRIMARY: NavItem[] = [
   { label: "👋 Welcome", href: "/welcome" },
   { label: "🏠 Feed", href: "/newsfeed" },
-  { label: "🛍️ Shop", href: "/products" },
   { label: "🧭 Discover", href: "/discover" },
   { label: "🎪 Events", href: "/events" },
   { label: "📺 Episodes", href: "/learning-with-jax" },
