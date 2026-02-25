@@ -18,6 +18,11 @@ if (typeof window === "undefined") {
   validateEnvironmentVariables({ logSuccess: false });
 }
 
+// FIXED: Force dynamic rendering so build completes when env vars are missing.
+// Prerendering would run server components that call createSupabaseServerClient and throw.
+// With dynamic, pages render at request time when env is available.
+export const dynamic = "force-dynamic";
+
 const geistSans = localFont({
   variable: "--font-geist-sans",
   src: [

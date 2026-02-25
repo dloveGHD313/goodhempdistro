@@ -28,7 +28,12 @@ const normalizeMode = (value: string | null | undefined): MarketMode | null => {
 };
 
 export function MarketModeProvider({ children }: { children: React.ReactNode }) {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  // FIXED: Defer Supabase client creation to client-only. useMemo runs during SSR and would
+  // throw "Missing Supabase environment variables" during build when env vars are not loaded.
+  const supabase = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    return createSupabaseBrowserClient();
+  }, []);
   const [mode, setModeState] = useState<MarketMode>("CBD_WELLNESS");
   const [isVerified, setIsVerified] = useState(false);
   const [loadingVerification, setLoadingVerification] = useState(true);
@@ -43,6 +48,10 @@ export function MarketModeProvider({ children }: { children: React.ReactNode }) 
   const refreshVerification = useCallback(async () => {
     setLoadingVerification(true);
     try {
+      if (!supabase) {
+        setLoadingVerification(false);
+        return;
+      }
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setIsVerified(false);
