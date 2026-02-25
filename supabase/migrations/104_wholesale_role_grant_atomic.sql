@@ -43,4 +43,3 @@ $$;
 
 REVOKE ALL ON FUNCTION public.admin_grant_wholesale_role(uuid, uuid) FROM public;
 GRANT EXECUTE ON FUNCTION public.admin_grant_wholesale_role(uuid, uuid) TO service_role;
-GRANT EXECUTE ON FUNCTION public.admin_grant_wholesale_role(uuid, uuid) TO authenticated;

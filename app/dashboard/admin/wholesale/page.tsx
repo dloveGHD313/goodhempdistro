@@ -1,18 +1,30 @@
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { createSupabaseServerClient } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import Footer from "@/components/Footer";
 import WholesaleAdminClient from "./WholesaleAdminClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminWholesalePage() {
-  const adminCheck = await requireAdmin();
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!adminCheck.user) {
+  if (!user) {
     redirect("/login?redirect=/dashboard/admin/wholesale");
   }
 
-  if (!adminCheck.isAdmin) {
+  const adminClient = getSupabaseAdminClient();
+  const { data: adminRow } = await adminClient
+    .from("admin_users")
+    .select("user_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const isAdmin = !!adminRow;
+
+  if (!isAdmin) {
     return (
       <div className="min-h-screen text-white flex flex-col">
         <main className="flex-1">
