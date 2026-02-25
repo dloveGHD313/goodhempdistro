@@ -55,7 +55,7 @@ export default function ContactForm() {
       )}
       {success && (
         <div className="bg-green-900/30 border border-green-600 rounded-lg p-4 text-green-400">
-          Thank you for your message! We'll get back to you within 24-48 hours.
+          Thank you for your message! We&apos;ll get back to you within 24-48 hours.
         </div>
       )}
 

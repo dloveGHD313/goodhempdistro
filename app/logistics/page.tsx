@@ -23,6 +23,7 @@ export default function LogisticsPage() {
 
   useEffect(() => {
     let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPayScaleState({ status: "loading" });
     fetch("/api/logistics/pay-scale")
       .then((res) => {

@@ -84,6 +84,7 @@ export default function ServicesReviewClient({
       (initialCounts.draft || 0) +
       (initialCounts.rejected || 0);
     if (initialServices.length === 0 && totalCount > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchList(initialStatus);
     }
   }, [initialCounts, initialServices.length, initialStatus]);

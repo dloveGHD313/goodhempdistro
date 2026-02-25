@@ -78,6 +78,7 @@ export default function EventsReviewClient({ initialEvents, initialCounts, initi
       (initialCounts.draft || 0) +
       (initialCounts.rejected || 0);
     if (initialEvents.length === 0 && totalCount > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchList(initialStatus);
     }
   }, [initialCounts, initialEvents.length, initialStatus]);

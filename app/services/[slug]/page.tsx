@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase";
@@ -91,9 +92,10 @@ export default async function ServiceDetailPage({
               <p className="text-muted mb-6">
                 This service is not available or has been removed.
               </p>
-              <a href="/services" className="btn-primary">
+              {/* FIXED: Use Link for client-side navigation */}
+              <Link href="/services" className="btn-primary">
                 Browse All Services
-              </a>
+              </Link>
             </div>
           </Section>
         </main>

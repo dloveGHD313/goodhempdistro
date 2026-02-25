@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getUserVerificationStatus } from "@/lib/server/idVerification";
@@ -49,9 +50,10 @@ export default async function VerifyStartPage() {
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               {approved ? (
-                <a href="/products" className="btn-primary">
+                {/* FIXED: Use Link for client-side navigation */}
+                <Link href="/products" className="btn-primary">
                   Browse Products
-                </a>
+                </Link>
               ) : (
                 <a href="/verify/upload" className="btn-primary">
                   Upload ID

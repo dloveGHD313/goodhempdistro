@@ -37,6 +37,29 @@ export default function EventsList({ initialEvents }: Props) {
       .map((value) => ({ label: value, value }));
   }, [events]);
 
+  // FIXED: Moved useEffect before early return — hooks must never appear after conditional returns (react-hooks/rules-of-hooks)
+  useEffect(() => {
+    if (!events.length) return;
+    const ids = events.map((event) => event.id).join(",");
+    fetch(`/api/reviews/summary?entity_type=event&entity_ids=${ids}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.summaries) {
+          setRatings(data.summaries);
+        }
+      })
+      .catch(() => undefined);
+
+    fetch(`/api/favorites?entity_type=event&entity_ids=${ids}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const next = new Set<string>();
+        (data?.favorites || []).forEach((fav: { entity_id: string }) => next.add(fav.entity_id));
+        setFavorites(next);
+      })
+      .catch(() => undefined);
+  }, [events]);
+
   const filteredEvents = events.filter((event) => {
     const matchesSearch =
       !search ||
@@ -54,28 +77,6 @@ export default function EventsList({ initialEvents }: Props) {
       </div>
     );
   }
-
-  useEffect(() => {
-    if (!events.length) return;
-    const ids = events.map((event) => event.id).join(",");
-    fetch(`/api/reviews/summary?entity_type=event&entity_ids=${ids}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.summaries) {
-          setRatings(data.summaries);
-        }
-      })
-      .catch(() => undefined);
-
-    fetch(`/api/favorites?entity_type=event&entity_ids=${ids}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        const next = new Set<string>();
-        (data?.favorites || []).forEach((fav: any) => next.add(fav.entity_id));
-        setFavorites(next);
-      })
-      .catch(() => undefined);
-  }, [events]);
 
   return (
     <div className="space-y-6">

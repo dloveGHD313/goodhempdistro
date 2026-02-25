@@ -30,6 +30,7 @@ export default function VendorForm() {
   // Check if debug mode is enabled
   useEffect(() => {
     const debugEnabled = searchParams?.get("debug") === "1";
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsDebugMode(debugEnabled);
     
     if (debugEnabled && typeof window !== "undefined") {
