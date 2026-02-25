@@ -67,7 +67,8 @@ export async function applyPlatformFeesToOrder(
       const planType = item.vendor_user_id ? (vendorPlanMap.get(item.vendor_user_id) || "default") : "default";
       const itemType = item.item_type || "product";
       const key = `${planType}:${itemType}`;
-      let feeBps = ruleMap.get(key) ?? ruleMap.get(`default:${itemType}`) ?? 0;
+      // FIXED: prefer-const
+      const feeBps = ruleMap.get(key) ?? ruleMap.get(`default:${itemType}`) ?? 0;
 
       const platformFeeCents = Math.floor((lineTotal * feeBps) / 10000);
       const vendorNetCents = lineTotal - platformFeeCents;

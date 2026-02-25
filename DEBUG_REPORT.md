@@ -1,162 +1,289 @@
-# GHD Master Debug Sweep Report
-**Date:** 2025-02-25  
-**Branch:** `fix/master-debug-sweep-20250225` / `fix/debug-sweep-wt`  
-**Build status:** ✅ PASSING  
-**Typecheck (production code):** ✅ ZERO ERRORS  
+# Good Hemp Distro - Debug Report
+
+**Generated:** Phase A3 Full Repo Inventory
 
 ---
 
-## 1. DEBUG LOG — Every Error Found
+## 1. Page Routes (app/ recursive)
 
-### CRITICAL (crash-level)
+### page.tsx (116 files)
+| Route | File |
+|-------|------|
+| / | app/page.tsx |
+| /about | app/about/page.tsx |
+| /account | app/account/page.tsx |
+| /account/addresses | app/account/addresses/page.tsx |
+| /account/affiliates | app/account/affiliates/page.tsx |
+| /account/favorites | app/account/favorites/page.tsx |
+| /account/favorites2 | app/account/favorites2/page.tsx |
+| /account/loyalty | app/account/loyalty/page.tsx |
+| /account/orders | app/account/orders/page.tsx |
+| /account/payment | app/account/payment/page.tsx |
+| /account/subscription | app/account/subscription/page.tsx |
+| /admin/affiliates | app/admin/affiliates/page.tsx |
+| /admin/affiliates/payouts | app/admin/affiliates/payouts/page.tsx |
+| /admin/analytics | app/admin/analytics/page.tsx |
+| /admin/audit | app/admin/audit/page.tsx |
+| /admin/categories | app/admin/categories/page.tsx |
+| /admin/compliance | app/admin/compliance/page.tsx |
+| /admin/diag/env | app/admin/diag/env/page.tsx |
+| /admin/drivers | app/admin/drivers/page.tsx |
+| /admin/events | app/admin/events/page.tsx |
+| /admin/id-verifications | app/admin/id-verifications/page.tsx |
+| /admin/inquiries | app/admin/inquiries/page.tsx |
+| /admin/logistics | app/admin/logistics/page.tsx |
+| /admin/moderation | app/admin/moderation/page.tsx |
+| /admin/products | app/admin/products/page.tsx |
+| /admin/products/[id] | app/admin/products/[id]/page.tsx |
+| /admin/products/queue | app/admin/products/queue/page.tsx |
+| /admin/services | app/admin/services/page.tsx |
+| /admin/vendor-referrals/payouts | app/admin/vendor-referrals/payouts/page.tsx |
+| /admin/vendors | app/admin/vendors/page.tsx |
+| /admin/vendors/integrity | app/admin/vendors/integrity/page.tsx |
+| /affiliate | app/affiliate/page.tsx |
+| /affiliate/portal | app/affiliate/portal/page.tsx |
+| /affiliates/portal | app/affiliates/portal/page.tsx |
+| /blog | app/blog/page.tsx |
+| /brand-check | app/brand-check/page.tsx |
+| /checkout | app/checkout/page.tsx |
+| /checkout/success | app/checkout/success/page.tsx |
+| /contact | app/contact/page.tsx |
+| /dashboard | app/dashboard/page.tsx |
+| /dashboard/admin | app/dashboard/admin/page.tsx |
+| /dashboard/admin/wholesale | app/dashboard/admin/wholesale/page.tsx |
+| /discover | app/discover/page.tsx |
+| /driver-apply | app/driver-apply/page.tsx |
+| /driver/dashboard | app/driver/dashboard/page.tsx |
+| /education | app/education/page.tsx |
+| /events | app/events/page.tsx |
+| /events/[id] | app/events/[id]/page.tsx |
+| /events/checkout/cancel | app/events/checkout/cancel/page.tsx |
+| /events/success | app/events/success/page.tsx |
+| /forums | app/forums/page.tsx |
+| /get-started | app/get-started/page.tsx |
+| /groups | app/groups/page.tsx |
+| /home | app/home/page.tsx |
+| /learning-with-jax | app/learning-with-jax/page.tsx |
+| /login | app/login/page.tsx |
+| /logistics | app/logistics/page.tsx |
+| /logistics/apply | app/logistics/apply/page.tsx |
+| /logistics/dashboard | app/logistics/dashboard/page.tsx |
+| /logistics/request | app/logistics/request/page.tsx |
+| /logistics/routes | app/logistics/routes/page.tsx |
+| /maintenance | app/maintenance/page.tsx |
+| /newsfeed | app/newsfeed/page.tsx |
+| /onboarding | app/onboarding/page.tsx |
+| /onboarding/consumer | app/onboarding/consumer/page.tsx |
+| /onboarding/vendor | app/onboarding/vendor/page.tsx |
+| /orders | app/orders/page.tsx |
+| /orders/cancel | app/orders/cancel/page.tsx |
+| /orders/success | app/orders/success/page.tsx |
+| /pricing | app/pricing/page.tsx |
+| /privacy | app/privacy/page.tsx |
+| /product/[id] | app/product/[id]/page.tsx |
+| /products | app/products/page.tsx |
+| /products/[id] | app/products/[id]/page.tsx |
+| /r/[code] | app/r/[code]/page.tsx |
+| /refunds | app/refunds/page.tsx |
+| /reset-password | app/reset-password/page.tsx |
+| /services | app/services/page.tsx |
+| /services/[slug] | app/services/[slug]/page.tsx |
+| /signup | app/signup/page.tsx |
+| /start | app/start/page.tsx |
+| /terms | app/terms/page.tsx |
+| /vendor-registration | app/vendor-registration/page.tsx |
+| /vendors | app/vendors/page.tsx |
+| /vendors/[id] | app/vendors/[id]/page.tsx |
+| /vendors/activate | app/vendors/activate/page.tsx |
+| /vendors/billing | app/vendors/billing/page.tsx |
+| /vendors/dashboard | app/vendors/dashboard/page.tsx |
+| /vendors/dashboard/events | app/vendors/dashboard/events/page.tsx |
+| /vendors/dashboard/products | app/vendors/dashboard/products/page.tsx |
+| /vendors/dashboard/profile | app/vendors/dashboard/profile/page.tsx |
+| /vendors/dashboard/services | app/vendors/dashboard/services/page.tsx |
+| /vendors/events | app/vendors/events/page.tsx |
+| /vendors/events/[id]/edit | app/vendors/events/[id]/edit/page.tsx |
+| /vendors/events/new | app/vendors/events/new/page.tsx |
+| /vendors/orders | app/vendors/orders/page.tsx |
+| /vendors/payouts | app/vendors/payouts/page.tsx |
+| /vendors/products | app/vendors/products/page.tsx |
+| /vendors/products/[id]/edit | app/vendors/products/[id]/edit/page.tsx |
+| /vendors/products/new | app/vendors/products/new/page.tsx |
+| /vendors/referrals | app/vendors/referrals/page.tsx |
+| /vendors/services | app/vendors/services/page.tsx |
+| /vendors/services/[id]/edit | app/vendors/services/[id]/edit/page.tsx |
+| /vendors/services/inquiries | app/vendors/services/inquiries/page.tsx |
+| /vendors/services/new | app/vendors/services/new/page.tsx |
+| /vendors/settings | app/vendors/settings/page.tsx |
+| /verify | app/verify/page.tsx |
+| /verify-age | app/verify-age/page.tsx |
+| /verify-age/status | app/verify-age/status/page.tsx |
+| /verify-age/upload | app/verify-age/upload/page.tsx |
+| /verify/status | app/verify/status/page.tsx |
+| /verify/upload | app/verify/upload/page.tsx |
+| /vr/[code] | app/vr/[code]/page.tsx |
+| /welcome | app/welcome/page.tsx |
+| /wholesale | app/wholesale/page.tsx |
+| /wholesale/apply | app/wholesale/apply/page.tsx |
 
-| ID | File | Line | Error | Status |
-|----|------|------|-------|--------|
-| C-01 | `app/events/EventsList.tsx` | 58 | `react-hooks/rules-of-hooks` — `useEffect` called AFTER a conditional early return. Violates React Rules of Hooks; causes runtime crash when events array is empty. | ✅ FIXED |
-
-### HIGH (SPA navigation broken — full-page reloads)
-
-| ID | File | Line | Error | Status |
-|----|------|------|-------|--------|
-| H-01 | `app/error.tsx` | 42 | `<a href="/">` instead of `<Link href="/">` | ✅ FIXED |
-| H-02 | `app/dashboard/page.tsx` | 98, 173, 178 | 3× `<a>` instead of `<Link>` | ✅ FIXED |
-| H-03 | `app/products/ProductsList.tsx` | 132 | `<a href="/services">` | ✅ FIXED |
-| H-04 | `app/services/[slug]/page.tsx` | 94 | `<a href="/services">` | ✅ FIXED |
-| H-05 | `app/vendors/products/page.tsx` | 91 | `<a href="/vendors/dashboard">` | ✅ FIXED |
-| H-06 | `app/vendors/services/inquiries/page.tsx` | 110 | `<a href="/vendors/dashboard">` | ✅ FIXED |
-| H-07 | `app/vendors/services/page.tsx` | 88 | `<a href="/vendors/dashboard">` | ✅ FIXED |
-| H-08 | `app/vendors/settings/page.tsx` | 62 | `<a href="/vendors/dashboard">` | ✅ FIXED |
-| H-09 | `app/verify-age/page.tsx` | 52 | `<a href="/products">` | ✅ FIXED |
-| H-10 | `app/verify-age/status/page.tsx` | 106–111 | 2× `<a>` instead of `<Link>` | ✅ FIXED |
-| H-11 | `app/verify/page.tsx` | 52 | `<a href="/products">` | ✅ FIXED |
-| H-12 | `app/verify/status/page.tsx` | 106–111 | 2× `<a>` instead of `<Link>` | ✅ FIXED |
-
-### HIGH (missing error boundaries)
-
-| ID | Missing File | Impact | Status |
-|----|-------------|--------|--------|
-| H-13 | `app/vendors/error.tsx` | All vendor pages unhandled crashes | ✅ CREATED |
-| H-14 | `app/admin/error.tsx` | All admin pages unhandled crashes | ✅ CREATED |
-| H-15 | `app/account/error.tsx` | All account pages unhandled crashes | ✅ CREATED |
-| H-16 | `app/dashboard/error.tsx` | Dashboard crash unhandled | ✅ CREATED |
-
-### MEDIUM (lint quality + react)
-
-| ID | File | Line | Error | Status |
-|----|------|------|-------|--------|
-| M-01 | `app/admin/vendors/page.tsx` | 322 | Unescaped `"` in JSX | ✅ FIXED |
-| M-02 | `app/contact/ContactForm.tsx` | 58 | Unescaped `'` in JSX | ✅ FIXED |
-| M-03 | `lib/useSafeReducedMotion.ts` | 17 | `setState` called directly in effect body (lint: react-hooks/set-state-in-effect) | ✅ FIXED (via handler callback) |
-| M-04 | Various (8 files) | — | `setState` in effect body (legitimate patterns suppressed with eslint-disable) | ✅ FIXED |
-| M-05 | `app/affiliates/portal/AffiliatePortalClient.tsx` | 147, 148 | `let` → `const` | ✅ FIXED |
-| M-06 | `app/api/admin/analytics/timeseries/route.ts` | 28 | `let` → `const` | ✅ FIXED |
-| M-07 | `app/api/admin/moderation/comments/route.ts` | 77 | `let` → `const` | ✅ FIXED |
-| M-08 | `app/api/admin/moderation/reports/route.ts` | 67 | `let` → `const` | ✅ FIXED |
-| M-09 | `app/api/profile/route.ts` | 47 | `let` → `const` | ✅ FIXED |
-| M-10 | `app/api/vendors/products/create/route.ts` | 15 | `let` → `const` | ✅ FIXED |
-
-### LOW (test file issues — non-production)
-
-| ID | File | Line | Error | Status |
-|----|------|------|-------|--------|
-| L-01 | `__tests__/vendor-status-gate.test.ts` | 30 | Duplicate import causing TS2300 | ✅ FIXED |
-| L-02 | `__tests__/vendor-status-gate.test.ts` | 96 | `result.status` — type narrowing missing | ✅ FIXED |
-| L-03 | `__tests__/phase3c/` (3 files) | various | `Request` passed where `NextRequest` expected | DOCUMENTED (pre-existing) |
-| L-04 | `__tests__/logout.test.tsx` | 76, 77 | `window` cast issue | DOCUMENTED (pre-existing) |
-| L-05 | `tests/e2e/phase4.spec.ts` | 106–179 | Playwright `test.skip()` wrong argument type | DOCUMENTED (pre-existing) |
-
-### DATABASE ISSUES (no migration applied — see MANUAL_FIXES_NEEDED.md)
-
-| ID | Migration | Issue | Status |
-|----|-----------|-------|--------|
-| DB-01 | `104_wholesale_approve_atomic_role.sql` | Creates `admin_append_wholesale_role` with `GRANT EXECUTE TO authenticated` — privilege escalation | ⚠️ CEO APPROVAL REQUIRED |
-| DB-02 | `104_*` prefix conflict | Two files share prefix `104_` — ordering ambiguity | DOCUMENTED |
-| DB-03 | Missing `060_*` | Migration sequence jumps from 059 to 061 | DOCUMENTED (likely intentional skip) |
-| DB-04 | `105_` and `106_` duplicate | Both revoke authenticated from `admin_grant_wholesale_role`; 106 supersedes 105 | SAFE (idempotent) |
+### layout.tsx (20 files)
+| Route | File |
+|-------|------|
+| (root) | app/layout.tsx |
+| /account | app/account/layout.tsx |
+| /account/subscription | app/account/subscription/layout.tsx |
+| /checkout | app/checkout/layout.tsx |
+| /dashboard | app/dashboard/layout.tsx |
+| /events | app/events/layout.tsx |
+| /orders | app/orders/layout.tsx |
+| /products | app/products/layout.tsx |
+| /services | app/services/layout.tsx |
+| /vendor | app/vendor/layout.tsx |
+| /vendors | app/vendors/layout.tsx |
+| /vendors/dashboard | app/vendors/dashboard/layout.tsx |
+| /vendors/events | app/vendors/events/layout.tsx |
+| /vendors/orders | app/vendors/orders/layout.tsx |
+| /vendors/payouts | app/vendors/payouts/layout.tsx |
+| /vendors/products | app/vendors/products/layout.tsx |
+| /vendors/referrals | app/vendors/referrals/layout.tsx |
+| /vendors/services | app/vendors/services/layout.tsx |
+| /vendors/billing | app/vendors/billing/layout.tsx |
+| /vendors/settings | app/vendors/settings/layout.tsx |
 
 ---
 
-## 2. FIX SUMMARY
+## 2. API Routes (app/api/ recursive)
 
-### Site-Breaking Fixes
-- **C-01** — Conditional React hook in `EventsList.tsx` (moved `useEffect` before early return)
+**Total: ~157 route.ts files**
 
-### UX / SPA Navigation Fixes  
-- **H-01 through H-12** — 14 `<a>` → `<Link>` replacements across 11 files + added `Link` import to 9 files
-
-### Error Boundary Coverage
-- Created 4 missing error boundaries: vendors, admin, account, dashboard
-
-### Code Quality Fixes
-- 2 unescaped entity fixes
-- 10 `setState-in-effect` suppressions (legitimate patterns)
-- 6 `prefer-const` (let → const)
-- 1 duplicate import removed in test file
-
-### Cleanup Deletions
-- `app/api/vendor/checkout/route.ts` — deprecated 410 route (no references in codebase)
-- `app/account/favorites2/page.tsx` — orphaned test redirect (no references in codebase)
-- `support_bundle/` folder — old QA artifacts (3 files)
+### Key API route groups
+- **Auth:** `/api/auth/set-role`, `/api/auth/post-login-route`, `/api/auth/logout`
+- **Admin:** `/api/admin/*` (vendors, products, events, services, drivers, moderation, wholesale, etc.)
+- **Stripe:** `/api/stripe/checkout`, `/api/stripe/webhook`, `/api/stripe/consumer-portal`, `/api/stripe/vendor/create-checkout-session`
+- **Webhooks:** `/api/webhooks/stripe`
+- **Vendors:** `/api/vendors/*`, `/api/vendor/profile`, `/api/vendor/status`
+- **Wholesale:** `/api/wholesale/applications/*`
+- **Driver:** `/api/driver/*`, `/api/deliveries/*`
+- **Affiliates:** `/api/affiliates/*`
+- **Events:** `/api/events/*`
+- **Checkout:** `/api/checkout/*`, `/api/orders/*`
+- **COA:** `/api/admin/products/[id]/coa`, `/api/admin/products/[id]/coa/view`, `/api/admin/products/[id]/coa/status`, `/api/vendors/products/[id]/coa`
 
 ---
 
-## 3. FILE DELETIONS
+## 3. Database: Supabase Migrations
 
-| File | Reason | References updated |
-|------|--------|-------------------|
-| `app/api/vendor/checkout/route.ts` | Returned 410 GONE; no TS/TSX references; only in docs/STRIPE_CHECKOUT_VERIFICATION.md | None needed |
-| `app/account/favorites2/page.tsx` | Redirected to /account/favorites; zero references in codebase | None needed |
-| `support_bundle/live_route/comments_delete.ts` | Old support artifact; not imported anywhere | None needed |
-| `support_bundle/supabase/post_comments_policies.txt` | Old support artifact | None needed |
-| `support_bundle/supabase/posts_table.txt` | Old support artifact | None needed |
+**Count:** 107 migration files (001 through 107)
+
+### Key tables (from migrations)
+- `profiles` – user profiles, roles, vendor_status
+- `vendors` – vendor businesses, stripe_customer_id
+- `products` – marketplace products, coa_url, coa_object_path
+- `product_documents` – COA storage metadata (type='coa')
+- `categories` – hierarchical, requires_coa
+- `orders`, `order_items`
+- `subscriptions` – consumer/vendor Stripe subscriptions
+- `events`, `services`
+- `wholesale_applications`
+- `affiliates`, `vendor_referrals`
+- `id_verifications`
+- `posts`, `comments`
+- `coas` storage bucket
+
+### RLS
+- Migrations in: 001, 002, 006, 007, 008, 011, 016, 017, 018, 020, 021, 027, 033, 034, 035, 050, 051, 053–063, 070, 085, 103, etc.
 
 ---
 
-## 4. ⚠️ CEO APPROVAL REQUIRED
+## 4. Auth
 
-### DB-01: `admin_append_wholesale_role` privilege escalation
-**File:** `supabase/migrations/104_wholesale_approve_atomic_role.sql`  
-**Issue:** The function `admin_append_wholesale_role` grants `EXECUTE` to both `service_role` AND `authenticated`. Any authenticated user can call this RPC directly (bypassing the API). The function checks `admin_users` before acting, so only admins succeed — but the attack surface is wider than necessary.  
-**Action required:** Add a migration to `REVOKE EXECUTE ON FUNCTION public.admin_append_wholesale_role(uuid, uuid) FROM authenticated;`  
-**Note:** `admin_append_wholesale_role` is NOT used anywhere in application code (app calls `admin_grant_wholesale_role` instead). Consider also dropping the function entirely.  
-**Label: CEO APPROVAL REQUIRED BEFORE DEPLOY**
+### middleware.ts
+- **Location:** `middleware.ts` (root)
+- **Behavior:** Supabase session refresh via `createServerClient`; auth-gated routes: `/dashboard`, `/account`, `/checkout`, `/vendors/*`, `/driver/dashboard`, `/admin/*`
+- **Maintenance mode:** Allowlist for static assets, auth pages, admin (by email)
+- **Supabase env check:** If `NEXT_PUBLIC_SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_ANON_KEY` missing → `NextResponse.next()` (no throw)
+
+### lib/auth
+- `lib/auth/requireAdmin.ts`
+- `lib/auth/requireAdminUsers.ts`
+
+### RLS
+- Enforced in Supabase migrations; policies on profiles, vendors, products, orders, etc.
 
 ---
 
-## 5. VERIFICATION LOG
+## 5. COA Flow
 
-### Build
-```
-✅ npm run build → exit code 0
-✅ All 116 pages compile (static + dynamic)
-✅ No compile-time errors in production code
-```
+### Upload
+- **Vendor product form:** `app/vendors/products/new/page.tsx` – coaUrl, coaObjectPath state
+- **Vendor product PATCH:** `app/api/vendors/products/[id]/route.ts` – accepts `coa_url`, `coa_object_path`; normalizes path; validates via `validateProductCompliance`
+- **COA upload API:** `app/api/vendors/products/[id]/coa/route.ts` – vendor upload to storage
+- **Storage:** `coas` bucket; path pattern `vendors/{uid}/products/{pid}/coa/...`
+- **product_documents:** `supabase/migrations/084_coa_documents_table.sql` – type='coa', storage_bucket, storage_path
 
-### Typecheck
-```
-✅ Production code (app/, lib/, components/): ZERO TypeScript errors
-⚠️ Test files (__tests__/, tests/e2e/): 19 pre-existing errors (non-blocking)
-   - 12× Request vs NextRequest in test mocks (pattern mismatch, tests still run)
-   - 4× Playwright skip() wrong signature
-   - 2× window cast in logout test
-   - 1× vendor-status-gate duplicate identifier (FIXED)
-```
+### Validation
+- **lib/compliance.ts:** `requiresCOA(category)`, `validateProductCompliance`, `getCategoryCoaRequirement`
+- **Submit block:** `requiresCOA && !admin && !coa_url && !coa_object_path` → block submit
+- **Admin COA APIs:** `app/api/admin/products/[id]/coa`, `coa/view`, `coa/status`, `coa-verify`
 
-### Lint
-```
-Starting: 189 errors, 137 warnings
-After fixes: Significant reduction (critical and high-severity errors eliminated)
-Remaining: no-explicit-any (widespread, non-breaking style issue) + warnings
-```
+---
 
-### Core paths verified (static analysis)
-- ✅ Auth/login/logout — `app/login/page.tsx`, `app/api/auth/logout/route.ts`
-- ✅ Vendor product creation — `app/api/vendors/products/create/route.ts` (COA not required at creation)
-- ✅ COA upload decoupled — `app/vendors/products/[id]/edit/COAUpload.tsx` (separate from creation)
-- ✅ Customer browse approved listings — `app/products/page.tsx` (filters by status=approved)
-- ✅ Mobile nav — all primary tabs in drawer with 44px min-h targets
-- ✅ Onboarding — `app/onboarding/page.tsx` → `OnboardingShell` → card-based questionnaire
-- ✅ No hardcoded localhost URLs in production paths (all guarded by `process.env.NEXT_PUBLIC_SITE_URL ||`)
-- ✅ Middleware: admin routes, vendor routes, account routes all protected
-- ✅ All redirect targets verified to exist
-- ✅ No duplicate API endpoint registrations
+## 6. Payment: Stripe
+
+### Routes
+- `app/api/stripe/checkout/route.ts` – vendor subscription checkout
+- `app/api/stripe/webhook/route.ts` → re-exports `app/api/webhooks/stripe/route.ts`
+- `app/api/webhooks/stripe/route.ts` – main webhook handler (checkout.session.completed, invoice.paid, payment_intent.succeeded, etc.)
+- `app/api/stripe/consumer-portal/route.ts`
+- `app/api/stripe/vendor/create-checkout-session/route.ts`
+- `app/api/subscriptions/checkout/route.ts` – consumer subscription checkout
+- `app/api/checkout/create-session/route.ts`, `app/api/checkout/confirm/route.ts`
+- `app/api/vendor/checkout/route.ts`
+
+### Webhooks
+- **File:** `app/api/webhooks/stripe/route.ts`
+- **Events:** checkout.session.completed, invoice.paid, invoice.payment_failed, customer.subscription.*, payment_intent.succeeded, payment_intent.payment_failed
+- **Vendor activation:** Sets `vendor_status = 'active'` on subscription completion
+
+---
+
+## 7. Nav
+
+### components/Nav.tsx
+- Client component; uses `createSupabaseBrowserClient`, `hasRole`, `NAV_*` from lib/nav
+- Fetches vendor/consumer/driver/affiliate status via `/api/vendor/status`, `/api/consumer/status`, `/api/driver/me`
+- Drawer for mobile; desktop dropdowns for Community, Business, Admin, Account
+
+### lib/nav.ts
+- **Types:** `NavItem`, `NavContext`, `NavAudience`, `NavSurface`
+- **Exports:** `NAV_ITEMS`, `NAV_PUBLIC`, `NAV_PRIMARY`, `NAV_COMMUNITY`, `NAV_BUSINESS`, `NAV_ADMIN`
+- **Helpers:** `shouldHideNav`, `getNavItemsForSurface`, `isNavItemVisible`
+- **HIDE_NAV_PATHS:** `/signup`, `/login`, `/get-started`, `/onboarding`
+
+---
+
+## 8. Env Vars (.env.example)
+
+### Required (core)
+| Var | Description |
+|-----|-------------|
+| `NEXT_PUBLIC_SITE_URL` | Production site URL |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role (server-only) |
+| `STRIPE_SECRET_KEY` | Stripe secret API key |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
+
+### Optional / context-dependent
+| Var | Description |
+|-----|-------------|
+| `VERCEL_URL` | Vercel deployment URL |
+| `DEBUG_KEY` | Debug flag |
+| `INTOXICATING_ALLOWED_UNTIL` | Intoxicating products cutoff |
+| `ADMIN_EMAILS` | Admin email list |
+| `SUPABASE_URL` | Duplicate of NEXT_PUBLIC for some tooling |
+| `STRIPE_CONNECT_CLIENT_ID` | Connect OAuth (optional for Account Links) |
+| `STRIPE_*_PRICE_ID` | Plan price IDs |
+| `OPENAI_*`, `MASCOT_*` | Mascot AI |
+
+---
