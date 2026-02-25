@@ -63,32 +63,17 @@ export async function POST(req: NextRequest) {
       notes: null,
     };
 
-    if (existing) {
-      const { data: updated, error } = await supabase
-        .from("wholesale_applications")
-        .update(row)
-        .eq("id", existing.id)
-        .select("id")
-        .maybeSingle();
-      if (error) {
-        console.error("[wholesale/submit] update error", error);
-        return NextResponse.json({ error: "Failed to submit application" }, { status: 500 });
-      }
-      if (!updated) {
-        return NextResponse.json(
-          { error: "Update blocked — application may not exist or access denied" },
-          { status: 403 }
-        );
-      }
-      return NextResponse.json({ ok: true, id: existing.id });
-    }
+    const { data, error } = await supabase
+      .from("wholesale_applications")
+      .upsert(row, { onConflict: "user_id", ignoreDuplicates: false })
+      .select("id")
+      .single();
 
-    const { data: inserted, error } = await supabase.from("wholesale_applications").insert(row).select("id").single();
     if (error) {
-      console.error("[wholesale/submit] insert error", error);
+      console.error("[wholesale/submit] upsert error", error);
       return NextResponse.json({ error: "Failed to submit application" }, { status: 500 });
     }
-    return NextResponse.json({ ok: true, id: inserted.id });
+    return NextResponse.json({ ok: true, id: data.id });
   } catch (error) {
     console.error("[wholesale/submit]", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
