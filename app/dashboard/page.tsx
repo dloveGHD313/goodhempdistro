@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import Footer from "@/components/Footer";
 import { createSupabaseServerClient } from "@/lib/supabase";
@@ -95,9 +96,10 @@ export default async function DashboardPage() {
                 {dashboardData.orders.length === 0 ? (
                   <div className="text-center py-12">
                     <p className="text-muted mb-4">No orders yet</p>
-                    <a href="/products" className="btn-primary inline-block">
+                    {/* FIXED: Use Link for client-side navigation */}
+                    <Link href="/products" className="btn-primary inline-block">
                       Start Shopping
-                    </a>
+                    </Link>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -170,14 +172,14 @@ export default async function DashboardPage() {
                 <h3 className="text-xl font-semibold mb-4">Quick Links</h3>
                 <ul className="space-y-3">
                   <li>
-                    <a href="/products" className="text-muted hover:text-accent transition">
+                    <Link href="/products" className="text-muted hover:text-accent transition">
                       Browse Products
-                    </a>
+                    </Link>
                   </li>
                   <li>
-                    <a href="/vendors" className="text-muted hover:text-accent transition">
+                    <Link href="/vendors" className="text-muted hover:text-accent transition">
                       View Vendors
-                    </a>
+                    </Link>
                   </li>
                   <li>
                     <a href="/contact" className="text-muted hover:text-accent transition">

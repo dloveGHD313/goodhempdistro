@@ -22,9 +22,11 @@ export default function AgeGate() {
       const now = Date.now();
       const valid = ts ? now - Number(ts) < 30 * 24 * 60 * 60 * 1000 : false;
       if (!valid || !cookieOk) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setShow(true);
       }
     } catch {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShow(true);
     }
   }, []);

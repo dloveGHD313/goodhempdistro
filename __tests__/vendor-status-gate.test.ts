@@ -27,7 +27,7 @@ vi.mock("@/lib/admin", () => ({
   ),
 }));
 
-import { getVendorStatus, requireVendorActive } from "@/lib/server/vendorStatusGate";
+// FIXED: Removed duplicate import — was declared at line 2 already, duplicate caused TS2300
 
 describe("vendor status gate", () => {
   beforeEach(() => {
@@ -93,7 +93,7 @@ describe("vendor status gate", () => {
       });
       const result = await requireVendorActive("user-123", "vendor@example.com");
       expect(result.allowed).toBe(false);
-      expect(result.status).toBe(403);
+      expect((result as { allowed: false; status: 403; json: { error: string } }).status).toBe(403);
       expect((result as { json?: { error?: string } }).json?.error).toContain(
         "Vendor subscription required"
       );

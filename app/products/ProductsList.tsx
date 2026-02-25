@@ -77,6 +77,7 @@ export default function ProductsList({ initialProducts, initialCategoryId }: Pro
       normalized.some((tag) => category.name.toLowerCase().includes(tag))
     );
     if (match) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedCategoryId(match.id);
     }
   }, [categories, interestTags, useCase, selectedCategoryId]);
@@ -129,9 +130,10 @@ export default function ProductsList({ initialProducts, initialCategoryId }: Pro
       {mode === "SERVICES" && (
         <div className="card-glass p-4 mb-6 border border-[var(--border)] text-muted">
           Services are listed in the Services marketplace.
-          <a href="/services" className="btn-secondary ml-3 inline-flex">
+          {/* FIXED: Use Link for client-side navigation */}
+          <Link href="/services" className="btn-secondary ml-3 inline-flex">
             View Services
-          </a>
+          </Link>
         </div>
       )}
       {showVerificationNotice && (
