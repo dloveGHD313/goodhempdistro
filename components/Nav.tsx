@@ -15,6 +15,9 @@ import {
   NAV_ADMIN,
   NAV_PUBLIC,
   shouldHideNav,
+  getCtaNav,
+  type NavContext,
+  type AppRole,
 } from "@/lib/nav";
 
 export default function Nav() {
@@ -218,6 +221,13 @@ export default function Nav() {
 
   const navPrimaryLinks = isLoggedIn ? NAV_PRIMARY.filter((l) => l.href !== "/welcome") : NAV_PRIMARY;
 
+  // Build canonical NavContext from existing auth state so getCtaNav is model-driven.
+  const navRoles: AppRole[] = [];
+  if (isVendorUser) navRoles.push("vendor");
+  if (isAdmin) navRoles.push("admin");
+  const navCtx: NavContext = { isLoggedIn, roles: navRoles };
+  const ctaItems = getCtaNav(navCtx);
+
   if (shouldHideNav(pathname)) return null;
 
   return (
@@ -329,7 +339,7 @@ export default function Nav() {
         )}
       </div>
 
-      {/* Mobile: hamburger + Account/Join/Sign in */}
+      {/* Mobile: hamburger + Account/CTA items */}
       <div className="flex md:hidden items-center gap-3 shrink-0">
         {isLoggedIn ? (
           <HoverLift as="span" className="shrink-0">
@@ -338,18 +348,20 @@ export default function Nav() {
             </Link>
           </HoverLift>
         ) : (
-          <>
-            <HoverLift as="span" className="shrink-0">
-              <Link href="/get-started" className="btn-primary text-sm py-2 px-4 whitespace-nowrap">
-                Join Free
+          ctaItems.map((item) => (
+            <HoverLift key={item.id} as="span" className="shrink-0">
+              <Link
+                href={item.href}
+                className={
+                  item.id === "signIn"
+                    ? "btn-ghost text-sm py-2 px-4 whitespace-nowrap"
+                    : "btn-primary text-sm py-2 px-4 whitespace-nowrap"
+                }
+              >
+                {item.label}
               </Link>
             </HoverLift>
-            <HoverLift as="span" className="shrink-0">
-              <Link href="/login" className="btn-ghost text-sm py-2 px-4 whitespace-nowrap">
-                Sign in
-              </Link>
-            </HoverLift>
-          </>
+          ))
         )}
         <button
           type="button"
@@ -362,22 +374,22 @@ export default function Nav() {
         </button>
       </div>
 
-      {/* Desktop right: when logged out, Join Free + Sign in; when logged in, single Account only */}
+      {/* Desktop right: model-driven CTAs via getCtaNav (Join Free / Sign in / Add Product) */}
       <div className="hidden md:flex items-center gap-4 shrink-0 ml-2">
-        {isLoggedIn ? null : (
-          <>
-            <HoverLift as="span" className="shrink-0">
-              <Link href="/get-started" className="btn-primary text-sm py-2 px-4 whitespace-nowrap">
-                Join Free
-              </Link>
-            </HoverLift>
-            <HoverLift as="span" className="shrink-0">
-              <Link href="/login" className="btn-ghost text-sm py-2 px-4 whitespace-nowrap">
-                Sign in
-              </Link>
-            </HoverLift>
-          </>
-        )}
+        {ctaItems.map((item) => (
+          <HoverLift key={item.id} as="span" className="shrink-0">
+            <Link
+              href={item.href}
+              className={
+                item.id === "signIn"
+                  ? "btn-ghost text-sm py-2 px-4 whitespace-nowrap"
+                  : "btn-primary text-sm py-2 px-4 whitespace-nowrap"
+              }
+            >
+              {item.label}
+            </Link>
+          </HoverLift>
+        ))}
       </div>
 
       {/* Mobile drawer - full-height slide-in panel */}
@@ -412,7 +424,7 @@ export default function Nav() {
 
             {/* Drawer Content — same links as desktop, 44px min tap target */}
             <div className="p-6 flex flex-col gap-2">
-              {/* Prominent CTA: when logged in Account hub; when logged out Join Free + Sign in */}
+              {/* Prominent CTA: logged in → Account hub; logged out → model-driven CTAs */}
               {isLoggedIn ? (
                 <Link
                   href="/account"
@@ -422,22 +434,20 @@ export default function Nav() {
                   Account
                 </Link>
               ) : (
-                <>
+                ctaItems.map((item) => (
                   <Link
-                    href="/get-started"
-                    className="btn-primary text-center py-3 mb-3 font-bold min-h-[44px] flex items-center justify-center"
+                    key={item.id}
+                    href={item.href}
+                    className={
+                      item.id === "signIn"
+                        ? "btn-ghost text-center py-3 mb-4 font-semibold min-h-[44px] flex items-center justify-center"
+                        : "btn-primary text-center py-3 mb-3 font-bold min-h-[44px] flex items-center justify-center"
+                    }
                     onClick={() => setDrawerOpen(false)}
                   >
-                    Join Free
+                    {item.label}
                   </Link>
-                  <Link
-                    href="/login"
-                    className="btn-ghost text-center py-3 mb-4 font-semibold min-h-[44px] flex items-center justify-center"
-                    onClick={() => setDrawerOpen(false)}
-                  >
-                    Sign in
-                  </Link>
-                </>
+                ))
               )}
 
               <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Public</div>

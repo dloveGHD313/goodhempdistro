@@ -3,6 +3,10 @@
 -- Purpose:
 --   Prevent migration/runtime failures when only one legacy RPC name exists.
 --   Harden EXECUTE permissions for both possible wholesale role RPC functions.
+--
+-- Supersedes: 108_restrict_admin_append_wholesale_role.sql (deleted).
+--   That file did bare REVOKE/GRANT without an existence guard and only covered
+--   admin_append_wholesale_role. This migration covers both RPC names safely.
 -- ============================================================================
 
 SET search_path = public;
