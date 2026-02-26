@@ -42,6 +42,8 @@ export type NavItem = {
   requiresAuth?: boolean;
   requiresRole?: AppRole[];
   requiresWholesaleContext?: boolean;
+  /** When true the item is hidden for any logged-in user (e.g. Welcome / onboarding entry). */
+  hideWhenAuthenticated?: boolean;
 };
 
 export type NavContext = {
@@ -91,7 +93,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
 
   // ── AUTHENTICATED PRIMARY (shown in desktop row + mobile Primary section) ─
-  // Welcome: public audience but excluded on desktop when logged in (handled in Nav.tsx)
+  // Welcome: only for logged-out users — hideWhenAuthenticated ensures model-level suppression.
   {
     id: "welcome",
     label: "👋 Welcome",
@@ -99,15 +101,19 @@ export const NAV_ITEMS: NavItem[] = [
     audience: "public",
     surfaces: ["desktopPrimary", "mobilePrimary"],
     priority: 5,
+    hideWhenAuthenticated: true,
   },
+  // feed: single item for /newsfeed. Appears in primary nav (desktop + mobile) AND account menu.
+  // priorityBySurface keeps it at position 205 in the account menu (after Account Overview).
   {
     id: "feed",
     label: "🏠 Feed",
     href: "/newsfeed",
     audience: "authed",
     requiresAuth: true,
-    surfaces: ["desktopPrimary", "mobilePrimary"],
+    surfaces: ["desktopPrimary", "mobilePrimary", "accountMenu"],
     priority: 15,
+    priorityBySurface: { accountMenu: 205 },
   },
   {
     id: "discover",
@@ -250,15 +256,6 @@ export const NAV_ITEMS: NavItem[] = [
     requiresAuth: true,
     surfaces: ["accountMenu"],
     priority: 200,
-  },
-  {
-    id: "goToFeed",
-    label: "Go to Feed",
-    href: "/newsfeed",
-    audience: "authed",
-    requiresAuth: true,
-    surfaces: ["accountMenu"],
-    priority: 205,
   },
   {
     id: "favorites",
@@ -436,6 +433,7 @@ function hasRole(ctx: NavContext, role: AppRole) {
 }
 
 export function isNavItemVisible(item: NavItem, ctx: NavContext): boolean {
+  if (item.hideWhenAuthenticated && ctx.isLoggedIn) return false;
   if (item.requiresAuth && !ctx.isLoggedIn) return false;
 
   if (item.requiresRole && item.requiresRole.length > 0) {
