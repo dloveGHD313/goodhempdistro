@@ -288,6 +288,13 @@ export default function Nav() {
   const mobilePublicLinks = mobilePrimaryAll.filter((i) => i.audience === "public");
   const mobilePrimaryLinks = mobilePrimaryAll.filter((i) => i.audience !== "public");
 
+  // Track every item id already rendered in earlier drawer sections.
+  // This prevents any future nav item that spans multiple surfaces from appearing twice.
+  const shownInDrawerPrimary = new Set<string>([
+    ...mobilePublicLinks.map((i) => i.id),
+    ...mobilePrimaryLinks.map((i) => i.id),
+  ]);
+
   // Account menu: config-sourced base + runtime-gated supplements
   const accountMenuBase = getAccountMenuNav(navCtx);
 
@@ -558,22 +565,24 @@ export default function Nav() {
                 />
               )}
 
-              {/* Account section */}
+              {/* Account section — deduped against items already shown in Public/Primary */}
               {isLoggedIn && (
                 <>
                   <div className="border-t mt-4 pt-4 nav-drawer-header">
                     <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Account</div>
                   </div>
-                  {accountLinks.map((link) => (
-                    <Link
-                      key={link.id}
-                      href={link.href}
-                      className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
-                      onClick={() => setDrawerOpen(false)}
-                    >
-                      {link.label}
-                    </Link>
-                  ))}
+                  {accountLinks
+                    .filter((link) => !shownInDrawerPrimary.has(link.id))
+                    .map((link) => (
+                      <Link
+                        key={link.id}
+                        href={link.href}
+                        className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
+                        onClick={() => setDrawerOpen(false)}
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
                   {showBilling && !accountLinks.some((l) => l.href === "/vendors/billing") && (
                     <Link
                       href="/vendors/billing"

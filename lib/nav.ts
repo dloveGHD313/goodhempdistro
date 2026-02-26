@@ -30,7 +30,15 @@ export type NavItem = {
   icon?: string;
   audience: NavAudience;
   surfaces: NavSurface[];
+  /** Global sort order. Lower = earlier. Used for all surfaces unless overridden. */
   priority?: number;
+  /**
+   * Per-surface sort order override.
+   * When an item appears in multiple surfaces (e.g. desktopPrimary AND accountMenu),
+   * different positions may be desired. This overrides `priority` for the named surface.
+   * Example: vendorDashboard wants priority 12 in desktopPrimary but 208 in accountMenu.
+   */
+  priorityBySurface?: Partial<Record<NavSurface, number>>;
   requiresAuth?: boolean;
   requiresRole?: AppRole[];
   requiresWholesaleContext?: boolean;
@@ -130,6 +138,11 @@ export const NAV_ITEMS: NavItem[] = [
   },
 
   // ── VENDOR PRIMARY ────────────────────────────────────────────────────────
+  // vendorDashboard is a primary navigation destination, NOT an account management item.
+  // It belongs in the primary nav row (desktop) and Primary section (mobile drawer).
+  // Removed from accountMenu to prevent duplication in the mobile drawer.
+  // priorityBySurface.accountMenu is set defensively so ordering stays correct
+  // if this item is ever added back to accountMenu in the future.
   {
     id: "vendorDashboard",
     label: "Vendor Dashboard",
@@ -137,8 +150,9 @@ export const NAV_ITEMS: NavItem[] = [
     audience: "vendor",
     requiresAuth: true,
     requiresRole: ["vendor"],
-    surfaces: ["desktopPrimary", "mobilePrimary", "accountMenu"],
+    surfaces: ["desktopPrimary", "mobilePrimary"],
     priority: 12,
+    priorityBySurface: { accountMenu: 208 },
   },
   {
     id: "addProduct",
@@ -447,10 +461,17 @@ export function isNavItemVisible(item: NavItem, ctx: NavContext): boolean {
 }
 
 export function getNavItemsForSurface(surface: NavSurface, ctx: NavContext): NavItem[] {
+  const effectivePriority = (item: NavItem) =>
+    item.priorityBySurface?.[surface] ?? item.priority ?? 9999;
+
   const items = NAV_ITEMS
     .filter((i) => i.surfaces.includes(surface))
     .filter((i) => isNavItemVisible(i, ctx))
-    .sort((a, b) => (a.priority ?? 9999) - (b.priority ?? 9999));
+    .sort((a, b) => {
+      const diff = effectivePriority(a) - effectivePriority(b);
+      // Stable tiebreaker by id ensures deterministic order regardless of array insertion order
+      return diff !== 0 ? diff : a.id.localeCompare(b.id);
+    });
 
   // Dedupe by href
   const seen = new Set<string>();
