@@ -272,11 +272,8 @@ export default function Nav() {
   };
 
   // ── Nav data from canonical config ────────────────────────────────────────
-  // Desktop primary: exclude "welcome" when logged in (it's a one-time entry page)
-  const desktopPrimaryAll = getDesktopPrimaryNav(navCtx);
-  const desktopPrimary = isLoggedIn
-    ? desktopPrimaryAll.filter((i) => i.id !== "welcome")
-    : desktopPrimaryAll;
+  // hideWhenAuthenticated is now handled in isNavItemVisible — no ad-hoc filter needed here.
+  const desktopPrimary = getDesktopPrimaryNav(navCtx);
 
   const communityLinks = getCommunityMenuNav(navCtx);
   const businessLinks = getBusinessMenuNav(navCtx);
@@ -288,11 +285,15 @@ export default function Nav() {
   const mobilePublicLinks = mobilePrimaryAll.filter((i) => i.audience === "public");
   const mobilePrimaryLinks = mobilePrimaryAll.filter((i) => i.audience !== "public");
 
-  // Track every item id already rendered in earlier drawer sections.
-  // This prevents any future nav item that spans multiple surfaces from appearing twice.
+  // Normalise href for cross-section dedup: strip query/hash, trailing slash, lowercase.
+  // Keying by normalised href means two items with different ids but same destination
+  // (e.g. "feed" in Primary and "feed" in Account) are still deduplicated correctly.
+  const normalizeHref = (href: string) =>
+    href.replace(/[?#].*$/, "").replace(/\/$/, "").toLowerCase();
+
   const shownInDrawerPrimary = new Set<string>([
-    ...mobilePublicLinks.map((i) => i.id),
-    ...mobilePrimaryLinks.map((i) => i.id),
+    ...mobilePublicLinks.map((i) => normalizeHref(i.href)),
+    ...mobilePrimaryLinks.map((i) => normalizeHref(i.href)),
   ]);
 
   // Account menu: config-sourced base + runtime-gated supplements
@@ -572,7 +573,7 @@ export default function Nav() {
                     <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Account</div>
                   </div>
                   {accountLinks
-                    .filter((link) => !shownInDrawerPrimary.has(link.id))
+                    .filter((link) => !shownInDrawerPrimary.has(normalizeHref(link.href)))
                     .map((link) => (
                       <Link
                         key={link.id}
