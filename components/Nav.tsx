@@ -366,7 +366,7 @@ export default function Nav() {
             </HoverLift>
             <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[200px]">
               {accountLinks.map((link) => (
-                <HoverLift key={"id" in link ? link.id : link.href} as="span">
+                <HoverLift key={link.id} as="span">
                   <Link
                     href={link.href}
                     className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm"
@@ -566,7 +566,7 @@ export default function Nav() {
                   </div>
                   {accountLinks.map((link) => (
                     <Link
-                      key={"id" in link ? link.id : link.href}
+                      key={link.id}
                       href={link.href}
                       className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
                       onClick={() => setDrawerOpen(false)}
