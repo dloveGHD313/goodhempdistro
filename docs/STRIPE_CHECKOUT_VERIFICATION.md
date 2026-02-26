@@ -15,7 +15,7 @@
 | `lib/stripe.ts` (createSubscriptionSession) | **SAFE** | `priceId` from `resolvePriceId({ priceId: rawPriceId })` before session create. |
 | `lib/stripe.ts` (createCheckoutSession) | **SAFE** | Uses `price_data` + `unit_amount` (one-time payment). No Stripe Price ID. |
 | `app/api/checkout/create-session/route.ts` | **SAFE** | `mode: "payment"`, `price_data` + `unit_amount`. Product checkout. |
-| `app/api/vendor/checkout/route.ts` | **SAFE** | `mode: "payment"`, `price_data` + `unit_amount`. Package one-time payment. |
+| `app/api/vendor/checkout/route.ts` | **DELETED** | Deprecated 410 route removed in debug sweep 2025-02-25. Was replaced by `/api/stripe/checkout`. |
 | `app/api/events/checkout/route.ts` | **SAFE** | `mode: "payment"`, `price_data` + `unit_amount`. Event tickets. |
 
 ---
