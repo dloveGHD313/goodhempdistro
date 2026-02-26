@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 
@@ -40,10 +39,11 @@ export default function RootError({ error, reset }: Props) {
               <button type="button" onClick={reset} className="btn-primary">
                 Try again
               </button>
-              {/* FIXED: Use Link for client-side nav instead of full-page reload */}
-              <Link href="/" className="btn-secondary">
+              {/* Hard reload escape hatch: plain anchor resets broken router/context state */}
+              {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+              <a href="/" className="btn-secondary">
                 Back to home
-              </Link>
+              </a>
             </div>
           </div>
         </section>

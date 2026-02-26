@@ -1,64 +1,53 @@
 // lib/nav.ts
 // Single source of truth for ALL navigation.
-// Desktop and mobile render from the same NAV_ITEMS config, filtered by auth/roles/surface.
+// Goal: mobile + desktop render from the same config, filtered by auth/roles.
+// Keep labels stable (CEO-approved hierarchy) and avoid duplicate hrefs.
 
 // ---------------- Types ----------------
 export type AppRole = "user" | "vendor" | "wholesale" | "admin";
 
 export type NavAudience =
-  | "public"     // always visible (logged out + logged in)
-  | "authed"     // any logged-in user
-  | "vendor"     // vendor role
-  | "wholesale"  // wholesale role OR has wholesale application
-  | "admin";     // admin_users membership
+  | "public" // always visible (logged out + logged in)
+  | "authed" // any logged-in user
+  | "vendor" // vendor role
+  | "wholesale" // wholesale role OR has wholesale application in progress
+  | "admin"; // admin_users membership / admin role
 
 export type NavSurface =
-  | "desktopPrimary"  // top-level desktop links row
-  | "mobilePrimary"   // mobile drawer primary section (public + authed)
-  | "communityMenu"   // desktop Community dropdown + mobile Community section
-  | "businessMenu"    // desktop Business dropdown + mobile Business section
-  | "moreMenu"        // desktop "More" dropdown
-  | "mobileMore"      // mobile "More" section (below community/business)
-  | "accountMenu"     // account dropdown / mobile account section
-  | "adminMenu"       // admin dropdown / mobile admin section
-  | "cta";            // right-side CTAs (Join Free, Sign in, Add Product)
+  | "desktopPrimary" // top-level desktop links row (overflow-safe)
+  | "moreMenu" // desktop "More" dropdown
+  | "mobilePrimary" // top of mobile drawer
+  | "mobileMore" // "More" section in mobile drawer
+  | "accountMenu" // account dropdown/drawer section (logged-in only)
+  | "adminMenu" // admin dropdown (admin only)
+  | "cta"; // right-side CTAs (Join Free, Sign in, Add Product)
 
 export type NavItem = {
-  id: string;
-  label: string;
-  href: string;
-  icon?: string;
-  audience: NavAudience;
-  surfaces: NavSurface[];
-  /** Global sort order. Lower = earlier. Used for all surfaces unless overridden. */
-  priority?: number;
-  /**
-   * Per-surface sort order override.
-   * When an item appears in multiple surfaces (e.g. desktopPrimary AND accountMenu),
-   * different positions may be desired. This overrides `priority` for the named surface.
-   * Example: vendorDashboard wants priority 12 in desktopPrimary but 208 in accountMenu.
-   */
-  priorityBySurface?: Partial<Record<NavSurface, number>>;
-  requiresAuth?: boolean;
-  requiresRole?: AppRole[];
+  id: string; // stable unique id
+  label: string; // display label
+  href: string; // route
+  icon?: string; // optional icon key (if you use one)
+  audience: NavAudience; // who can see it
+  surfaces: NavSurface[]; // where it can appear
+  priority?: number; // lower = earlier in ordering
+  requiresAuth?: boolean; // additional hard gate
+  requiresRole?: AppRole[]; // additional hard gate
+  // If wholesale is conditional (role OR has application in progress):
   requiresWholesaleContext?: boolean;
-  /** When true the item is hidden for any logged-in user (e.g. Welcome / onboarding entry). */
+  // Hide when user is logged in (e.g. Join Free, Sign in)
   hideWhenAuthenticated?: boolean;
 };
 
 export type NavContext = {
   isLoggedIn: boolean;
-  roles: AppRole[];
-  hasWholesaleContext?: boolean;
+  roles: AppRole[]; // derived from profiles.roles + admin_users check
+  hasWholesaleContext?: boolean; // true if wholesale role OR has application row
 };
 
 // ---------------- Canonical nav items ----------------
-// Each item appears in ONE place in this list.
-// Surface tags control where it renders (desktop primary, dropdown, drawer section, etc.).
-// Priority: lower numbers appear first within a surface.
+// IMPORTANT: /products appears ONCE (Marketplace). Do not duplicate it elsewhere.
 export const NAV_ITEMS: NavItem[] = [
-
-  // ── PUBLIC / DISCOVERY (desktop primary row + mobile Public section) ──────
+  // -------- Public / discovery (top-level) --------
   {
     id: "marketplace",
     label: "Marketplace",
@@ -68,194 +57,101 @@ export const NAV_ITEMS: NavItem[] = [
     priority: 10,
   },
   {
-    id: "education",
-    label: "Education",
+    id: "learn",
+    label: "Learn",
     href: "/education",
     audience: "public",
     surfaces: ["desktopPrimary", "mobilePrimary"],
     priority: 20,
   },
   {
+    id: "vendors",
+    label: "Vendors",
+    href: "/vendors",
+    audience: "public",
+    surfaces: ["desktopPrimary", "mobilePrimary"],
+    priority: 30,
+  },
+
+  // -------- Desktop More / Mobile More --------
+  {
     id: "about",
     label: "About",
     href: "/about",
     audience: "public",
-    surfaces: ["desktopPrimary", "mobilePrimary"],
-    priority: 30,
+    surfaces: ["moreMenu", "mobileMore"],
+    priority: 110,
   },
   {
     id: "contact",
     label: "Contact",
     href: "/contact",
     audience: "public",
-    surfaces: ["desktopPrimary", "mobilePrimary"],
-    priority: 40,
+    surfaces: ["moreMenu", "mobileMore"],
+    priority: 120,
   },
-
-  // ── AUTHENTICATED PRIMARY (shown in desktop row + mobile Primary section) ─
-  // Welcome: only for logged-out users — hideWhenAuthenticated ensures model-level suppression.
   {
-    id: "welcome",
-    label: "👋 Welcome",
-    href: "/welcome",
+    id: "support",
+    label: "Support",
+    href: "/contact",
     audience: "public",
-    surfaces: ["desktopPrimary", "mobilePrimary"],
-    priority: 5,
-    hideWhenAuthenticated: true,
-  },
-  // feed: single item for /newsfeed. Appears in primary nav (desktop + mobile) AND account menu.
-  // priorityBySurface keeps it at position 205 in the account menu (after Account Overview).
-  {
-    id: "feed",
-    label: "🏠 Feed",
-    href: "/newsfeed",
-    audience: "authed",
-    requiresAuth: true,
-    surfaces: ["desktopPrimary", "mobilePrimary", "accountMenu"],
-    priority: 15,
-    priorityBySurface: { accountMenu: 205 },
+    surfaces: ["moreMenu", "mobileMore"],
+    priority: 130,
   },
   {
-    id: "discover",
-    label: "🧭 Discover",
-    href: "/discover",
-    audience: "authed",
-    requiresAuth: true,
-    surfaces: ["desktopPrimary", "mobilePrimary"],
-    priority: 23,
-  },
-  {
-    id: "events",
-    label: "🎪 Events",
-    href: "/events",
-    audience: "authed",
-    requiresAuth: true,
-    surfaces: ["desktopPrimary", "mobilePrimary"],
-    priority: 24,
-  },
-  {
-    id: "episodes",
-    label: "📺 Episodes",
-    href: "/learning-with-jax",
-    audience: "authed",
-    requiresAuth: true,
-    surfaces: ["desktopPrimary", "mobilePrimary"],
-    priority: 25,
-  },
-
-  // ── VENDOR PRIMARY ────────────────────────────────────────────────────────
-  // vendorDashboard is a primary navigation destination, NOT an account management item.
-  // It belongs in the primary nav row (desktop) and Primary section (mobile drawer).
-  // Removed from accountMenu to prevent duplication in the mobile drawer.
-  // priorityBySurface.accountMenu is set defensively so ordering stays correct
-  // if this item is ever added back to accountMenu in the future.
-  {
-    id: "vendorDashboard",
-    label: "Vendor Dashboard",
-    href: "/vendors/dashboard",
-    audience: "vendor",
-    requiresAuth: true,
-    requiresRole: ["vendor"],
-    surfaces: ["desktopPrimary", "mobilePrimary"],
-    priority: 12,
-    priorityBySurface: { accountMenu: 208 },
-  },
-  {
-    id: "addProduct",
-    label: "Add Product",
-    href: "/vendors/products/new",
-    audience: "vendor",
-    requiresAuth: true,
-    requiresRole: ["vendor"],
-    surfaces: ["cta", "desktopPrimary", "mobilePrimary"],
-    priority: 14,
-  },
-
-  // ── COMMUNITY (desktop Community dropdown + mobile Community section) ─────
-  {
-    id: "groups",
-    label: "👥 Groups",
-    href: "/groups",
+    id: "faq",
+    label: "FAQ",
+    href: "/contact",
     audience: "public",
-    surfaces: ["communityMenu"],
-    priority: 100,
-  },
-  {
-    id: "forums",
-    label: "💬 Forums",
-    href: "/forums",
-    audience: "public",
-    surfaces: ["communityMenu"],
-    priority: 110,
+    surfaces: ["moreMenu", "mobileMore"],
+    priority: 140,
   },
   {
     id: "blog",
-    label: "📝 Blog",
+    label: "Blog",
     href: "/blog",
     audience: "public",
-    surfaces: ["communityMenu"],
-    priority: 120,
+    surfaces: ["moreMenu", "mobileMore"],
+    priority: 150,
+  },
+  {
+    id: "events",
+    label: "Events",
+    href: "/events",
+    audience: "public",
+    surfaces: ["moreMenu", "mobileMore"],
+    priority: 160,
   },
 
-  // ── BUSINESS (desktop Business dropdown + mobile Business section) ────────
+  // -------- Authenticated user primary (consumer) --------
   {
-    id: "vendors",
-    label: "🏪 Vendors",
-    href: "/vendors",
-    audience: "public",
-    surfaces: ["businessMenu"],
-    priority: 200,
-  },
-  {
-    id: "services",
-    label: "🛠️ Services",
-    href: "/services",
-    audience: "public",
-    surfaces: ["businessMenu"],
-    priority: 210,
-  },
-  {
-    id: "wholesaleBiz",
-    label: "🏢 Wholesale",
-    href: "/wholesale",
-    audience: "public",
-    surfaces: ["businessMenu"],
-    priority: 220,
-  },
-  {
-    id: "logistics",
-    label: "🚚 Logistics",
-    href: "/logistics",
-    audience: "public",
-    surfaces: ["businessMenu"],
-    priority: 230,
-  },
-  {
-    id: "driverNetwork",
-    label: "🚗 Driver Network",
-    href: "/logistics/apply",
-    audience: "public",
-    surfaces: ["businessMenu"],
-    priority: 240,
-  },
-  {
-    id: "vendorRegistration",
-    label: "🤝 Vendor Registration",
-    href: "/vendor-registration",
-    audience: "public",
-    surfaces: ["businessMenu"],
-    priority: 250,
+    id: "orders",
+    label: "Orders",
+    href: "/account/orders",
+    audience: "authed",
+    requiresAuth: true,
+    surfaces: ["desktopPrimary", "mobilePrimary", "accountMenu"],
+    priority: 40,
   },
 
-  // ── ACCOUNT MENU (logged-in: dropdown on desktop, section in mobile drawer) ─
+  // -------- Account menu (logged-in only) --------
   {
-    id: "accountOverview",
-    label: "Account Overview",
-    href: "/account",
+    id: "dashboard",
+    label: "Dashboard",
+    href: "/dashboard",
     audience: "authed",
     requiresAuth: true,
     surfaces: ["accountMenu"],
     priority: 200,
+  },
+  {
+    id: "account",
+    label: "Account",
+    href: "/account",
+    audience: "authed",
+    requiresAuth: true,
+    surfaces: ["accountMenu"],
+    priority: 210,
   },
   {
     id: "favorites",
@@ -267,6 +163,15 @@ export const NAV_ITEMS: NavItem[] = [
     priority: 220,
   },
   {
+    id: "settings",
+    label: "Settings",
+    href: "/account",
+    audience: "authed",
+    requiresAuth: true,
+    surfaces: ["accountMenu"],
+    priority: 230,
+  },
+  {
     id: "membership",
     label: "Membership",
     href: "/account/subscription",
@@ -275,14 +180,36 @@ export const NAV_ITEMS: NavItem[] = [
     surfaces: ["accountMenu"],
     priority: 240,
   },
+
+  // -------- Vendor (revenue target) --------
+  {
+    id: "vendorDashboard",
+    label: "Vendor Dashboard",
+    href: "/vendors/dashboard",
+    audience: "vendor",
+    requiresAuth: true,
+    requiresRole: ["vendor"],
+    surfaces: ["desktopPrimary", "mobilePrimary", "accountMenu"],
+    priority: 15,
+  },
+  {
+    id: "addProduct",
+    label: "Add Product",
+    href: "/vendors/products/new",
+    audience: "vendor",
+    requiresAuth: true,
+    requiresRole: ["vendor"],
+    surfaces: ["cta", "mobilePrimary"],
+    priority: 16,
+  },
   {
     id: "vendorProducts",
-    label: "My Products",
+    label: "Products",
     href: "/vendors/products",
     audience: "vendor",
     requiresAuth: true,
     requiresRole: ["vendor"],
-    surfaces: ["accountMenu"],
+    surfaces: ["moreMenu", "mobileMore", "accountMenu"],
     priority: 310,
   },
   {
@@ -292,35 +219,37 @@ export const NAV_ITEMS: NavItem[] = [
     audience: "vendor",
     requiresAuth: true,
     requiresRole: ["vendor"],
-    surfaces: ["accountMenu"],
+    surfaces: ["moreMenu", "mobileMore", "accountMenu"],
     priority: 320,
+  },
+
+  // -------- Wholesale (conditional visibility) --------
+  {
+    id: "wholesale",
+    label: "Wholesale",
+    href: "/wholesale",
+    audience: "wholesale",
+    requiresAuth: true,
+    requiresWholesaleContext: true,
+    surfaces: ["desktopPrimary", "mobilePrimary"],
+    priority: 25,
   },
   {
     id: "wholesaleApply",
-    label: "Wholesale Status",
+    label: "Apply / Status",
     href: "/wholesale/apply",
     audience: "wholesale",
     requiresAuth: true,
     requiresWholesaleContext: true,
-    surfaces: ["accountMenu"],
+    surfaces: ["moreMenu", "mobileMore", "accountMenu"],
     priority: 410,
   },
 
-  // ── ADMIN MENU (admin only: dropdown on desktop, section in mobile drawer) ─
+  // -------- Admin (ops) --------
   {
-    id: "adminVendors",
-    label: "👥 Vendor Applications",
-    href: "/admin/vendors",
-    audience: "admin",
-    requiresAuth: true,
-    requiresRole: ["admin"],
-    surfaces: ["adminMenu"],
-    priority: 500,
-  },
-  {
-    id: "adminIntegrity",
-    label: "🔍 Vendor Integrity",
-    href: "/admin/vendors/integrity",
+    id: "adminWholesale",
+    label: "Wholesale Applications",
+    href: "/dashboard/admin/wholesale",
     audience: "admin",
     requiresAuth: true,
     requiresRole: ["admin"],
@@ -328,120 +257,59 @@ export const NAV_ITEMS: NavItem[] = [
     priority: 510,
   },
   {
-    id: "adminProducts",
-    label: "📦 Product Review",
-    href: "/admin/products",
+    id: "adminModeration",
+    label: "Moderation",
+    href: "/admin/moderation",
     audience: "admin",
     requiresAuth: true,
     requiresRole: ["admin"],
     surfaces: ["adminMenu"],
     priority: 520,
   },
-  {
-    id: "adminEvents",
-    label: "📅 Event Review",
-    href: "/admin/events",
-    audience: "admin",
-    requiresAuth: true,
-    requiresRole: ["admin"],
-    surfaces: ["adminMenu"],
-    priority: 530,
-  },
-  {
-    id: "adminServices",
-    label: "🛠️ Service Review",
-    href: "/admin/services",
-    audience: "admin",
-    requiresAuth: true,
-    requiresRole: ["admin"],
-    surfaces: ["adminMenu"],
-    priority: 540,
-  },
-  {
-    id: "adminInquiries",
-    label: "💬 Service Inquiries",
-    href: "/admin/inquiries",
-    audience: "admin",
-    requiresAuth: true,
-    requiresRole: ["admin"],
-    surfaces: ["adminMenu"],
-    priority: 550,
-  },
-  {
-    id: "adminCategories",
-    label: "📁 Categories",
-    href: "/admin/categories",
-    audience: "admin",
-    requiresAuth: true,
-    requiresRole: ["admin"],
-    surfaces: ["adminMenu"],
-    priority: 560,
-  },
-  {
-    id: "adminDrivers",
-    label: "🚗 Drivers",
-    href: "/admin/drivers",
-    audience: "admin",
-    requiresAuth: true,
-    requiresRole: ["admin"],
-    surfaces: ["adminMenu"],
-    priority: 570,
-  },
-  {
-    id: "adminWholesale",
-    label: "🌿 Wholesale Applications",
-    href: "/dashboard/admin/wholesale",
-    audience: "admin",
-    requiresAuth: true,
-    requiresRole: ["admin"],
-    surfaces: ["adminMenu"],
-    priority: 580,
-  },
-  {
-    id: "adminModeration",
-    label: "🛡️ Moderation",
-    href: "/admin/moderation",
-    audience: "admin",
-    requiresAuth: true,
-    requiresRole: ["admin"],
-    surfaces: ["adminMenu"],
-    priority: 590,
-  },
 
-  // ── CTA BUTTONS (right side / bottom of mobile drawer) ───────────────────
+  // -------- Public CTAs (right side) --------
   {
     id: "joinFree",
     label: "Join Free",
     href: "/get-started",
     audience: "public",
-    surfaces: ["cta"],
+    surfaces: ["cta", "mobilePrimary"],
     priority: 900,
+    hideWhenAuthenticated: true,
   },
   {
     id: "signIn",
     label: "Sign in",
     href: "/login",
     audience: "public",
-    surfaces: ["cta"],
+    surfaces: ["cta", "mobilePrimary"],
     priority: 910,
+    hideWhenAuthenticated: true,
   },
 ];
 
-// ---------------- Visibility logic ----------------
+// ---------------- Helpers ----------------
 function hasRole(ctx: NavContext, role: AppRole) {
   return ctx.roles.includes(role);
 }
 
 export function isNavItemVisible(item: NavItem, ctx: NavContext): boolean {
+  // Hide when authenticated (e.g. Join Free, Sign in)
   if (item.hideWhenAuthenticated && ctx.isLoggedIn) return false;
+
+  // Auth gating
   if (item.requiresAuth && !ctx.isLoggedIn) return false;
 
+  // Role gating
   if (item.requiresRole && item.requiresRole.length > 0) {
-    if (!item.requiresRole.some((r) => hasRole(ctx, r))) return false;
+    const ok = item.requiresRole.some((r) => hasRole(ctx, r));
+    if (!ok) return false;
   }
 
+  // Wholesale context gating (role OR application)
   if (item.requiresWholesaleContext && !ctx.hasWholesaleContext) return false;
 
+  // Audience gating
   switch (item.audience) {
     case "public":
       return true;
@@ -459,46 +327,33 @@ export function isNavItemVisible(item: NavItem, ctx: NavContext): boolean {
 }
 
 export function getNavItemsForSurface(surface: NavSurface, ctx: NavContext): NavItem[] {
-  const effectivePriority = (item: NavItem) =>
-    item.priorityBySurface?.[surface] ?? item.priority ?? 9999;
-
   const items = NAV_ITEMS
     .filter((i) => i.surfaces.includes(surface))
     .filter((i) => isNavItemVisible(i, ctx))
-    .sort((a, b) => {
-      const diff = effectivePriority(a) - effectivePriority(b);
-      // Stable tiebreaker by id ensures deterministic order regardless of array insertion order
-      return diff !== 0 ? diff : a.id.localeCompare(b.id);
-    });
+    .sort((a, b) => (a.priority ?? 9999) - (b.priority ?? 9999));
 
-  // Dedupe by href
+  // Dedupe by href to prevent double links across groups
   const seen = new Set<string>();
-  return items.filter((item) => {
-    if (seen.has(item.href)) return false;
+  const deduped: NavItem[] = [];
+  for (const item of items) {
+    if (seen.has(item.href)) continue;
     seen.add(item.href);
-    return true;
-  });
+    deduped.push(item);
+  }
+  return deduped;
 }
 
-// ---------------- Named helpers ----------------
+// Convenience groupings (optional)
 export function getDesktopPrimaryNav(ctx: NavContext) {
   return getNavItemsForSurface("desktopPrimary", ctx);
 }
 
-export function getMobilePrimaryNav(ctx: NavContext) {
-  return getNavItemsForSurface("mobilePrimary", ctx);
-}
-
-export function getCommunityMenuNav(ctx: NavContext) {
-  return getNavItemsForSurface("communityMenu", ctx);
-}
-
-export function getBusinessMenuNav(ctx: NavContext) {
-  return getNavItemsForSurface("businessMenu", ctx);
-}
-
 export function getDesktopMoreNav(ctx: NavContext) {
   return getNavItemsForSurface("moreMenu", ctx);
+}
+
+export function getMobilePrimaryNav(ctx: NavContext) {
+  return getNavItemsForSurface("mobilePrimary", ctx);
 }
 
 export function getMobileMoreNav(ctx: NavContext) {
@@ -514,15 +369,55 @@ export function getAdminMenuNav(ctx: NavContext) {
 }
 
 export function getCtaNav(ctx: NavContext) {
-  const items = getNavItemsForSurface("cta", ctx);
-  // When logged in, hide Join/Sign in; keep vendor Add Product CTA
-  if (ctx.isLoggedIn) {
-    return items.filter((i) => i.id === "addProduct");
-  }
-  return items;
+  // Visibility driven by model: joinFree/signIn have hideWhenAuthenticated.
+  return getNavItemsForSurface("cta", ctx);
 }
 
-// ---------------- Route helpers ----------------
+// ---------------- Legacy exports (for Nav.tsx during transition) ----------------
+export type NavItemLegacy = { label: string; href: string; roles?: string[] };
+
+export const NAV_PUBLIC: NavItemLegacy[] = [
+  { label: "Home", href: "/" },
+  { label: "Marketplace", href: "/products" },
+  { label: "Education", href: "/education" },
+  { label: "About", href: "/about" },
+  { label: "Contact", href: "/contact" },
+];
+
+export const NAV_PRIMARY: NavItemLegacy[] = [
+  { label: "👋 Welcome", href: "/welcome" },
+  { label: "🏠 Feed", href: "/newsfeed" },
+  { label: "🧭 Discover", href: "/discover" },
+  { label: "🎪 Events", href: "/events" },
+  { label: "📺 Episodes", href: "/learning-with-jax" },
+];
+
+export const NAV_COMMUNITY: NavItemLegacy[] = [
+  { label: "👥 Groups", href: "/groups" },
+  { label: "💬 Forums", href: "/forums" },
+  { label: "📝 Blog", href: "/blog" },
+];
+
+export const NAV_BUSINESS: NavItemLegacy[] = [
+  { label: "🏪 Vendors", href: "/vendors" },
+  { label: "🛠️ Services", href: "/services" },
+  { label: "🏢 Wholesale", href: "/wholesale" },
+  { label: "🚚 Logistics", href: "/logistics" },
+  { label: "🚗 Driver Network", href: "/logistics/apply" },
+  { label: "🤝 Vendor Registration", href: "/vendor-registration" },
+];
+
+export const NAV_ADMIN: NavItemLegacy[] = [
+  { label: "👥 Vendor Applications", href: "/admin/vendors" },
+  { label: "🔍 Vendor Integrity", href: "/admin/vendors/integrity" },
+  { label: "📦 Product Review", href: "/admin/products" },
+  { label: "📅 Event Review", href: "/admin/events" },
+  { label: "🛠️ Service Review", href: "/admin/services" },
+  { label: "💬 Service Inquiries", href: "/admin/inquiries" },
+  { label: "📁 Categories", href: "/admin/categories" },
+  { label: "🚗 Drivers", href: "/admin/drivers" },
+];
+
 export const HIDE_NAV_PATHS = ["/signup", "/login", "/get-started", "/onboarding"];
 
 export function shouldHideNav(pathname: string | null): boolean {
