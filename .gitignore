@@ -48,3 +48,7 @@ next-env.d.ts
 .cursor/worktrees.json
 .cursor/worktrees*.json
 .cursor/**/worktrees.json
+
+# Internal debug sweep artifacts (do not commit)
+DEBUG_REPORT.md
+MANUAL_FIXES_NEEDED.md
