@@ -13,14 +13,17 @@ import {
 import type { OnboardingRole } from "@/lib/onboarding/role";
 import type { Question } from "@/lib/onboarding/questions";
 
-// Events last per CEO vision; order otherwise: consumer, vendor, affiliate, driver, builder, educator, industrial, events
+// CEO-locked role list. Creator/Content and Service Provider both map to the `industrial` OnboardingRole.
+// Events last per CEO vision.
 const ROLE_OPTIONS: { id: OnboardingRole; label: string; icon: string }[] = [
   { id: "consumer", label: "Consumer / Shopper", icon: "🛍️" },
-  { id: "vendor", label: "Vendor", icon: "🏪" },
-  { id: "affiliate", label: "Affiliate", icon: "💰" },
-  { id: "driver", label: "Driver / Logistics", icon: "🚚" },
+  { id: "vendor", label: "Vendor / Seller", icon: "🏪" },
+  { id: "affiliate", label: "Affiliate / Referral", icon: "💰" },
+  { id: "driver", label: "Driver / Delivery", icon: "🚚" },
   { id: "builder", label: "Builder / Contractor", icon: "🏗️" },
-  { id: "educator", label: "Educator / Learning", icon: "🎓" },
+  { id: "educator", label: "Education / Learning", icon: "🎓" },
+  { id: "industrial", label: "Creator / Content", icon: "🎬" },
+  { id: "industrial", label: "Service Provider", icon: "🛠️" },
   { id: "industrial", label: "Industrial / Wholesale", icon: "🏢" },
   { id: "events", label: "Events", icon: "🎪" },
 ];
@@ -124,7 +127,7 @@ export default function GetStartedClient() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
               {ROLE_OPTIONS.map((opt) => (
                 <button
-                  key={opt.id}
+                  key={opt.label}
                   type="button"
                   onClick={() => handleRoleToggle(opt.id)}
                   className={`surface-card p-4 text-left rounded-xl border-2 transition-colors flex items-start gap-3 ${

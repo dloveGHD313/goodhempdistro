@@ -87,5 +87,10 @@ export const quickRepliesByContext: Record<MascotContext, string[]> = {
   VENDOR: ["List product", "Upload COA", "Approval status", "Fulfill orders", "Vendor pricing"],
   DELIVERY_DRIVER: ["My deliveries today", "Next stop", "Delivery details", "Report issue"],
   B2B_LOGISTICS: ["Available loads", "My assigned loads", "Load details", "Upload documents/BOL"],
-  GENERIC: ["Explore the feed", "Find products", "Upcoming events", "Get started"],
+  GENERIC: [
+    "Take me to the Marketplace",
+    "Help me choose my path",
+    "Explain vendor plans",
+    "Sign in / Create account",
+  ],
 };

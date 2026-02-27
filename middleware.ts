@@ -95,7 +95,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl, 307);
   }
 
-  // Auth-gated routes only: dashboard, account, checkout, vendors/*, driver/dashboard, admin/*
+  // Auth-gated routes: dashboard, account, checkout, vendors/*, driver/*, newsfeed, feed, affiliate, admin/*
   const isProtectedPage =
     pathname === "/dashboard" ||
     pathname.startsWith("/dashboard/") ||
@@ -105,8 +105,14 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/checkout/") ||
     pathname === "/vendors" ||
     pathname.startsWith("/vendors/") ||
-    pathname === "/driver/dashboard" ||
-    pathname.startsWith("/driver/dashboard/") ||
+    pathname === "/driver" ||
+    pathname.startsWith("/driver/") ||
+    pathname === "/newsfeed" ||
+    pathname.startsWith("/newsfeed/") ||
+    pathname === "/feed" ||
+    pathname.startsWith("/feed/") ||
+    pathname === "/affiliate" ||
+    pathname.startsWith("/affiliate/") ||
     pathname === "/admin" ||
     pathname.startsWith("/admin/");
 
