@@ -16,8 +16,12 @@ import {
   NAV_PUBLIC,
   shouldHideNav,
   getCtaNav,
+  DEFAULT_NAV_CTX,
   type NavContext,
   type AppRole,
+  type UserRole,
+  type VendorPlanStatus,
+  type ConsumerPlanStatus,
 } from "@/lib/nav";
 
 export default function Nav() {
@@ -225,7 +229,35 @@ export default function Nav() {
   const navRoles: AppRole[] = [];
   if (isVendorUser) navRoles.push("vendor");
   if (isAdmin) navRoles.push("admin");
-  const navCtx: NavContext = { isLoggedIn, roles: navRoles };
+
+  const navRole: UserRole = !isLoggedIn
+    ? "public"
+    : isAdmin
+      ? "admin"
+      : isVendorUser
+        ? "vendor"
+        : "user";
+
+  const navVendorPlan: VendorPlanStatus = !isVendorUser
+    ? "unknown"
+    : isVendorSubscribed
+      ? "starter"
+      : "none";
+
+  const navConsumerPlan: ConsumerPlanStatus = !isLoggedIn
+    ? "unknown"
+    : consumerStatus.isSubscribed
+      ? "basic"
+      : "none";
+
+  const navCtx: NavContext = {
+    ...DEFAULT_NAV_CTX,
+    isLoggedIn,
+    roles: navRoles,
+    role: navRole,
+    vendorPlan: navVendorPlan,
+    consumerPlan: navConsumerPlan,
+  };
   const ctaItems = getCtaNav(navCtx);
 
   if (shouldHideNav(pathname)) return null;
@@ -353,7 +385,7 @@ export default function Nav() {
               <Link
                 href={item.href}
                 className={
-                  item.id === "signIn"
+                  item.id === "cta-sign-in"
                     ? "btn-ghost text-sm py-2 px-4 whitespace-nowrap"
                     : "btn-primary text-sm py-2 px-4 whitespace-nowrap"
                 }
@@ -381,7 +413,7 @@ export default function Nav() {
             <Link
               href={item.href}
               className={
-                item.id === "signIn"
+                item.id === "cta-sign-in"
                   ? "btn-ghost text-sm py-2 px-4 whitespace-nowrap"
                   : "btn-primary text-sm py-2 px-4 whitespace-nowrap"
               }
@@ -439,7 +471,7 @@ export default function Nav() {
                     key={item.id}
                     href={item.href}
                     className={
-                      item.id === "signIn"
+                      item.id === "cta-sign-in"
                         ? "btn-ghost text-center py-3 mb-4 font-semibold min-h-[44px] flex items-center justify-center"
                         : "btn-primary text-center py-3 mb-3 font-bold min-h-[44px] flex items-center justify-center"
                     }
