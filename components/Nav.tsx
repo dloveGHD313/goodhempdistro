@@ -176,6 +176,7 @@ export default function Nav() {
       setConsumerStatus({ isSubscribed: false, isAdmin: false });
       setDriverStatus({ hasAccess: false, isApproved: false });
       setIsAffiliate(false);
+      setConsumerLoaded(false); // fix: reset consumerLoaded on logout to prevent CTA flash regression
     });
     const supabase = createSupabaseBrowserClient();
     try {
