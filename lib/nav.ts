@@ -93,7 +93,7 @@ export const NAV_ITEMS: NavItem[] = [
   {
     id: "support",
     label: "Support",
-    href: "/contact",
+    href: "/support",
     audience: "public",
     surfaces: ["moreMenu", "mobileMore"],
     priority: 130,
@@ -101,7 +101,7 @@ export const NAV_ITEMS: NavItem[] = [
   {
     id: "faq",
     label: "FAQ",
-    href: "/contact",
+    href: "/faq",
     audience: "public",
     surfaces: ["moreMenu", "mobileMore"],
     priority: 140,
@@ -165,7 +165,7 @@ export const NAV_ITEMS: NavItem[] = [
   {
     id: "settings",
     label: "Settings",
-    href: "/account",
+    href: "/account/settings",
     audience: "authed",
     requiresAuth: true,
     surfaces: ["accountMenu"],
@@ -332,12 +332,23 @@ export function getNavItemsForSurface(surface: NavSurface, ctx: NavContext): Nav
     .filter((i) => isNavItemVisible(i, ctx))
     .sort((a, b) => (a.priority ?? 9999) - (b.priority ?? 9999));
 
-  // Dedupe by href to prevent double links across groups
-  const seen = new Set<string>();
+  // Dedupe by href. In dev/test, emit a loud warning or throw so collisions are
+  // caught immediately rather than silently dropping a nav item.
+  const seen = new Map<string, string>(); // href → first item id
   const deduped: NavItem[] = [];
   for (const item of items) {
-    if (seen.has(item.href)) continue;
-    seen.add(item.href);
+    const normalizedHref = item.href.toLowerCase().replace(/\/$/, "");
+    const firstId = seen.get(normalizedHref);
+    if (firstId !== undefined) {
+      const msg = `[nav] Duplicate href "${item.href}" on surface "${surface}" — ids: ${firstId}, ${item.id}`;
+      if (process.env.NODE_ENV === "test") {
+        throw new Error(msg);
+      } else if (process.env.NODE_ENV === "development") {
+        console.warn(msg);
+      }
+      continue;
+    }
+    seen.set(normalizedHref, item.id);
     deduped.push(item);
   }
   return deduped;
