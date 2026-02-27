@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 
@@ -8,11 +9,11 @@ type Props = {
   reset: () => void;
 };
 
-export default function RootError({ error, reset }: Props) {
+export default function AdminError({ error, reset }: Props) {
   const pathname = usePathname();
 
   useEffect(() => {
-    console.error("[RootError] client-side exception", {
+    console.error("[AdminError] exception in admin section", {
       message: error.message,
       digest: error.digest,
       pathname,
@@ -25,9 +26,9 @@ export default function RootError({ error, reset }: Props) {
       <main className="flex-1">
         <section className="section-shell">
           <div className="max-w-3xl mx-auto card-glass p-8 space-y-4">
-            <h1 className="text-3xl font-bold text-accent">Something went wrong</h1>
+            <h1 className="text-3xl font-bold text-red-400">Admin error</h1>
             <p className="text-muted">
-              We ran into a problem while loading this page. Please refresh and try again.
+              An error occurred in the admin panel. This has been logged.
             </p>
             {process.env.NODE_ENV !== "production" && (
               <div className="text-xs text-muted space-y-1">
@@ -35,15 +36,13 @@ export default function RootError({ error, reset }: Props) {
                 <div>Path: {pathname}</div>
               </div>
             )}
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-wrap">
               <button type="button" onClick={reset} className="btn-primary">
                 Try again
               </button>
-              {/* Hard reload escape hatch: plain anchor resets broken router/context state */}
-              {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-              <a href="/" className="btn-secondary">
-                Back to home
-              </a>
+              <Link href="/dashboard/admin" className="btn-secondary">
+                Admin dashboard
+              </Link>
             </div>
           </div>
         </section>

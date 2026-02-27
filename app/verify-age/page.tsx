@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getUserVerificationStatus } from "@/lib/server/idVerification";
@@ -49,9 +50,9 @@ export default async function VerifyAgePage() {
 
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               {approved ? (
-                <a href="/products" className="btn-primary">
+                <Link href="/products" className="btn-primary">
                   Browse Products
-                </a>
+                </Link>
               ) : (
                 <a href="/verify-age/upload" className="btn-primary">
                   Upload ID

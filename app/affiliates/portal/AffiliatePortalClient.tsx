@@ -144,8 +144,8 @@ export default function AffiliatePortalClient({ affiliateCode }: Props) {
     setConnecting(true);
     setError(null);
     try {
-      let statusRes = await fetch("/api/affiliates/connect/status", { cache: "no-store" });
-      let statusData = (await statusRes.json().catch(() => null)) as ConnectStatus | { requestId?: string; error?: string } | null;
+      const statusRes = await fetch("/api/affiliates/connect/status", { cache: "no-store" });
+      const statusData = (await statusRes.json().catch(() => null)) as ConnectStatus | { requestId?: string; error?: string } | null;
 
       if (!statusRes.ok) {
         const statusError = (statusData as { error?: string } | null)?.error || "Failed to load connect status";

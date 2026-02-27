@@ -2,6 +2,7 @@
  * Phase 3C: Product approval fails when COA required but not verified; succeeds when verified.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import type { NextRequest } from "next/server";
 
 const mockMaybeSingle = vi.fn();
 const mockSingle = vi.fn();
@@ -69,7 +70,7 @@ describe("Phase 3C: Approve COA enforcement", () => {
   it("approval fails with 409 when COA required but document not verified", async () => {
     coaDocStatus = "pending";
     const { POST } = await import("@/app/api/admin/products/[id]/approve/route");
-    const res = await POST({} as Request, { params: Promise.resolve({ id: "p1" }) });
+    const res = await POST({} as NextRequest, { params: Promise.resolve({ id: "p1" }) });
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.error).toContain("COA must be verified");
@@ -78,7 +79,7 @@ describe("Phase 3C: Approve COA enforcement", () => {
   it("approval succeeds when COA verified", async () => {
     coaDocStatus = "verified";
     const { POST } = await import("@/app/api/admin/products/[id]/approve/route");
-    const res = await POST({} as Request, { params: Promise.resolve({ id: "p1" }) });
+    const res = await POST({} as NextRequest, { params: Promise.resolve({ id: "p1" }) });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);

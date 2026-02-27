@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 
@@ -8,11 +9,11 @@ type Props = {
   reset: () => void;
 };
 
-export default function RootError({ error, reset }: Props) {
+export default function VendorError({ error, reset }: Props) {
   const pathname = usePathname();
 
   useEffect(() => {
-    console.error("[RootError] client-side exception", {
+    console.error("[VendorError] exception in vendor section", {
       message: error.message,
       digest: error.digest,
       pathname,
@@ -27,7 +28,7 @@ export default function RootError({ error, reset }: Props) {
           <div className="max-w-3xl mx-auto card-glass p-8 space-y-4">
             <h1 className="text-3xl font-bold text-accent">Something went wrong</h1>
             <p className="text-muted">
-              We ran into a problem while loading this page. Please refresh and try again.
+              We ran into a problem in your vendor portal. Please try again or contact support.
             </p>
             {process.env.NODE_ENV !== "production" && (
               <div className="text-xs text-muted space-y-1">
@@ -35,15 +36,13 @@ export default function RootError({ error, reset }: Props) {
                 <div>Path: {pathname}</div>
               </div>
             )}
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-wrap">
               <button type="button" onClick={reset} className="btn-primary">
                 Try again
               </button>
-              {/* Hard reload escape hatch: plain anchor resets broken router/context state */}
-              {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-              <a href="/" className="btn-secondary">
-                Back to home
-              </a>
+              <Link href="/vendors/dashboard" className="btn-secondary">
+                Back to dashboard
+              </Link>
             </div>
           </div>
         </section>

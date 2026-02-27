@@ -73,8 +73,9 @@ describe("Nav - Logout Button", () => {
     supabaseMock.auth.signOut.mockResolvedValue({ error: null });
     mockProfileSingle.mockResolvedValue({ data: { role: null }, error: null });
     global.fetch = vi.fn();
-    delete (window as Record<string, unknown>).location;
-    (window as Record<string, unknown>).location = { href: "" };
+    // FIXED: Cast via unknown for Window type compatibility
+    delete (window as unknown as Record<string, unknown>).location;
+    (window as unknown as Record<string, unknown>).location = { href: "" };
   });
 
   it("should render logout button when user is logged in", async () => {

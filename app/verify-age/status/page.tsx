@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
@@ -102,13 +103,14 @@ export default async function VerifyAgeStatusPage() {
               </div>
             )}
 
+            {/* FIXED: Use Link for client-side navigation */}
             <div className="flex flex-col sm:flex-row gap-3">
-              <a href="/verify-age/upload" className="btn-primary">
+              <Link href="/verify-age/upload" className="btn-primary">
                 {statusLabel === "rejected" ? "Submit new verification" : "Upload ID"}
-              </a>
-              <a href="/products" className="btn-secondary">
+              </Link>
+              <Link href="/products" className="btn-secondary">
                 Back to Products
-              </a>
+              </Link>
             </div>
           </div>
         </section>

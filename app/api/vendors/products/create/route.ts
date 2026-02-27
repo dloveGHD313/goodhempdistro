@@ -12,7 +12,7 @@ import { getProductLimitStatus, getVendorEntitlements, getVendorPlanByPriceId } 
  * Server-only route - requires vendor authentication
  */
 export async function POST(req: NextRequest) {
-  let requestId =
+  const requestId =
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(16).slice(2)}`;

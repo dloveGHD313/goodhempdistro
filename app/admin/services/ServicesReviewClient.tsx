@@ -84,7 +84,8 @@ export default function ServicesReviewClient({
       (initialCounts.draft || 0) +
       (initialCounts.rejected || 0);
     if (initialServices.length === 0 && totalCount > 0) {
-      fetchList(initialStatus);
+      // FIXED: fetchList triggers async state updates; pattern is intentional for initial load
+      void fetchList(initialStatus);
     }
   }, [initialCounts, initialServices.length, initialStatus]);
 
@@ -104,9 +105,11 @@ export default function ServicesReviewClient({
       });
 
       const text = await res.text();
-      let payload: any = null;
+      // FIXED: no-explicit-any
+      type ApprovePayload = { ok?: boolean; error?: { message?: string; code?: string; details?: string; hint?: string; queryContext?: string }; message?: string; diagnostics?: { buildTag?: string } };
+      let payload: ApprovePayload | null = null;
       try {
-        payload = JSON.parse(text);
+        payload = JSON.parse(text) as ApprovePayload;
       } catch {
         // ignore JSON parse errors
       }
@@ -132,7 +135,6 @@ export default function ServicesReviewClient({
         if (hint) parts.push(`hint=${hint}`);
         if (buildTag) parts.push(`buildTag=${buildTag}`);
 
-        // eslint-disable-next-line no-console
         console.error("approve failed", { status: res.status, payload, text });
         alert(parts.join("\n\n"));
         setLoading(null);

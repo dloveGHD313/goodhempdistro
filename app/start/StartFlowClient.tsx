@@ -34,9 +34,12 @@ export default function StartFlowClient() {
   useEffect(() => {
     const stored = getWorkoutFlowState();
     if (stored?.selectedPath) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPath(stored.selectedPath);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStep(2);
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
