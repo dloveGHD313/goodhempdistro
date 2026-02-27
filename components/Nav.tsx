@@ -16,8 +16,12 @@ import {
   NAV_PUBLIC,
   shouldHideNav,
   getCtaNav,
+  DEFAULT_NAV_CTX,
   type NavContext,
   type AppRole,
+  type UserRole,
+  type VendorPlanStatus,
+  type ConsumerPlanStatus,
 } from "@/lib/nav";
 
 export default function Nav() {
@@ -40,6 +44,7 @@ export default function Nav() {
     isApproved: boolean;
   }>({ hasAccess: false, isApproved: false });
   const [isAffiliate, setIsAffiliate] = useState(false);
+  const [consumerLoaded, setConsumerLoaded] = useState(false);
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -55,6 +60,7 @@ export default function Nav() {
         setIsAdmin(false);
         setDriverStatus({ hasAccess: false, isApproved: false });
         setIsAffiliate(false);
+        setConsumerLoaded(false);
         return;
       }
 
@@ -83,17 +89,21 @@ export default function Nav() {
         setVendorStatus({ isVendor: false, isSubscribed: false, isAdmin: false });
       }
 
-      if (consumerResponse && consumerResponse.ok) {
-        const payload = await consumerResponse.json();
-        setConsumerStatus({
-          isSubscribed: Boolean(payload?.isSubscribed),
-          isAdmin: Boolean(payload?.isAdmin),
-        });
-        if (payload?.isAdmin) {
-          setIsAdmin(true);
+      try {
+        if (consumerResponse && consumerResponse.ok) {
+          const payload = await consumerResponse.json();
+          setConsumerStatus({
+            isSubscribed: Boolean(payload?.isSubscribed),
+            isAdmin: Boolean(payload?.isAdmin),
+          });
+          if (payload?.isAdmin) {
+            setIsAdmin(true);
+          }
+        } else {
+          setConsumerStatus({ isSubscribed: false, isAdmin: false });
         }
-      } else {
-        setConsumerStatus({ isSubscribed: false, isAdmin: false });
+      } finally {
+        setConsumerLoaded(true);
       }
 
       if (driverResponse && driverResponse.ok) {
@@ -166,6 +176,7 @@ export default function Nav() {
       setConsumerStatus({ isSubscribed: false, isAdmin: false });
       setDriverStatus({ hasAccess: false, isApproved: false });
       setIsAffiliate(false);
+      setConsumerLoaded(false); // fix: reset consumerLoaded on logout to prevent CTA flash regression
     });
     const supabase = createSupabaseBrowserClient();
     try {
@@ -225,7 +236,38 @@ export default function Nav() {
   const navRoles: AppRole[] = [];
   if (isVendorUser) navRoles.push("vendor");
   if (isAdmin) navRoles.push("admin");
-  const navCtx: NavContext = { isLoggedIn, roles: navRoles };
+
+  const navRole: UserRole = !isLoggedIn
+    ? "public"
+    : isAdmin
+      ? "admin"
+      : isVendorUser
+        ? "vendor"
+        : "user";
+
+  const navVendorPlan: VendorPlanStatus = !isVendorUser
+    ? "unknown"
+    : isVendorSubscribed
+      ? "starter"
+      : "none";
+
+  const navConsumerPlan: ConsumerPlanStatus =
+    !isLoggedIn
+      ? "unknown"
+      : !consumerLoaded
+        ? "unknown"
+        : consumerStatus.isSubscribed
+          ? "basic"
+          : "none";
+
+  const navCtx: NavContext = {
+    ...DEFAULT_NAV_CTX,
+    isLoggedIn,
+    roles: navRoles,
+    role: navRole,
+    vendorPlan: navVendorPlan,
+    consumerPlan: navConsumerPlan,
+  };
   const ctaItems = getCtaNav(navCtx);
 
   if (shouldHideNav(pathname)) return null;
@@ -353,7 +395,7 @@ export default function Nav() {
               <Link
                 href={item.href}
                 className={
-                  item.id === "signIn"
+                  item.id === "cta-sign-in"
                     ? "btn-ghost text-sm py-2 px-4 whitespace-nowrap"
                     : "btn-primary text-sm py-2 px-4 whitespace-nowrap"
                 }
@@ -381,7 +423,7 @@ export default function Nav() {
             <Link
               href={item.href}
               className={
-                item.id === "signIn"
+                item.id === "cta-sign-in"
                   ? "btn-ghost text-sm py-2 px-4 whitespace-nowrap"
                   : "btn-primary text-sm py-2 px-4 whitespace-nowrap"
               }
@@ -439,7 +481,7 @@ export default function Nav() {
                     key={item.id}
                     href={item.href}
                     className={
-                      item.id === "signIn"
+                      item.id === "cta-sign-in"
                         ? "btn-ghost text-center py-3 mb-4 font-semibold min-h-[44px] flex items-center justify-center"
                         : "btn-primary text-center py-3 mb-3 font-bold min-h-[44px] flex items-center justify-center"
                     }
