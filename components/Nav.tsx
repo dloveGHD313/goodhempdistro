@@ -44,6 +44,7 @@ export default function Nav() {
     isApproved: boolean;
   }>({ hasAccess: false, isApproved: false });
   const [isAffiliate, setIsAffiliate] = useState(false);
+  const [consumerLoaded, setConsumerLoaded] = useState(false);
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -59,6 +60,7 @@ export default function Nav() {
         setIsAdmin(false);
         setDriverStatus({ hasAccess: false, isApproved: false });
         setIsAffiliate(false);
+        setConsumerLoaded(false);
         return;
       }
 
@@ -87,17 +89,21 @@ export default function Nav() {
         setVendorStatus({ isVendor: false, isSubscribed: false, isAdmin: false });
       }
 
-      if (consumerResponse && consumerResponse.ok) {
-        const payload = await consumerResponse.json();
-        setConsumerStatus({
-          isSubscribed: Boolean(payload?.isSubscribed),
-          isAdmin: Boolean(payload?.isAdmin),
-        });
-        if (payload?.isAdmin) {
-          setIsAdmin(true);
+      try {
+        if (consumerResponse && consumerResponse.ok) {
+          const payload = await consumerResponse.json();
+          setConsumerStatus({
+            isSubscribed: Boolean(payload?.isSubscribed),
+            isAdmin: Boolean(payload?.isAdmin),
+          });
+          if (payload?.isAdmin) {
+            setIsAdmin(true);
+          }
+        } else {
+          setConsumerStatus({ isSubscribed: false, isAdmin: false });
         }
-      } else {
-        setConsumerStatus({ isSubscribed: false, isAdmin: false });
+      } finally {
+        setConsumerLoaded(true);
       }
 
       if (driverResponse && driverResponse.ok) {
@@ -244,11 +250,14 @@ export default function Nav() {
       ? "starter"
       : "none";
 
-  const navConsumerPlan: ConsumerPlanStatus = !isLoggedIn
-    ? "unknown"
-    : consumerStatus.isSubscribed
-      ? "basic"
-      : "none";
+  const navConsumerPlan: ConsumerPlanStatus =
+    !isLoggedIn
+      ? "unknown"
+      : !consumerLoaded
+        ? "unknown"
+        : consumerStatus.isSubscribed
+          ? "basic"
+          : "none";
 
   const navCtx: NavContext = {
     ...DEFAULT_NAV_CTX,
