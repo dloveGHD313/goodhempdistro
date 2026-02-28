@@ -6,6 +6,7 @@
 export const brand = {
   // Company info
   name: "Good Hemp Distros",
+  /** Reserved for SEO metadata (og:description, twitter:description, etc.). Not used in UI copy — see lib/entryCopy.ts for hero copy. */
   tagline: "Community-driven hemp marketplace",
   description: "Discover premium hemp products from verified vendors. Join our community.",
   

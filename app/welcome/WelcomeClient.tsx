@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { brand } from "@/lib/brand";
+import { entryHeroCopy } from "@/lib/entryCopy";
 import JaxEntryGreeting from "@/components/entry/JaxEntryGreeting";
 import { Reveal, HoverLift, HERO_DELAYS } from "@/components/motion";
 
@@ -62,14 +63,14 @@ export default function WelcomeClient({ mascotEnabled: serverMascotEnabled }: We
           />
         </div>
         <h1 className="hero-title text-accent mb-3">
-          The hemp industry, all in one place.
+          {entryHeroCopy.headlineLines[0]} {entryHeroCopy.headlineLines[1]}
         </h1>
       </Reveal>
 
       {/* Subtitle */}
       <Reveal delay={HERO_DELAYS.subtitle} className="w-full flex justify-center">
         <p className="hero-subtitle mb-10 max-w-xl">
-          Community. Commerce. Compliance. Fused.
+          {entryHeroCopy.subtitle}
         </p>
       </Reveal>
 
@@ -78,18 +79,18 @@ export default function WelcomeClient({ mascotEnabled: serverMascotEnabled }: We
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <HoverLift as="span" className="inline-block">
             <Link
-              href="/signup"
+              href={entryHeroCopy.primaryCTA.href}
               className="btn-primary motion-medium inline-block text-center min-w-[180px] py-3 px-8"
             >
-              Create Account
+              {entryHeroCopy.primaryCTA.label}
             </Link>
           </HoverLift>
           <HoverLift as="span" className="inline-block">
             <Link
-              href="/login"
+              href={entryHeroCopy.secondaryCTA.href}
               className="btn-secondary motion-medium inline-block text-center min-w-[180px] py-3 px-8"
             >
-              Sign In
+              {entryHeroCopy.secondaryCTA.label}
             </Link>
           </HoverLift>
         </div>
