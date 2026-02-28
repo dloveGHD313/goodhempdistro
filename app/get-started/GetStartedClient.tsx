@@ -13,27 +13,28 @@ import {
 import type { OnboardingRole } from "@/lib/onboarding/role";
 import type { Question } from "@/lib/onboarding/questions";
 
-// CEO-locked role list. Creator/Content and Service Provider both map to the `industrial` OnboardingRole.
-// Events last per CEO vision.
-const ROLE_OPTIONS: { id: OnboardingRole; label: string; icon: string }[] = [
-  { id: "consumer", label: "Consumer / Shopper", icon: "🛍️" },
-  { id: "vendor", label: "Vendor / Seller", icon: "🏪" },
-  { id: "affiliate", label: "Affiliate / Referral", icon: "💰" },
-  { id: "driver", label: "Driver / Delivery", icon: "🚚" },
-  { id: "builder", label: "Builder / Contractor", icon: "🏗️" },
-  { id: "educator", label: "Education / Learning", icon: "🎓" },
-  { id: "industrial", label: "Creator / Content", icon: "🎬" },
-  { id: "industrial", label: "Service Provider", icon: "🛠️" },
-  { id: "industrial", label: "Industrial / Wholesale", icon: "🏢" },
-  { id: "events", label: "Events", icon: "🎪" },
-];
+// CEO-locked role list. `key` is a unique button identifier; `role` is the OnboardingRole value.
+// Multiple cards can share a role (e.g. industrial) without cross-toggling each other.
+const ROLE_OPTIONS = [
+  { key: "consumer",           role: "consumer"  as OnboardingRole, label: "Consumer / Shopper",    icon: "🛍️" },
+  { key: "vendor",             role: "vendor"    as OnboardingRole, label: "Vendor / Seller",        icon: "🏪" },
+  { key: "affiliate",          role: "affiliate" as OnboardingRole, label: "Affiliate / Referral",   icon: "💰" },
+  { key: "driver",             role: "driver"    as OnboardingRole, label: "Driver / Delivery",      icon: "🚚" },
+  { key: "builder",            role: "builder"   as OnboardingRole, label: "Builder / Contractor",   icon: "🏗️" },
+  { key: "educator",           role: "educator"  as OnboardingRole, label: "Education / Learning",   icon: "🎓" },
+  { key: "industrial_creator", role: "industrial" as OnboardingRole, label: "Creator / Content",    icon: "🎬" },
+  { key: "industrial_service", role: "industrial" as OnboardingRole, label: "Service Provider",     icon: "🛠️" },
+  { key: "industrial",        role: "industrial"  as OnboardingRole, label: "Industrial / Wholesale", icon: "🏢" },
+  { key: "events",             role: "events"    as OnboardingRole, label: "Events",                icon: "🎪" },
+] as const;
 
 type View = "loading" | "role-select" | "consumer-use-type" | "questionnaire";
 
 export default function GetStartedClient() {
   const router = useRouter();
   const [view, setView] = useState<View>("loading");
-  const [selectedRoles, setSelectedRoles] = useState<OnboardingRole[]>([]);
+  // selectedRoleKeys tracks which *cards* are toggled (unique per button, not per role value).
+  const [selectedRoleKeys, setSelectedRoleKeys] = useState<string[]>([]);
   const [primaryRole, setPrimaryRole] = useState<OnboardingRole>("consumer");
   const [consumerUseType, setConsumerUseType] = useState<"personal" | "business">("personal");
 
@@ -56,16 +57,25 @@ export default function GetStartedClient() {
     return () => { cancelled = true; };
   }, [router]);
 
-  const handleRoleToggle = (id: OnboardingRole) => {
-    setSelectedRoles((prev) => {
-      const next = prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id];
+  // Derive de-duped OnboardingRole[] from selected card keys for submission.
+  const selectedRoles: OnboardingRole[] = Array.from(
+    new Set(
+      selectedRoleKeys
+        .map((k) => ROLE_OPTIONS.find((o) => o.key === k)?.role)
+        .filter((r): r is OnboardingRole => r !== undefined)
+    )
+  );
+
+  const handleRoleToggle = (key: string) => {
+    setSelectedRoleKeys((prev) => {
+      const next = prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key];
       if (next.length === 0) return prev;
       return next;
     });
   };
 
   const handleRoleSelectNext = async () => {
-    if (selectedRoles.length === 0) return;
+    if (selectedRoleKeys.length === 0) return;
     try {
       const res = await fetch("/api/onboarding/status", { cache: "no-store" });
       const data = (await res.json().catch(() => ({}))) as { authenticated?: boolean };
@@ -127,18 +137,18 @@ export default function GetStartedClient() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
               {ROLE_OPTIONS.map((opt) => (
                 <button
-                  key={opt.label}
+                  key={opt.key}
                   type="button"
-                  onClick={() => handleRoleToggle(opt.id)}
+                  onClick={() => handleRoleToggle(opt.key)}
                   className={`surface-card p-4 text-left rounded-xl border-2 transition-colors flex items-start gap-3 ${
-                    selectedRoles.includes(opt.id)
+                    selectedRoleKeys.includes(opt.key)
                       ? "border-[var(--brand-lime)] bg-[var(--surface)]/80"
                       : "border-[var(--border)] hover:border-[var(--brand-lime)]/50"
                   }`}
                 >
                   <span className="text-2xl shrink-0">{opt.icon}</span>
                   <span className="font-medium">{opt.label}</span>
-                  {selectedRoles.includes(opt.id) && (
+                  {selectedRoleKeys.includes(opt.key) && (
                     <span className="ml-auto text-accent" aria-hidden>✓</span>
                   )}
                 </button>
@@ -148,7 +158,7 @@ export default function GetStartedClient() {
               <button
                 type="button"
                 onClick={handleRoleSelectNext}
-                disabled={selectedRoles.length === 0}
+                disabled={selectedRoleKeys.length === 0}
                 className="btn-primary px-8 py-3 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Continue

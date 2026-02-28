@@ -283,23 +283,15 @@ export default function Nav() {
         </span>
       </Link>
 
-      {/* Desktop nav - hidden on mobile; NAV_PUBLIC + NAV_PRIMARY (deduped by href) */}
-      <div className="hidden md:flex items-center gap-6 min-w-0 flex-1 justify-center">
-        {(() => {
-          const seen = new Set<string>();
-          const combined = [...NAV_PUBLIC, ...navPrimaryLinks].filter((link) => {
-            if (seen.has(link.href)) return false;
-            seen.add(link.href);
-            return true;
-          });
-          return combined.map((link) => (
-            <HoverLift key={link.href} as="span">
-              <Link href={link.href} className="nav-link text-sm">
-                {link.label}
-              </Link>
-            </HoverLift>
-          ));
-        })()}
+      {/* Desktop nav - hidden on mobile; NAV_PRIMARY only (NAV_PUBLIC excluded from top row) */}
+      <div className="hidden md:flex items-center gap-4 min-w-0 flex-1 justify-center overflow-x-auto scrollbar-hide">
+        {navPrimaryLinks.map((link) => (
+          <HoverLift key={link.href} as="span">
+            <Link href={link.href} className="nav-link text-sm whitespace-nowrap">
+              {link.label}
+            </Link>
+          </HoverLift>
+        ))}
 
         <div className="relative group">
           <button type="button" className="nav-link text-sm flex items-center gap-1">
