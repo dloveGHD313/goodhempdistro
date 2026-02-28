@@ -1,9 +1,10 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useSafeReducedMotion } from "@/lib/useSafeReducedMotion";
+import { entryHeroCopy } from "@/lib/entryCopy";
 import JaxEntryGreeting from "./JaxEntryGreeting";
 
 type Props = {
@@ -45,14 +46,17 @@ export default function CinematicHero({ children }: Props) {
 
           {/* Headline */}
           <motion.h1 className="hero-title text-accent mb-4" {...fadeUp(0.15)}>
-            The hemp industry,
-            <br />
-            all in one place.
+            {entryHeroCopy.headlineLines.map((line, idx) => (
+              <Fragment key={line}>
+                {line}
+                {idx < entryHeroCopy.headlineLines.length - 1 && <br />}
+              </Fragment>
+            ))}
           </motion.h1>
 
           {/* Sub */}
           <motion.p className="hero-subtitle mb-10" {...fadeUp(0.25)}>
-            Community. Commerce. Compliance. Fused.
+            {entryHeroCopy.subtitle}
           </motion.p>
 
           {/* CTAs */}
@@ -61,16 +65,16 @@ export default function CinematicHero({ children }: Props) {
             {...fadeUp(0.35)}
           >
             <Link
-              href="/signup"
+              href={entryHeroCopy.primaryCTA.href}
               className="btn-primary motion-medium inline-block text-center min-w-[180px] py-3 px-8"
             >
-              Create Account
+              {entryHeroCopy.primaryCTA.label}
             </Link>
             <Link
-              href="/login"
+              href={entryHeroCopy.secondaryCTA.href}
               className="btn-secondary motion-medium inline-block text-center min-w-[180px] py-3 px-8"
             >
-              Sign In
+              {entryHeroCopy.secondaryCTA.label}
             </Link>
           </motion.div>
         </div>
@@ -87,7 +91,7 @@ export default function CinematicHero({ children }: Props) {
               delay: reducedMotion ? 0 : 0.65,
             }}
           >
-            <span className="text-xs tracking-widest uppercase">Choose your path</span>
+            <span className="text-xs tracking-widest uppercase">{entryHeroCopy.scrollHint}</span>
             <span className="text-lg animate-bounce">▼</span>
           </motion.div>
         )}

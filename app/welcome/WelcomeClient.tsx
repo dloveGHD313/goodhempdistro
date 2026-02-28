@@ -6,6 +6,7 @@ import Image from "next/image";
 import { brand } from "@/lib/brand";
 import JaxEntryGreeting from "@/components/entry/JaxEntryGreeting";
 import { Reveal, HoverLift, HERO_DELAYS } from "@/components/motion";
+import { entryHeroCopy } from "@/lib/entryCopy";
 
 type WelcomeClientProps = {
   /** Preserved for compatibility with existing callers. */
@@ -22,6 +23,7 @@ export default function WelcomeClient({ mascotEnabled: _serverMascotEnabled }: W
 
   // Entry mascot should always be visible; AI widget remains flag-gated elsewhere.
   const mascotEnabled = true;
+  const heroSubtitle = entryHeroCopy.subtitle || brand.tagline;
 
   if (!mounted) {
     return (
@@ -60,14 +62,14 @@ export default function WelcomeClient({ mascotEnabled: _serverMascotEnabled }: W
           />
         </div>
         <h1 className="hero-title text-accent mb-3">
-          The hemp industry, all in one place.
+          {entryHeroCopy.headlineLines.join(" ")}
         </h1>
       </Reveal>
 
       {/* Subtitle */}
       <Reveal delay={HERO_DELAYS.subtitle} className="w-full flex justify-center">
         <p className="hero-subtitle mb-10 max-w-xl">
-          Community. Commerce. Compliance. Fused.
+          {heroSubtitle}
         </p>
       </Reveal>
 
@@ -76,18 +78,18 @@ export default function WelcomeClient({ mascotEnabled: _serverMascotEnabled }: W
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <HoverLift as="span" className="inline-block">
             <Link
-              href="/signup"
+              href={entryHeroCopy.primaryCTA.href}
               className="btn-primary motion-medium inline-block text-center min-w-[180px] py-3 px-8"
             >
-              Create Account
+              {entryHeroCopy.primaryCTA.label}
             </Link>
           </HoverLift>
           <HoverLift as="span" className="inline-block">
             <Link
-              href="/login"
+              href={entryHeroCopy.secondaryCTA.href}
               className="btn-secondary motion-medium inline-block text-center min-w-[180px] py-3 px-8"
             >
-              Sign In
+              {entryHeroCopy.secondaryCTA.label}
             </Link>
           </HoverLift>
         </div>
