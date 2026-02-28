@@ -14,6 +14,7 @@ import {
   NAV_BUSINESS,
   NAV_ADMIN,
   NAV_PUBLIC,
+  NAV_MOBILE_DISCOVERY,
   shouldHideNav,
   getCtaNav,
   DEFAULT_NAV_CTX,
@@ -234,6 +235,20 @@ export default function Nav() {
   const desktopPrimaryLinks = navPrimaryLinks.filter(
     (link) => link.href !== "/welcome" && (isLoggedIn || link.href !== "/newsfeed")
   );
+  const mobileLinkSeen = new Set<string>();
+  const dedupeMobileLinks = (links: { label: string; href: string }[]) =>
+    links.filter((link) => {
+      if (mobileLinkSeen.has(link.href)) return false;
+      mobileLinkSeen.add(link.href);
+      return true;
+    });
+  const mobilePublicLinks = dedupeMobileLinks(NAV_PUBLIC);
+  const mobileDiscoveryLinks = dedupeMobileLinks(NAV_MOBILE_DISCOVERY);
+  const mobilePrimaryLinks = dedupeMobileLinks(
+    navPrimaryLinks.filter((link) => !NAV_PUBLIC.some((p) => p.href === link.href))
+  );
+  const mobileCommunityLinks = dedupeMobileLinks(NAV_COMMUNITY);
+  const mobileBusinessLinks = dedupeMobileLinks(NAV_BUSINESS);
 
   // Build canonical NavContext from existing auth state so getCtaNav is model-driven.
   const navRoles: AppRole[] = [];
@@ -488,7 +503,39 @@ export default function Nav() {
               )}
 
               <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Public</div>
-              {NAV_PUBLIC.map((link) => (
+              {mobilePublicLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
+                  onClick={() => setDrawerOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              ))}
+
+              {mobileDiscoveryLinks.length > 0 && (
+                <>
+                  <div className="border-t mt-2 pt-2 nav-drawer-header">
+                    <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Discover</div>
+                  </div>
+                  {mobileDiscoveryLinks.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
+                      onClick={() => setDrawerOpen(false)}
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </>
+              )}
+
+              <div className="border-t mt-2 pt-2 nav-drawer-header">
+                <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Primary</div>
+              </div>
+              {mobilePrimaryLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
@@ -500,25 +547,9 @@ export default function Nav() {
               ))}
 
               <div className="border-t mt-2 pt-2 nav-drawer-header">
-                <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Primary</div>
-              </div>
-              {navPrimaryLinks
-                .filter((link) => !NAV_PUBLIC.some((p) => p.href === link.href))
-                .map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
-                    onClick={() => setDrawerOpen(false)}
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-
-              <div className="border-t mt-2 pt-2 nav-drawer-header">
                 <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Community</div>
               </div>
-              {NAV_COMMUNITY.map((link) => (
+              {mobileCommunityLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
@@ -532,7 +563,7 @@ export default function Nav() {
               <div className="border-t mt-2 pt-2 nav-drawer-header">
                 <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Business</div>
               </div>
-              {NAV_BUSINESS.map((link) => (
+              {mobileBusinessLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
