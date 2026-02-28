@@ -235,20 +235,11 @@ export default function Nav() {
   const desktopPrimaryLinks = navPrimaryLinks.filter(
     (link) => link.href !== "/welcome" && (isLoggedIn || link.href !== "/newsfeed")
   );
-  const mobileLinkSeen = new Set<string>();
-  const dedupeMobileLinks = (links: { label: string; href: string }[]) =>
-    links.filter((link) => {
-      if (mobileLinkSeen.has(link.href)) return false;
-      mobileLinkSeen.add(link.href);
-      return true;
-    });
-  const mobilePublicLinks = dedupeMobileLinks(NAV_PUBLIC);
-  const mobileDiscoveryLinks = dedupeMobileLinks(NAV_MOBILE_DISCOVERY);
-  const mobilePrimaryLinks = dedupeMobileLinks(
-    navPrimaryLinks.filter((link) => !NAV_PUBLIC.some((p) => p.href === link.href))
-  );
-  const mobileCommunityLinks = dedupeMobileLinks(NAV_COMMUNITY);
-  const mobileBusinessLinks = dedupeMobileLinks(NAV_BUSINESS);
+  const mobilePublicLinks = NAV_PUBLIC;
+  const mobileDiscoveryLinks = NAV_MOBILE_DISCOVERY;
+  const mobilePrimaryLinks = navPrimaryLinks.filter((link) => !NAV_PUBLIC.some((p) => p.href === link.href));
+  const mobileCommunityLinks = NAV_COMMUNITY;
+  const mobileBusinessLinks = NAV_BUSINESS;
 
   // Build canonical NavContext from existing auth state so getCtaNav is model-driven.
   const navRoles: AppRole[] = [];
