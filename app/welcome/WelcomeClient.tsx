@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { brand } from "@/lib/brand";
-import JaxWelcomeHero from "@/components/mascot/JaxWelcomeHero";
+import JaxEntryGreeting from "@/components/entry/JaxEntryGreeting";
 import { Reveal, HoverLift, HERO_DELAYS } from "@/components/motion";
 
 type WelcomeClientProps = {
@@ -37,15 +37,20 @@ export default function WelcomeClient({ mascotEnabled: serverMascotEnabled }: We
 
   return (
     <div className="max-w-2xl w-full mx-auto flex flex-col items-center text-center">
+      {/* JAX entry greeting (shows CEO-specified line; hides itself when mascot is off) */}
       {mascotEnabled && (
         <Reveal delay={HERO_DELAYS.title} className="flex-shrink-0 w-full flex justify-center">
           <section aria-label="JAX mascot greeting" className="flex justify-center">
-            <JaxWelcomeHero selectedCount={0} />
+            <JaxEntryGreeting />
           </section>
         </Reveal>
       )}
 
-      <Reveal delay={HERO_DELAYS.title} className={`flex-shrink-0 w-full flex flex-col items-center ${mascotEnabled ? "mt-8" : ""}`}>
+      {/* Logo + headline */}
+      <Reveal
+        delay={HERO_DELAYS.title}
+        className={`flex-shrink-0 w-full flex flex-col items-center ${mascotEnabled ? "mt-4" : ""}`}
+      >
         <div className="flex justify-center mb-8">
           <Image
             src={brand.logoPath}
@@ -57,28 +62,45 @@ export default function WelcomeClient({ mascotEnabled: serverMascotEnabled }: We
           />
         </div>
         <h1 className="hero-title text-accent mb-3">
-          Welcome to {brand.name}
+          The hemp industry, all in one place.
         </h1>
       </Reveal>
+
+      {/* Subtitle */}
       <Reveal delay={HERO_DELAYS.subtitle} className="w-full flex justify-center">
         <p className="hero-subtitle mb-10 max-w-xl">
-          {brand.tagline}
+          Community. Commerce. Compliance. Fused.
         </p>
       </Reveal>
 
+      {/* Primary CTAs */}
       <Reveal delay={HERO_DELAYS.ctaRow} className="flex justify-center w-full">
-        <HoverLift as="span" className="inline-block">
-          <Link href="/get-started" className="btn-primary motion-medium inline-block text-center min-w-[200px] py-3 px-8">
-            Start here
-          </Link>
-        </HoverLift>
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <HoverLift as="span" className="inline-block">
+            <Link
+              href="/signup"
+              className="btn-primary motion-medium inline-block text-center min-w-[180px] py-3 px-8"
+            >
+              Create Account
+            </Link>
+          </HoverLift>
+          <HoverLift as="span" className="inline-block">
+            <Link
+              href="/login"
+              className="btn-secondary motion-medium inline-block text-center min-w-[180px] py-3 px-8"
+            >
+              Sign In
+            </Link>
+          </HoverLift>
+        </div>
       </Reveal>
 
+      {/* Secondary link */}
       <Reveal delay={HERO_DELAYS.secondary} className="w-full flex justify-center">
         <p className="text-muted text-sm mt-6">
-          Already have an account?{" "}
-          <Link href="/login" className="text-accent hover:underline">
-            Sign in
+          Just browsing?{" "}
+          <Link href="/get-started" className="text-accent hover:underline">
+            Explore without an account
           </Link>
         </p>
       </Reveal>

@@ -13,6 +13,7 @@ import {
   type StartPathId,
 } from "@/lib/phase2-workout-flow";
 import { HeroShell } from "@/components/ui/HeroShell";
+import CinematicHero from "@/components/entry/CinematicHero";
 
 const PATHS: { id: StartPathId; label: string; promise: string; icon: string }[] = [
   { id: "shopper", label: "Shopper / Community", promise: "Discover products and join the community.", icon: "🛍️" },
@@ -81,35 +82,39 @@ export default function StartFlowClient() {
 
   if (step === 1) {
     return (
-      <main className="welcome-hero py-10 px-4" aria-label="Choose your path">
-        <HeroShell cinematic glassPanel contentClassName="max-w-3xl">
-          <p className="text-xs uppercase tracking-[0.35em] text-muted mb-2">Get Started</p>
-          <h1 className="hero-title text-accent mb-2">Where do you fit?</h1>
-          <p className="hero-subtitle mb-8">
-            Pick one path and we&apos;ll take you to the right place in seconds.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
-            {PATHS.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => handleSelectPath(p.id)}
-                className="quiz-card rounded-xl border-2 border-[var(--border)] hover:border-[var(--brand-lime)] hover:bg-[var(--surface)]/80 px-5 py-4 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-lime)]"
-                aria-label={`${p.label}: ${p.promise}`}
-              >
-                <span className="text-2xl block mb-2" aria-hidden="true">{p.icon}</span>
-                <span className="font-semibold text-foreground block">{p.label}</span>
-                <span className="text-sm text-muted">{p.promise}</span>
-              </button>
-            ))}
-          </div>
-          <p className="text-muted text-sm mt-6">
-            Already have an account?{" "}
-            <Link href="/login" className="text-accent hover:underline">
-              Sign in
-            </Link>
-          </p>
-        </HeroShell>
+      <main aria-label="Choose your path">
+        {/* Cinematic hero above path cards */}
+        <CinematicHero>
+          {/* Path cards rendered below the hero fold */}
+          <section className="section-shell" aria-label="Select your path">
+            <p className="text-xs uppercase tracking-[0.35em] text-muted mb-2 text-center">Get Started</p>
+            <h2 className="text-2xl md:text-3xl font-bold text-accent mb-2 text-center">Where do you fit?</h2>
+            <p className="text-muted text-center mb-8">
+              Pick one path and we&apos;ll take you to the right place in seconds.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left max-w-3xl mx-auto">
+              {PATHS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => handleSelectPath(p.id)}
+                  className="quiz-card rounded-xl border-2 border-[var(--border)] hover:border-[var(--brand-lime)] hover:bg-[var(--surface)]/80 px-5 py-4 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-lime)]"
+                  aria-label={`${p.label}: ${p.promise}`}
+                >
+                  <span className="text-2xl block mb-2" aria-hidden="true">{p.icon}</span>
+                  <span className="font-semibold text-foreground block">{p.label}</span>
+                  <span className="text-sm text-muted">{p.promise}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-muted text-sm mt-8 text-center">
+              Already have an account?{" "}
+              <Link href="/login" className="text-accent hover:underline">
+                Sign in
+              </Link>
+            </p>
+          </section>
+        </CinematicHero>
       </main>
     );
   }
