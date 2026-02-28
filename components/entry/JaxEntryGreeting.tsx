@@ -10,13 +10,10 @@ const CEO_GREETING =
 /**
  * Phase 0 entry-page JAX greeting.
  * Shows the CEO-specified intro line with a cinematic entrance animation.
- * Renders null when NEXT_PUBLIC_MASCOT_ENABLED is not "true".
+ * Always renders for the entry experience (AI assistant gating is separate).
  */
 export default function JaxEntryGreeting() {
-  const enabled = process.env.NEXT_PUBLIC_MASCOT_ENABLED === "true";
   const reducedMotion = useSafeReducedMotion();
-
-  if (!enabled) return null;
 
   return (
     <motion.section

@@ -8,11 +8,11 @@ import JaxEntryGreeting from "@/components/entry/JaxEntryGreeting";
 import { Reveal, HoverLift, HERO_DELAYS } from "@/components/motion";
 
 type WelcomeClientProps = {
-  /** When provided (from server), mascot shows only when both NEXT_PUBLIC_MASCOT_ENABLED and MASCOT_AI_ENABLED are true */
+  /** Preserved for compatibility with existing callers. */
   mascotEnabled?: boolean;
 };
 
-export default function WelcomeClient({ mascotEnabled: serverMascotEnabled }: WelcomeClientProps = {}) {
+export default function WelcomeClient({ mascotEnabled: _serverMascotEnabled }: WelcomeClientProps = {}) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -20,10 +20,8 @@ export default function WelcomeClient({ mascotEnabled: serverMascotEnabled }: We
     setMounted(true);
   }, []);
 
-  const mascotEnabled =
-    typeof serverMascotEnabled === "boolean"
-      ? serverMascotEnabled
-      : process.env.NEXT_PUBLIC_MASCOT_ENABLED === "true";
+  // Entry mascot should always be visible; AI widget remains flag-gated elsewhere.
+  const mascotEnabled = true;
 
   if (!mounted) {
     return (
