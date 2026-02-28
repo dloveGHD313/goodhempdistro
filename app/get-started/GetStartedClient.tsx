@@ -57,13 +57,19 @@ export default function GetStartedClient() {
     return () => { cancelled = true; };
   }, [router]);
 
-  // Derive de-duped OnboardingRole[] from selected card keys for submission.
-  const selectedRoles: OnboardingRole[] = Array.from(
-    new Set(
-      selectedRoleKeys
-        .map((k) => ROLE_OPTIONS.find((o) => o.key === k)?.role)
-        .filter((r): r is OnboardingRole => r !== undefined)
-    )
+  // Derive de-duped OnboardingRole[] from selected card keys.
+  // Wrapped in useMemo so the array reference is stable across renders,
+  // preventing flatQuestions from recomputing on every render.
+  const selectedRoles = useMemo<OnboardingRole[]>(
+    () =>
+      Array.from(
+        new Set(
+          selectedRoleKeys
+            .map((k) => ROLE_OPTIONS.find((o) => o.key === k)?.role)
+            .filter((r): r is OnboardingRole => r !== undefined)
+        )
+      ),
+    [selectedRoleKeys]
   );
 
   const handleRoleToggle = (key: string) => {
