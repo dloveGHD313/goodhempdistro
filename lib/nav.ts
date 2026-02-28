@@ -472,19 +472,25 @@ export function getAdminMenuNav(ctx: NavContext) {
 export type NavItemLegacy = { label: string; href: string; roles?: string[] };
 
 export const NAV_PUBLIC: NavItemLegacy[] = [
-  { label: "Home", href: "/" },
-  { label: "Marketplace", href: "/products" },
-  { label: "Education", href: "/education" },
   { label: "About", href: "/about" },
   { label: "Contact", href: "/contact" },
+  { label: "Support", href: "/support" },
+  { label: "FAQ", href: "/faq" },
+  { label: "Blog", href: "/blog" },
+];
+
+// Mobile-only discovery links that should not appear in the desktop top row.
+export const NAV_MOBILE_DISCOVERY: NavItemLegacy[] = [
+  { label: "Marketplace", href: "/products" },
+  { label: "Education", href: "/education" },
 ];
 
 export const NAV_PRIMARY: NavItemLegacy[] = [
   { label: "👋 Welcome", href: "/welcome" },
-  { label: "🏠 Feed", href: "/newsfeed" },
-  { label: "🧭 Discover", href: "/discover" },
-  { label: "🎪 Events", href: "/events" },
-  { label: "📺 Episodes", href: "/learning-with-jax" },
+  { label: "Feed", href: "/newsfeed" },
+  { label: "Discover", href: "/discover" },
+  { label: "Events", href: "/events" },
+  { label: "Episodes", href: "/learning-with-jax" },
 ];
 
 export const NAV_COMMUNITY: NavItemLegacy[] = [

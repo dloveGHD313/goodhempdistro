@@ -14,6 +14,7 @@ import {
   NAV_BUSINESS,
   NAV_ADMIN,
   NAV_PUBLIC,
+  NAV_MOBILE_DISCOVERY,
   shouldHideNav,
   getCtaNav,
   DEFAULT_NAV_CTX,
@@ -231,6 +232,14 @@ export default function Nav() {
   });
 
   const navPrimaryLinks = isLoggedIn ? NAV_PRIMARY.filter((l) => l.href !== "/welcome") : NAV_PRIMARY;
+  const desktopPrimaryLinks = navPrimaryLinks.filter(
+    (link) => link.href !== "/welcome" && (isLoggedIn || link.href !== "/newsfeed")
+  );
+  const mobilePublicLinks = NAV_PUBLIC;
+  const mobileDiscoveryLinks = NAV_MOBILE_DISCOVERY;
+  const mobilePrimaryLinks = navPrimaryLinks.filter((link) => !NAV_PUBLIC.some((p) => p.href === link.href));
+  const mobileCommunityLinks = NAV_COMMUNITY;
+  const mobileBusinessLinks = NAV_BUSINESS;
 
   // Build canonical NavContext from existing auth state so getCtaNav is model-driven.
   const navRoles: AppRole[] = [];
@@ -283,32 +292,24 @@ export default function Nav() {
         </span>
       </Link>
 
-      {/* Desktop nav - hidden on mobile; NAV_PUBLIC + NAV_PRIMARY (deduped by href) */}
-      <div className="hidden md:flex items-center gap-6 min-w-0 flex-1 justify-center">
-        {(() => {
-          const seen = new Set<string>();
-          const combined = [...NAV_PUBLIC, ...navPrimaryLinks].filter((link) => {
-            if (seen.has(link.href)) return false;
-            seen.add(link.href);
-            return true;
-          });
-          return combined.map((link) => (
-            <HoverLift key={link.href} as="span">
-              <Link href={link.href} className="nav-link text-sm">
-                {link.label}
-              </Link>
-            </HoverLift>
-          ));
-        })()}
+      {/* Desktop nav - hidden on mobile; primary links only */}
+      <div className="hidden md:flex items-center gap-6 flex-1 min-w-0 justify-center overflow-x-auto scrollbar-hide">
+        {desktopPrimaryLinks.map((link) => (
+          <HoverLift key={link.href} as="span">
+            <Link href={link.href} className="nav-link text-sm whitespace-nowrap">
+              {link.label}
+            </Link>
+          </HoverLift>
+        ))}
 
         <div className="relative group">
-          <button type="button" className="nav-link text-sm flex items-center gap-1">
+          <button type="button" className="nav-link text-sm whitespace-nowrap flex items-center gap-1">
             Community <span className="text-xs">▼</span>
           </button>
           <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[200px]">
             {NAV_COMMUNITY.map((link) => (
               <HoverLift key={link.href} as="span">
-                <Link href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                <Link href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm whitespace-nowrap">
                   {link.label}
                 </Link>
               </HoverLift>
@@ -317,13 +318,13 @@ export default function Nav() {
         </div>
 
         <div className="relative group">
-          <button type="button" className="nav-link text-sm flex items-center gap-1">
+          <button type="button" className="nav-link text-sm whitespace-nowrap flex items-center gap-1">
             Business <span className="text-xs">▼</span>
           </button>
           <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[220px]">
             {NAV_BUSINESS.map((link) => (
               <HoverLift key={link.href} as="span">
-                <Link href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                <Link href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm whitespace-nowrap">
                   {link.label}
                 </Link>
               </HoverLift>
@@ -334,7 +335,7 @@ export default function Nav() {
         {isAdmin && (
           <div className="relative group">
             <HoverLift as="span">
-              <Link href="/admin/vendors" className="nav-link text-sm flex items-center gap-1">
+              <Link href="/admin/vendors" className="nav-link text-sm whitespace-nowrap flex items-center gap-1">
                 ⚙️ Admin
                 <span className="text-xs">▼</span>
               </Link>
@@ -342,7 +343,7 @@ export default function Nav() {
             <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[180px]">
               {NAV_ADMIN.map((link) => (
                 <HoverLift key={link.href} as="span">
-                  <Link href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                  <Link href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm whitespace-nowrap">
                     {link.label}
                   </Link>
                 </HoverLift>
@@ -354,7 +355,7 @@ export default function Nav() {
         {isLoggedIn && (
           <div className="relative group">
             <HoverLift as="span">
-              <Link href={accountHref} className="nav-link text-sm flex items-center gap-1">
+              <Link href={accountHref} className="nav-link text-sm whitespace-nowrap flex items-center gap-1">
                 Account
                 <span className="text-xs">▼</span>
               </Link>
@@ -362,7 +363,7 @@ export default function Nav() {
             <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[200px]">
               {accountLinks.map((link) => (
                 <HoverLift key={link.href} as="span">
-                  <Link href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm">
+                  <Link href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm whitespace-nowrap">
                     {link.label}
                   </Link>
                 </HoverLift>
@@ -493,7 +494,39 @@ export default function Nav() {
               )}
 
               <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Public</div>
-              {NAV_PUBLIC.map((link) => (
+              {mobilePublicLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
+                  onClick={() => setDrawerOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              ))}
+
+              {mobileDiscoveryLinks.length > 0 && (
+                <>
+                  <div className="border-t mt-2 pt-2 nav-drawer-header">
+                    <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Discover</div>
+                  </div>
+                  {mobileDiscoveryLinks.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
+                      onClick={() => setDrawerOpen(false)}
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </>
+              )}
+
+              <div className="border-t mt-2 pt-2 nav-drawer-header">
+                <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Primary</div>
+              </div>
+              {mobilePrimaryLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
@@ -505,25 +538,9 @@ export default function Nav() {
               ))}
 
               <div className="border-t mt-2 pt-2 nav-drawer-header">
-                <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Primary</div>
-              </div>
-              {navPrimaryLinks
-                .filter((link) => !NAV_PUBLIC.some((p) => p.href === link.href))
-                .map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
-                    onClick={() => setDrawerOpen(false)}
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-
-              <div className="border-t mt-2 pt-2 nav-drawer-header">
                 <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Community</div>
               </div>
-              {NAV_COMMUNITY.map((link) => (
+              {mobileCommunityLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
@@ -537,7 +554,7 @@ export default function Nav() {
               <div className="border-t mt-2 pt-2 nav-drawer-header">
                 <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Business</div>
               </div>
-              {NAV_BUSINESS.map((link) => (
+              {mobileBusinessLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
