@@ -1,0 +1,17 @@
+{
+  "url": "https://www.goodhempdistro.com/vendors",
+  "finalUrl": "https://www.goodhempdistro.com/login?redirect=%2Fvendors",
+  "status_code": 200,
+  "redirect_chain": [
+    {
+      "url": "https://www.goodhempdistro.com/vendors",
+      "status": 307
+    },
+    {
+      "url": "https://www.goodhempdistro.com/login?redirect=%2Fvendors",
+      "status": 200
+    }
+  ],
+  "error": null,
+  "content_type": "text/html; charset=utf-8"
+}

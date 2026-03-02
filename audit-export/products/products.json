@@ -1,0 +1,55 @@
+﻿{
+    "source_url":  "https://www.goodhempdistro.com/products",
+    "platform_note":  "Next.js + Supabase — products loaded dynamically via client-side fetch after SSR. SSR delivers page shell; product data fetched from /api after hydration.",
+    "api_endpoints":  {
+                          "products_query":  "Supabase products table — status=approved, active=true, vendor.status=active",
+                          "gating":  "COA-required products hidden from logged-out users"
+                      },
+    "page_metadata":  {
+                          "title":  "Products | Good Hemp Distro",
+                          "description":  "Browse our premium hemp products",
+                          "h1":  "Local Hemp Discovery, Verified \u0026 Smooth"
+                      },
+    "captured_at":  "2026-03-02T04:30:00Z",
+    "method":  "Raw HTML extraction from live page",
+    "cta_present":  [
+                        "Set delivery location",
+                        "Fastest delivery"
+                    ],
+    "search_and_filter":  {
+                              "category_filter":  true,
+                              "search_input":  true
+                          },
+    "market_switcher_present":  true,
+    "categories":  {
+                       "status":  "NOT_CAPTURED",
+                       "note":  "No category detail pages exist as separate URLs. Categories are filter options on /products."
+                   },
+    "page_metrics_displayed":  [
+                                   {
+                                       "value":  "35-50 min",
+                                       "label":  "Avg delivery"
+                                   },
+                                   {
+                                       "value":  "120+",
+                                       "label":  "Verified vendors"
+                                   },
+                                   {
+                                       "value":  "Always on",
+                                       "label":  "Compliance status"
+                                   }
+                               ],
+    "market_categories":  [
+                              "CBD \u0026 Wellness",
+                              "Industrial",
+                              "Services",
+                              "Recreational",
+                              "Non-recreational essentials"
+                          ],
+    "live_product_listings":  {
+                                  "status":  "EMPTY_AT_TIME_OF_CAPTURE",
+                                  "message":  "No products match your filters. Try adjusting the search or category.",
+                                  "note":  "More products coming soon. Check back regularly for new additions.",
+                                  "reason":  "Product data is loaded client-side via authenticated Supabase query. Public (unauthenticated) requests to /products receive the shell page but no product records were returned in the SSR payload. Product listings appear to be empty in the public-facing catalogue at time of audit."
+                              }
+}

@@ -1,0 +1,67 @@
+{
+  "title": "About | Good Hemp Distro",
+  "meta_description": "Learn about Good Hemp Distro&#x27;s mission and values",
+  "canonical": "https://www.goodhempdistro.com/about",
+  "robots": null,
+  "og": {
+    "og:title": "Good Hemp Distros - Premium Hemp Marketplace",
+    "og:description": "Discover premium hemp products from verified vendors. Join our community.",
+    "og:url": "https://goodhempdistro.com",
+    "og:site_name": "Good Hemp Distros",
+    "og:image": "https://www.goodhempdistro.com/brand/goodhempdistrologo.png",
+    "og:image:width": "1200",
+    "og:image:height": "630",
+    "og:image:alt": "Good Hemp Distros",
+    "og:type": "website"
+  },
+  "twitter": {
+    "twitter:card": "summary_large_image",
+    "twitter:title": "Good Hemp Distros",
+    "twitter:description": "Discover premium hemp products from verified vendors. Join our community.",
+    "twitter:image": "https://www.goodhempdistro.com/brand/goodhempdistrologo.png"
+  },
+  "headings": [
+    {
+      "tag": "h1",
+      "text": "About Good Hemp Distro"
+    },
+    {
+      "tag": "h2",
+      "text": "Our Mission"
+    },
+    {
+      "tag": "h2",
+      "text": "Our Story"
+    },
+    {
+      "tag": "h2",
+      "text": "Our Values"
+    },
+    {
+      "tag": "h3",
+      "text": "Quality First"
+    },
+    {
+      "tag": "h3",
+      "text": "Transparency"
+    },
+    {
+      "tag": "h3",
+      "text": "Education"
+    },
+    {
+      "tag": "h3",
+      "text": "Sustainability"
+    },
+    {
+      "tag": "h2",
+      "text": "Why Choose Us"
+    },
+    {
+      "tag": "h2",
+      "text": "Get in Touch"
+    }
+  ],
+  "json_ld": [],
+  "lang": "en"
+}

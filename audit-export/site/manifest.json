@@ -1,0 +1,28 @@
+{
+  "generated": "2026-03-02T04:36:04.228Z",
+  "baseUrl": "https://www.goodhempdistro.com",
+  "totalUrls": 27,
+  "urlListPath": "site/urls.txt",
+  "userAgent": "GHD-Audit/1.0 (CEO Audit Run 2026-03-02)",
+  "crawlMethodUsed": "both",
+  "sitemapPresent": true,
+  "robotsTxtPresent": true,
+  "pagesCapturedCount": 27,
+  "pagesWithAllArtifacts": 27,
+  "missingArtifacts": [],
+  "lighthouseRanForRequiredPages": true,
+  "lighthousePagesRun": [
+    "welcome",
+    "products",
+    "about",
+    "wholesale"
+  ],
+  "lighthouseFormFactors": [
+    "mobile",
+    "desktop"
+  ],
+  "brokenLinksReportPresent": true,
+  "missingAssetsReportPresent": true,
+  "complianceScanPresent": true,
+  "navigationMapPresent": true
+}

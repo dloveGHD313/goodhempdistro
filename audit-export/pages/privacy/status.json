@@ -1,0 +1,13 @@
+{
+  "url": "https://www.goodhempdistro.com/privacy",
+  "finalUrl": "https://www.goodhempdistro.com/privacy",
+  "status_code": 200,
+  "redirect_chain": [
+    {
+      "url": "https://www.goodhempdistro.com/privacy",
+      "status": 200
+    }
+  ],
+  "error": null,
+  "content_type": "text/html; charset=utf-8"
+}

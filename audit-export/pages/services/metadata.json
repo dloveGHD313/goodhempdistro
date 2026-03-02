@@ -1,0 +1,63 @@
+{
+  "title": "Services | Good Hemp Distro",
+  "meta_description": "Find help in the hemp industry — logistics, compliance, marketing, construction, processing.",
+  "canonical": "https://www.goodhempdistro.com/services",
+  "robots": null,
+  "og": {
+    "og:title": "Good Hemp Distros - Premium Hemp Marketplace",
+    "og:description": "Discover premium hemp products from verified vendors. Join our community.",
+    "og:url": "https://goodhempdistro.com",
+    "og:site_name": "Good Hemp Distros",
+    "og:image": "https://www.goodhempdistro.com/brand/goodhempdistrologo.png",
+    "og:image:width": "1200",
+    "og:image:height": "630",
+    "og:image:alt": "Good Hemp Distros",
+    "og:type": "website"
+  },
+  "twitter": {
+    "twitter:card": "summary_large_image",
+    "twitter:title": "Good Hemp Distros",
+    "twitter:description": "Discover premium hemp products from verified vendors. Join our community.",
+    "twitter:image": "https://www.goodhempdistro.com/brand/goodhempdistrologo.png"
+  },
+  "headings": [
+    {
+      "tag": "h1",
+      "text": "Services"
+    },
+    {
+      "tag": "h2",
+      "text": "Explore by category"
+    },
+    {
+      "tag": "h3",
+      "text": "Logistics"
+    },
+    {
+      "tag": "h3",
+      "text": "Compliance"
+    },
+    {
+      "tag": "h3",
+      "text": "Marketing"
+    },
+    {
+      "tag": "h3",
+      "text": "Construction"
+    },
+    {
+      "tag": "h3",
+      "text": "Processing"
+    },
+    {
+      "tag": "h3",
+      "text": "Become a Service Provider"
+    },
+    {
+      "tag": "h2",
+      "text": "Listed services"
+    }
+  ],
+  "json_ld": [],
+  "lang": "en"
+}

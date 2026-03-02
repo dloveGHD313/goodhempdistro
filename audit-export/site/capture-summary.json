@@ -1,0 +1,222 @@
+{
+  "timestamp": "2026-03-02T04:26:08.231Z",
+  "total": 27,
+  "results": [
+    {
+      "slug": "root",
+      "url": "https://www.goodhempdistro.com/",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/",
+      "internalLinks": 15,
+      "images": 1
+    },
+    {
+      "slug": "welcome",
+      "url": "https://www.goodhempdistro.com/welcome",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/welcome",
+      "internalLinks": 15,
+      "images": 1
+    },
+    {
+      "slug": "about",
+      "url": "https://www.goodhempdistro.com/about",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/about",
+      "internalLinks": 16,
+      "images": 1
+    },
+    {
+      "slug": "contact",
+      "url": "https://www.goodhempdistro.com/contact",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/contact",
+      "internalLinks": 16,
+      "images": 1
+    },
+    {
+      "slug": "pricing",
+      "url": "https://www.goodhempdistro.com/pricing",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/pricing",
+      "internalLinks": 15,
+      "images": 1
+    },
+    {
+      "slug": "products",
+      "url": "https://www.goodhempdistro.com/products",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/products",
+      "internalLinks": 19,
+      "images": 1
+    },
+    {
+      "slug": "services",
+      "url": "https://www.goodhempdistro.com/services",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/services",
+      "internalLinks": 20,
+      "images": 1
+    },
+    {
+      "slug": "vendors",
+      "url": "https://www.goodhempdistro.com/vendors",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/login?redirect=%2Fvendors",
+      "internalLinks": 5,
+      "images": 0
+    },
+    {
+      "slug": "events",
+      "url": "https://www.goodhempdistro.com/events",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/events",
+      "internalLinks": 19,
+      "images": 1
+    },
+    {
+      "slug": "blog",
+      "url": "https://www.goodhempdistro.com/blog",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/blog",
+      "internalLinks": 19,
+      "images": 1
+    },
+    {
+      "slug": "education",
+      "url": "https://www.goodhempdistro.com/education",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/education",
+      "internalLinks": 15,
+      "images": 1
+    },
+    {
+      "slug": "wholesale",
+      "url": "https://www.goodhempdistro.com/wholesale",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/wholesale",
+      "internalLinks": 19,
+      "images": 1
+    },
+    {
+      "slug": "vendor-registration",
+      "url": "https://www.goodhempdistro.com/vendor-registration",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/vendor-registration",
+      "internalLinks": 15,
+      "images": 1
+    },
+    {
+      "slug": "affiliate",
+      "url": "https://www.goodhempdistro.com/affiliate",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/affiliate",
+      "internalLinks": 19,
+      "images": 1
+    },
+    {
+      "slug": "privacy",
+      "url": "https://www.goodhempdistro.com/privacy",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/privacy",
+      "internalLinks": 19,
+      "images": 1
+    },
+    {
+      "slug": "terms",
+      "url": "https://www.goodhempdistro.com/terms",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/terms",
+      "internalLinks": 19,
+      "images": 1
+    },
+    {
+      "slug": "refunds",
+      "url": "https://www.goodhempdistro.com/refunds",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/refunds",
+      "internalLinks": 19,
+      "images": 1
+    },
+    {
+      "slug": "faq",
+      "url": "https://www.goodhempdistro.com/faq",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/faq",
+      "internalLinks": 16,
+      "images": 1
+    },
+    {
+      "slug": "support",
+      "url": "https://www.goodhempdistro.com/support",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/support",
+      "internalLinks": 17,
+      "images": 1
+    },
+    {
+      "slug": "login",
+      "url": "https://www.goodhempdistro.com/login",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/login",
+      "internalLinks": 5,
+      "images": 0
+    },
+    {
+      "slug": "get-started",
+      "url": "https://www.goodhempdistro.com/get-started",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/get-started",
+      "internalLinks": 4,
+      "images": 0
+    },
+    {
+      "slug": "logistics",
+      "url": "https://www.goodhempdistro.com/logistics",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/logistics",
+      "internalLinks": 23,
+      "images": 1
+    },
+    {
+      "slug": "newsfeed",
+      "url": "https://www.goodhempdistro.com/newsfeed",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/newsfeed",
+      "internalLinks": 20,
+      "images": 1
+    },
+    {
+      "slug": "groups",
+      "url": "https://www.goodhempdistro.com/groups",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/groups",
+      "internalLinks": 19,
+      "images": 1
+    },
+    {
+      "slug": "forums",
+      "url": "https://www.goodhempdistro.com/forums",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/forums",
+      "internalLinks": 19,
+      "images": 1
+    },
+    {
+      "slug": "discover",
+      "url": "https://www.goodhempdistro.com/discover",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/discover",
+      "internalLinks": 23,
+      "images": 1
+    },
+    {
+      "slug": "orders_cancel",
+      "url": "https://www.goodhempdistro.com/orders/cancel",
+      "status": 200,
+      "finalUrl": "https://www.goodhempdistro.com/orders/cancel",
+      "internalLinks": 15,
+      "images": 1
+    }
+  ]
+}

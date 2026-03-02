@@ -1,0 +1,13 @@
+{
+  "url": "https://www.goodhempdistro.com/events",
+  "finalUrl": "https://www.goodhempdistro.com/events",
+  "status_code": 200,
+  "redirect_chain": [
+    {
+      "url": "https://www.goodhempdistro.com/events",
+      "status": 200
+    }
+  ],
+  "error": null,
+  "content_type": "text/html; charset=utf-8"
+}
