@@ -159,6 +159,22 @@ for (const href of internalKeys) {
   await new Promise(r => setTimeout(r, 200));
 }
 
+// Check external links (sample up to 20 unique external URLs)
+const externalKeys = [...allExternal.keys()].slice(0, 20);
+console.log(`Checking ${externalKeys.length} unique external links...`);
+
+for (const href of externalKeys) {
+  const status = await checkStatus(href);
+  if (status >= 400 || status === 0) {
+    const refs = allExternal.get(href);
+    for (const ref of refs.slice(0, 2)) {
+      brokenExternalRows.push(`"${href}","${ref.text.replace(/"/g,'""')}","${ref.fromUrl}",${status}`);
+    }
+    console.log(`  BROKEN EXTERNAL: ${href} → ${status}`);
+  }
+  await new Promise(r => setTimeout(r, 300));
+}
+
 // Aggregate missing assets from assets.json
 for (const slug of slugDirs) {
   const assetsPath = path.join(PAGES_DIR, slug, "assets.json");

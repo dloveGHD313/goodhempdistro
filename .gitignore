@@ -52,3 +52,6 @@ next-env.d.ts
 # Internal debug sweep artifacts (do not commit)
 DEBUG_REPORT.md
 MANUAL_FIXES_NEEDED.md
+
+# VS Code IDE config (developer-specific, not project config)
+.vscode/
