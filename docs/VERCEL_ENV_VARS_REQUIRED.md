@@ -12,7 +12,7 @@ Documentation of **required** environment variable **names** and descriptions on
 | **NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY** | Stripe publishable key (LIVE). Used by client for Stripe.js / Checkout. |
 | **STRIPE_WEBHOOK_SECRET** | Stripe webhook signing secret (LIVE). Used to verify webhook signatures. |
 | **STRIPE_CONNECT_CLIENT_ID** | Stripe Connect OAuth client ID (LIVE, starts with `ca_`). Optional for Express account links; required only for OAuth Connect. Documented for completeness. |
-| **NEXT_PUBLIC_SITE_URL** | Canonical site URL. Used for redirects, Stripe success/cancel URLs, and Connect return/refresh URLs. |
+| **NEXT_PUBLIC_SITE_URL** | Canonical site URL. Required for absolute Stripe Checkout success/cancel URLs and vendor/affiliate Connect return/refresh URLs. |
 | **SUPABASE_SERVICE_ROLE_KEY** | Supabase service role key. Used for admin client, RLS bypass, and server-only operations. |
 | **NEXT_PUBLIC_SUPABASE_ANON_KEY** | Supabase anonymous (public) key. Used by the Supabase client in the browser. |
 | **NEXT_PUBLIC_SUPABASE_URL** | Supabase project URL. Used by the Supabase client and server. |

@@ -49,15 +49,27 @@ export default function PayoutsClient() {
     setConnecting(true);
     setError(null);
     try {
-      const createRes = await fetch("/api/vendors/connect/create-account", { method: "POST" });
-      const createData = await createRes.json();
-      if (!createRes.ok) {
-        setError(`Onboarding failed. Reference: ${createData?.requestId ?? createRes.headers.get("X-Request-Id") ?? "unknown"}`);
+      const statusRes = await fetch("/api/vendors/connect/status", { cache: "no-store" });
+      const statusData = await statusRes.json().catch(() => ({}));
+      if (!statusRes.ok) {
+        setError(`Onboarding failed. Reference: ${statusData?.requestId ?? statusRes.headers.get("X-Request-Id") ?? "unknown"}`);
         setConnecting(false);
         return;
       }
+
+      const needsCreate = !Boolean(statusData?.stripe_account_id);
+      if (needsCreate) {
+        const createRes = await fetch("/api/vendors/connect/create-account", { method: "POST" });
+        const createData = await createRes.json().catch(() => ({}));
+        if (!createRes.ok) {
+          setError(`Onboarding failed. Reference: ${createData?.requestId ?? createRes.headers.get("X-Request-Id") ?? "unknown"}`);
+          setConnecting(false);
+          return;
+        }
+      }
+
       const linkRes = await fetch("/api/vendors/connect/onboard-link", { method: "POST" });
-      const linkData = await linkRes.json();
+      const linkData = await linkRes.json().catch(() => ({}));
       if (!linkRes.ok || !linkData?.url) {
         setError(`Onboarding failed. Reference: ${linkData?.requestId ?? linkRes.headers.get("X-Request-Id") ?? "unknown"}`);
         setConnecting(false);

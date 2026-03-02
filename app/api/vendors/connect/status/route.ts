@@ -26,14 +26,14 @@ export async function GET(req: NextRequest) {
 
     if (!user) {
       return NextResponse.json(
-        { error: "Unauthorized", requestId },
+        { ok: false, error: "Unauthorized", requestId },
         { status: 401, headers: requestIdHeaders(requestId) }
       );
     }
     const vendorStatusResult = await requireVendorActive(user.id, user.email);
     if (!vendorStatusResult.allowed) {
       return NextResponse.json(
-        { ...vendorStatusResult.json, requestId },
+        { ok: false, ...vendorStatusResult.json, requestId },
         { status: vendorStatusResult.status, headers: requestIdHeaders(requestId) }
       );
     }
@@ -101,7 +101,7 @@ export async function GET(req: NextRequest) {
   } catch (e) {
     console.error("[vendors/connect/status]", JSON.stringify({ requestId, route: ROUTE_NAME }));
     return NextResponse.json(
-      { error: "Failed to get Connect status", requestId },
+      { ok: false, error: "Failed to get Connect status", requestId },
       { status: 500, headers: requestIdHeaders(requestId) }
     );
   }
