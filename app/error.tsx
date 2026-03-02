@@ -39,6 +39,8 @@ export default function RootError({ error, reset }: Props) {
               <button type="button" onClick={reset} className="btn-primary">
                 Try again
               </button>
+              {/* Hard reload escape hatch: plain anchor resets broken router/context state */}
+              {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
               <a href="/" className="btn-secondary">
                 Back to home
               </a>

@@ -1,0 +1,143 @@
+GOOD HEMP DISTRO — AUDIT LOG
+Generated: 2026-02-28
+Auditor: CursorAgent (automated codebase extraction)
+Live URL: https://www.goodhempdistro.com
+
+═══════════════════════════════════════════════════════════════════
+EXTRACTION METHOD
+═══════════════════════════════════════════════════════════════════
+
+Source: Local codebase at C:\dev\goodhempdistro\goodhempdistro
+Branch: fix/master-debug-sweep-20250225
+Framework: Next.js 16.1.1 (App Router, Turbopack)
+Live site verification: Browser navigation to https://www.goodhempdistro.com confirmed live
+
+Data extracted from: source code (app/, lib/, components/)
+Data NOT extracted (requires live auth session or prod DB):
+  - Actual product listings (count, titles, prices, descriptions)
+  - Actual event listings
+  - Actual vendor listings
+  - Lighthouse performance scores (requires running browser)
+  - Full rendered HTML per page (requires authenticated session for protected pages)
+  - Image file sizes (remote assets)
+
+═══════════════════════════════════════════════════════════════════
+PHASE 1 — SITE DISCOVERY
+═══════════════════════════════════════════════════════════════════
+
+Hosting platform: Vercel (inferred — NEXT_PUBLIC_SITE_URL=https://goodhempdistro.com, Next.js deployment)
+Framework: Next.js 16.1.1 with Turbopack
+CMS: None — Supabase used as data/auth backend
+Sitemap.xml: NOT FOUND (no public/sitemap.xml in repo, no next-sitemap config found)
+robots.txt: NOT FOUND (no public/robots.txt in repo)
+Analytics: NOT DETECTED in source (no GA/GTM/Meta Pixel tags in app/layout.tsx or public/)
+Structured data: NOT FOUND (no JSON-LD in any page source)
+SSL: Yes (https://www.goodhempdistro.com confirmed accessible)
+
+═══════════════════════════════════════════════════════════════════
+PHASE 2 — PAGE EXTRACTION STATUS
+═══════════════════════════════════════════════════════════════════
+
+EXTRACTED (source code):
+  ✓ /welcome       — metadata.json, clean-text.txt
+  ✓ /products      — metadata.json
+  ✓ /about         — metadata.json, clean-text.txt
+  ✓ /contact       — metadata.json
+  ✓ /pricing       — metadata.json
+  ✓ /blog          — metadata.json
+  ✓ /education     — metadata.json
+  ✓ /events        — metadata.json
+  ✓ /services      — metadata.json
+  ✓ /wholesale     — metadata.json
+  ✓ /terms         — metadata.json, clean-text.txt
+  ✓ /privacy       — metadata.json, clean-text.txt
+  ✓ /faq           — metadata.json
+  ✓ /support       — metadata.json
+
+NOT EXTRACTED (reasons noted):
+  ✗ raw.html — Not extracted for auth-protected pages (require live session)
+  ✗ images.json — Remote image assets not crawled (no live HTTP crawl performed)
+  ✗ links.json — Dynamic links depend on DB state; nav links extracted in navigation.json
+  ✗ Lighthouse JSON — Requires running browser + local/staging server; not run in this pass
+
+═══════════════════════════════════════════════════════════════════
+PHASE 3 — PRODUCT DATA
+═══════════════════════════════════════════════════════════════════
+
+EXTRACTED: Schema and visibility logic only (source code)
+NOT EXTRACTED: Actual product records (require live Supabase read with service_role)
+
+Product data lives in: Supabase public.products table
+  Fields: id, name, category_id, price_cents, is_gated, market_category,
+          featured, description, vendor_id, status, active, delta8_disclaimer_ack
+  Visibility: status=approved AND active=true AND vendor.status=active
+  COA-gated: category_requires_coa=true products hidden from logged-out users
+
+See: app/products/page.tsx for full query logic
+
+═══════════════════════════════════════════════════════════════════
+PHASE 4 — LIGHTHOUSE
+═══════════════════════════════════════════════════════════════════
+
+STATUS: NOT RUN
+Reason: Requires browser + running server. Not executed in this automated pass.
+To run: npx lighthouse https://www.goodhempdistro.com --output json --output-path audit-export/lighthouse/home.json
+Recommended: Run against /welcome, /products, /products/[id]
+
+═══════════════════════════════════════════════════════════════════
+PHASE 5 — COMPLIANCE
+═══════════════════════════════════════════════════════════════════
+
+STATUS: COMPLETE — see compliance-report.txt
+
+═══════════════════════════════════════════════════════════════════
+PHASE 6 — NAVIGATION MAP
+═══════════════════════════════════════════════════════════════════
+
+STATUS: COMPLETE — see navigation.json
+
+═══════════════════════════════════════════════════════════════════
+FILES GENERATED
+═══════════════════════════════════════════════════════════════════
+
+audit-export/
+├── audit-log.txt                  ← this file
+├── compliance-report.txt          ← Phase 5
+├── navigation.json                ← Phase 6
+├── site-routes.json               ← full route inventory (236 pages)
+├── home/
+│   └── metadata.json
+├── welcome/
+│   ├── metadata.json
+│   └── clean-text.txt
+├── products/
+│   └── metadata.json
+├── about/
+│   ├── metadata.json
+│   └── clean-text.txt
+├── contact/
+│   └── metadata.json
+├── pricing/
+│   └── metadata.json
+├── blog/
+│   └── metadata.json
+├── education/
+│   └── metadata.json
+├── events/
+│   └── metadata.json
+├── services/
+│   └── metadata.json
+├── wholesale/
+│   └── metadata.json
+├── terms/
+│   ├── metadata.json
+│   └── clean-text.txt
+├── privacy/
+│   ├── metadata.json
+│   └── clean-text.txt
+├── faq/
+│   └── metadata.json
+├── support/
+│   └── metadata.json
+└── lighthouse/
+    └── (empty — Lighthouse not run)

@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
 
   const authorIds = [...new Set((comments || []).map((c: { author_id: string }) => c.author_id))];
   const allIds = [...new Set([...authorIds, ...reporterIds])];
-  let profileMap = new Map<string, ProfileIdentityRow>();
+  const profileMap = new Map<string, ProfileIdentityRow>();
   if (allIds.length > 0) {
     const { data: identities } = await admin.rpc("get_profiles_identity", {
       author_ids: allIds,

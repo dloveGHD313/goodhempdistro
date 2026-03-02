@@ -2,6 +2,7 @@
  * Phase 3C: Admin COA API and approval enforcement (mocked Supabase + requireAdminUsers).
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import type { NextRequest } from "next/server";
 
 const mockMaybeSingle = vi.fn();
 const mockSelect = vi.fn();
@@ -71,7 +72,7 @@ describe("Phase 3C: Admin COA API", () => {
     it("returns 401 when not authenticated", async () => {
       adminMock = false;
       const { GET } = await import("@/app/api/admin/products/[id]/coa/route");
-      const res = await GET({} as Request, { params: Promise.resolve({ id: "prod-1" }) });
+      const res = await GET({} as NextRequest, { params: Promise.resolve({ id: "prod-1" }) });
       expect(res.status).toBe(401);
     });
 
@@ -79,7 +80,7 @@ describe("Phase 3C: Admin COA API", () => {
       const { requireAdminUsers } = await import("@/lib/auth/requireAdminUsers");
       vi.mocked(requireAdminUsers).mockResolvedValueOnce({ user: { id: "u1" }, isAdmin: false });
       const { GET } = await import("@/app/api/admin/products/[id]/coa/route");
-      const res = await GET({} as Request, { params: Promise.resolve({ id: "prod-1" }) });
+      const res = await GET({} as NextRequest, { params: Promise.resolve({ id: "prod-1" }) });
       expect(res.status).toBe(403);
     });
 
@@ -98,7 +99,7 @@ describe("Phase 3C: Admin COA API", () => {
           error: null,
         });
       const { GET } = await import("@/app/api/admin/products/[id]/coa/route");
-      const res = await GET({} as Request, { params: Promise.resolve({ id: "prod-1" }) });
+      const res = await GET({} as NextRequest, { params: Promise.resolve({ id: "prod-1" }) });
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.document).toMatchObject({ status: "pending", id: "doc-1" });
@@ -111,7 +112,7 @@ describe("Phase 3C: Admin COA API", () => {
       const { requireAdminUsers } = await import("@/lib/auth/requireAdminUsers");
       vi.mocked(requireAdminUsers).mockResolvedValueOnce({ user: { id: "u1" }, isAdmin: false });
       const { GET } = await import("@/app/api/admin/products/[id]/coa/view/route");
-      const res = await GET({} as Request, { params: Promise.resolve({ id: "prod-1" }) });
+      const res = await GET({} as NextRequest, { params: Promise.resolve({ id: "prod-1" }) });
       expect(res.status).toBe(403);
     });
 
@@ -122,7 +123,7 @@ describe("Phase 3C: Admin COA API", () => {
       });
       mockCreateSignedUrl.mockResolvedValue({ data: { signedUrl: "https://signed.example/coa" }, error: null });
       const { GET } = await import("@/app/api/admin/products/[id]/coa/view/route");
-      const res = await GET({} as Request, { params: Promise.resolve({ id: "prod-1" }) });
+      const res = await GET({} as NextRequest, { params: Promise.resolve({ id: "prod-1" }) });
       expect(res.status).toBe(200);
       const body = await res.json();
       expect(body.url).toBe("https://signed.example/coa");
@@ -135,7 +136,7 @@ describe("Phase 3C: Admin COA API", () => {
       vi.mocked(requireAdminUsers).mockResolvedValueOnce({ user: { id: "u1" }, isAdmin: false });
       const { PATCH } = await import("@/app/api/admin/products/[id]/coa/status/route");
       const res = await PATCH(
-        new Request("http://x", { method: "PATCH", body: JSON.stringify({ status: "verified" }) }),
+        new Request("http://x", { method: "PATCH", body: JSON.stringify({ status: "verified" }) }) as NextRequest,
         { params: Promise.resolve({ id: "prod-1" }) }
       );
       expect(res.status).toBe(403);
@@ -148,7 +149,7 @@ describe("Phase 3C: Admin COA API", () => {
       });
       const { PATCH } = await import("@/app/api/admin/products/[id]/coa/status/route");
       const res = await PATCH(
-        new Request("http://x", { method: "PATCH", body: JSON.stringify({ status: "verified" }) }),
+        new Request("http://x", { method: "PATCH", body: JSON.stringify({ status: "verified" }) }) as NextRequest,
         { params: Promise.resolve({ id: "prod-1" }) }
       );
       expect(res.status).toBe(200);
@@ -167,7 +168,7 @@ describe("Phase 3C: Admin COA API", () => {
         new Request("http://x", {
           method: "PATCH",
           body: JSON.stringify({ status: "rejected", admin_note: "Incomplete panel" }),
-        }),
+        }) as NextRequest,
         { params: Promise.resolve({ id: "prod-1" }) }
       );
       expect(res.status).toBe(200);

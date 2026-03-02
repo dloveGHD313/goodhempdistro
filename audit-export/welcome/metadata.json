@@ -1,0 +1,19 @@
+﻿{
+  "slug": "welcome",
+  "route": "/welcome",
+  "source_file": "app/welcome/page.tsx",
+  "title": "Good Hemp Distros",
+  "meta_description": "Welcome to Good Hemp Distros.",
+  "h1": "The hemp industry, all in one place.",
+  "canonical": "https://www.goodhempdistro.com/welcome",
+  "openGraph": "inherits from layout",
+  "twitter": "inherits from layout",
+  "structured_data": [],
+  "hero_copy": {
+    "headline": "The hemp industry, all in one place.",
+    "subtitle": "Community. Commerce. Compliance. Fused.",
+    "cta_primary": { "label": "Create Account", "href": "/signup" },
+    "cta_secondary": { "label": "Sign In", "href": "/login" },
+    "jax_greeting": "Welcome. I'm JAX — your guide to the hemp ecosystem. Choose your path and let's build something real."
+  }
+}

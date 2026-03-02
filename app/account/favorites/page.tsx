@@ -67,7 +67,7 @@ export default async function FavoritesPage() {
 
   const vendors = vendorsRes.data || [];
   const productsRaw = productsRes.data || [];
-  const productsWithMode = productsRaw.map((p: { market_category?: string | null; is_gated?: boolean }) => ({
+  const productsWithMode = productsRaw.map((p: { id: string; name?: string; price_cents?: number; market_category?: string | null; is_gated?: boolean }) => ({
     ...p,
     market_mode:
       p?.is_gated ||
@@ -76,7 +76,7 @@ export default async function FavoritesPage() {
         ? ("gated" as const)
         : ("ungated" as const),
   }));
-  const products = productsWithMode.filter((product: { market_mode: string }) =>
+  const products = productsWithMode.filter((product: { market_mode?: string }) =>
     includeGated ? true : product?.market_mode !== "gated"
   );
   const services = servicesRes.data || [];
@@ -109,7 +109,7 @@ export default async function FavoritesPage() {
                   <p className="text-muted">No vendor favorites yet.</p>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {vendors.map((vendor: any) => (
+                    {vendors.map((vendor: { id: string; business_name?: string; city?: string; state?: string }) => (
                       <Link key={vendor.id} href={`/vendors/${vendor.id}`} className="card-glass p-4 hover-lift">
                         <div className="font-semibold">{vendor.business_name}</div>
                         <div className="text-sm text-muted">
@@ -127,7 +127,7 @@ export default async function FavoritesPage() {
                   <p className="text-muted">No product favorites yet.</p>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {products.map((product: any) => (
+                    {products.map((product: { id: string; name?: string; price_cents?: number; market_mode?: string }) => (
                       <Link key={product.id} href={`/products/${product.id}`} className="card-glass p-4 hover-lift">
                         <div className="font-semibold">{product.name}</div>
                         <div className="text-sm text-muted">
@@ -145,7 +145,7 @@ export default async function FavoritesPage() {
                   <p className="text-muted">No service favorites yet.</p>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {services.map((service: any) => (
+                    {services.map((service: { id: string; title?: string; pricing_type?: string }) => (
                       <Link key={service.id} href={`/services/${service.id}`} className="card-glass p-4 hover-lift">
                         <div className="font-semibold">{service.title}</div>
                         <div className="text-sm text-muted">{service.pricing_type || "Quote only"}</div>
@@ -161,11 +161,11 @@ export default async function FavoritesPage() {
                   <p className="text-muted">No event favorites yet.</p>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {events.map((event: any) => (
+                    {events.map((event: { id: string; title?: string; start_time?: string; location?: string }) => (
                       <Link key={event.id} href={`/events/${event.id}`} className="card-glass p-4 hover-lift">
                         <div className="font-semibold">{event.title}</div>
                         <div className="text-sm text-muted">
-                          {new Date(event.start_time).toLocaleDateString()}
+                          {event.start_time ? new Date(event.start_time).toLocaleDateString() : "—"}
                           {event.location ? ` • ${event.location}` : ""}
                         </div>
                       </Link>

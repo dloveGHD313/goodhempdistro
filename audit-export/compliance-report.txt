@@ -1,0 +1,270 @@
+GOOD HEMP DISTRO — COMPLIANCE & LEGAL AUDIT REPORT
+Generated: 2026-02-28
+Source: Codebase extraction (app/ + lib/ + components/)
+Live URL: https://www.goodhempdistro.com
+
+═══════════════════════════════════════════════════════════════════
+SECTION 1 — AGE GATE
+═══════════════════════════════════════════════════════════════════
+
+STATUS: PRESENT (client-side component)
+File: components/AgeGate.tsx
+Implementation: <AgeGateClient /> rendered globally in app/layout.tsx
+API endpoint: POST /api/age/verify
+
+Copy (verbatim from AgeGate.tsx):
+  "By entering, you confirm you are 21 years of age or older."
+
+Additional age gate copy (app/events/[id]/page.tsx, ticket purchase):
+  "I confirm I am 21 years of age or older (required for ticket purchase)."
+
+Product page gated-market copy (app/products/[id]/page.tsx line 259):
+  "This product is in the gated (21+) market. Verify your age to view price, COA, and purchase."
+
+Market switcher copy (components/market/MarketSwitcher.tsx):
+  "The recreational market requires age verification and a government ID upload."
+
+VERIFY-AGE ROUTES:
+  /verify-age          → app/verify-age/page.tsx
+  /verify-age/upload   → app/verify-age/upload/page.tsx
+  /verify-age/status   → app/verify-age/status/page.tsx
+
+ID VERIFICATION:
+  File: lib/server/idVerification.ts
+  Redirect: /verify-age (when verification required)
+
+═══════════════════════════════════════════════════════════════════
+SECTION 2 — FDA DISCLAIMER
+═══════════════════════════════════════════════════════════════════
+
+STATUS: NOT FOUND
+Result: Zero occurrences of "FDA" across all .ts/.tsx files.
+No FDA disclaimer language present anywhere in the codebase.
+
+ACTION REQUIRED: FDA disclaimer absent from product listings, about page, and homepage.
+
+═══════════════════════════════════════════════════════════════════
+SECTION 3 — THC DISCLAIMERS
+═══════════════════════════════════════════════════════════════════
+
+STATUS: NOT FOUND
+Result: Zero occurrences of "THC" across all .ts/.tsx files.
+No THC warning, delta-9 THC limit language, or state-specific THC disclaimers present.
+
+NOTE: Delta-8 is referenced (delta8_disclaimer_ack field). Delta-9 THC limits not mentioned.
+
+Delta-8 disclaimer acknowledgement system:
+  File: app/vendors/products/new/page.tsx
+  File: app/vendors/products/[id]/edit/EditProductForm.tsx
+  Field: delta8_disclaimer_ack (boolean, required for delta-8 product type)
+  Copy (verbatim): "I acknowledge the Delta-8 disclaimer"
+  Enforcement: lib/compliance.ts line 149-153
+
+ACTION REQUIRED: No explicit THC percentage limits, delta-9 disclaimers, or federal legal status notice present.
+
+═══════════════════════════════════════════════════════════════════
+SECTION 4 — LAB TESTING REFERENCES
+═══════════════════════════════════════════════════════════════════
+
+STATUS: PRESENT (marketing copy only, not product-level enforcement text)
+
+Occurrences:
+  app/about/page.tsx:
+    "is backed by third-party lab testing."
+    "and provide third-party lab testing."
+    "Full disclosure of product origins, ingredients, and lab results for every item we carry."
+    "Third-party lab testing for all products" (list item)
+
+  app/home/HomeMotion.tsx:
+    { icon: "✅", title: "Lab Verified", desc: "All products tested & certified" }
+
+  app/onboarding/consumer/ConsumerOnboardingClient.tsx:
+    { value: "Labs", label: "Lab / COA testing" }
+
+  app/onboarding/vendor/VendorOnboardingClient.tsx:
+    { value: "service_provider", description: "Lab, logistics, marketing, or services." }
+
+═══════════════════════════════════════════════════════════════════
+SECTION 5 — COA (CERTIFICATE OF ANALYSIS) REFERENCES
+═══════════════════════════════════════════════════════════════════
+
+STATUS: FULLY IMPLEMENTED (technical system, not marketing-only)
+
+Source of truth: lib/compliance.ts
+
+COA requirement logic:
+  - COA NOT required: apparel, non-consumable home goods (COA_EXCEPTION_PATTERNS)
+  - COA REQUIRED: all other categories (hemp-derived, consumable, topical, inhalable,
+    wellness, recreational, industrial) → default true for unknown categories
+
+Enforcement modes:
+  - "draft" mode: create/update — does NOT block on COA
+  - "submit" mode: publish/submit — blocks when category_requires_coa
+
+Error message (verbatim, lib/compliance.ts):
+  "A COA (Certificate of Analysis) upload or link is required for this category."
+
+Product display copy (app/products/[id]/page.tsx):
+  "Certificate of Analysis (COA)"
+  "This category requires a Certificate of Analysis. Sign in to view full details and purchase."
+  "COA required"
+  "COA required before purchase."
+
+Vendor attestation (app/vendor-registration/VendorForm.tsx):
+  "I attest I will upload FULL PANEL COAs for all products"
+
+Admin review:
+  /api/admin/products/[id]/approve: enforces COA verified before approval
+  /api/vendors/products/[id]/submit: enforces COA before submit
+
+COA upload route: /vendors/products/[id]/edit (COAUpload component)
+COA storage: Supabase storage bucket (verified via scripts/verify-coa-upload.ts)
+
+═══════════════════════════════════════════════════════════════════
+SECTION 6 — TERMS OF SERVICE
+═══════════════════════════════════════════════════════════════════
+
+STATUS: PRESENT
+URL: /terms
+File: app/terms/page.tsx
+Metadata title: "Terms of Service | Good Hemp Distro"
+Effective date: January 24, 2026
+
+Content (verbatim from source):
+  "By accessing Good Hemp Distro, you agree to these terms. If you do not agree,
+   please do not use the platform."
+
+  Marketplace rules:
+    "Users must be 21+ to purchase regulated products."
+    "Vendors are responsible for product compliance and accuracy."
+    "Accounts may be suspended for policy or legal violations."
+
+  Payments:
+    "All payments are processed through approved payment providers."
+    "Orders are confirmed once payment is authorized."
+
+  Liability:
+    "Good Hemp Distro is a marketplace and is not responsible for vendor content,
+     product misuse, or third-party actions beyond applicable law."
+
+  Contact: support@goodhempdistro.com
+
+Footer link: present (components/Footer.tsx)
+
+═══════════════════════════════════════════════════════════════════
+SECTION 7 — PRIVACY POLICY
+═══════════════════════════════════════════════════════════════════
+
+STATUS: PRESENT
+URL: /privacy
+File: app/privacy/page.tsx
+Metadata title: "Privacy Policy | Good Hemp Distro"
+Effective date: January 24, 2026
+
+Content (verbatim from source):
+  "Good Hemp Distro respects your privacy. This policy explains what data we collect,
+   how we use it, and the choices you have about your information."
+
+  Information collected:
+    "Account details such as name, email address, and profile information."
+    "Order and subscription activity, including transaction history."
+    "Usage data such as pages visited and feature interactions."
+
+  How used:
+    "Provide and improve marketplace services."
+    "Process orders, subscriptions, and customer support requests."
+    "Send service updates and policy notices."
+
+  Your choices:
+    "You can update your profile information at any time."
+    "You may request data access or deletion by contacting support."
+
+  Contact: support@goodhempdistro.com
+
+Footer link: present (components/Footer.tsx)
+
+═══════════════════════════════════════════════════════════════════
+SECTION 8 — DELTA-8 DISCLAIMER SYSTEM
+═══════════════════════════════════════════════════════════════════
+
+STATUS: PRESENT (vendor-side only, not customer-visible on product pages)
+Field: delta8_disclaimer_ack (boolean, DB column on products table)
+Required: yes, for product_type = "delta8" before submit
+
+Copy displayed to vendor (verbatim):
+  "I acknowledge the Delta-8 disclaimer"
+
+No customer-facing Delta-8 disclaimer text found in product listing or product detail pages.
+
+═══════════════════════════════════════════════════════════════════
+SECTION 9 — ROBOTS.TXT
+═══════════════════════════════════════════════════════════════════
+
+STATUS: NOT FOUND
+File public/robots.txt does not exist in the repository.
+No robots.txt is being served. All crawlers have unrestricted access by default.
+
+ACTION REQUIRED: Create public/robots.txt to control crawler behavior.
+
+═══════════════════════════════════════════════════════════════════
+SECTION 10 — STRUCTURED DATA / JSON-LD
+═══════════════════════════════════════════════════════════════════
+
+STATUS: NOT FOUND
+No JSON-LD structured data blocks found in any page files.
+No schema.org markup (Product, Organization, BreadcrumbList, etc.)
+
+ACTION REQUIRED: Add structured data for SEO and marketplace credibility.
+
+═══════════════════════════════════════════════════════════════════
+SECTION 11 — ANALYTICS TAGS
+═══════════════════════════════════════════════════════════════════
+
+STATUS: NOT DETECTED IN SOURCE
+No Google Analytics, GTM, Meta Pixel, or other analytics tag found in:
+  - app/layout.tsx
+  - app/page.tsx
+  - public/ directory
+
+Note: May be injected via third-party (Vercel Analytics, etc.) not visible in source.
+
+═══════════════════════════════════════════════════════════════════
+SECTION 12 — WHOLESALE APPLICATION COMPLIANCE
+═══════════════════════════════════════════════════════════════════
+
+STATUS: PRESENT
+Route: /wholesale/apply
+File: app/wholesale/apply/WholesaleApplyForm.tsx
+
+Certificate upload: resale/wholesale certificate file upload required
+Field: certificatePath (Supabase storage)
+Admin review: /dashboard/admin/wholesale
+
+═══════════════════════════════════════════════════════════════════
+SUMMARY OF GAPS
+═══════════════════════════════════════════════════════════════════
+
+CRITICAL:
+  [ ] No FDA disclaimer anywhere on site
+  [ ] No THC/delta-9 limit language or federal legal status notice
+  [ ] No robots.txt file
+
+HIGH:
+  [ ] No customer-facing Delta-8 disclaimer on product pages (only vendor acknowledgement)
+  [ ] No structured data / JSON-LD markup for SEO
+
+MEDIUM:
+  [ ] No analytics tagging detected
+  [ ] Lab testing claims ("All products tested & certified") in about/home copy
+      not linked to verifiable COA data per-product
+
+PRESENT & FUNCTIONING:
+  [x] Age gate (21+ confirmation, global)
+  [x] ID verification system (/verify-age)
+  [x] COA system (requirement logic, upload, admin review, enforcement on submit)
+  [x] Delta-8 disclaimer acknowledgement (vendor-side)
+  [x] Terms of Service (/terms) — effective Jan 24 2026
+  [x] Privacy Policy (/privacy) — effective Jan 24 2026
+  [x] Footer links: Privacy, Terms, Refunds, Contact
+  [x] 21+ language in terms and product gating
+  [x] Wholesale certificate upload requirement

@@ -1,0 +1,38 @@
+PAGE: /about
+TITLE: About | Good Hemp Distro
+
+[H1]
+About Good Hemp Distro
+
+[H2] Our Mission
+Good Hemp Distro is dedicated to connecting customers with premium hemp products from trusted vendors. We believe in transparency, quality, and education in the rapidly evolving hemp industry.
+
+[H2] Our Story
+Founded in 2023, Good Hemp Distro emerged from a passion for wellness and a recognition that consumers deserved better access to high-quality hemp products. We started with a simple goal: create a trusted marketplace where quality and transparency come first.
+
+Today, we work with carefully selected vendors who share our commitment to excellence. Every product on our platform meets strict quality standards and is backed by third-party lab testing.
+
+[H2] Our Values
+
+Quality First
+We only partner with vendors who meet our rigorous quality standards and provide third-party lab testing.
+
+Transparency
+Full disclosure of product origins, ingredients, and lab results for every item we carry.
+
+Education
+Empowering customers with knowledge about hemp products and their potential benefits.
+
+Sustainability
+Supporting environmentally conscious farming practices and sustainable business operations.
+
+[H2] Why Choose Us
+✓ Curated selection of premium hemp products
+✓ Verified vendor partnerships with quality guarantees
+✓ Third-party lab testing for all products
+✓ Secure payment processing and fast shipping
+✓ Responsive customer support team
+
+[H2] Get in Touch
+Have questions or want to learn more? We'd love to hear from you.
+Contact Us → /contact

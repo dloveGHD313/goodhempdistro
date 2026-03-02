@@ -101,10 +101,9 @@ test.describe("Phase 4 - Anonymous flows", () => {
 test.describe("Phase 4 - Consumer flows", () => {
   test.use({ storageState: authStatePath("consumer") });
 
+  // FIXED: test.skip(condition, description) - pass boolean first
   test.beforeEach(() => {
-    if (!hasAuthState("consumer")) {
-      test.skip("Consumer auth state not available.");
-    }
+    test.skip(!hasAuthState("consumer"), "Consumer auth state not available.");
   });
 
   test("Consumer onboarding gate", async ({ page }, testInfo) => {
@@ -117,9 +116,7 @@ test.describe("Phase 4 - Consumer flows", () => {
 
   test("Favorites and reviews", async ({ page }, testInfo) => {
     const diag = createDiagnostics(page);
-    if (!allowWrites) {
-      test.skip("AUDIT_ALLOW_WRITES is not enabled.");
-    }
+    test.skip(!allowWrites, "AUDIT_ALLOW_WRITES is not enabled.");
 
     await gotoAndCheck(page, "/products", testInfo);
     const saveButton = page.locator("button:has-text(\"Save\")").first();
@@ -157,9 +154,7 @@ test.describe("Phase 4 - Vendor flows", () => {
   test.use({ storageState: authStatePath("vendor") });
 
   test.beforeEach(() => {
-    if (!hasAuthState("vendor")) {
-      test.skip("Vendor auth state not available.");
-    }
+    test.skip(!hasAuthState("vendor"), "Vendor auth state not available.");
   });
 
   test("Vendor onboarding and dashboard navigation", async ({ page }, testInfo) => {
@@ -175,9 +170,7 @@ test.describe("Phase 4 - Admin flows", () => {
   test.use({ storageState: authStatePath("admin") });
 
   test.beforeEach(() => {
-    if (!hasAuthState("admin")) {
-      test.skip("Admin auth state not available.");
-    }
+    test.skip(!hasAuthState("admin"), "Admin auth state not available.");
   });
 
   test("Admin review queues load", async ({ page }, testInfo) => {

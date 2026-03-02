@@ -1,0 +1,19 @@
+﻿{
+  "slug": "faq",
+  "route": "/faq",
+  "source_file": "app/faq/page.tsx",
+  "title": "FAQ | Good Hemp Distro",
+  "meta_description": "Frequently asked questions about Good Hemp Distro",
+  "h1": "Frequently Asked Questions",
+  "canonical": "https://www.goodhempdistro.com/faq",
+  "openGraph": "inherits from layout",
+  "twitter": "inherits from layout",
+  "structured_data": [],
+  "questions": [
+    { "q": "What is Good Hemp Distro?", "a": "Good Hemp Distro is a community marketplace connecting hemp producers, vendors, and buyers across the supply chain." },
+    { "q": "How do I become a vendor?", "a": "Register via Vendor Registration and complete the verification process. Once approved, you can list products immediately." },
+    { "q": "What products are listed on the marketplace?", "a": "We support CBD wellness products, industrial hemp, hemp-based services, and recreational hemp where legally permitted." },
+    { "q": "How does wholesale access work?", "a": "Wholesale buyers can apply through the Wholesale section. Access is granted after identity and business verification." },
+    { "q": "Who do I contact for support?", "a": "Reach us through the Contact or Support pages. Our team typically responds within one business day." }
+  ]
+}

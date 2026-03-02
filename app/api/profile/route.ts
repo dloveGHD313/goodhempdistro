@@ -44,7 +44,7 @@ export async function GET() {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  let role: PostAuthorRole = normalizeRole(profile?.role || (vendor?.id ? "vendor" : "consumer"));
+  const role: PostAuthorRole = normalizeRole(profile?.role || (vendor?.id ? "vendor" : "consumer"));
 
   let tier: PostAuthorTier = "none";
   if (role === "vendor" && vendor?.subscription_status && ["active", "trialing"].includes(vendor.subscription_status)) {

@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
   }>;
 
   const authorIds = Array.from(new Set(rows.map((r) => r.author_id)));
-  let profileMap = new Map<string, ProfileIdentityRow>();
+  const profileMap = new Map<string, ProfileIdentityRow>();
   if (authorIds.length > 0) {
     const { data: identities } = await admin.rpc("get_profiles_identity", {
       author_ids: authorIds,

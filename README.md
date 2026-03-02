@@ -4,6 +4,11 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 - [Vendor Checkout Guide](docs/VENDOR_CHECKOUT_GUIDE.md) — Vendor subscription flow, env vars, Stripe setup, webhooks, and debugging with requestId.
 
+## Internal Audit Artifact Policy
+
+- Do not commit temporary debug sweep outputs like `DEBUG_REPORT.md` or `MANUAL_FIXES_NEEDED.md` to the repository root.
+- Store findings in the issue tracker (or private operations docs) and keep only durable, user-facing documentation in this repo.
+
 ## Release Notes
 
 **Fix(posts): display name and avatar persist in feed**

@@ -319,7 +319,7 @@ export default async function AdminVendorsPage() {
                       ))}
                     </div>
                     <p className="text-xs text-muted mt-4">
-                      💡 If you expected pending applications, check for status casing differences (e.g., "Pending" vs "pending")
+                      💡 If you expected pending applications, check for status casing differences (e.g., &quot;Pending&quot; vs &quot;pending&quot;)
                     </p>
                   </div>
                 )}

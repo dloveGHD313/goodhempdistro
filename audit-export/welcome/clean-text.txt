@@ -1,0 +1,21 @@
+PAGE: /welcome
+TITLE: Good Hemp Distros
+
+[JAX MASCOT GREETING]
+Welcome. I'm JAX — your guide to the hemp ecosystem. Choose your path and let's build something real.
+
+[LOGO]
+Good Hemp Distros logo
+
+[H1]
+The hemp industry, all in one place.
+
+[SUBTITLE]
+Community. Commerce. Compliance. Fused.
+
+[CTA BUTTONS]
+Create Account → /signup
+Sign In → /login
+
+[SECONDARY LINK]
+Just browsing? Explore without an account → /get-started

@@ -60,16 +60,18 @@ export default async function AccountOrdersPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {orders.map((order: any) => {
+              {orders.map((order) => {
                 const items = order.order_items || [];
+                const productName = (item: { product?: { name?: string } | Array<{ name?: string }> }) =>
+                  Array.isArray(item.product) ? item.product[0]?.name : item.product?.name;
                 return (
                   <div key={order.id} className="surface-card p-6">
                     <div className="flex justify-between items-start mb-4">
                       <div>
                         <h3 className="font-semibold text-lg mb-1">Order #{order.id.slice(0, 8)}</h3>
                         <p className="text-sm text-muted">
-                          {new Date(order.created_at).toLocaleDateString()} at{" "}
-                          {new Date(order.created_at).toLocaleTimeString()}
+                          {order.created_at ? new Date(order.created_at).toLocaleDateString() : ""} at{" "}
+                          {order.created_at ? new Date(order.created_at).toLocaleTimeString() : ""}
                         </p>
                       </div>
                       <div className="text-right">
@@ -92,9 +94,9 @@ export default async function AccountOrdersPage() {
                       <div className="border-t border-[var(--border)] pt-4 mt-4">
                         <p className="text-sm font-semibold mb-2">Items:</p>
                         <ul className="space-y-1 text-sm text-muted">
-                          {items.map((item: any) => (
+                          {items.map((item) => (
                             <li key={item.id}>
-                              {item.quantity}x {item.product?.name || "Product"} - ${((item.unit_price_cents || 0) / 100).toFixed(2)} each
+                              {item.quantity}x {productName(item) || "Product"} - ${((item.unit_price_cents || 0) / 100).toFixed(2)} each
                             </li>
                           ))}
                         </ul>

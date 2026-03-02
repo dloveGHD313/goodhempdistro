@@ -1,0 +1,28 @@
+﻿{
+  "slug": "home",
+  "route": "/",
+  "source_file": "app/page.tsx",
+  "behavior": "Server-side redirect: logged-out → /welcome, onboarding-incomplete → /get-started, completed → /newsfeed",
+  "title": null,
+  "meta_description": null,
+  "h1": null,
+  "canonical": "https://www.goodhempdistro.com/",
+  "openGraph": {
+    "title": "Good Hemp Distros - Premium Hemp Marketplace",
+    "description": "Discover premium hemp products from verified vendors. Join our community.",
+    "url": "https://goodhempdistro.com",
+    "siteName": "Good Hemp Distros",
+    "image": "/brand/goodhempdistrologo.png",
+    "imageWidth": 1536,
+    "imageHeight": 1024,
+    "type": "website"
+  },
+  "twitter": {
+    "card": "summary_large_image",
+    "title": "Good Hemp Distros",
+    "description": "Discover premium hemp products from verified vendors. Join our community.",
+    "image": "/brand/goodhempdistrologo.png"
+  },
+  "structured_data": [],
+  "note": "Root metadata is defined in app/layout.tsx and applies globally. This page has no page-level metadata override."
+}

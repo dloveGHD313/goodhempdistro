@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
       .not("paid_at", "is", null);
 
     const orderIds = (orders || []).map((o) => o.id);
-    let feeByOrder: Record<string, number> = {};
+    const feeByOrder: Record<string, number> = {};
     if (orderIds.length > 0) {
       const { data: items } = await admin
         .from("order_items")

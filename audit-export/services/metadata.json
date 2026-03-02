@@ -1,0 +1,14 @@
+﻿{
+  "slug": "services",
+  "route": "/services",
+  "source_file": "app/services/page.tsx",
+  "title": "Services | Good Hemp Distro",
+  "meta_description": "Find help in the hemp industry — logistics, compliance, marketing, construction, processing.",
+  "h1": "Services",
+  "canonical": "https://www.goodhempdistro.com/services",
+  "openGraph": "inherits from layout",
+  "twitter": "inherits from layout",
+  "structured_data": [],
+  "categories": ["Logistics", "Compliance", "Marketing", "Construction", "Processing"],
+  "data_source": "Supabase services table, status=approved, active=true"
+}

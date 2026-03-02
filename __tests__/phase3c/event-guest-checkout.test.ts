@@ -2,6 +2,7 @@
  * Phase 3C: Guest checkout for event tickets — API validation and public behavior.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import type { NextRequest } from "next/server";
 
 const mockGetUser = vi.fn();
 
@@ -67,7 +68,7 @@ describe("Phase 3C: Event guest checkout", () => {
         purchaser_email: "guest@example.com",
       }),
     });
-    const res = await POST(req);
+    const res = await POST(req as NextRequest);
     expect(res.status).toBe(400);
     const data = await res.json();
     expect(data.error).toContain("21");
@@ -85,7 +86,7 @@ describe("Phase 3C: Event guest checkout", () => {
         age_confirmed_21: true,
       }),
     });
-    const res = await POST(req);
+    const res = await POST(req as NextRequest);
     expect(res.status).toBe(400);
     const data = await res.json();
     expect(data.error).toContain("purchaser_email");
@@ -99,7 +100,7 @@ describe("Phase 3C: Event guest checkout", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({}),
     });
-    const res = await POST(req);
+    const res = await POST(req as NextRequest);
     expect(res.status).toBe(400);
   });
 });

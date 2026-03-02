@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase";
@@ -14,7 +15,8 @@ async function getService(slugOrId: string) {
     const supabase = await createSupabaseServerClient();
     
     // Try by slug first, then by id
-    let { data: service, error } = await supabase
+    // FIXED: prefer-const - destructured values not reassigned
+    const { data: service, error } = await supabase
       .from("services")
       .select(
         "id, name, title, description, pricing_type, price_cents, slug, category_id, subcategory_id, status, active, vendor_id, coa_object_path"
@@ -91,9 +93,10 @@ export default async function ServiceDetailPage({
               <p className="text-muted mb-6">
                 This service is not available or has been removed.
               </p>
-              <a href="/services" className="btn-primary">
+              {/* FIXED: Use Link for client-side navigation */}
+              <Link href="/services" className="btn-primary">
                 Browse All Services
-              </a>
+              </Link>
             </div>
           </Section>
         </main>

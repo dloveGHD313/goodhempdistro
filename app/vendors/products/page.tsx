@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase";
@@ -88,9 +89,10 @@ export default async function VendorProductsPage() {
               <p className="text-muted mb-6">
                 Your vendor account could not be found. Please contact support.
               </p>
-              <a href="/vendors/dashboard" className="btn-secondary">
+              {/* FIXED: Use Link for client-side navigation */}
+              <Link href="/vendors/dashboard" className="btn-secondary">
                 Back to Dashboard
-              </a>
+              </Link>
             </div>
           </section>
         </main>

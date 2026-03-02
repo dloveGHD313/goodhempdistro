@@ -1,0 +1,20 @@
+﻿{
+  "slug": "wholesale",
+  "route": "/wholesale",
+  "source_file": "app/wholesale/page.tsx",
+  "title": "Wholesale",
+  "meta_description": null,
+  "h1": "Wholesale",
+  "canonical": "https://www.goodhempdistro.com/wholesale",
+  "openGraph": "inherits from layout",
+  "twitter": "inherits from layout",
+  "structured_data": [],
+  "access_logic": {
+    "logged_out": "Show Sign In / Get Started CTAs",
+    "logged_in_no_access_no_app": "Show Apply link → /wholesale/apply",
+    "logged_in_pending": "Show pending status message",
+    "logged_in_approved_no_role": "Show 'being set up' message",
+    "logged_in_rejected": "Show Re-apply link",
+    "logged_in_has_wholesale_role": "Show approved state (listings coming soon)"
+  }
+}

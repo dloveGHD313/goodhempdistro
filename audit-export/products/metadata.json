@@ -1,0 +1,19 @@
+﻿{
+  "slug": "products",
+  "route": "/products",
+  "source_file": "app/products/page.tsx",
+  "title": "Products | Good Hemp Distro",
+  "meta_description": "Browse our premium hemp products",
+  "h1": "Local Hemp Discovery, Verified & Smooth",
+  "h1_variant_vendor": "Products from {vendorName}",
+  "canonical": "https://www.goodhempdistro.com/products",
+  "openGraph": "inherits from layout",
+  "twitter": "inherits from layout",
+  "structured_data": [],
+  "page_metrics_displayed": [
+    { "label": "Avg delivery", "value": "35-50 min" },
+    { "label": "Verified vendors", "value": "120+" },
+    { "label": "Compliance status", "value": "Always on" }
+  ],
+  "visibility_rules": "Logged-out: hides COA-required products. Logged-in verified: all products. Supports ?vendor= filter."
+}

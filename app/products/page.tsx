@@ -80,7 +80,8 @@ async function getProducts(
     const withVendor = rawProducts.filter((p) => p.vendor_id != null && String(p.vendor_id).trim() !== "");
     const vendorIds = Array.from(new Set(withVendor.map((p) => p.vendor_id).filter(Boolean))) as string[];
 
-    let vendorMap: Record<string, string> = {};
+    // FIXED: prefer-const - object is mutated, not reassigned
+    const vendorMap: Record<string, string> = {};
     const activeVendorIds = new Set<string>();
     let vendorStatusLookupOk = true;
     if (vendorIds.length > 0) {
