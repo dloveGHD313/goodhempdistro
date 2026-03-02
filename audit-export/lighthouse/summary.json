@@ -1,0 +1,138 @@
+[
+  {
+    "page": "welcome",
+    "url": "https://www.goodhempdistro.com/welcome",
+    "mobile": {
+      "url": "https://www.goodhempdistro.com/welcome",
+      "performance": 75,
+      "accessibility": 100,
+      "best_practices": 96,
+      "seo": 100,
+      "metrics": {
+        "FCP_ms": 1099,
+        "LCP_ms": 13849,
+        "CLS": "0.000",
+        "TBT_ms": 26,
+        "SI_ms": 1238,
+        "TTFB_ms": 35
+      }
+    },
+    "desktop": {
+      "url": "https://www.goodhempdistro.com/welcome",
+      "performance": 88,
+      "accessibility": 100,
+      "best_practices": 96,
+      "seo": 100,
+      "metrics": {
+        "FCP_ms": 283,
+        "LCP_ms": 2323,
+        "CLS": "0.001",
+        "TBT_ms": 0,
+        "SI_ms": 546,
+        "TTFB_ms": 34
+      }
+    }
+  },
+  {
+    "page": "products",
+    "url": "https://www.goodhempdistro.com/products",
+    "mobile": {
+      "url": "https://www.goodhempdistro.com/products",
+      "performance": 89,
+      "accessibility": 95,
+      "best_practices": 96,
+      "seo": 100,
+      "metrics": {
+        "FCP_ms": 1027,
+        "LCP_ms": 3424,
+        "CLS": "0.000",
+        "TBT_ms": 171,
+        "SI_ms": 1928,
+        "TTFB_ms": 30
+      }
+    },
+    "desktop": {
+      "url": "https://www.goodhempdistro.com/products",
+      "performance": 87,
+      "accessibility": 95,
+      "best_practices": 96,
+      "seo": 100,
+      "metrics": {
+        "FCP_ms": 348,
+        "LCP_ms": 2383,
+        "CLS": "0.000",
+        "TBT_ms": 0,
+        "SI_ms": 1195,
+        "TTFB_ms": 34
+      }
+    }
+  },
+  {
+    "page": "about",
+    "url": "https://www.goodhempdistro.com/about",
+    "mobile": {
+      "url": "https://www.goodhempdistro.com/about",
+      "performance": 72,
+      "accessibility": 96,
+      "best_practices": 96,
+      "seo": 100,
+      "metrics": {
+        "FCP_ms": 1250,
+        "LCP_ms": 13684,
+        "CLS": "0.000",
+        "TBT_ms": 62,
+        "SI_ms": 4876,
+        "TTFB_ms": 28
+      }
+    },
+    "desktop": {
+      "url": "https://www.goodhempdistro.com/about",
+      "performance": 100,
+      "accessibility": 96,
+      "best_practices": 96,
+      "seo": 100,
+      "metrics": {
+        "FCP_ms": 319,
+        "LCP_ms": 599,
+        "CLS": "0.000",
+        "TBT_ms": 0,
+        "SI_ms": 591,
+        "TTFB_ms": 37
+      }
+    }
+  },
+  {
+    "page": "wholesale",
+    "url": "https://www.goodhempdistro.com/wholesale",
+    "mobile": {
+      "url": "https://www.goodhempdistro.com/wholesale",
+      "performance": 73,
+      "accessibility": 100,
+      "best_practices": 96,
+      "seo": 100,
+      "metrics": {
+        "FCP_ms": 1083,
+        "LCP_ms": 13533,
+        "CLS": "0.000",
+        "TBT_ms": 161,
+        "SI_ms": 1333,
+        "TTFB_ms": 31
+      }
+    },
+    "desktop": {
+      "url": "https://www.goodhempdistro.com/wholesale",
+      "performance": 88,
+      "accessibility": 100,
+      "best_practices": 96,
+      "seo": 100,
+      "metrics": {
+        "FCP_ms": 322,
+        "LCP_ms": 2322,
+        "CLS": "0.000",
+        "TBT_ms": 0,
+        "SI_ms": 480,
+        "TTFB_ms": 31
+      }
+    }
+  }
+]

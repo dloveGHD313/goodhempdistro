@@ -1,0 +1,92 @@
+GOOD HEMP DISTRO — COMPLIANCE KEYWORD SCAN
+Generated: 2026-03-02
+Method: Full-text scan of clean-text.txt across all 27 captured pages
+Keywords scanned: 14
+
+============================================================
+
+NOT FOUND: FDA
+
+NOT FOUND: not intended to diagnose
+
+NOT FOUND: consult a physician
+
+NOT FOUND: THC
+
+NOT FOUND: Delta-9
+
+NOT FOUND: Delta-8
+
+FOUND: 21+ — 2 occurrence(s)
+  URL: https://www.goodhempdistro.com/newsfeed
+    Line 50: "Age Gate 21+ © 2026 Good Hemp Distro. All rights reserved."
+  URL: https://www.goodhempdistro.com/terms
+    Line 28: "Marketplace rules Users must be 21+ to purchase regulated products. Vendors are responsible for product compliance and accuracy."
+
+FOUND: age verification / age-gate — 1 occurrence(s)
+  URL: https://www.goodhempdistro.com/newsfeed
+    Line 49: "On Age Gate 21+"
+
+FOUND: lab test — 3 occurrence(s)
+  URL: https://www.goodhempdistro.com/about
+    Line 29: "Founded in 2023, Good Hemp Distro emerged from a passion for wellness and a recognition that consumers deserved better access to high-quality hemp pro"
+    Line 32: "Quality First We only partner with vendors who meet our rigorous quality standards and provide third-party lab testing. Transparency"
+    Line 45: "✓ Third-party lab testing for all products ✓"
+
+FOUND: COA / certificate of analysis — 2 occurrence(s)
+  URL: https://www.goodhempdistro.com/newsfeed
+    Line 45: "Verified vendors will appear once subscriptions are active. COA Verified Off"
+  URL: https://www.goodhempdistro.com/services
+    Line 33: "Compliance Testing, COA, and regulatory support. Marketing"
+
+FOUND: terms — 2 occurrence(s)
+  URL: https://www.goodhempdistro.com/terms
+    Line 1: "Terms of Service | Good Hemp Distro Good Hemp Distros"
+    Line 24: "Sign In Terms of Service Effective date: January 24, 2026"
+
+FOUND: privacy — 2 occurrence(s)
+  URL: https://www.goodhempdistro.com/privacy
+    Line 1: "Privacy Policy | Good Hemp Distro Good Hemp Distros"
+    Line 24: "Sign In Privacy Policy Effective date: January 24, 2026"
+
+FOUND: refund — 22 occurrence(s)
+  URL: https://www.goodhempdistro.com/affiliate
+    Line 29: "Terms Refunds Contact"
+  URL: https://www.goodhempdistro.com/blog
+    Line 31: "Terms Refunds Contact"
+  URL: https://www.goodhempdistro.com/discover
+    Line 56: "Terms Refunds Contact"
+  URL: https://www.goodhempdistro.com/events
+    Line 37: "Terms Refunds Contact"
+  URL: https://www.goodhempdistro.com/forums
+    Line 33: "Terms Refunds Contact"
+  URL: https://www.goodhempdistro.com/get-started
+    Line 6: "Terms Refunds Contact"
+  URL: https://www.goodhempdistro.com/groups
+    Line 33: "Terms Refunds Contact"
+  URL: https://www.goodhempdistro.com/login
+    Line 13: "Terms Refunds Contact"
+  URL: https://www.goodhempdistro.com/logistics
+    Line 44: "Terms Refunds Contact"
+  URL: https://www.goodhempdistro.com/newsfeed
+    Line 54: "Terms Refunds Contact"
+  URL: https://www.goodhempdistro.com/privacy
+    Line 43: "Terms Refunds Contact"
+  URL: https://www.goodhempdistro.com/products
+    Line 50: "Terms Refunds Contact"
+  URL: https://www.goodhempdistro.com/refunds
+    Line 1: "Refund Policy | Good Hemp Distro Good Hemp Distros"
+    Line 24: "Sign In Refund Policy Effective date: January 24, 2026"
+    Line 26: "Effective date: January 24, 2026 Refund eligibility varies by vendor and product category. We recommend reviewing vendor-specific policies prior to pu"
+    ... and 3 more occurrence(s)
+  URL: https://www.goodhempdistro.com/services
+    Line 55: "Terms Refunds Contact"
+  URL: https://www.goodhempdistro.com/terms
+    Line 41: "Terms Refunds Contact"
+  URL: https://www.goodhempdistro.com/vendors
+    Line 13: "Terms Refunds Contact"
+  URL: https://www.goodhempdistro.com/wholesale
+    Line 32: "Terms Refunds Contact"
+
+NOT FOUND: shipping
+

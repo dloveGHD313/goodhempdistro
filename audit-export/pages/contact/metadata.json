@@ -1,0 +1,51 @@
+{
+  "title": "Contact | Good Hemp Distro",
+  "meta_description": "Get in touch with Good Hemp Distro",
+  "canonical": "https://www.goodhempdistro.com/contact",
+  "robots": null,
+  "og": {
+    "og:title": "Good Hemp Distros - Premium Hemp Marketplace",
+    "og:description": "Discover premium hemp products from verified vendors. Join our community.",
+    "og:url": "https://goodhempdistro.com",
+    "og:site_name": "Good Hemp Distros",
+    "og:image": "https://www.goodhempdistro.com/brand/goodhempdistrologo.png",
+    "og:image:width": "1200",
+    "og:image:height": "630",
+    "og:image:alt": "Good Hemp Distros",
+    "og:type": "website"
+  },
+  "twitter": {
+    "twitter:card": "summary_large_image",
+    "twitter:title": "Good Hemp Distros",
+    "twitter:description": "Discover premium hemp products from verified vendors. Join our community.",
+    "twitter:image": "https://www.goodhempdistro.com/brand/goodhempdistrologo.png"
+  },
+  "headings": [
+    {
+      "tag": "h1",
+      "text": "Contact Us"
+    },
+    {
+      "tag": "h2",
+      "text": "Send us a message"
+    },
+    {
+      "tag": "h3",
+      "text": "Email"
+    },
+    {
+      "tag": "h3",
+      "text": "Response Time"
+    },
+    {
+      "tag": "h3",
+      "text": "Business Hours"
+    },
+    {
+      "tag": "h3",
+      "text": "FAQ"
+    }
+  ],
+  "json_ld": [],
+  "lang": "en"
+}

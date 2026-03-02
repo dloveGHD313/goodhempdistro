@@ -1,0 +1,218 @@
+{
+  "source": "https://www.goodhempdistro.com/welcome (post-hydration browser snapshot)",
+  "captured_at": "2026-03-02T04:25:00Z",
+  "header": {
+    "logo": {
+      "label": "Good Hemp Distros",
+      "href": "/"
+    },
+    "primary_links": [
+      {
+        "label": "Discover",
+        "href": "/discover"
+      },
+      {
+        "label": "Events",
+        "href": "/events"
+      },
+      {
+        "label": "Episodes",
+        "href": "/learning-with-jax"
+      }
+    ],
+    "dropdowns": {
+      "Community ▼": [
+        {
+          "label": "Groups",
+          "href": "/groups"
+        },
+        {
+          "label": "Forums",
+          "href": "/forums"
+        },
+        {
+          "label": "Blog",
+          "href": "/blog"
+        }
+      ],
+      "Business ▼": [
+        {
+          "label": "Vendors",
+          "href": "/vendors"
+        },
+        {
+          "label": "Services",
+          "href": "/services"
+        },
+        {
+          "label": "Wholesale",
+          "href": "/wholesale"
+        },
+        {
+          "label": "Logistics",
+          "href": "/logistics"
+        },
+        {
+          "label": "Driver Network",
+          "href": "/logistics/apply"
+        },
+        {
+          "label": "Vendor Registration",
+          "href": "/vendor-registration"
+        }
+      ]
+    },
+    "utility_links": [
+      {
+        "label": "Join Free",
+        "href": "/get-started",
+        "style": "btn-primary"
+      },
+      {
+        "label": "Sign In",
+        "href": "/login",
+        "style": "btn-ghost"
+      }
+    ]
+  },
+  "mobile_drawer": {
+    "cta_logged_out": [
+      {
+        "label": "Join Free",
+        "href": "/get-started"
+      },
+      {
+        "label": "Sign In",
+        "href": "/login"
+      }
+    ],
+    "sections": [
+      {
+        "heading": "Public",
+        "links": [
+          {
+            "label": "About",
+            "href": "/about"
+          },
+          {
+            "label": "Contact",
+            "href": "/contact"
+          },
+          {
+            "label": "Support",
+            "href": "/support"
+          },
+          {
+            "label": "FAQ",
+            "href": "/faq"
+          },
+          {
+            "label": "Blog",
+            "href": "/blog"
+          }
+        ]
+      },
+      {
+        "heading": "Discover",
+        "links": [
+          {
+            "label": "Marketplace",
+            "href": "/products"
+          },
+          {
+            "label": "Education",
+            "href": "/education"
+          }
+        ]
+      },
+      {
+        "heading": "Primary",
+        "links": [
+          {
+            "label": "Feed",
+            "href": "/newsfeed"
+          },
+          {
+            "label": "Discover",
+            "href": "/discover"
+          },
+          {
+            "label": "Events",
+            "href": "/events"
+          },
+          {
+            "label": "Episodes",
+            "href": "/learning-with-jax"
+          }
+        ]
+      },
+      {
+        "heading": "Community",
+        "links": [
+          {
+            "label": "Groups",
+            "href": "/groups"
+          },
+          {
+            "label": "Forums",
+            "href": "/forums"
+          },
+          {
+            "label": "Blog",
+            "href": "/blog"
+          }
+        ]
+      },
+      {
+        "heading": "Business",
+        "links": [
+          {
+            "label": "Vendors",
+            "href": "/vendors"
+          },
+          {
+            "label": "Services",
+            "href": "/services"
+          },
+          {
+            "label": "Wholesale",
+            "href": "/wholesale"
+          },
+          {
+            "label": "Logistics",
+            "href": "/logistics"
+          },
+          {
+            "label": "Driver Network",
+            "href": "/logistics/apply"
+          },
+          {
+            "label": "Vendor Registration",
+            "href": "/vendor-registration"
+          }
+        ]
+      }
+    ]
+  },
+  "footer": {
+    "links": [
+      {
+        "label": "Privacy",
+        "href": "/privacy"
+      },
+      {
+        "label": "Terms",
+        "href": "/terms"
+      },
+      {
+        "label": "Refunds",
+        "href": "/refunds"
+      },
+      {
+        "label": "Contact",
+        "href": "/contact"
+      }
+    ],
+    "copyright": "© 2026 Good Hemp Distro. All rights reserved."
+  }
+}

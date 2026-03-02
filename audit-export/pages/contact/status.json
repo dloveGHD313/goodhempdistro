@@ -1,0 +1,13 @@
+{
+  "url": "https://www.goodhempdistro.com/contact",
+  "finalUrl": "https://www.goodhempdistro.com/contact",
+  "status_code": 200,
+  "redirect_chain": [
+    {
+      "url": "https://www.goodhempdistro.com/contact",
+      "status": 200
+    }
+  ],
+  "error": null,
+  "content_type": "text/html; charset=utf-8"
+}

@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { brand } from "@/lib/brand";
@@ -13,31 +12,28 @@ type WelcomeClientProps = {
   mascotEnabled?: boolean;
 };
 
-export default function WelcomeClient({ mascotEnabled: _serverMascotEnabled }: WelcomeClientProps = {}) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-  }, []);
-
-  // Entry mascot should always be visible; AI widget remains flag-gated elsewhere.
+/**
+ * Entry welcome page client shell.
+ *
+ * LCP fix: removed the `mounted` guard that was hiding the entire page until
+ * JS hydration completed. The guard was added to prevent a hydration mismatch
+ * when reading NEXT_PUBLIC_MASCOT_ENABLED, but that check was removed when
+ * mascotEnabled was hardcoded to true. The guard was causing ~12s LCP on mobile.
+ *
+ * H1 is now rendered in a plain div (not Reveal) so it is visible in the
+ * initial HTML paint — Reveal's opacity:0 initial state was making H1 invisible
+ * until framer-motion hydrated.
+ */
+// Props kept for backwards compatibility with any callers passing mascotEnabled.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export default function WelcomeClient(_props: WelcomeClientProps = {}) {
+  // Entry mascot always shown; AI widget gating is separate.
   const mascotEnabled = true;
   const heroSubtitle = entryHeroCopy.subtitle || brand.tagline;
 
-  if (!mounted) {
-    return (
-      <div className="max-w-2xl w-full mx-auto animate-fade-in opacity-0">
-        <span className="sr-only" aria-live="polite">Loading…</span>
-        <div className="h-24" aria-hidden="true" />
-        <div className="h-64 rounded-xl bg-[var(--surface)]/40" aria-hidden="true" />
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-2xl w-full mx-auto flex flex-col items-center text-center">
-      {/* JAX entry greeting (shows CEO-specified line; hides itself when mascot is off) */}
+      {/* JAX entry greeting — always shown on entry page */}
       {mascotEnabled && (
         <Reveal delay={HERO_DELAYS.title} className="flex-shrink-0 w-full flex justify-center">
           <section aria-label="JAX mascot greeting" className="flex justify-center">
@@ -46,9 +42,8 @@ export default function WelcomeClient({ mascotEnabled: _serverMascotEnabled }: W
         </Reveal>
       )}
 
-      {/* Logo + headline */}
-      <Reveal
-        delay={HERO_DELAYS.title}
+      {/* Logo + H1 — rendered in plain div so H1 is visible in initial HTML (LCP element) */}
+      <div
         className={`flex-shrink-0 w-full flex flex-col items-center ${mascotEnabled ? "mt-4" : ""}`}
       >
         <div className="flex justify-center mb-8">
@@ -64,7 +59,7 @@ export default function WelcomeClient({ mascotEnabled: _serverMascotEnabled }: W
         <h1 className="hero-title text-accent mb-3">
           {entryHeroCopy.headlineLines.join(" ")}
         </h1>
-      </Reveal>
+      </div>
 
       {/* Subtitle */}
       <Reveal delay={HERO_DELAYS.subtitle} className="w-full flex justify-center">

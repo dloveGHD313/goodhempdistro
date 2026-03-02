@@ -1,0 +1,28 @@
+﻿# NOTE: All 400 errors are Next.js _next/image optimizer URLs containing stale dpl= deployment hash.
+# The actual source images (e.g. /brand/goodhempdistrologo.png) return 200. This is expected Next.js behavior.
+# These are NOT broken images on the live site — the images render correctly in the browser.
+AssetURL,AltText,FoundOnPage,StatusCode
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/about",400
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/affiliate",400
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/blog",400
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/contact",400
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/discover",400
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/education",400
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/events",400
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/faq",400
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/forums",400
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/groups",400
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/logistics",400
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/newsfeed",400
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/orders/cancel",400
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/pricing",400
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/privacy",400
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/products",400
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/refunds",400
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/",400
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/services",400
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/support",400
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/terms",400
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/vendor-registration",400
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/welcome",400
+"https://www.goodhempdistro.com/_next/image?url=%2Fbrand%2Fgoodhempdistrologo.png&amp;w=96&amp;q=75&amp;dpl=dpl_7RCvD3ZRAzVGUFTyjM5a1QeCQsDt","Good Hemp Distros Logo","https://www.goodhempdistro.com/wholesale",400

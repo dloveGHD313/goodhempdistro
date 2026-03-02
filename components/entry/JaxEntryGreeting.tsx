@@ -9,23 +9,23 @@ const CEO_GREETING =
 
 /**
  * Phase 0 entry-page JAX greeting.
- * Shows the CEO-specified intro line with a cinematic entrance animation.
- * Always renders for the entry experience (AI assistant gating is separate).
+ *
+ * LCP fix: the outer section wrapper no longer starts at opacity:0/scale:0.92.
+ * Previously, the motion.section initial state was serialized into SSR HTML,
+ * hiding the image even though it had priority. Now the image is visible in
+ * the initial HTML paint — the browser's priority preload actually counts.
+ *
+ * The text paragraph still animates in (not the LCP candidate).
  */
 export default function JaxEntryGreeting() {
   const reducedMotion = useSafeReducedMotion();
 
   return (
-    <motion.section
+    <section
       aria-label="JAX mascot greeting"
       className="flex flex-col items-center gap-3 mb-8"
-      initial={reducedMotion ? undefined : { opacity: 0, scale: 0.92 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{
-        duration: reducedMotion ? 0.1 : 0.6,
-        ease: [0.22, 1, 0.36, 1],
-      }}
     >
+      {/* Image container — visible immediately, priority ensures fast load */}
       <div
         className="hero-mascot-halo relative w-[140px] sm:w-[160px] md:w-[180px] h-[140px] sm:h-[160px] md:h-[180px] flex-shrink-0"
         aria-hidden="true"
@@ -42,6 +42,7 @@ export default function JaxEntryGreeting() {
         />
       </div>
 
+      {/* Greeting text — animate in (below image, not LCP candidate) */}
       <motion.p
         className="text-white text-lg md:text-xl max-w-sm text-center px-4"
         initial={reducedMotion ? undefined : { opacity: 0, y: 8 }}
@@ -54,6 +55,6 @@ export default function JaxEntryGreeting() {
       >
         {CEO_GREETING}
       </motion.p>
-    </motion.section>
+    </section>
   );
 }

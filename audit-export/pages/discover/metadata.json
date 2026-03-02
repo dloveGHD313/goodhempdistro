@@ -1,0 +1,71 @@
+{
+  "title": "Good Hemp Distros - Community Marketplace",
+  "meta_description": "Discover premium hemp products from verified vendors. Join our community.",
+  "canonical": "https://www.goodhempdistro.com/discover",
+  "robots": null,
+  "og": {
+    "og:title": "Good Hemp Distros - Premium Hemp Marketplace",
+    "og:description": "Discover premium hemp products from verified vendors. Join our community.",
+    "og:url": "https://goodhempdistro.com",
+    "og:site_name": "Good Hemp Distros",
+    "og:image": "https://www.goodhempdistro.com/brand/goodhempdistrologo.png",
+    "og:image:width": "1200",
+    "og:image:height": "630",
+    "og:image:alt": "Good Hemp Distros",
+    "og:type": "website"
+  },
+  "twitter": {
+    "twitter:card": "summary_large_image",
+    "twitter:title": "Good Hemp Distros",
+    "twitter:description": "Discover premium hemp products from verified vendors. Join our community.",
+    "twitter:image": "https://www.goodhempdistro.com/brand/goodhempdistrologo.png"
+  },
+  "headings": [
+    {
+      "tag": "h1",
+      "text": "Discover"
+    },
+    {
+      "tag": "h2",
+      "text": "Personalize your discovery"
+    },
+    {
+      "tag": "h2",
+      "text": "Near you: vendors"
+    },
+    {
+      "tag": "h3",
+      "text": "D&amp;K Luxury Transportation LLC"
+    },
+    {
+      "tag": "h3",
+      "text": "DLove Test Vendor"
+    },
+    {
+      "tag": "h2",
+      "text": "Recommended services"
+    },
+    {
+      "tag": "h2",
+      "text": "Recommended products"
+    },
+    {
+      "tag": "h2",
+      "text": "Events near you"
+    },
+    {
+      "tag": "h2",
+      "text": "Education for your state"
+    },
+    {
+      "tag": "h3",
+      "text": "Hemp compliance overview"
+    },
+    {
+      "tag": "h3",
+      "text": "Getting started with hemp purchasing"
+    }
+  ],
+  "json_ld": [],
+  "lang": "en"
+}

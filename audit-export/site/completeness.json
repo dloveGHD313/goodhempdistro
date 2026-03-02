@@ -1,0 +1,8 @@
+{
+  "runStatus": "RUN PASSED",
+  "totalUrls": 27,
+  "pagesCapturedCount": 27,
+  "missingArtifacts": [],
+  "lighthouseRanForRequiredPages": true,
+  "brokenLinksReportPresent": true
+}
