@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { URL } from "url";
 import https from "https";
+import http from "http";
 
 const BASE = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1"));
 const PAGES_DIR = path.join(BASE, "pages");
@@ -124,11 +125,14 @@ for (const slug of slugDirs) {
   } catch {}
 }
 
-// Check status of unique internal links (sample up to 50)
+// Check status of a URL — selects http or https based on the parsed protocol
+// to avoid ERR_INVALID_PROTOCOL when checking http:// links with https.get().
 async function checkStatus(url) {
   return new Promise(resolve => {
     try {
-      const req = https.get(url, { headers: { "User-Agent": "GHD-Audit/1.0" }, timeout: 8000 }, res => {
+      const parsed = new URL(url);
+      const lib = parsed.protocol === "https:" ? https : http;
+      const req = lib.get(url, { headers: { "User-Agent": "GHD-Audit/1.0" }, timeout: 8000 }, res => {
         res.resume();
         resolve(res.statusCode);
       });
