@@ -78,7 +78,8 @@ const manifest = {
   sitemapPresent: true,
   robotsTxtPresent: true,
   pagesCapturedCount: slugDirs.length,
-  pagesWithAllArtifacts: slugDirs.length - (missing.length > 0 ? 1 : 0),
+  // Count pages where every required artifact is present (missing has entries like "slug/file")
+  pagesWithAllArtifacts: slugDirs.filter(s => !missing.some(m => m.startsWith(s + "/"))).length,
   missingArtifacts: missing,
   lighthouseRanForRequiredPages: true,
   lighthousePagesRun: PAGES,

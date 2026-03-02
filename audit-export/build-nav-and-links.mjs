@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import { URL } from "url";
 import https from "https";
+import http from "http";
 
 const BASE = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, "$1"));
 const PAGES_DIR = path.join(BASE, "pages");
@@ -125,10 +126,13 @@ for (const slug of slugDirs) {
 }
 
 // Check status of unique internal links (sample up to 50)
+// Select http or https based on URL protocol to avoid ERR_INVALID_PROTOCOL on http:// links.
 async function checkStatus(url) {
   return new Promise(resolve => {
     try {
-      const req = https.get(url, { headers: { "User-Agent": "GHD-Audit/1.0" }, timeout: 8000 }, res => {
+      const parsed = new URL(url);
+      const lib = parsed.protocol === "https:" ? https : http;
+      const req = lib.get(url, { headers: { "User-Agent": "GHD-Audit/1.0" }, timeout: 8000 }, res => {
         res.resume();
         resolve(res.statusCode);
       });
@@ -157,6 +161,22 @@ for (const href of internalKeys) {
     console.log(`  BROKEN: ${href} → ${status}`);
   }
   await new Promise(r => setTimeout(r, 200));
+}
+
+// Check external links (sample up to 20 unique external URLs)
+const externalKeys = [...allExternal.keys()].slice(0, 20);
+console.log(`Checking ${externalKeys.length} unique external links...`);
+
+for (const href of externalKeys) {
+  const status = await checkStatus(href);
+  if (status >= 400 || status === 0) {
+    const refs = allExternal.get(href);
+    for (const ref of refs.slice(0, 2)) {
+      brokenExternalRows.push(`"${href}","${ref.text.replace(/"/g,'""')}","${ref.fromUrl}",${status}`);
+    }
+    console.log(`  BROKEN EXTERNAL: ${href} → ${status}`);
+  }
+  await new Promise(r => setTimeout(r, 300));
 }
 
 // Aggregate missing assets from assets.json
