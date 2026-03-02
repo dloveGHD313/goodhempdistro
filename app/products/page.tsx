@@ -225,7 +225,10 @@ export default async function ProductsPage({
             </div>
           </HeroParallax>
 
-          <ProductsList initialProducts={products} />
+          <ProductsList
+            initialProducts={products}
+            catalogueEmpty={products.length === 0}
+          />
         </Section>
       </main>
       <Footer />

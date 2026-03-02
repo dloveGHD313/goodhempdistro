@@ -163,13 +163,6 @@ function cleanText(html) {
     .trim();
 }
 
-async function checkStatus(url) {
-  try {
-    const result = await fetchUrl(url);
-    return result.status;
-  } catch { return 0; }
-}
-
 async function processUrl(url) {
   const slug = slugify(url) || "root";
   const dir = path.join(PAGES_DIR, slug);

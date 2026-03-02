@@ -26,9 +26,11 @@ type Product = {
 type Props = {
   initialProducts: Product[];
   initialCategoryId?: string | null;
+  /** When true, the catalogue has no approved products at all (not just filtered to zero). */
+  catalogueEmpty?: boolean;
 };
 
-export default function ProductsList({ initialProducts, initialCategoryId }: Props) {
+export default function ProductsList({ initialProducts, initialCategoryId, catalogueEmpty = false }: Props) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const { mode, isVerified } = useMarketMode();
   const [categories, setCategories] = useState<Category[]>([]);
@@ -164,10 +166,42 @@ export default function ProductsList({ initialProducts, initialCategoryId }: Pro
       </div>
 
       {filteredProducts.length === 0 ? (
-        <div className="text-center py-16 card-glass p-8">
-          <p className="text-muted text-lg mb-2">No products match your filters.</p>
-          <p className="text-muted">Try adjusting the search or category.</p>
-        </div>
+        catalogueEmpty ? (
+          /* ── Case A: No approved products in DB yet ── */
+          <div className="text-center py-20 card-glass p-10 max-w-2xl mx-auto space-y-6">
+            <div className="text-5xl mb-2" aria-hidden="true">🌿</div>
+            <h2 className="text-2xl font-bold text-accent">Marketplace Coming Online</h2>
+            <p className="text-muted text-base leading-relaxed max-w-md mx-auto">
+              Verified vendors are completing onboarding. Inventory will populate as approvals are finalized.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+              <Link
+                href="/vendor-registration"
+                className="btn-primary inline-block text-center px-6 py-3"
+              >
+                Become a Vendor
+              </Link>
+              <Link
+                href="/signup"
+                className="btn-secondary inline-block text-center px-6 py-3"
+              >
+                Join the Waitlist
+              </Link>
+            </div>
+            <p className="text-muted text-xs pt-2">
+              Already a vendor?{" "}
+              <Link href="/login" className="text-accent hover:underline">
+                Sign in to your dashboard
+              </Link>
+            </p>
+          </div>
+        ) : (
+          /* ── Case B/E: Products exist but filters returned zero ── */
+          <div className="text-center py-16 card-glass p-8">
+            <p className="text-muted text-lg mb-2">No products match your filters.</p>
+            <p className="text-muted">Try adjusting the search or category.</p>
+          </div>
+        )
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredProducts.map((product) => {

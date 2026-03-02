@@ -46,14 +46,14 @@ export async function POST(_req: NextRequest) {
 
     if (!user) {
       return NextResponse.json(
-        { error: "Unauthorized", requestId },
+        { ok: false, error: "Unauthorized", requestId },
         { status: 401, headers: requestIdHeaders(requestId) }
       );
     }
     const vendorStatusResult = await requireVendorActive(user.id, user.email);
     if (!vendorStatusResult.allowed) {
       return NextResponse.json(
-        { ...vendorStatusResult.json, requestId },
+        { ok: false, ...vendorStatusResult.json, requestId },
         { status: vendorStatusResult.status, headers: requestIdHeaders(requestId) }
       );
     }

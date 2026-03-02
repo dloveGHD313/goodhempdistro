@@ -239,7 +239,10 @@ export default function Nav() {
   const mobileDiscoveryLinks = NAV_MOBILE_DISCOVERY;
   const mobilePrimaryLinks = navPrimaryLinks.filter((link) => !NAV_PUBLIC.some((p) => p.href === link.href));
   const mobileCommunityLinks = NAV_COMMUNITY;
-  const mobileBusinessLinks = NAV_BUSINESS;
+  const businessLinks = isAffiliate
+    ? [{ label: "Affiliate Portal", href: "/affiliate/portal" }, ...NAV_BUSINESS.filter((link) => link.href !== "/affiliate")]
+    : NAV_BUSINESS;
+  const mobileBusinessLinks = businessLinks;
 
   // Build canonical NavContext from existing auth state so getCtaNav is model-driven.
   const navRoles: AppRole[] = [];
@@ -322,7 +325,7 @@ export default function Nav() {
             Business <span className="text-xs">▼</span>
           </button>
           <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[220px]">
-            {NAV_BUSINESS.map((link) => (
+            {businessLinks.map((link) => (
               <HoverLift key={link.href} as="span">
                 <Link href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm whitespace-nowrap">
                   {link.label}

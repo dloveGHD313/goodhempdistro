@@ -14,24 +14,25 @@ type Props = {
 
 /**
  * Phase 0 cinematic full-viewport hero section.
- * Renders JAX greeting, headline, CTA buttons, and a scroll indicator.
- * Accepts children that appear below the hero fold — pass path-selection cards here.
  *
- * Uses only existing CSS tokens and framer-motion (already in package.json).
- * No new color values or external dependencies.
+ * LCP fix: H1 and subtitle are now rendered as plain elements (not motion.h1 / motion.p)
+ * so they are visible in the initial HTML paint. Previously, initial: { opacity: 0 }
+ * was serialized into the SSR HTML, hiding them until framer-motion hydrated (~1-3s).
+ *
+ * CTAs still animate in (they are not the LCP element). Scroll chevron still animates.
  */
 export default function CinematicHero({ children }: Props) {
   const reducedMotion = useSafeReducedMotion();
 
-  const fadeUp = (delay: number) => ({
-    initial: reducedMotion ? undefined : { opacity: 0, y: 16 },
+  const ctaFade = {
+    initial: reducedMotion ? undefined : { opacity: 0, y: 10 },
     animate: { opacity: 1, y: 0 },
     transition: {
-      duration: reducedMotion ? 0.1 : 0.6,
-      delay: reducedMotion ? 0 : delay,
+      duration: reducedMotion ? 0.1 : 0.5,
+      delay: reducedMotion ? 0 : 0.3,
       ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
     },
-  });
+  };
 
   return (
     <div className="flex flex-col">
@@ -41,28 +42,28 @@ export default function CinematicHero({ children }: Props) {
         aria-label="Good Hemp Distro entry"
       >
         <div className="relative z-10 flex flex-col items-center max-w-3xl mx-auto w-full">
-          {/* JAX greeting (hides itself when mascot flag is off) */}
+          {/* JAX greeting */}
           <JaxEntryGreeting />
 
-          {/* Headline */}
-          <motion.h1 className="hero-title text-accent mb-4" {...fadeUp(0.15)}>
+          {/* Headline — plain h1 so it is visible in initial HTML (LCP element) */}
+          <h1 className="hero-title text-accent mb-4">
             {entryHeroCopy.headlineLines.map((line, idx) => (
               <Fragment key={line}>
                 {line}
                 {idx < entryHeroCopy.headlineLines.length - 1 && <br />}
               </Fragment>
             ))}
-          </motion.h1>
+          </h1>
 
-          {/* Sub */}
-          <motion.p className="hero-subtitle mb-10" {...fadeUp(0.25)}>
+          {/* Subtitle — plain p so it is visible in initial HTML */}
+          <p className="hero-subtitle mb-10">
             {entryHeroCopy.subtitle}
-          </motion.p>
+          </p>
 
-          {/* CTAs */}
+          {/* CTAs — animate in (not LCP candidate, safe to delay) */}
           <motion.div
             className="flex flex-col sm:flex-row gap-3 justify-center"
-            {...fadeUp(0.35)}
+            {...ctaFade}
           >
             <Link
               href={entryHeroCopy.primaryCTA.href}
@@ -79,7 +80,7 @@ export default function CinematicHero({ children }: Props) {
           </motion.div>
         </div>
 
-        {/* Scroll chevron — only shown when children exist below */}
+        {/* Scroll chevron — animate in */}
         {children && (
           <motion.div
             className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 text-muted pointer-events-none"
