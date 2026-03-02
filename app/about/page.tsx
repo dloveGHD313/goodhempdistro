@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { Reveal, Section, Stagger, StaggerChild, HoverLift } from "@/components/motion";
+import { Section, Stagger, StaggerChild, HoverLift } from "@/components/motion";
 
 export const metadata: Metadata = {
   title: "About | Good Hemp Distro",
@@ -10,9 +10,8 @@ export default function AboutPage() {
   return (
     <main className="min-h-screen bg-gray-900 text-white">
       <div className="container mx-auto px-4 py-16">
-        <Reveal>
-          <h1 className="text-4xl font-bold mb-8">About Good Hemp Distro</h1>
-        </Reveal>
+        {/* H1 rendered without Reveal so it is visible in initial HTML (LCP fix) */}
+        <h1 className="text-4xl font-bold mb-8">About Good Hemp Distro</h1>
 
         <div className="max-w-3xl">
           <Section className="mb-12">
