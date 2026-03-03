@@ -26,6 +26,7 @@ type Product = {
 type Props = {
   initialProducts: Product[];
   initialCategoryId?: string | null;
+  /** When true, the catalogue has no approved products at all (not just filtered to zero). */
   catalogueEmpty?: boolean;
 };
 
