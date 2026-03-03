@@ -39,6 +39,7 @@ async function getProducts(
 ): Promise<{
   products: Product[];
   vendorName?: string | null;
+  productsLookupFailed: boolean;
 }> {
   try {
     const supabase = await createSupabaseServerClient();
@@ -51,7 +52,7 @@ async function getProducts(
         .maybeSingle();
 
       if (!vendor || vendor.status !== "active") {
-        return { products: [], vendorName: null };
+        return { products: [], vendorName: null, productsLookupFailed: false };
       }
       vendorName = vendor.business_name;
     }
@@ -72,7 +73,7 @@ async function getProducts(
 
     if (error) {
       console.error("[products] Error fetching products:", error);
-      return { products: [], vendorName };
+      return { products: [], vendorName, productsLookupFailed: true };
     }
 
     const rawProducts = data || [];
@@ -142,10 +143,10 @@ async function getProducts(
       products = products.filter((p) => p.category_requires_coa !== true);
     }
 
-    return { products, vendorName };
+    return { products, vendorName, productsLookupFailed: false };
   } catch (err) {
     console.error("[products] Fatal error fetching products:", err);
-    return { products: [], vendorName: null };
+    return { products: [], vendorName: null, productsLookupFailed: true };
   }
 }
 
@@ -166,15 +167,16 @@ function ProductSkeleton() {
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams?: { vendor?: string };
+  searchParams?: Promise<{ vendor?: string }>;
 }) {
-  const vendorId = searchParams?.vendor || null;
+  const resolvedSearchParams = await searchParams;
+  const vendorId = resolvedSearchParams?.vendor || null;
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   const verification = await getUserVerificationStatus(user?.id ?? null);
   const includeGated = verification.status === "approved";
   const publicShopOnly = !user;
-  const { products, vendorName } = await getProducts(vendorId, includeGated, publicShopOnly);
+  const { products, vendorName, productsLookupFailed } = await getProducts(vendorId, includeGated, publicShopOnly);
 
   return (
     <div className="min-h-screen text-white flex flex-col">
@@ -225,7 +227,14 @@ export default async function ProductsPage({
             </div>
           </HeroParallax>
 
-          <ProductsList initialProducts={products} />
+          {productsLookupFailed ? (
+            <div className="card-glass p-6 mb-6 border border-amber-500/50 text-amber-200">
+              <p className="text-lg font-semibold mb-2">We couldn't load products right now.</p>
+              <p className="text-sm text-amber-100/90">Please refresh in a moment to try again.</p>
+            </div>
+          ) : (
+            <ProductsList initialProducts={products} />
+          )}
         </Section>
       </main>
       <Footer />
