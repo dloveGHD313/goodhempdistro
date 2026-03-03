@@ -1,7 +1,8 @@
 import { Metadata } from "next";
+import { Suspense } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getUserVerificationStatus } from "@/lib/server/idVerification";
-import { getCategoriesCoaRequirementMap } from "@/lib/compliance";
+import { getProducts } from "@/lib/server/products";
 import Footer from "@/components/Footer";
 import ProductsList from "./ProductsList";
 import MarketSwitcher from "@/components/market/MarketSwitcher";
@@ -12,142 +13,7 @@ export const metadata: Metadata = {
   description: "Browse our premium hemp products",
 };
 
-// Force dynamic rendering for filtering
 export const dynamic = 'force-dynamic';
-
-type Product = {
-  id: string;
-  name: string;
-  category_id: string | null;
-  price_cents: number;
-  is_gated: boolean;
-  market_category: string | null;
-  market_mode: "gated" | "ungated";
-  featured: boolean;
-  description?: string | null;
-  vendor_id?: string | null;
-  vendor_name?: string | null;
-  /** When true, category requires COA (Phase 3B: logged-out shop hides these). */
-  category_requires_coa?: boolean;
-};
-
-async function getProducts(
-  vendorId?: string | null,
-  includeGated = false,
-  /** When true, only return products whose category does NOT require COA (Phase 3B: public shop). */
-  publicShopOnly = false
-): Promise<{
-  products: Product[];
-  vendorName?: string | null;
-}> {
-  try {
-    const supabase = await createSupabaseServerClient();
-    let vendorName: string | null = null;
-    if (vendorId) {
-      const { data: vendor } = await supabase
-        .from("vendors")
-        .select("id, business_name, status")
-        .eq("id", vendorId)
-        .maybeSingle();
-
-      if (!vendor || vendor.status !== "active") {
-        return { products: [], vendorName: null };
-      }
-      vendorName = vendor.business_name;
-    }
-
-    const query = supabase
-      .from("products")
-      .select("id, name, category_id, price_cents, is_gated, market_category, featured, description, vendor_id")
-      .eq("status", "approved") // Only approved products
-      .eq("active", true) // Only active products
-      .order("created_at", { ascending: false });
-    if (!includeGated) {
-      query.eq("is_gated", false);
-    }
-
-    const { data, error } = vendorId
-      ? await query.eq("vendor_id", vendorId)
-      : await query;
-
-    if (error) {
-      console.error("[products] Error fetching products:", error);
-      return { products: [], vendorName };
-    }
-
-    const rawProducts = data || [];
-    // Exclude products without vendor_id consistently (vendorless products not visible on list)
-    const withVendor = rawProducts.filter((p) => p.vendor_id != null && String(p.vendor_id).trim() !== "");
-    const vendorIds = Array.from(new Set(withVendor.map((p) => p.vendor_id).filter(Boolean))) as string[];
-
-    // FIXED: prefer-const - object is mutated, not reassigned
-    const vendorMap: Record<string, string> = {};
-    const activeVendorIds = new Set<string>();
-    let vendorStatusLookupOk = true;
-    if (vendorIds.length > 0) {
-      const { data: vendors, error: vendorError } = await supabase
-        .from("vendors")
-        .select("id, business_name, status")
-        .in("id", vendorIds);
-      if (vendorError) {
-        vendorStatusLookupOk = false;
-        console.warn("[products] Vendor status lookup failed; skipping active-vendor filter", {
-          code: vendorError.code,
-          message: vendorError.message?.slice(0, 100),
-        });
-      } else {
-        (vendors || []).forEach((v) => {
-          if (v?.id && v?.status === "active") {
-            activeVendorIds.add(v.id);
-            vendorMap[v.id] = v.business_name || "Verified Vendor";
-          }
-        });
-      }
-    }
-
-    // Only apply active-vendor filter when lookup succeeded; otherwise avoid silently hiding all products
-    const visibleProducts = vendorStatusLookupOk
-      ? withVendor.filter((p) => p.vendor_id && activeVendorIds.has(p.vendor_id))
-      : withVendor;
-
-    const categoryIds = Array.from(
-      new Set(
-        visibleProducts
-          .map((p) => p.category_id)
-          .filter((id): id is string => typeof id === "string" && id.trim().length > 0)
-      )
-    );
-    const coaMap = await getCategoriesCoaRequirementMap(supabase, categoryIds);
-
-    let products = visibleProducts.map((product) => {
-      const marketMode: "gated" | "ungated" =
-        product.is_gated ||
-        product.market_category === "RECREATIONAL" ||
-        product.market_category === "INTOXICATING"
-          ? "gated"
-          : "ungated";
-      const categoryRequiresCoa =
-        product.category_id != null && product.category_id.trim() !== ""
-          ? coaMap[product.category_id] ?? true
-          : true;
-      return {
-        ...product,
-        market_mode: marketMode,
-        vendor_name: vendorName || (product.vendor_id ? vendorMap[product.vendor_id] : null) || null,
-        category_requires_coa: categoryRequiresCoa,
-      };
-    });
-
-    if (publicShopOnly) {
-      products = products.filter((p) => p.category_requires_coa !== true);
-    }
-
-    return { products, vendorName };
-  } catch (err) {
-    console.error("[products] Fatal error fetching products:", err);
-    return { products: [], vendorName: null };
-  }
-}
 
 function ProductSkeleton() {
   return (
@@ -166,15 +32,42 @@ function ProductSkeleton() {
 export default async function ProductsPage({
   searchParams,
 }: {
-  searchParams?: { vendor?: string };
+  searchParams?: Promise<{ vendor?: string }>;
 }) {
-  const vendorId = searchParams?.vendor || null;
+  const resolvedSearchParams = await searchParams;
+  const vendorId = resolvedSearchParams?.vendor || null;
   const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError) {
+    console.warn("[products] Auth error, treating user as logged-out:", authError.message);
+  }
+  const user = authData?.user ?? null;
+
   const verification = await getUserVerificationStatus(user?.id ?? null);
   const includeGated = verification.status === "approved";
   const publicShopOnly = !user;
-  const { products, vendorName } = await getProducts(vendorId, includeGated, publicShopOnly);
+  const { products, vendorName, productsLookupFailed } = await getProducts(supabase, vendorId, includeGated, publicShopOnly);
+
+  if (productsLookupFailed) {
+    return (
+      <div className="min-h-screen text-white flex flex-col items-center justify-center">
+        <p className="text-lg text-muted">We had trouble loading products. Please try again shortly.</p>
+      </div>
+    );
+  }
+
+  let catalogueEmpty = false;
+  if (products.length === 0) {
+    let countQuery = supabase
+      .from("products")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "approved")
+      .eq("active", true);
+    if (vendorId) countQuery = countQuery.eq("vendor_id", vendorId);
+    const { count } = await countQuery;
+    catalogueEmpty = (count ?? 0) === 0;
+  }
 
   return (
     <div className="min-h-screen text-white flex flex-col">
@@ -225,7 +118,12 @@ export default async function ProductsPage({
             </div>
           </HeroParallax>
 
-          <ProductsList initialProducts={products} />
+          <Suspense fallback={<ProductSkeleton />}>
+            <ProductsList
+              initialProducts={products}
+              catalogueEmpty={catalogueEmpty}
+            />
+          </Suspense>
         </Section>
       </main>
       <Footer />

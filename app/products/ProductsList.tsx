@@ -26,9 +26,10 @@ type Product = {
 type Props = {
   initialProducts: Product[];
   initialCategoryId?: string | null;
+  catalogueEmpty?: boolean;
 };
 
-export default function ProductsList({ initialProducts, initialCategoryId }: Props) {
+export default function ProductsList({ initialProducts, initialCategoryId, catalogueEmpty = false }: Props) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const { mode, isVerified } = useMarketMode();
   const [categories, setCategories] = useState<Category[]>([]);
@@ -165,8 +166,12 @@ export default function ProductsList({ initialProducts, initialCategoryId }: Pro
 
       {filteredProducts.length === 0 ? (
         <div className="text-center py-16 card-glass p-8">
-          <p className="text-muted text-lg mb-2">No products match your filters.</p>
-          <p className="text-muted">Try adjusting the search or category.</p>
+          <p className="text-muted text-lg mb-2">
+            {catalogueEmpty ? "Marketplace Coming Online" : "No products match your filters."}
+          </p>
+          <p className="text-muted">
+            {catalogueEmpty ? "More products are being added soon. Please check back shortly." : "Try adjusting the search or category."}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
