@@ -178,6 +178,22 @@ export default async function ProductsPage({
   const publicShopOnly = !user;
   const { products, vendorName, productsLookupFailed } = await getProducts(vendorId, includeGated, publicShopOnly);
 
+  // catalogueEmpty must reflect whether any approved products exist in the DB at all —
+  // not whether the access-filtered list is empty. products[] excludes gated/COA-required
+  // items for certain users, so products.length===0 can be true even when inventory exists.
+  // A separate unfiltered count query avoids the false "Coming Online" state for restricted users.
+  let catalogueEmpty = false;
+  if (products.length === 0) {
+    const countQuery = supabase
+      .from("products")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "approved")
+      .eq("active", true);
+    if (vendorId) countQuery.eq("vendor_id", vendorId);
+    const { count } = await countQuery;
+    catalogueEmpty = (count ?? 0) === 0;
+  }
+
   return (
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
@@ -227,14 +243,10 @@ export default async function ProductsPage({
             </div>
           </HeroParallax>
 
-          {productsLookupFailed ? (
-            <div className="card-glass p-6 mb-6 border border-amber-500/50 text-amber-200">
-              <p className="text-lg font-semibold mb-2">We couldn't load products right now.</p>
-              <p className="text-sm text-amber-100/90">Please refresh in a moment to try again.</p>
-            </div>
-          ) : (
-            <ProductsList initialProducts={products} />
-          )}
+          <ProductsList
+            initialProducts={products}
+            catalogueEmpty={catalogueEmpty}
+          />
         </Section>
       </main>
       <Footer />
