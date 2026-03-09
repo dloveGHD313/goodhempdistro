@@ -119,16 +119,6 @@ export default function NewProductPage() {
       return;
     }
 
-    // Phase 2: COA required when category requires it (vendor-only; admin bypass)
-    if (!isAdmin && categoryRequiresCoa) {
-      const hasCoa = (useManualUrl && (coaUrl?.trim() ?? "").length > 0) || (!useManualUrl && (coaObjectPath?.trim() ?? "").length > 0);
-      if (!hasCoa) {
-        setError("COA is required for this product category. Please add a full panel COA URL, or create the product and upload COA on the edit page.");
-        setLoading(false);
-        return;
-      }
-    }
-
     try {
       if (productType === "intoxicating" && !isIntoxicatingAllowedNow()) {
         setError(`Recreational products are only allowed until ${getIntoxicatingCutoffDate()}. The cutoff date has passed.`);
