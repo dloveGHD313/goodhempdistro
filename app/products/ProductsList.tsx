@@ -200,6 +200,9 @@ export default function ProductsList({ initialProducts, initialCategoryId, catal
           <div className="text-center py-16 card-glass p-8">
             <p className="text-muted text-lg mb-2">No products match your filters.</p>
             <p className="text-muted">Try adjusting the search or category.</p>
+            <Link href="/products" className="btn-secondary inline-flex mt-4">
+              Clear Filters
+            </Link>
           </div>
         )
       ) : (
@@ -232,13 +235,11 @@ export default function ProductsList({ initialProducts, initialCategoryId, catal
                 <div className="group">
                   <div className="aspect-square bg-[var(--surface)]/60 rounded-lg mb-4" />
                   <h3 className="text-xl font-semibold mb-2">{product.name}</h3>
+                  <p className="text-sm text-muted">{product.vendor_name ?? "Unknown Vendor"}</p>
                   <p className="text-muted mb-2 text-sm">{categoryName}</p>
                   <p className="text-muted text-sm mb-3">
                     {summary.length > 120 ? `${summary.slice(0, 120)}...` : summary}
                   </p>
-                  {product.vendor_name && (
-                    <p className="text-xs text-muted">Vendor: {product.vendor_name}</p>
-                  )}
                 </div>
               ) : (
                 <Link href={`/products/${product.id}`} className="group">
@@ -246,13 +247,11 @@ export default function ProductsList({ initialProducts, initialCategoryId, catal
                   <h3 className="text-xl font-semibold mb-2 group-hover:text-accent transition">
                     {product.name}
                   </h3>
+                  <p className="text-sm text-muted">{product.vendor_name ?? "Unknown Vendor"}</p>
                   <p className="text-muted mb-2 text-sm">{categoryName}</p>
                   <p className="text-muted text-sm mb-3">
                     {summary.length > 120 ? `${summary.slice(0, 120)}...` : summary}
                   </p>
-                  {product.vendor_name && (
-                    <p className="text-xs text-muted">Vendor: {product.vendor_name}</p>
-                  )}
                 </Link>
               )}
               <div className="flex flex-wrap gap-2 mt-4 mb-4">
