@@ -207,7 +207,7 @@ export default async function VendorDashboardPage() {
       <main className="flex-1">
         <section className="section-shell">
           <div className="mb-8">
-            <h1 className="text-4xl font-bold mb-2 text-accent">{vendor.business_name}</h1>
+            <h1 className="text-4xl font-bold mb-2 text-accent">{vendor.business_name ?? "N/A"}</h1>
             <p className="text-muted">Vendor Dashboard</p>
           </div>
 
