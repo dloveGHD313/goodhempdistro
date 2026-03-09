@@ -90,6 +90,21 @@ export default function WelcomeClient(_props: WelcomeClientProps = {}) {
         </div>
       </Reveal>
 
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-12 px-4 max-w-4xl mx-auto text-center w-full">
+        <div>
+          <p className="text-lg font-semibold">🧪 Lab-Tested Products</p>
+          <p className="text-muted text-sm mt-1">Every product backed by verified COA documentation</p>
+        </div>
+        <div>
+          <p className="text-lg font-semibold">✅ Verified Vendors Only</p>
+          <p className="text-muted text-sm mt-1">All sellers are reviewed before listing on the platform</p>
+        </div>
+        <div>
+          <p className="text-lg font-semibold">🔒 21+ Compliant Platform</p>
+          <p className="text-muted text-sm mt-1">Age-gated marketplace meeting state compliance requirements</p>
+        </div>
+      </div>
+
       {/* Secondary link */}
       <Reveal delay={HERO_DELAYS.secondary} className="w-full flex justify-center">
         <p className="text-muted text-sm mt-6">

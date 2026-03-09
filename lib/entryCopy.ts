@@ -9,7 +9,7 @@ export type EntryHeroCopy = {
 export const entryHeroCopy = {
   headlineLines: ["The hemp industry,", "all in one place."],
   subtitle: "Community. Commerce. Compliance. Fused.",
-  primaryCTA: { label: "Create Account", href: "/signup" },
-  secondaryCTA: { label: "Sign In", href: "/login" },
+  primaryCTA: { label: "Browse the Marketplace", href: "/products" },
+  secondaryCTA: { label: "Become a Vendor", href: "/vendor-registration" },
   scrollHint: "Choose your path",
 } as const satisfies EntryHeroCopy;
