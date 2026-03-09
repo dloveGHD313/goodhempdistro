@@ -39,6 +39,7 @@ async function getProducts(
 ): Promise<{
   products: Product[];
   vendorName?: string | null;
+  productsLookupFailed: boolean;
 }> {
   try {
     const supabase = await createSupabaseServerClient();
@@ -51,7 +52,7 @@ async function getProducts(
         .maybeSingle();
 
       if (!vendor || vendor.status !== "active") {
-        return { products: [], vendorName: null };
+        return { products: [], vendorName: null, productsLookupFailed: false };
       }
       vendorName = vendor.business_name;
     }
@@ -72,7 +73,7 @@ async function getProducts(
 
     if (error) {
       console.error("[products] Error fetching products:", error);
-      return { products: [], vendorName };
+      return { products: [], vendorName, productsLookupFailed: true };
     }
 
     const rawProducts = data || [];
@@ -142,10 +143,10 @@ async function getProducts(
       products = products.filter((p) => p.category_requires_coa !== true);
     }
 
-    return { products, vendorName };
+    return { products, vendorName, productsLookupFailed: false };
   } catch (err) {
     console.error("[products] Fatal error fetching products:", err);
-    return { products: [], vendorName: null };
+    return { products: [], vendorName: null, productsLookupFailed: true };
   }
 }
 
@@ -168,13 +169,14 @@ export default async function ProductsPage({
 }: {
   searchParams?: { vendor?: string };
 }) {
-  const vendorId = searchParams?.vendor || null;
+  const resolvedParams = await searchParams;
+  const vendorId = resolvedParams?.vendor || null;
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   const verification = await getUserVerificationStatus(user?.id ?? null);
   const includeGated = verification.status === "approved";
   const publicShopOnly = !user;
-  const { products, vendorName } = await getProducts(vendorId, includeGated, publicShopOnly);
+  const { products, vendorName, productsLookupFailed } = await getProducts(vendorId, includeGated, publicShopOnly);
 
   // catalogueEmpty must reflect whether any approved products exist in the DB at all —
   // not whether the access-filtered list is empty. products[] excludes gated/COA-required
@@ -240,6 +242,13 @@ export default async function ProductsPage({
               ))}
             </div>
           </HeroParallax>
+
+          {productsLookupFailed && (
+            <div className="bg-amber-50 border border-amber-300 text-amber-800 rounded-lg p-4 mb-6">
+              <p className="font-semibold">Some products could not be loaded.</p>
+              <p className="text-sm">Please refresh the page or try again shortly.</p>
+            </div>
+          )}
 
           <ProductsList
             initialProducts={products}
