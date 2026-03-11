@@ -1,90 +1,168 @@
-import Link from "next/link";
+import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import Footer from "@/components/Footer";
 import { createSupabaseServerClient } from "@/lib/supabase";
-import { hasRole } from "@/lib/roles";
 
-export default async function WholesalePage() {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const isLoggedIn = !!user?.id;
+export const metadata: Metadata = {
+  title: "Wholesale Hemp Distribution | GoodHempDistro",
+  description:
+    "Bulk hemp products for retailers and brands. Verified COAs, competitive pricing, and dedicated account support through GoodHempDistro's wholesale program.",
+};
 
-  let profile: { role?: string | null; roles?: string[] | null } | null = null;
-  let application: { status: string; submitted_at?: string } | null = null;
-  if (user?.id) {
-    const [profileRes, appRes] = await Promise.all([
-      supabase.from("profiles").select("role, roles").eq("id", user.id).single(),
-      supabase.from("wholesale_applications").select("status, submitted_at").eq("user_id", user.id).order("submitted_at", { ascending: false }).limit(1).maybeSingle(),
-    ]);
-    profile = profileRes.data ?? null;
-    application = appRes.data ?? null;
+async function submitInquiry(formData: FormData) {
+  "use server";
+
+  const business_name = String(formData.get("business_name") || "").trim();
+  const contact_name = String(formData.get("contact_name") || "").trim();
+  const email = String(formData.get("email") || "").trim();
+  const phone = String(formData.get("phone") || "").trim();
+  const category = String(formData.get("category") || "").trim();
+  const volume = String(formData.get("volume") || "").trim();
+  const message = String(formData.get("message") || "").trim();
+
+  if (!business_name || !contact_name || !email || !category) {
+    redirect("/wholesale?error=1");
   }
 
-  const hasWholesaleAccess = isLoggedIn && hasRole(profile ?? undefined, "wholesale");
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.from("wholesale_inquiries").insert({
+    business_name,
+    contact_name,
+    email,
+    phone: phone || null,
+    category,
+    volume: volume || null,
+    message: message || null,
+  });
+
+  if (error) {
+    redirect("/wholesale?error=1");
+  }
+
+  redirect("/wholesale?submitted=1");
+}
+
+export default async function WholesalePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ submitted?: string; error?: string }>;
+}) {
+  const params = await searchParams;
+  const submitted = params.submitted === "1";
+  const hasError = params.error === "1";
 
   return (
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
         <section className="section-shell">
-          <div className="max-w-4xl mx-auto space-y-6">
-            <div className="surface-card p-8">
-              <h1 className="text-4xl font-bold mb-4 text-accent">Wholesale</h1>
-              <p className="text-muted">
-                Wholesale access for approved buyers and vetted vendors.
+          <div className="max-w-5xl mx-auto space-y-8">
+            <div className="card-glass p-8 md:p-10">
+              <h1 className="text-4xl md:text-5xl font-bold mb-4 text-accent">
+                Wholesale Hemp Distribution — Built for Retailers &amp; Brands
+              </h1>
+              <p className="text-muted text-lg">
+                Access bulk pricing, verified COA products, and dedicated account support.
               </p>
             </div>
 
-            {/* A: Not logged in */}
-            {!isLoggedIn && (
-              <div className="card-glass p-8 text-center space-y-4">
-                <p className="text-muted">Sign in or create an account to apply for wholesale access.</p>
-                <div className="flex gap-3 flex-wrap justify-center">
-                  <Link href="/login" className="btn-primary">Sign in</Link>
-                  <Link href="/get-started" className="btn-secondary">Get Started</Link>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="surface-card p-6">
+                <h2 className="text-xl font-semibold mb-2">📦 Bulk Pricing</h2>
+                <p className="text-muted">Volume discounts across all product categories</p>
               </div>
-            )}
+              <div className="surface-card p-6">
+                <h2 className="text-xl font-semibold mb-2">🧪 Verified COA Products</h2>
+                <p className="text-muted">Every product comes with lab-verified documentation</p>
+              </div>
+              <div className="surface-card p-6">
+                <h2 className="text-xl font-semibold mb-2">🤝 Dedicated Account Support</h2>
+                <p className="text-muted">A real person manages your account from day one</p>
+              </div>
+            </div>
 
-            {/* B/C: Logged in, no wholesale access — four sub-states: pending, approved-but-no-role, rejected, no app */}
-            {isLoggedIn && !hasWholesaleAccess && (
-              <div className="card-glass p-8 space-y-4">
-                {application?.status === "pending" && (
-                  <>
-                    <p className="text-muted">Your application is under review. We&apos;ll notify you once it&apos;s processed.</p>
-                    {application.submitted_at && (
-                      <p className="text-muted text-sm">Submitted {new Date(application.submitted_at).toLocaleDateString()}.</p>
-                    )}
-                  </>
-                )}
-                {application?.status === "approved" && (
-                  <p className="text-muted">Your application has been approved. Your account access is being set up — please refresh in a moment or contact support if this persists.</p>
-                )}
-                {application?.status === "rejected" && (
-                  <>
-                    <p className="text-muted">Your previous application was not approved. You may re-apply with updated information.</p>
-                    <p className="text-muted text-sm">Apply for wholesale access by submitting your business details and resale/wholesale certificate.</p>
-                    <div className="flex gap-3 flex-wrap">
-                      <Link href="/wholesale/apply" className="btn-primary">Re-apply for access</Link>
-                    </div>
-                  </>
-                )}
-                {!application && (
-                  <>
-                    <p className="text-muted">Apply for wholesale access by submitting your business details and resale/wholesale certificate.</p>
-                    <div className="flex gap-3 flex-wrap">
-                      <Link href="/wholesale/apply" className="btn-primary">Apply for access</Link>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
+            <div className="surface-card p-8">
+              <h2 className="text-2xl font-semibold mb-6">Wholesale Inquiry Form</h2>
 
-            {/* D: Wholesale access approved */}
-            {hasWholesaleAccess && (
-              <div className="card-glass p-8 text-center space-y-4">
-                <p className="text-accent font-semibold">Wholesale Access Approved</p>
-                <p className="text-muted">Wholesale listings are coming soon. You&apos;ll be notified when they&apos;re available.</p>
-              </div>
-            )}
+              {submitted ? (
+                <p className="text-accent font-semibold">
+                  Thank you! Our wholesale team will be in touch within 24 hours.
+                </p>
+              ) : (
+                <form action={submitInquiry} className="space-y-5">
+                  {hasError && (
+                    <div className="p-3 rounded bg-red-500/20 text-red-200 text-sm" role="alert">
+                      Submission failed. Please email us directly to reach our team.
+                    </div>
+                  )}
+
+                  <div>
+                    <label htmlFor="business_name" className="block text-sm font-medium text-muted mb-1">
+                      Business Name
+                    </label>
+                    <input id="business_name" name="business_name" type="text" required className="input-shell w-full" />
+                  </div>
+
+                  <div>
+                    <label htmlFor="contact_name" className="block text-sm font-medium text-muted mb-1">
+                      Contact Name
+                    </label>
+                    <input id="contact_name" name="contact_name" type="text" required className="input-shell w-full" />
+                  </div>
+
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-muted mb-1">
+                      Email
+                    </label>
+                    <input id="email" name="email" type="email" required className="input-shell w-full" />
+                  </div>
+
+                  <div>
+                    <label htmlFor="phone" className="block text-sm font-medium text-muted mb-1">
+                      Phone
+                    </label>
+                    <input id="phone" name="phone" type="tel" className="input-shell w-full" />
+                  </div>
+
+                  <div>
+                    <label htmlFor="category" className="block text-sm font-medium text-muted mb-1">
+                      Product Category Interest
+                    </label>
+                    <select id="category" name="category" required className="input-shell w-full">
+                      <option value="">Select...</option>
+                      <option value="Flower">Flower</option>
+                      <option value="Edibles">Edibles</option>
+                      <option value="Topicals">Topicals</option>
+                      <option value="Concentrates">Concentrates</option>
+                      <option value="All Categories">All Categories</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="volume" className="block text-sm font-medium text-muted mb-1">
+                      Monthly Volume Estimate
+                    </label>
+                    <select id="volume" name="volume" className="input-shell w-full">
+                      <option value="">Select...</option>
+                      <option value="Under $5k">Under $5k</option>
+                      <option value="$5k–$25k">$5k–$25k</option>
+                      <option value="$25k–$100k">$25k–$100k</option>
+                      <option value="$100k+">$100k+</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="message" className="block text-sm font-medium text-muted mb-1">
+                      Message
+                    </label>
+                    <textarea id="message" name="message" rows={4} className="input-shell w-full" />
+                  </div>
+
+                  <button type="submit" className="btn-primary">
+                    Submit Inquiry
+                  </button>
+                </form>
+              )}
+            </div>
           </div>
         </section>
       </main>
