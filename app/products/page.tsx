@@ -8,8 +8,17 @@ import MarketSwitcher from "@/components/market/MarketSwitcher";
 import { Reveal, Section, HoverLift, HeroParallax } from "@/components/motion";
 
 export const metadata: Metadata = {
-  title: "Products | Good Hemp Distro",
-  description: "Browse our premium hemp products",
+  title: "Browse Hemp Products | GoodHempDistro",
+  description:
+    "Shop verified, lab-tested hemp products from approved vendors. Filter by category and find exactly what you need on GoodHempDistro.",
+  openGraph: {
+    title: "Browse Hemp Products | GoodHempDistro",
+    description:
+      "Shop verified, lab-tested hemp products from approved vendors on GoodHempDistro.",
+    url: "https://www.goodhempdistro.com/products",
+    siteName: "GoodHempDistro",
+    type: "website",
+  },
 };
 
 // Force dynamic rendering for filtering
