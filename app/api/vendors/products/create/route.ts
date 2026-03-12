@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { getCategoryCoaRequirement, validateProductCompliance } from "@/lib/compliance";
-import { isAdminEmail } from "@/lib/admin";
-import { requireAdminUsers } from "@/lib/auth/requireAdminUsers";
+import { resolveIsAdmin } from "@/lib/server/isAdmin";
 import { requireVendorActive } from "@/lib/server/vendorStatusGate";
 import { getProductLimitStatus, getVendorEntitlements, getVendorPlanByPriceId } from "@/lib/pricing";
 
@@ -37,8 +36,7 @@ export async function POST(req: NextRequest) {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-    const { isAdmin: isAdminByTable } = await requireAdminUsers(req);
-    const isAdmin = isAdminByTable || isAdminEmail(user?.email);
+    const isAdmin = user?.email ? await resolveIsAdmin(user.id, user.email) : false;
 
     logStage("auth_check", {
       userId: user?.id || null,
