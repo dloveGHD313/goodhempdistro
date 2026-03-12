@@ -489,6 +489,7 @@ export const NAV_PRIMARY: NavItemLegacy[] = [
   { label: "👋 Welcome", href: "/welcome" },
   { label: "Feed", href: "/newsfeed" },
   { label: "Discover", href: "/discover" },
+  { label: "Shop", href: "/products" },
   { label: "Events", href: "/events" },
   { label: "Episodes", href: "/learning-with-jax" },
 ];
@@ -500,12 +501,24 @@ export const NAV_COMMUNITY: NavItemLegacy[] = [
 ];
 
 export const NAV_BUSINESS: NavItemLegacy[] = [
-  { label: "🏪 Vendors", href: "/vendors" },
-  { label: "🛠️ Services", href: "/services" },
-  { label: "🏢 Wholesale", href: "/wholesale" },
-  { label: "🚚 Logistics", href: "/logistics" },
-  { label: "🚗 Driver Network", href: "/logistics/apply" },
-  { label: "🤝 Vendor Registration", href: "/vendor-registration" },
+  { label: "Vendor Registration", href: "/vendor-registration" },
+  { label: "Become a Driver", href: "/logistics/apply" },
+  { label: "Affiliate Portal", href: "/affiliate/portal" },
+  { label: "Request Delivery", href: "/delivery/request" },
+  { label: "Wholesale Inquiry", href: "/wholesale" },
+  { label: "Feature on Learning with Jax", href: "/learning/jax" },
+  { label: "Services", href: "/services" },
+];
+
+export const NAV_SERVICES: NavItemLegacy[] = [
+  { label: "Hemp Developers", href: "/services?category=hemp-developers" },
+  { label: "Cannabis Attorneys", href: "/services?category=cannabis-attorneys" },
+  { label: "Cannabis-Approved Banks", href: "/services?category=cannabis-banks" },
+  { label: "Insurance Providers", href: "/services?category=insurance-providers" },
+  { label: "Farm Leasing", href: "/services?category=farm-leasing" },
+  { label: "White-Label Partners", href: "/services?category=white-label" },
+  { label: "COA Analysis Companies", href: "/services?category=coa-analysis" },
+  { label: "Wholesalers", href: "/services?category=wholesalers" },
 ];
 
 export const NAV_ADMIN: NavItemLegacy[] = [
