@@ -1,11 +1,11 @@
 import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase";
-import { isAdminEmail } from "@/lib/admin";
+import { resolveIsAdmin } from "@/lib/server/isAdmin";
 
-/** Single source of truth: profiles.vendor_status. Only "pending" | "active". Admin bypass: isAdminEmail(ADMIN_EMAILS) allows access without DB check; API admin uses admin_users elsewhere. */
+/** Single source of truth: profiles.vendor_status. Only "pending" | "active". Admin bypass uses resolveIsAdmin() for allowlist + admin_users + profile role. */
 export async function getVendorStatus(userId: string | null, userEmail?: string | null): Promise<"pending" | "active" | null> {
   if (!userId) return null;
-  if (isAdminEmail(userEmail)) return "active";
+  if (userEmail && (await resolveIsAdmin(userId, userEmail))) return "active";
 
   const supabase = await createSupabaseServerClient();
   const { data } = await supabase
@@ -27,7 +27,7 @@ export async function requireVendorActive(
   if (!userId) {
     return { allowed: false, status: 403, json: { error: "Unauthorized" } };
   }
-  if (isAdminEmail(userEmail)) {
+  if (userEmail && (await resolveIsAdmin(userId, userEmail))) {
     return { allowed: true };
   }
   const status = await getVendorStatus(userId, userEmail);
