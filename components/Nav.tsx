@@ -401,16 +401,14 @@ export default function Nav() {
 
         {isLoggedIn && (
           <div className="relative group">
-            <HoverLift as="span">
-              <button
-                type="button"
-                onClick={() => setOpenMenu((m) => (m === "account" ? null : "account"))}
-                className="nav-link text-sm whitespace-nowrap flex items-center gap-1"
-              >
-                Account
-                <span className="text-xs">▼</span>
-              </button>
-            </HoverLift>
+            <button
+              type="button"
+              onClick={() => setOpenMenu((m) => (m === "account" ? null : "account"))}
+              className="nav-link text-sm whitespace-nowrap flex items-center gap-1"
+            >
+              Account
+              <span className="text-xs">▼</span>
+            </button>
             <div className={`absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg transition-all z-50 min-w-[200px] ${openMenu === "account" ? "opacity-100 visible" : "opacity-0 invisible"} group-hover:opacity-100 group-hover:visible`}>
               {accountLinks.map((link) => (
                 <HoverLift key={link.href} as="span">
