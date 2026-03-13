@@ -181,6 +181,10 @@ export default function Nav() {
     return () => document.removeEventListener("click", onDocumentClick);
   }, []);
 
+  useEffect(() => {
+    setOpenMenu(null);
+  }, [pathname]);
+
 
   const handleLogout = useCallback(async () => {
     flushSync(() => {
