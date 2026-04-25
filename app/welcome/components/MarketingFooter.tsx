@@ -13,13 +13,13 @@ const consumerLinks = [
   { href: "/vendors", label: "Discover Vendors" },
   { href: "/education", label: "Education Hub" },
   { href: "/learning-with-jax", label: "Learning with Jax" },
-  { href: "/delivery", label: "Find Delivery" },
+  { href: "/delivery/request", label: "Request Delivery" },
 ];
 
 const companyLinks = [
   { href: "/about", label: "About GHD" },
   { href: "/blog", label: "Blog" },
-  { href: "/compliance", label: "Compliance" },
+  { href: "/about", label: "Compliance Info" },
   { href: "/privacy", label: "Privacy Policy" },
   { href: "/terms", label: "Terms of Service" },
   { href: "/contact", label: "Contact" },
