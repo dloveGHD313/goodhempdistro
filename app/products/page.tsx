@@ -207,7 +207,7 @@ export default async function ProductsPage({
   // not whether the access-filtered list is empty. products[] excludes gated/COA-required
   // items for certain users, so products.length===0 can be true even when inventory exists.
   // A separate unfiltered count query avoids the false "Coming Online" state for restricted users.
-  let catalogueEmpty = false;
+ 
   if (products.length === 0) {
     const countQuery = supabase
       .from("products")
