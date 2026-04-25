@@ -168,32 +168,31 @@ export default function ProductsList({ initialProducts, initialCategoryId, catal
       {filteredProducts.length === 0 ? (
         catalogueEmpty ? (
           /* ── Case A: No approved products in DB yet ── */
-          <div className="text-center py-20 card-glass p-10 max-w-2xl mx-auto space-y-6">
-            <div className="text-5xl mb-2" aria-hidden="true">🌿</div>
-            <h2 className="text-2xl font-bold text-accent">Marketplace Coming Online</h2>
-            <p className="text-muted text-base leading-relaxed max-w-md mx-auto">
-              Verified vendors are completing onboarding. Inventory will populate as approvals are finalized.
+          <div className="text-center py-20 px-6 card-glass p-10 max-w-2xl mx-auto">
+            <p className="text-xs uppercase tracking-widest text-[#3CB97A] mb-4">
+              Marketplace
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+            <h2 className="text-3xl font-serif text-[#F0EDE6] mb-4">
+              Products arriving soon
+            </h2>
+            <p className="text-[#8A9E96] max-w-md mx-auto mb-8">
+              Verified hemp vendors are listing their products now.
+              Be the first to know when new products are available in your area.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 href="/vendor-registration"
-                className="btn-primary inline-block text-center px-6 py-3"
+                className="px-6 py-3 bg-[#3CB97A] text-[#0D1512] font-semibold rounded-lg hover:opacity-90 text-sm"
               >
-                Become a Vendor
+                List Your Products →
               </Link>
               <Link
-                href="/signup"
-                className="btn-secondary inline-block text-center px-6 py-3"
+                href="/discover"
+                className="px-6 py-3 border border-white/10 text-[#8A9E96] hover:text-[#F0EDE6] rounded-lg text-sm"
               >
-                Join the Waitlist
+                Browse Vendors →
               </Link>
             </div>
-            <p className="text-muted text-xs pt-2">
-              Already a vendor?{" "}
-              <Link href="/login" className="text-accent hover:underline">
-                Sign in to your dashboard
-              </Link>
-            </p>
           </div>
         ) : (
           /* ── Case B/E: Products exist but filters returned zero ── */

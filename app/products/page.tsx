@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { getUserVerificationStatus } from "@/lib/server/idVerification";
 import { getCategoriesCoaRequirementMap } from "@/lib/compliance";
 import Footer from "@/components/Footer";
@@ -51,10 +52,17 @@ async function getProducts(
   productsLookupFailed: boolean;
 }> {
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = (() => {
+      try {
+        return getSupabaseAdminClient();
+      } catch {
+        return null;
+      }
+    })();
+    const queryClient = supabase ?? (await createSupabaseServerClient());
     let vendorName: string | null = null;
     if (vendorId) {
-      const { data: vendor } = await supabase
+      const { data: vendor } = await queryClient
         .from("vendors")
         .select("id, business_name, status")
         .eq("id", vendorId)
@@ -66,7 +74,7 @@ async function getProducts(
       vendorName = vendor.business_name;
     }
 
-    const query = supabase
+    const query = queryClient
       .from("products")
       .select("id, name, category_id, price_cents, is_gated, market_category, featured, description, vendor_id")
       .eq("status", "approved") // Only approved products
@@ -95,7 +103,7 @@ async function getProducts(
     const activeVendorIds = new Set<string>();
     let vendorStatusLookupOk = true;
     if (vendorIds.length > 0) {
-      const { data: vendors, error: vendorError } = await supabase
+      const { data: vendors, error: vendorError } = await queryClient
         .from("vendors")
         .select("id, business_name, status")
         .in("id", vendorIds);
@@ -127,7 +135,7 @@ async function getProducts(
           .filter((id): id is string => typeof id === "string" && id.trim().length > 0)
       )
     );
-    const coaMap = await getCategoriesCoaRequirementMap(supabase, categoryIds);
+    const coaMap = await getCategoriesCoaRequirementMap(queryClient, categoryIds);
 
     let products = visibleProducts.map((product) => {
       const marketMode: "gated" | "ungated" =
@@ -186,6 +194,13 @@ export default async function ProductsPage({
   const includeGated = verification.status === "approved";
   const publicShopOnly = !user;
   const { products, vendorName, productsLookupFailed } = await getProducts(vendorId, includeGated, publicShopOnly);
+  const countClient = (() => {
+    try {
+      return getSupabaseAdminClient();
+    } catch {
+      return supabase;
+    }
+  })();
 
   // catalogueEmpty must reflect whether any approved products exist in the DB at all —
   // not whether the access-filtered list is empty. products[] excludes gated/COA-required
@@ -193,7 +208,7 @@ export default async function ProductsPage({
   // A separate unfiltered count query avoids the false "Coming Online" state for restricted users.
   let catalogueEmpty = false;
   if (products.length === 0) {
-    const countQuery = supabase
+    const countQuery = countClient
       .from("products")
       .select("id", { count: "exact", head: true })
       .eq("status", "approved")
@@ -203,21 +218,13 @@ export default async function ProductsPage({
     catalogueEmpty = (count ?? 0) === 0;
   }
 
-  // catalogueEmpty must reflect whether any approved products exist in the DB at all —
-  // not whether the access-filtered list is empty. products[] excludes gated/COA-required
-  // items for certain users, so products.length===0 can be true even when inventory exists.
-  // A separate unfiltered count query avoids the false "Coming Online" state for restricted users.
- 
-  if (products.length === 0) {
-    const countQuery = supabase
-      .from("products")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "approved")
-      .eq("active", true);
-    if (vendorId) countQuery.eq("vendor_id", vendorId);
-    const { count } = await countQuery;
-    catalogueEmpty = (count ?? 0) === 0;
-  }
+  console.info("[products/page] query result:", {
+    productCount: products.length,
+    catalogueEmpty,
+    productsLookupFailed,
+    includeGated,
+    publicShopOnly,
+  });
 
   return (
     <div className="min-h-screen text-white flex flex-col">
