@@ -251,7 +251,7 @@ export default function Nav() {
 
   const navPrimaryLinks = isLoggedIn ? NAV_PRIMARY.filter((l) => l.href !== "/welcome") : NAV_PRIMARY;
   const desktopPrimaryLinks = navPrimaryLinks.filter(
-    (link) => link.href !== "/welcome" && (isLoggedIn || link.href !== "/newsfeed")
+    (link) => link.href !== "/welcome" && link.href !== "/newsfeed"
   );
   const mobilePublicLinks = NAV_PUBLIC;
   const mobileDiscoveryLinks = NAV_MOBILE_DISCOVERY;
@@ -304,19 +304,19 @@ export default function Nav() {
   return (
     <nav ref={navRef} aria-label="Main Navigation" className="flex items-center justify-between w-full gap-4">
       {/* Logo/Brand - Visible on all sizes */}
-      <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition shrink-0">
+      <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition shrink-0 min-w-fit">
         <BrandLogo size={44} className="hidden sm:block" />
         <BrandLogo size={36} className="sm:hidden" />
-        <span className="font-bold text-xs sm:text-sm brand-title">
+        <span className="font-bold text-xs sm:text-sm brand-title whitespace-nowrap">
           {brand.name}
         </span>
       </Link>
 
       {/* Desktop nav - hidden on mobile; primary links only */}
-      <div className="hidden md:flex items-center gap-6 flex-1 min-w-0 justify-center overflow-x-auto scrollbar-hide">
+      <div className="hidden md:flex items-center gap-1 lg:gap-2 flex-1 min-w-0 justify-center flex-nowrap">
         {desktopPrimaryLinks.map((link) => (
           <HoverLift key={link.href} as="span">
-            <Link href={link.href} className="nav-link text-sm whitespace-nowrap">
+            <Link href={link.href} className="nav-link text-xs lg:text-sm whitespace-nowrap px-2 lg:px-3">
               {link.label}
             </Link>
           </HoverLift>
@@ -471,15 +471,15 @@ export default function Nav() {
       </div>
 
       {/* Desktop right: model-driven CTAs via getCtaNav (Join Free / Sign in / Add Product) */}
-      <div className="hidden md:flex items-center gap-4 shrink-0 ml-2">
+      <div className="hidden md:flex items-center gap-2 shrink-0 ml-2">
         {ctaItems.map((item) => (
           <HoverLift key={item.id} as="span" className="shrink-0">
             <Link
               href={item.href}
               className={
                 item.id === "cta-sign-in"
-                  ? "btn-ghost text-sm py-2 px-4 whitespace-nowrap"
-                  : "btn-primary text-sm py-2 px-4 whitespace-nowrap"
+                  ? "btn-ghost text-xs lg:text-sm py-2 px-3 lg:px-4 whitespace-nowrap"
+                  : "btn-primary text-xs lg:text-sm py-2 px-3 lg:px-4 whitespace-nowrap"
               }
             >
               {item.label}
