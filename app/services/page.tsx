@@ -117,7 +117,7 @@ export default async function ServicesPage({
         <FeatureSection
           eyebrow="Categories"
           title="Explore by category"
-          description="Placeholder categories; listings will be linked here as they’re added."
+          description="Browse available categories; listings are linked as they’re added."
           contentClassName="px-4"
           gradient
         >

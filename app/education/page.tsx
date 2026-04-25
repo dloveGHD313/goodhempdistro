@@ -35,8 +35,12 @@ export default function EducationPage() {
         gradient
         contentClassName="px-4"
       >
-        <div className="surface-glass rounded-[var(--radius-xl)] p-6 sm:p-8 max-w-2xl">
-          <p className="text-muted">Placeholder: episode list and video grid will go here.</p>
+        <div className="rounded-lg border border-dashed border-[#C9A84C]/30 bg-[#0D1512] p-8 text-center max-w-2xl">
+          <p className="text-sm font-medium text-[#C9A84C] mb-2">Coming Soon</p>
+          <p className="text-[#8A9E96] text-sm">
+            Regional consumer guidance for hemp purchasing is on its way. Check back soon or join our
+            education waitlist.
+          </p>
           <Link href="/discover" className="text-accent hover:underline mt-2 inline-block">
             Browse discover in the meantime →
           </Link>
@@ -49,8 +53,15 @@ export default function EducationPage() {
         description="Find rules and compliance guidance by state. (Resources coming soon.)"
         contentClassName="px-4"
       >
-        <div className="surface-glass rounded-[var(--radius-xl)] p-6 sm:p-8 max-w-2xl">
-          <p className="text-muted">Placeholder: state selector and compliance links will go here.</p>
+        <div className="rounded-lg border border-dashed border-[#3CB97A]/30 bg-[#0D1512] p-8 text-center max-w-2xl">
+          <p className="text-sm font-medium text-[#3CB97A] mb-2">Coming Soon</p>
+          <p className="text-[#8A9E96] text-sm">
+            State-by-state hemp compliance requirements are being compiled. Sign up to be notified when
+            your state is added.
+          </p>
+          <Link href="/signup" className="mt-4 inline-block text-sm text-[#3CB97A] underline hover:opacity-80">
+            Notify me →
+          </Link>
         </div>
       </FeatureSection>
 
