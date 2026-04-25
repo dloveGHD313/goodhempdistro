@@ -55,11 +55,16 @@ describe("Vendor Registration Page", () => {
     mockVendorRow.mockResolvedValue({ data: null, error: null });
   });
 
-  it("redirects to login when no user session exists", async () => {
+  it("renders vendor form when no user session exists", async () => {
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
 
-    await expect(VendorRegistrationPage()).rejects.toThrow("NEXT_REDIRECT");
-    expect(mockRedirect).toHaveBeenCalledWith("/login?redirect=/vendor-registration");
+    const ui = await VendorRegistrationPage();
+    render(ui);
+
+    expect(
+      screen.getByText("Create Your Vendor Account")
+    ).toBeInTheDocument();
+    expect(mockRedirect).not.toHaveBeenCalled();
   });
 
   it("renders vendor form when user has no vendor context", async () => {

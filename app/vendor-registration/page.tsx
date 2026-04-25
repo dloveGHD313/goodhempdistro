@@ -90,22 +90,24 @@ async function getVendorData(userId: string) {
 export default async function VendorRegistrationPage() {
   // Disable caching to ensure fresh data
   noStore();
-  
-  const supabase = await createSupabaseServerClient();
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
+ 
+  let supabase: Awaited<ReturnType<typeof createSupabaseServerClient>> | null = null;
+  let user: { id: string; email?: string | null } | null = null;
+  let userError: string | null = null;
 
-  // CRITICAL: Log SSR user status for debugging
-  if (!user) {
-    console.error("[vendor-registration] SSR user is null - no authenticated session!", {
-      userError: userError?.message || null,
-    });
-    redirect("/login?redirect=/vendor-registration");
+  try {
+    supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.auth.getUser();
+    user = data.user;
+    userError = error?.message ?? null;
+  } catch (error) {
+    console.error("[vendor-registration] auth load failed", error);
   }
 
-  console.log(`[vendor-registration] SSR user exists: userId=${user.id} email=${user.email || 'no-email'}`);
-
-  // Check vendor context first
-  const { hasContext, applicationStatus, hasVendor, vendorStatus, _debug } = await hasVendorContext(supabase, user.id);
+  // Check vendor context only for authenticated users
+  const { hasContext, _debug } = user && supabase
+    ? await hasVendorContext(supabase, user.id)
+    : { hasContext: false, _debug: null };
   
   // Log vendor context for debugging (server-only)
   if (_debug) {
@@ -115,7 +117,7 @@ export default async function VendorRegistrationPage() {
   // If has context, fetch full vendor data
   let vendor: { id: string; business_name: string; status: string; created_at?: string } | null = null;
   
-  if (hasContext) {
+  if (hasContext && user) {
     vendor = await getVendorData(user.id);
     
     if (!vendor && _debug) {
@@ -207,6 +209,12 @@ export default async function VendorRegistrationPage() {
   }
 
   // Show vendor creation form (no context or context but no vendor data)
+  if (!user && userError) {
+    console.error("[vendor-registration] rendering public form without authenticated user", {
+      userError,
+    });
+  }
+
   return (
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
