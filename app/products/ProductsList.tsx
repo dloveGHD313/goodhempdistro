@@ -200,16 +200,6 @@ export default function ProductsList({ initialProducts, initialCategoryId, catal
           <div className="text-center py-16 card-glass p-8">
             <p className="text-muted text-lg mb-2">No products match your filters.</p>
             <p className="text-muted">Try adjusting the search or category.</p>
-            <button
-              type="button"
-              onClick={() => {
-                setSearch("");
-                setSelectedCategoryId("");
-              }}
-              className="btn-secondary inline-flex mt-4"
-            >
-              Clear Filters
-            </button>
           </div>
         )
       ) : (
