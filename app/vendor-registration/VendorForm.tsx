@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getIntoxicatingCutoffDate } from "@/lib/compliance";
-import { getVendorReferralCode, captureVendorReferralCode } from "@/lib/vendorReferral";
+import { getVendorReferralCode } from "@/lib/vendorReferral";
 
 export default function VendorForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [businessName, setBusinessName] = useState("");
   const [description, setDescription] = useState("");
@@ -26,6 +25,35 @@ export default function VendorForm() {
     buildMarker?: string;
     requestId?: string;
   }>({});
+  const [user, setUser] = useState<{ id: string } | null>(null);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const supabaseModule = await import("@/lib/supabase");
+        const createClient = supabaseModule.createSupabaseBrowserClient;
+        if (typeof createClient !== "function") {
+          if (isMounted) setAuthChecked(true);
+          return;
+        }
+        const supabase = createClient();
+        const { data } = await supabase.auth.getUser();
+        if (isMounted) {
+          setUser(data.user ? { id: data.user.id } : null);
+          setAuthChecked(true);
+        }
+      } catch {
+        if (isMounted) setAuthChecked(true);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Check if debug mode is enabled
   useEffect(() => {
@@ -48,7 +76,12 @@ export default function VendorForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    if (!user) {
+      setShowLoginPrompt(true);
+      return;
+    }
+
     // Prevent duplicate submissions
     if (loading || submitted) {
       return;
@@ -139,6 +172,41 @@ export default function VendorForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 surface-card p-8 max-w-2xl mx-auto">
+      {showLoginPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="mx-4 max-w-sm w-full rounded-2xl border border-white/10 bg-[#0D1512] p-8 text-center">
+            <h3 className="text-xl font-serif text-[#F0EDE6] mb-3">
+              Create an account to continue
+            </h3>
+            <p className="text-sm text-[#8A9E96] mb-6">
+              You need a free Good Hemp Distro account to submit your vendor application.
+              It only takes a minute.
+            </p>
+            <div className="flex flex-col gap-3">
+              <a
+                href="/signup?redirect=/vendor-registration"
+                className="w-full rounded-lg bg-[#3CB97A] px-6 py-3 text-sm font-semibold text-[#0D1512] hover:opacity-90 transition-opacity text-center block"
+              >
+                Create Free Account →
+              </a>
+              <a
+                href="/login?redirect=/vendor-registration"
+                className="w-full rounded-lg border border-white/10 px-6 py-3 text-sm text-[#8A9E96] hover:text-[#F0EDE6] transition-colors text-center block"
+              >
+                Already have an account? Sign in
+              </a>
+              <button
+                type="button"
+                onClick={() => setShowLoginPrompt(false)}
+                className="text-xs text-[#8A9E96]/60 hover:text-[#8A9E96] mt-1"
+              >
+                Cancel — go back to form
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <h2 className="text-2xl font-bold mb-6 text-accent">Create Your Vendor Account</h2>
       
       {/* Debug Panel - Visible when ?debug=1 */}
@@ -252,10 +320,10 @@ export default function VendorForm() {
 
       <button
         type="submit"
-        disabled={loading || submitted}
+        disabled={loading || submitted || !authChecked}
         className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {loading ? "Submitting..." : submitted ? "Submitted" : "Create Vendor Account"}
+        {loading ? "Submitting..." : submitted ? "Submitted" : !authChecked ? "Loading..." : "Create Vendor Account"}
       </button>
 
       <p className="text-sm text-muted text-center">
