@@ -491,7 +491,7 @@ export const NAV_PRIMARY: NavItemLegacy[] = [
   { label: "Discover", href: "/discover" },
   { label: "Shop", href: "/products" },
   { label: "Events", href: "/events" },
-  { label: "Episodes", href: "/learning-with-jax" },
+  { label: "Learning with Jax", href: "/learning-with-jax" },
 ];
 
 export const NAV_COMMUNITY: NavItemLegacy[] = [

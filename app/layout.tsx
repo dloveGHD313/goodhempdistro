@@ -5,7 +5,7 @@ import "./globals.css";
 import { validateEnvironmentVariables } from "@/lib/env-validator";
 import { brand, colorVars } from "@/lib/brand";
 import Nav from "@/components/Nav";
-import AgeGateClient from "@/components/AgeGateClient";
+import AgeGate from "@/components/AgeGate";
 import RecoveryHashRedirect from "@/components/RecoveryHashRedirect";
 import MascotGate from "@/components/mascot/MascotGate";
 import PersistWelcomeIntents from "@/components/PersistWelcomeIntents";
@@ -97,7 +97,7 @@ export default function RootLayout({
           <PersistWelcomeIntents />
           <Phase15Gate />
           <MascotGate />
-          <AgeGateClient />
+          <AgeGate />
           <RecoveryHashRedirect />
         </MarketModeProvider>
       </body>
