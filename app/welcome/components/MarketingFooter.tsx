@@ -2,7 +2,7 @@ import Link from "next/link";
 
 const vendorLinks = [
   { href: "/vendor-registration", label: "Vendor Registration" },
-  { href: "/vendor", label: "Vendor Dashboard" },
+  { href: "/vendors/dashboard", label: "Vendor Dashboard" },
   { href: "/wholesale", label: "Wholesale Inquiry" },
   { href: "/services", label: "Become a Service Provider" },
   { href: "/learning-with-jax", label: "Feature on Learning with Jax" },
