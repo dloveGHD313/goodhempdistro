@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { flushSync } from "react-dom";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
@@ -15,6 +15,7 @@ import {
   NAV_ADMIN,
   NAV_PUBLIC,
   NAV_MOBILE_DISCOVERY,
+  NAV_SERVICES,
   shouldHideNav,
   getCtaNav,
   DEFAULT_NAV_CTX,
@@ -46,6 +47,8 @@ export default function Nav() {
   }>({ hasAccess: false, isApproved: false });
   const [isAffiliate, setIsAffiliate] = useState(false);
   const [consumerLoaded, setConsumerLoaded] = useState(false);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const navRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -168,6 +171,21 @@ export default function Nav() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [drawerOpen]);
 
+  useEffect(() => {
+    const onDocumentClick = (e: MouseEvent) => {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) {
+        setOpenMenu(null);
+      }
+    };
+    document.addEventListener("click", onDocumentClick);
+    return () => document.removeEventListener("click", onDocumentClick);
+  }, []);
+
+  useEffect(() => {
+    setOpenMenu(null);
+  }, [pathname]);
+
+
   const handleLogout = useCallback(async () => {
     flushSync(() => {
       setDrawerOpen(false);
@@ -239,10 +257,9 @@ export default function Nav() {
   const mobileDiscoveryLinks = NAV_MOBILE_DISCOVERY;
   const mobilePrimaryLinks = navPrimaryLinks.filter((link) => !NAV_PUBLIC.some((p) => p.href === link.href));
   const mobileCommunityLinks = NAV_COMMUNITY;
-  const businessLinks = isAffiliate
-    ? [{ label: "Affiliate Portal", href: "/affiliate/portal" }, ...NAV_BUSINESS.filter((link) => link.href !== "/affiliate")]
-    : NAV_BUSINESS;
+  const businessLinks = NAV_BUSINESS;
   const mobileBusinessLinks = businessLinks;
+  const servicesLinks = NAV_SERVICES;
 
   // Build canonical NavContext from existing auth state so getCtaNav is model-driven.
   const navRoles: AppRole[] = [];
@@ -285,7 +302,7 @@ export default function Nav() {
   if (shouldHideNav(pathname)) return null;
 
   return (
-    <nav aria-label="Main Navigation" className="flex items-center justify-between w-full gap-4">
+    <nav ref={navRef} aria-label="Main Navigation" className="flex items-center justify-between w-full gap-4">
       {/* Logo/Brand - Visible on all sizes */}
       <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition shrink-0">
         <BrandLogo size={44} className="hidden sm:block" />
@@ -306,10 +323,14 @@ export default function Nav() {
         ))}
 
         <div className="relative group">
-          <button type="button" className="nav-link text-sm whitespace-nowrap flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setOpenMenu((m) => (m === "community" ? null : "community"))}
+            className="nav-link text-sm whitespace-nowrap flex items-center gap-1"
+          >
             Community <span className="text-xs">▼</span>
           </button>
-          <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[200px]">
+          <div className={`absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg transition-all z-50 min-w-[200px] ${openMenu === "community" ? "opacity-100 visible" : "opacity-0 invisible"} group-hover:opacity-100 group-hover:visible`}>
             {NAV_COMMUNITY.map((link) => (
               <HoverLift key={link.href} as="span">
                 <Link href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm whitespace-nowrap">
@@ -321,11 +342,34 @@ export default function Nav() {
         </div>
 
         <div className="relative group">
-          <button type="button" className="nav-link text-sm whitespace-nowrap flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setOpenMenu((m) => (m === "business" ? null : "business"))}
+            className="nav-link text-sm whitespace-nowrap flex items-center gap-1"
+          >
             Business <span className="text-xs">▼</span>
           </button>
-          <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[220px]">
+          <div className={`absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg transition-all z-50 min-w-[220px] ${openMenu === "business" ? "opacity-100 visible" : "opacity-0 invisible"} group-hover:opacity-100 group-hover:visible`}>
             {businessLinks.map((link) => (
+              <HoverLift key={link.href} as="span">
+                <Link href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm whitespace-nowrap">
+                  {link.label}
+                </Link>
+              </HoverLift>
+            ))}
+          </div>
+        </div>
+
+        <div className="relative group">
+          <button
+            type="button"
+            onClick={() => setOpenMenu((m) => (m === "services" ? null : "services"))}
+            className="nav-link text-sm whitespace-nowrap flex items-center gap-1"
+          >
+            Services <span className="text-xs">▼</span>
+          </button>
+          <div className={`absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg transition-all z-50 min-w-[220px] ${openMenu === "services" ? "opacity-100 visible" : "opacity-0 invisible"} group-hover:opacity-100 group-hover:visible`}>
+            {servicesLinks.map((link) => (
               <HoverLift key={link.href} as="span">
                 <Link href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm whitespace-nowrap">
                   {link.label}
@@ -338,12 +382,16 @@ export default function Nav() {
         {isAdmin && (
           <div className="relative group">
             <HoverLift as="span">
-              <Link href="/admin/vendors" className="nav-link text-sm whitespace-nowrap flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setOpenMenu((m) => (m === "admin" ? null : "admin"))}
+                className="nav-link text-sm whitespace-nowrap flex items-center gap-1"
+              >
                 ⚙️ Admin
                 <span className="text-xs">▼</span>
-              </Link>
+              </button>
             </HoverLift>
-            <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[180px]">
+            <div className={`absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg transition-all z-50 min-w-[180px] ${openMenu === "admin" ? "opacity-100 visible" : "opacity-0 invisible"} group-hover:opacity-100 group-hover:visible`}>
               {NAV_ADMIN.map((link) => (
                 <HoverLift key={link.href} as="span">
                   <Link href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm whitespace-nowrap">
@@ -357,13 +405,15 @@ export default function Nav() {
 
         {isLoggedIn && (
           <div className="relative group">
-            <HoverLift as="span">
-              <Link href={accountHref} className="nav-link text-sm whitespace-nowrap flex items-center gap-1">
-                Account
-                <span className="text-xs">▼</span>
-              </Link>
-            </HoverLift>
-            <div className="absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 min-w-[200px]">
+            <button
+              type="button"
+              onClick={() => setOpenMenu((m) => (m === "account" ? null : "account"))}
+              className="nav-link text-sm whitespace-nowrap flex items-center gap-1"
+            >
+              Account
+              <span className="text-xs">▼</span>
+            </button>
+            <div className={`absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg transition-all z-50 min-w-[200px] ${openMenu === "account" ? "opacity-100 visible" : "opacity-0 invisible"} group-hover:opacity-100 group-hover:visible`}>
               {accountLinks.map((link) => (
                 <HoverLift key={link.href} as="span">
                   <Link href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm whitespace-nowrap">
@@ -555,18 +605,46 @@ export default function Nav() {
               ))}
 
               <div className="border-t mt-2 pt-2 nav-drawer-header">
-                <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Business</div>
-              </div>
-              {mobileBusinessLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
-                  onClick={() => setDrawerOpen(false)}
+                <button
+                  type="button"
+                  onClick={() => setOpenMenu((m) => (m === "mobile-business" ? null : "mobile-business"))}
+                  className="px-4 py-2 text-xs uppercase text-muted font-semibold w-full text-left"
                 >
-                  {link.label}
-                </Link>
-              ))}
+                  Business
+                </button>
+              </div>
+              {openMenu === "mobile-business" &&
+                mobileBusinessLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+
+              <div className="border-t mt-2 pt-2 nav-drawer-header">
+                <button
+                  type="button"
+                  onClick={() => setOpenMenu((m) => (m === "mobile-services" ? null : "mobile-services"))}
+                  className="px-4 py-2 text-xs uppercase text-muted font-semibold w-full text-left"
+                >
+                  Services
+                </button>
+              </div>
+              {openMenu === "mobile-services" &&
+                servicesLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
+                    onClick={() => setDrawerOpen(false)}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
 
               {isAdmin && (
                 <>

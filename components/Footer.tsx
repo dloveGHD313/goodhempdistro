@@ -24,6 +24,14 @@ export default function Footer() {
             </HoverLift>
           </div>
         </div>
+        <div className="mt-4 space-y-1 text-xs">
+          <p>
+            These statements have not been evaluated by the Food and Drug
+            Administration. These products are not intended to diagnose, treat,
+            cure, or prevent any disease.
+          </p>
+          <p>This site is intended for adults 21 years of age or older.</p>
+        </div>
       </div>
     </footer>
   );

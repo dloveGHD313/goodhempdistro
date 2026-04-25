@@ -8,8 +8,17 @@ import MarketSwitcher from "@/components/market/MarketSwitcher";
 import { Reveal, Section, HoverLift, HeroParallax } from "@/components/motion";
 
 export const metadata: Metadata = {
-  title: "Products | Good Hemp Distro",
-  description: "Browse our premium hemp products",
+  title: "Browse Hemp Products | GoodHempDistro",
+  description:
+    "Shop verified, lab-tested hemp products from approved vendors. Filter by category and find exactly what you need on GoodHempDistro.",
+  openGraph: {
+    title: "Browse Hemp Products | GoodHempDistro",
+    description:
+      "Shop verified, lab-tested hemp products from approved vendors on GoodHempDistro.",
+    url: "https://www.goodhempdistro.com/products",
+    siteName: "GoodHempDistro",
+    type: "website",
+  },
 };
 
 // Force dynamic rendering for filtering
@@ -39,6 +48,7 @@ async function getProducts(
 ): Promise<{
   products: Product[];
   vendorName?: string | null;
+  productsLookupFailed: boolean;
 }> {
   try {
     const supabase = await createSupabaseServerClient();
@@ -51,7 +61,7 @@ async function getProducts(
         .maybeSingle();
 
       if (!vendor || vendor.status !== "active") {
-        return { products: [], vendorName: null };
+        return { products: [], vendorName: null, productsLookupFailed: false };
       }
       vendorName = vendor.business_name;
     }
@@ -72,7 +82,7 @@ async function getProducts(
 
     if (error) {
       console.error("[products] Error fetching products:", error);
-      return { products: [], vendorName };
+      return { products: [], vendorName, productsLookupFailed: true };
     }
 
     const rawProducts = data || [];
@@ -142,10 +152,10 @@ async function getProducts(
       products = products.filter((p) => p.category_requires_coa !== true);
     }
 
-    return { products, vendorName };
+    return { products, vendorName, productsLookupFailed: false };
   } catch (err) {
     console.error("[products] Fatal error fetching products:", err);
-    return { products: [], vendorName: null };
+    return { products: [], vendorName: null, productsLookupFailed: true };
   }
 }
 
@@ -168,13 +178,30 @@ export default async function ProductsPage({
 }: {
   searchParams?: { vendor?: string };
 }) {
-  const vendorId = searchParams?.vendor || null;
+  const resolvedParams = await searchParams;
+  const vendorId = resolvedParams?.vendor || null;
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   const verification = await getUserVerificationStatus(user?.id ?? null);
   const includeGated = verification.status === "approved";
   const publicShopOnly = !user;
-  const { products, vendorName } = await getProducts(vendorId, includeGated, publicShopOnly);
+  const { products, vendorName, productsLookupFailed } = await getProducts(vendorId, includeGated, publicShopOnly);
+
+  // catalogueEmpty must reflect whether any approved products exist in the DB at all —
+  // not whether the access-filtered list is empty. products[] excludes gated/COA-required
+  // items for certain users, so products.length===0 can be true even when inventory exists.
+  // A separate unfiltered count query avoids the false "Coming Online" state for restricted users.
+  let catalogueEmpty = false;
+  if (products.length === 0) {
+    const countQuery = supabase
+      .from("products")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "approved")
+      .eq("active", true);
+    if (vendorId) countQuery.eq("vendor_id", vendorId);
+    const { count } = await countQuery;
+    catalogueEmpty = (count ?? 0) === 0;
+  }
 
   // catalogueEmpty must reflect whether any approved products exist in the DB at all —
   // not whether the access-filtered list is empty. products[] excludes gated/COA-required

@@ -125,8 +125,8 @@ for (const slug of slugDirs) {
   } catch {}
 }
 
-// Check status of unique internal links (sample up to 50)
-// Select http or https based on URL protocol to avoid ERR_INVALID_PROTOCOL on http:// links.
+// Check status of a URL — selects http or https based on the parsed protocol
+// to avoid ERR_INVALID_PROTOCOL when checking http:// links with https.get().
 async function checkStatus(url) {
   return new Promise(resolve => {
     try {
