@@ -313,10 +313,10 @@ export default function Nav() {
       </Link>
 
       {/* Desktop nav - hidden on mobile; primary links only */}
-      <div className="hidden md:flex items-center gap-6 flex-1 min-w-0 justify-center overflow-x-auto scrollbar-hide">
+      <div className="hidden md:flex items-center gap-1 lg:gap-2 flex-1 min-w-0 justify-center flex-nowrap">
         {desktopPrimaryLinks.map((link) => (
           <HoverLift key={link.href} as="span">
-            <Link href={link.href} className="nav-link text-sm whitespace-nowrap">
+            <Link href={link.href} className="nav-link text-xs lg:text-sm whitespace-nowrap px-2 lg:px-3">
               {link.label}
             </Link>
           </HoverLift>
@@ -471,15 +471,15 @@ export default function Nav() {
       </div>
 
       {/* Desktop right: model-driven CTAs via getCtaNav (Join Free / Sign in / Add Product) */}
-      <div className="hidden md:flex items-center gap-4 shrink-0 ml-2">
+      <div className="hidden md:flex items-center gap-2 shrink-0 ml-2">
         {ctaItems.map((item) => (
           <HoverLift key={item.id} as="span" className="shrink-0">
             <Link
               href={item.href}
               className={
                 item.id === "cta-sign-in"
-                  ? "btn-ghost text-sm py-2 px-4 whitespace-nowrap"
-                  : "btn-primary text-sm py-2 px-4 whitespace-nowrap"
+                  ? "btn-ghost text-xs lg:text-sm py-2 px-3 lg:px-4 whitespace-nowrap"
+                  : "btn-primary text-xs lg:text-sm py-2 px-3 lg:px-4 whitespace-nowrap"
               }
             >
               {item.label}
