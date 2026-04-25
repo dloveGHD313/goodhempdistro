@@ -20,7 +20,8 @@ export default function AgeGate() {
     try {
       if (localStorage.getItem(STORAGE_KEY) === "true") return;
     } catch {
-      // localStorage unavailable — skip gate
+      // localStorage unavailable — show gate anyway (compliance required)
+      setShow(true);
       return;
     }
 

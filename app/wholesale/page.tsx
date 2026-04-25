@@ -53,6 +53,24 @@ export default async function WholesalePage({
 
   return (
     <div className="min-h-screen text-white flex flex-col">
+      {/* === TRUST STATS BAR === */}
+      <section className="border-b border-white/10 bg-[#141F1A]">
+        <div className="max-w-5xl mx-auto px-6 py-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+            {[
+              { value: "120+", label: "Verified Vendors" },
+              { value: "5", label: "Product Categories" },
+              { value: "100%", label: "COA-Certified Products" },
+              { value: "48hr", label: "Avg Approval Time" },
+            ].map((stat) => (
+              <div key={stat.label}>
+                <p className="text-2xl font-semibold text-[#3CB97A]">{stat.value}</p>
+                <p className="text-xs text-[#8A9E96] mt-1 uppercase tracking-wide">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
       <main className="flex-1">
         <section className="section-shell">
           <div className="max-w-5xl mx-auto space-y-8">
@@ -79,6 +97,66 @@ export default async function WholesalePage({
                 <p className="text-muted">A real person manages your account from day one</p>
               </div>
             </div>
+
+            {/* === HOW WHOLESALE WORKS === */}
+            <section className="max-w-5xl mx-auto px-6 py-16">
+              <div className="text-center mb-12">
+                <p className="text-xs uppercase tracking-widest text-[#3CB97A] mb-3">Simple Process</p>
+                <h2 className="text-3xl font-serif text-[#F0EDE6]">How wholesale works</h2>
+              </div>
+              <div className="grid md:grid-cols-3 gap-8">
+                {[
+                  {
+                    step: "01",
+                    title: "Submit an inquiry",
+                    body: "Fill out the wholesale inquiry form below. Tell us about your business, volume needs, and preferred product categories.",
+                    accent: "#3CB97A",
+                  },
+                  {
+                    step: "02",
+                    title: "Get matched with vendors",
+                    body: "Our team reviews your inquiry and connects you with verified GHD vendors that match your requirements and location.",
+                    accent: "#C9A84C",
+                  },
+                  {
+                    step: "03",
+                    title: "Review COAs and order",
+                    body: "Every product comes with a full-panel Certificate of Analysis. Review lab results, confirm compliance, and place your order.",
+                    accent: "#3CB97A",
+                  },
+                ].map((item) => (
+                  <div key={item.step} className="relative">
+                    <p
+                      className="text-5xl font-serif font-bold mb-4 opacity-20"
+                      style={{ color: item.accent }}
+                    >
+                      {item.step}
+                    </p>
+                    <h3 className="text-lg font-semibold text-[#F0EDE6] mb-3">{item.title}</h3>
+                    <p className="text-sm text-[#8A9E96] leading-relaxed">{item.body}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* === VENDOR CTA === */}
+            <section className="max-w-5xl mx-auto px-6 pb-8">
+              <div className="rounded-2xl border border-[#3CB97A]/20 bg-[#141F1A] p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+                <div>
+                  <p className="text-sm font-medium text-[#3CB97A] mb-1">Are you a hemp vendor?</p>
+                  <h3 className="text-xl font-serif text-[#F0EDE6]">List your products on GHD</h3>
+                  <p className="text-sm text-[#8A9E96] mt-2">
+                    Reach wholesale buyers and retail customers. COA-verified listings only.
+                  </p>
+                </div>
+                <a
+                  href="/vendor-registration"
+                  className="flex-shrink-0 px-6 py-3 bg-[#3CB97A] text-[#0D1512] font-semibold rounded-lg hover:opacity-90 text-sm whitespace-nowrap"
+                >
+                  Become a Vendor →
+                </a>
+              </div>
+            </section>
 
             <div className="surface-card p-8">
               <h2 className="text-2xl font-semibold mb-6">Wholesale Inquiry Form</h2>
