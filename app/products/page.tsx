@@ -105,7 +105,7 @@ async function getProducts(
     if (vendorIds.length > 0) {
       const { data: vendors, error: vendorError } = await queryClient
         .from("vendors")
-        .select("id, business_name, status")
+        .select("id, business_name, status, is_approved")
         .in("id", vendorIds);
       if (vendorError) {
         vendorStatusLookupOk = false;
@@ -115,7 +115,7 @@ async function getProducts(
         });
       } else {
         (vendors || []).forEach((v) => {
-          if (v?.id && v?.status === "active") {
+          if (v?.id && v?.status === "active" && v?.is_approved === true) {
             activeVendorIds.add(v.id);
             vendorMap[v.id] = v.business_name || "Verified Vendor";
           }
