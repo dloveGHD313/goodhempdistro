@@ -251,7 +251,7 @@ export default function Nav() {
 
   const navPrimaryLinks = isLoggedIn ? NAV_PRIMARY.filter((l) => l.href !== "/welcome") : NAV_PRIMARY;
   const desktopPrimaryLinks = navPrimaryLinks.filter(
-    (link) => link.href !== "/welcome" && (isLoggedIn || link.href !== "/newsfeed")
+    (link) => link.href !== "/welcome" && link.href !== "/newsfeed"
   );
   const mobilePublicLinks = NAV_PUBLIC;
   const mobileDiscoveryLinks = NAV_MOBILE_DISCOVERY;
@@ -304,10 +304,10 @@ export default function Nav() {
   return (
     <nav ref={navRef} aria-label="Main Navigation" className="flex items-center justify-between w-full gap-4">
       {/* Logo/Brand - Visible on all sizes */}
-      <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition shrink-0">
+      <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition shrink-0 min-w-fit">
         <BrandLogo size={44} className="hidden sm:block" />
         <BrandLogo size={36} className="sm:hidden" />
-        <span className="font-bold text-xs sm:text-sm brand-title">
+        <span className="font-bold text-xs sm:text-sm brand-title whitespace-nowrap">
           {brand.name}
         </span>
       </Link>
