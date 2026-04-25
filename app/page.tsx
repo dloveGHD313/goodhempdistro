@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { hasRole } from "@/lib/roles";
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: "GoodHempDistro — The Hemp Industry, All in One Place",
   description:
