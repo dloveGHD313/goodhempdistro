@@ -24,18 +24,35 @@ export const metadata: Metadata = {
  * - Authenticated, onboarding completed (or admin) → /newsfeed (feed)
  */
 export default async function HomePage() {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  let user: { id: string } | null = null;
+  let profile:
+    | { onboarding_completed_at?: string | null; role?: string | null; roles?: string[] | null }
+    | null = null;
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user: supabaseUser },
+    } = await supabase.auth.getUser();
+
+    user = supabaseUser;
+
+    if (user) {
+      const { data } = await supabase
+        .from("profiles")
+        .select("onboarding_completed_at, role, roles")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      profile = data;
+    }
+  } catch (error) {
+    console.error("[homepage] failed to load auth/profile, redirecting to /welcome", error);
+  }
 
   if (!user) {
     redirect("/welcome");
   }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("onboarding_completed_at, role, roles")
-    .eq("id", user.id)
-    .maybeSingle();
 
   const completed = !!profile?.onboarding_completed_at || hasRole(profile ?? undefined, "admin");
 
