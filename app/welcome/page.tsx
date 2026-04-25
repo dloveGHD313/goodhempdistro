@@ -1,23 +1,78 @@
-import { brand } from "@/lib/brand";
-import { getMascotFlagStatus } from "@/lib/mascotFlags";
-import WelcomeClient from "./WelcomeClient";
+import { Suspense } from "react";
+import { createSupabaseServerClient } from "@/lib/supabase";
+import HeroSection from "./components/HeroSection";
+import DualAudienceSection from "./components/DualAudienceSection";
+import FeaturedProductsSection from "./components/FeaturedProductsSection";
+import HowItWorksSection from "./components/HowItWorksSection";
+import LearningWithJaxSection from "./components/LearningWithJaxSection";
+import ServicesTeaserSection from "./components/ServicesTeaserSection";
+import TrustBarSection from "./components/TrustBarSection";
+import MarketingFooter from "./components/MarketingFooter";
 
-export const metadata = {
-  title: brand.name,
-  description: "Welcome to Good Hemp Distros.",
+type FeaturedProduct = {
+  id: string;
+  name: string;
+  market_category: string | null;
+  price_cents: number;
+  vendor_id: string | null;
+  vendor_name: string | null;
 };
 
-/**
- * Public /welcome: cinematic entry + quiz intent.
- * No auth required. Answers stored in localStorage; after sign-in can be attached to profile.
- */
-export default function WelcomePage() {
-  const { clientEnabled, serverEnabled } = getMascotFlagStatus();
-  const mascotEnabled = clientEnabled && serverEnabled;
+async function getFeaturedProducts(): Promise<FeaturedProduct[]> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: rawProducts, error } = await supabase
+      .from("products")
+      .select("id, name, market_category, price_cents, vendor_id")
+      .eq("status", "approved")
+      .eq("active", true)
+      .order("created_at", { ascending: false })
+      .limit(6);
+
+    if (error || !rawProducts?.length) {
+      return [];
+    }
+
+    const vendorIds = Array.from(
+      new Set(rawProducts.map((item) => item.vendor_id).filter((id): id is string => Boolean(id)))
+    );
+
+    const vendorMap = new Map<string, string>();
+    if (vendorIds.length > 0) {
+      const { data: vendorRows } = await supabase
+        .from("vendors")
+        .select("id, business_name")
+        .in("id", vendorIds);
+
+      (vendorRows || []).forEach((vendor) => {
+        vendorMap.set(vendor.id, vendor.business_name || "Verified Vendor");
+      });
+    }
+
+    return rawProducts.map((item) => ({
+      ...item,
+      vendor_name: item.vendor_id ? vendorMap.get(item.vendor_id) || "Verified Vendor" : "Verified Vendor",
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export default async function WelcomePage() {
+  const initialProducts = await getFeaturedProducts();
 
   return (
-    <main className="welcome-hero">
-      <WelcomeClient mascotEnabled={mascotEnabled} />
+    <main className="min-h-screen bg-[#0D1512] text-[#F0EDE6] font-sans">
+      <HeroSection />
+      <DualAudienceSection />
+      <Suspense fallback={<div className="h-64" />}>
+        <FeaturedProductsSection initialProducts={initialProducts} />
+      </Suspense>
+      <HowItWorksSection />
+      <LearningWithJaxSection />
+      <ServicesTeaserSection />
+      <TrustBarSection />
+      <MarketingFooter />
     </main>
   );
 }
