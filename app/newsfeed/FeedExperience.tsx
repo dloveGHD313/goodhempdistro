@@ -593,7 +593,7 @@ export default function FeedExperience({ variant = "feed" }: { variant?: "feed" 
 
         <aside className="space-y-6">
           <div className="card-glass p-6">
-            <h2 className="text-lg font-semibold mb-3">VIP Spotlight (Placeholder)</h2>
+            <h2 className="text-lg font-semibold mb-3">VIP Spotlight</h2>
             <ProfileCard
               displayName="VIP Spotlight"
               avatarUrl={null}
