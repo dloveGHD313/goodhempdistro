@@ -5,7 +5,7 @@ const vendorLinks = [
   { href: "/vendors/dashboard", label: "Vendor Dashboard" },
   { href: "/wholesale", label: "Wholesale Inquiry" },
   { href: "/services", label: "Become a Service Provider" },
-  { href: "/learning-with-jax", label: "Feature on Learning with Jax" },
+  { href: "/learning/jax", label: "Feature on Learning with Jax" },
 ];
 
 const consumerLinks = [
