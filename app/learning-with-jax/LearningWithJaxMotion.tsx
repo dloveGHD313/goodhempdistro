@@ -52,6 +52,11 @@ export default function LearningWithJaxMotion() {
                       Explore Topics
                     </Link>
                   </HoverLift>
+                  <HoverLift as="span">
+                    <Link href="/learning/jax" className="btn-secondary inline-block">
+                      Apply to Be Featured
+                    </Link>
+                  </HoverLift>
                 </div>
               </div>
               <div className="flex-shrink-0 w-full max-w-[280px] sm:max-w-[320px] lg:max-w-[360px]">
