@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import localFont from "next/font/local";
+import { DM_Sans, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { validateEnvironmentVariables } from "@/lib/env-validator";
 import { brand, colorVars } from "@/lib/brand";
@@ -31,6 +32,22 @@ const geistSans = localFont({
 });
 
 
+
+
+
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  variable: "--font-playfair",
+  display: "swap",
+  weight: ["400", "500", "600", "700"],
+});
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-dm-sans",
+  display: "swap",
+  weight: ["300", "400", "500", "600", "700"],
+});
 
 const geistMono = localFont({
   variable: "--font-geist-mono",
@@ -82,7 +99,7 @@ export default function RootLayout({
   const themeVars = colorVars as CSSProperties;
 
   return (
-    <html lang="en" style={themeVars}>
+    <html lang="en" className={`${playfair.variable} ${dmSans.variable}`} style={themeVars}>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <MarketModeProvider>
           <div className="app-bg" aria-hidden="true" />
