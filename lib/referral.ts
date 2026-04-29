@@ -4,8 +4,8 @@ import { stripe } from "@/lib/stripe";
 const REFERRAL_COOKIE_NAME = "ghd_affiliate_ref";
 const REFERRAL_COOKIE_MAX_AGE = 7 * 24 * 60 * 60;
 
-export const COMMISSION_RATES: Record<string, number> = { starter: 700, pro: 300, enterprise: 100, vip: 100 };
-export const LISTING_LIMITS: Record<string, number | null> = { starter: 15, pro: 100, enterprise: null, vip: null };
+export const COMMISSION_RATES: Record<string, number> = { starter: 700, mid: 500, top: 100 };
+export const LISTING_LIMITS: Record<string, number | null> = { starter: 15, mid: 100, top: null };
 export const LOYALTY_POINTS_PER_FREE_REFERRAL = 1;
 
 export function captureReferralCode() {
@@ -102,7 +102,7 @@ export async function queueAffiliatePayouts(params: { affiliateUserId: string; r
   }
 }
 
-export function getCommissionRateBps(planKey: string): number { const key = planKey.toLowerCase(); if (key.includes("enterprise") || key.includes("vip")) return COMMISSION_RATES.enterprise; if (key.includes("pro")) return COMMISSION_RATES.pro; return COMMISSION_RATES.starter; }
-export function getListingLimit(planKey: string): number | null { const key = planKey.toLowerCase(); if (key.includes("enterprise") || key.includes("vip")) return null; if (key.includes("pro")) return LISTING_LIMITS.pro as number; return LISTING_LIMITS.starter as number; }
-export async function checkAffiliateEligibility(userId: string): Promise<{ eligible: boolean; reason?: string }> { const admin = getSupabaseAdminClient(); const { data: profile } = await admin.from("profiles").select("role, consumer_plan").eq("id", userId).maybeSingle(); if (!profile) return { eligible: false, reason: "Profile not found" }; const hasConsumerPlan = Boolean(profile.consumer_plan && profile.consumer_plan !== "free"); if (!hasConsumerPlan && profile.role !== "vendor" && profile.role !== "admin") return { eligible: false, reason: "You need at least a Beginner consumer account to become an affiliate" }; return { eligible: true }; }
+export function getCommissionRateBps(planKey: string): number { const key = planKey.toLowerCase(); if (key.includes("enterprise") || key.includes("vip") || key.includes("top")) return COMMISSION_RATES.top; if (key.includes("pro") || key.includes("mid")) return COMMISSION_RATES.mid; if (key.includes("free")) return COMMISSION_RATES.starter; return COMMISSION_RATES.starter; }
+export function getListingLimit(planKey: string): number | null { const key = planKey.toLowerCase(); if (key.includes("enterprise") || key.includes("vip") || key.includes("top")) return LISTING_LIMITS.top; if (key.includes("pro") || key.includes("mid")) return LISTING_LIMITS.mid as number; if (key.includes("free")) return LISTING_LIMITS.starter as number; return LISTING_LIMITS.starter as number; }
+export async function checkAffiliateEligibility(userId: string): Promise<{ eligible: boolean; reason?: string }> { const admin = getSupabaseAdminClient(); const { data: profile } = await admin.from("profiles").select("role, consumer_plan").eq("id", userId).maybeSingle(); if (!profile) return { eligible: false, reason: "Profile not found" }; const hasConsumerPlan = Boolean(profile.consumer_plan && profile.consumer_plan !== "starter"); if (!hasConsumerPlan && profile.role !== "vendor" && profile.role !== "admin") return { eligible: false, reason: "You need at least a Beginner consumer account to become an affiliate" }; return { eligible: true }; }
 export async function getStripePriceAmount(priceId: string): Promise<number> { try { const price = await stripe.prices.retrieve(priceId); return price.unit_amount ?? 0; } catch { return 0; } }

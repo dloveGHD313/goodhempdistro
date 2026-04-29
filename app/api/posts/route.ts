@@ -104,14 +104,14 @@ const resolveVendorTier = async (
       .eq("id", vendorPlanId)
       .maybeSingle();
     const name = (plan?.name || "").toLowerCase();
-    if (name.includes("elite")) return "vip";
-    if (name.includes("enterprise")) return "enterprise";
-    if (name.includes("pro")) return "pro";
+    if (name.includes("elite")) return "top";
+    if (name.includes("enterprise")) return "top";
+    if (name.includes("pro")) return "mid";
     if (name.includes("basic")) return "starter";
   }
 
-  if (vendorTier === "top") return "enterprise";
-  if (vendorTier === "mid") return "pro";
+  if (vendorTier === "top") return "top";
+  if (vendorTier === "mid") return "mid";
   if (vendorTier === "starter") return "starter";
   return "none";
 };

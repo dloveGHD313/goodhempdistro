@@ -51,8 +51,8 @@ export function normalizeRole(role?: string | null): PostAuthorRole {
 export function normalizeTier(tier?: string | null): PostAuthorTier {
   const value = (tier || "").toLowerCase();
   if (value === "vip") return "vip";
-  if (value === "enterprise") return "enterprise";
-  if (value === "pro") return "pro";
+  if (value === "top") return "top";
+  if (value === "mid") return "mid";
   if (value === "starter") return "starter";
   return "none";
 }
