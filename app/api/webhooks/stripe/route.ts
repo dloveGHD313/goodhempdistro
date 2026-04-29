@@ -17,6 +17,7 @@ import {
   getSubscriptionBonusPoints,
 } from "@/lib/consumer-loyalty";
 import { applyPlatformFeesToOrder } from "@/lib/platformFees";
+import { queueAffiliatePayouts, getStripePriceAmount } from "@/lib/referral";
 import {
   getDesiredVendorStatusFromSubscription,
   VENDOR_ACTIVE_SUBSCRIPTION_STATUSES,
@@ -1078,6 +1079,148 @@ async function handleSubscriptionChange(
       .update({ active_subscription_id: null })
       .eq("id", userId);
   }
+
+  if (eventType === "customer.subscription.deleted") {
+    try {
+      const admin = getSupabaseAdminClient();
+      const { data: refEvent } = await admin
+        .from("referral_events")
+        .select("id")
+        .eq("stripe_subscription_id", subscription.id)
+        .maybeSingle();
+
+      if (refEvent) {
+        await admin
+          .from("referral_events")
+          .update({ status: "cancelled" })
+          .eq("id", refEvent.id);
+
+        const now = new Date().toISOString();
+        await admin
+          .from("affiliate_payouts")
+          .update({
+            status: "forfeited",
+            notes: "Subscription cancelled before instalment 2 eligibility",
+          })
+          .eq("referral_event_id", refEvent.id)
+          .eq("instalment_number", 2)
+          .eq("status", "pending")
+          .gt("scheduled_after", now);
+
+        console.info("[webhook/referral] instalment 2 forfeited — subscription cancelled", {
+          subscriptionId: subscription.id,
+          referralEventId: refEvent.id,
+        });
+      }
+    } catch (cancellationError) {
+      console.error("[webhook/referral] cancellation hook error", {
+        error: cancellationError instanceof Error ? cancellationError.message : String(cancellationError),
+        subscriptionId: subscription.id,
+      });
+    }
+  }
+
+  // ── Referral hook: queue affiliate payouts if referral code present ──
+  try {
+    const isNewSubscription =
+      eventType === "customer.subscription.created" &&
+      (subscription.status === "active" || subscription.status === "trialing");
+    const metadata = subscription.metadata ?? {};
+    const referralCode = metadata.referral_code as string | undefined;
+
+    if (isNewSubscription && referralCode) {
+      const admin = getSupabaseAdminClient();
+
+      const { data: codeRecord } = await admin
+        .from("referral_codes")
+        .select("id, user_id, is_active")
+        .eq("code", referralCode.toUpperCase().trim())
+        .maybeSingle();
+
+      if (!codeRecord?.is_active) {
+        console.info("[webhook/referral] code not found or inactive", { referralCode });
+      } else {
+        const subscriberUserId = metadata.user_id as string | undefined;
+
+        if (!subscriberUserId) {
+          console.info("[webhook/referral] no user_id in subscription metadata");
+        } else if (codeRecord.user_id === subscriberUserId) {
+          console.info("[webhook/referral] self-referral detected — skipping");
+        } else {
+          const { data: existingEvent } = await admin
+            .from("referral_events")
+            .select("id")
+            .eq("referred_user_id", subscriberUserId)
+            .maybeSingle();
+
+          if (existingEvent) {
+            console.info("[webhook/referral] referral event already exists for user", {
+              subscriberUserId,
+            });
+          } else {
+            const priceId = subscription.items?.data?.[0]?.price?.id;
+            const planKey = (metadata.plan_key as string) ?? (metadata.plan_type as string) ?? "unknown";
+            const cadenceMeta = (metadata.cadence as string) ?? "";
+            const planCadence: "monthly" | "annual" = cadenceMeta === "annual" ? "annual" : "monthly";
+            const planPriceCents = priceId ? await getStripePriceAmount(priceId) : 0;
+
+            const { data: refEvent, error: refEventError } = await admin
+              .from("referral_events")
+              .insert({
+                referral_code_id: codeRecord.id,
+                referrer_user_id: codeRecord.user_id,
+                referred_user_id: subscriberUserId,
+                event_type: "paid_subscription",
+                plan_key: planKey,
+                plan_cadence: planCadence,
+                plan_price_cents: planPriceCents,
+                stripe_subscription_id: subscription.id,
+                status: "active",
+              })
+              .select("id")
+              .single();
+
+            if (refEventError || !refEvent) {
+              console.error("[webhook/referral] failed to create referral event", {
+                error: refEventError?.message,
+                subscriberUserId,
+                referralCode,
+              });
+            } else if (planPriceCents > 0) {
+              await queueAffiliatePayouts({
+                affiliateUserId: codeRecord.user_id,
+                referralEventId: refEvent.id,
+                planKey,
+                planCadence,
+                planPriceCents,
+                stripeSubscriptionId: subscription.id,
+              });
+
+              console.info("[webhook/referral] affiliate payouts queued", {
+                referrer: codeRecord.user_id,
+                referred: subscriberUserId,
+                planKey,
+                planCadence,
+                planPriceCents,
+                subscriptionId: subscription.id,
+              });
+            } else {
+              console.warn("[webhook/referral] plan price is 0 — no payouts queued", {
+                priceId,
+                planKey,
+              });
+            }
+          }
+        }
+      }
+    }
+  } catch (referralError) {
+    console.error("[webhook/referral] referral hook error — webhook still succeeding", {
+      error: referralError instanceof Error ? referralError.message : String(referralError),
+      subscriptionId: subscription.id,
+    });
+  }
+  // ── End referral hook ──
 
   console.log(`✅ [handleSubscriptionChange] Subscription ${status} | subscription_id=${subscription.id}`);
 }
