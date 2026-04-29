@@ -530,6 +530,7 @@ export const NAV_ADMIN: NavItemLegacy[] = [
   { label: "💬 Service Inquiries", href: "/admin/inquiries" },
   { label: "📁 Categories", href: "/admin/categories" },
   { label: "🚗 Drivers", href: "/admin/drivers" },
+  { label: "🚗 Driver Applications", href: "/admin/driver-applications" },
   { label: "🎙️ Jax Applications", href: "/admin/jax-applications" },
 ];
 

@@ -1,276 +1,95 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
+import { useState } from "react";
 import Footer from "@/components/Footer";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 
-const DOC_LABELS: Record<string, string> = {
-  driver_license: "Driver's license",
-  vehicle_registration: "Vehicle registration",
-  insurance: "Insurance",
-};
+const VEHICLE_TYPES = ["Sedan", "SUV", "Pickup Truck", "Cargo Van", "Box Truck", "Motorcycle"];
+const EXPERIENCE_OPTIONS = ["Less than 1 year", "1-2 years", "3-5 years", "5+ years"];
+type FormState = "idle" | "uploading" | "submitting" | "success" | "error";
 
-function isFutureDate(s: string): boolean {
-  const parts = s.split("-").map(Number);
-  const year = parts[0];
-  const month = parts[1];
-  const day = parts[2];
-  if (year === undefined || month === undefined || day === undefined || Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) return false;
-  const dateAtLocalMidnight = new Date(year, month - 1, day);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return dateAtLocalMidnight > today;
-}
+export default function DriverApplicationPage() {
+  const [status, setStatus] = useState<FormState>("idle");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [city, setCity] = useState("");
+  const [stateField, setStateField] = useState("");
+  const [vehicleType, setVehicleType] = useState("");
+  const [yearsExp, setYearsExp] = useState("");
+  const [hasLicense, setHasLicense] = useState(false);
+  const [is21, setIs21] = useState(false);
+  const [canPassBg, setCanPassBg] = useState(false);
+  const [whyDrive, setWhyDrive] = useState("");
+  const [licenseFront, setLicenseFront] = useState<File | null>(null);
+  const [licenseBack, setLicenseBack] = useState<File | null>(null);
+  const [insurance, setInsurance] = useState<File | null>(null);
+  const [registration, setRegistration] = useState<File | null>(null);
 
-export default function LogisticsApplyPage() {
-  const [selected, setSelected] = useState<"provider" | "driver" | null>(null);
-  const [driverForm, setDriverForm] = useState({
-    full_name: "",
-    email: "",
-    phone: "",
-    service_area: "",
-    vehicle_type: "",
-    notes: "",
-    driver_license_expires: "",
-    vehicle_registration_expires: "",
-    insurance_expires: "",
-  });
-  const [docErrors, setDocErrors] = useState<Record<string, string>>({});
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  async function uploadFile(file: File, path: string): Promise<string | null> {
+    const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.storage.from("driver-documents").upload(path, file, { upsert: true });
+    if (error) return null;
+    return path;
+  }
 
-  const handleDriverSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    setDocErrors({});
-    const form = e.currentTarget;
-    const fullName = driverForm.full_name.trim();
-    const email = driverForm.email.trim();
-    if (!fullName || !email) {
-      setError("Full name and email are required.");
-      return;
-    }
-    const docTypes = ["driver_license", "vehicle_registration", "insurance"] as const;
-    const errs: Record<string, string> = {};
-    for (const docType of docTypes) {
-      const file = (form.elements.namedItem(docType) as HTMLInputElement)?.files?.[0];
-      const expires = driverForm[`${docType}_expires` as keyof typeof driverForm];
-      if (!file || file.size === 0) errs[docType] = `${DOC_LABELS[docType]} file is required`;
-      else if (!expires || typeof expires !== "string" || !expires.trim()) errs[docType] = "Expiry date is required";
-      else if (!isFutureDate(expires)) errs[docType] = "Expiry date must be in the future";
-    }
-    if (Object.keys(errs).length > 0) {
-      setDocErrors(errs);
-      setError("Please upload all required documents and set future expiry dates.");
-      return;
-    }
-    setSubmitting(true);
+    setErrorMsg(null);
+    if (!licenseFront || !licenseBack || !insurance || !registration) return setErrorMsg("Please upload all required documents.");
+    if (!hasLicense || !is21 || !canPassBg) return setErrorMsg("Please confirm all eligibility requirements.");
     try {
-      const formData = new FormData(form);
-      formData.set("full_name", fullName);
-      formData.set("email", email);
-      formData.set("phone", driverForm.phone.trim());
-      formData.set("service_area", driverForm.service_area.trim());
-      formData.set("vehicle_type", driverForm.vehicle_type.trim());
-      formData.set("notes", driverForm.notes.trim());
-      formData.set("driver_license_expires", driverForm.driver_license_expires);
-      formData.set("vehicle_registration_expires", driverForm.vehicle_registration_expires);
-      formData.set("insurance_expires", driverForm.insurance_expires);
-      const res = await fetch("/api/logistics/apply/on-demand-driver-with-docs", {
-        method: "POST",
-        body: formData,
+      setStatus("uploading");
+      const supabase = createSupabaseBrowserClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id ?? null;
+      const ts = Date.now();
+      const prefix = userId ? `${userId}/${ts}` : `anon/${ts}`;
+      const [frontPath, backPath, insurancePath, registrationPath] = await Promise.all([
+        uploadFile(licenseFront, `${prefix}/license-front.${licenseFront.name.split(".").pop() ?? "pdf"}`),
+        uploadFile(licenseBack, `${prefix}/license-back.${licenseBack.name.split(".").pop() ?? "pdf"}`),
+        uploadFile(insurance, `${prefix}/insurance.${insurance.name.split(".").pop() ?? "pdf"}`),
+        uploadFile(registration, `${prefix}/registration.${registration.name.split(".").pop() ?? "pdf"}`),
+      ]);
+      if (!frontPath || !backPath || !insurancePath || !registrationPath) throw new Error("One or more document uploads failed. Please retry.");
+
+      setStatus("submitting");
+      const { error } = await supabase.from("driver_applications").insert({
+        full_name: fullName,
+        email,
+        phone,
+        city,
+        state: stateField,
+        vehicle_type: vehicleType,
+        years_experience: yearsExp,
+        has_valid_license: hasLicense,
+        is_21_or_older: is21,
+        can_pass_background_check: canPassBg,
+        why_drive: whyDrive || null,
+        license_front_path: frontPath,
+        license_back_path: backPath,
+        insurance_path: insurancePath,
+        registration_path: registrationPath,
+        user_id: userId,
       });
-      const data = (await res.json()) as { message?: string; errors?: string[] };
-      if (!res.ok) {
-        setError(data.message ?? data.errors?.join(". ") ?? "Failed to submit");
-        setSubmitting(false);
-        return;
-      }
-      setSuccess(true);
+      if (error) throw new Error(error.message);
+      setStatus("success");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An unexpected error occurred");
+      setStatus("error");
+      setErrorMsg(err instanceof Error ? err.message : "Submission failed. Please try again.");
     }
-    setSubmitting(false);
-  };
+  }
 
-  return (
-    <div className="min-h-screen text-white flex flex-col">
-      <main className="flex-1">
-        <section className="section-shell">
-          <div className="max-w-3xl mx-auto">
-            <h1 className="text-4xl font-bold mb-2 text-accent">How do you want to work with Good Hemp Distro?</h1>
-            <p className="text-muted mb-8">Choose one option below.</p>
+  if (status === "success") return <div className="min-h-screen text-white flex flex-col"><main className="flex-1 section-shell"><div className="max-w-2xl mx-auto text-center py-20"><p className="text-4xl mb-4">🚗</p><h2 className="text-2xl font-semibold text-accent mb-3">Application submitted!</h2><p className="text-muted max-w-md mx-auto mb-6">Thank you for applying to drive with Good Hemp Distro. Our team will review your application and documents within 3-5 business days.</p><Link href="/" className="btn-primary inline-block">Back to Home →</Link></div></main><Footer /></div>;
 
-            {success ? (
-              <div className="card-glass p-6 text-center">
-                <h2 className="text-2xl font-bold mb-4 text-green-400">Application received</h2>
-                <p className="text-muted">We&apos;ll review your application in the admin portal and get back to you.</p>
-              </div>
-            ) : selected === null ? (
-              <div className="grid gap-6 md:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => setSelected("provider")}
-                  className="card-glass p-6 text-left hover:border-accent/50 transition border-2 border-transparent rounded-xl"
-                >
-                  <h2 className="text-xl font-semibold mb-2">Delivery Provider Listing</h2>
-                  <p className="text-muted text-sm mb-4">
-                    You negotiate pricing directly with vendors. Good Hemp Distro functions as a
-                    discovery & directory platform.
-                  </p>
-                  <span className="text-accent font-medium">Continue →</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelected("driver")}
-                  className="card-glass p-6 text-left hover:border-accent/50 transition border-2 border-transparent rounded-xl"
-                >
-                  <h2 className="text-xl font-semibold mb-2">On-Demand Driver Network</h2>
-                  <p className="text-muted text-sm mb-4">
-                    Good Hemp Distro sets delivery pricing. You&apos;re paid per delivery + keep
-                    100% of tips.
-                  </p>
-                  <span className="text-accent font-medium">Apply as On-Demand Driver →</span>
-                </button>
-              </div>
-            ) : selected === "provider" ? (
-              <div className="card-glass p-6">
-                <h2 className="text-xl font-semibold mb-2">Delivery Provider Listing</h2>
-                <p className="text-muted text-sm mb-4">
-                  You negotiate pricing directly with vendors. Good Hemp Distro functions as a
-                  discovery & directory platform.
-                </p>
-                <div className="flex gap-3">
-                  <Link href="/pricing?tab=vendor" className="btn-primary">
-                    Continue to Vendor Pricing
-                  </Link>
-                  <button type="button" onClick={() => setSelected(null)} className="btn-secondary">
-                    Back
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="card-glass p-6">
-                <h2 className="text-xl font-semibold mb-4">Apply as On-Demand Driver</h2>
-                <form onSubmit={handleDriverSubmit} className="space-y-4">
-                  {error && (
-                    <div className="bg-red-900/30 border border-red-600 rounded-lg p-3 text-red-400 text-sm">
-                      {error}
-                    </div>
-                  )}
-                  <div>
-                    <label htmlFor="full_name" className="block text-sm font-medium mb-1">Full name <span className="text-red-400">*</span></label>
-                    <input
-                      id="full_name"
-                      name="full_name"
-                      type="text"
-                      required
-                      value={driverForm.full_name}
-                      onChange={(e) => setDriverForm((p) => ({ ...p, full_name: e.target.value }))}
-                      className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-white"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium mb-1">Email <span className="text-red-400">*</span></label>
-                    <input
-                      id="email"
-                      name="email"
-                      type="email"
-                      required
-                      value={driverForm.email}
-                      onChange={(e) => setDriverForm((p) => ({ ...p, email: e.target.value }))}
-                      className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-white"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="phone" className="block text-sm font-medium mb-1">Phone</label>
-                    <input
-                      id="phone"
-                      name="phone"
-                      type="tel"
-                      value={driverForm.phone}
-                      onChange={(e) => setDriverForm((p) => ({ ...p, phone: e.target.value }))}
-                      className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-white"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="service_area" className="block text-sm font-medium mb-1">Service area</label>
-                    <input
-                      id="service_area"
-                      name="service_area"
-                      type="text"
-                      placeholder="e.g. Denver metro"
-                      value={driverForm.service_area}
-                      onChange={(e) => setDriverForm((p) => ({ ...p, service_area: e.target.value }))}
-                      className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-white"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="vehicle_type" className="block text-sm font-medium mb-1">Vehicle type</label>
-                    <input
-                      id="vehicle_type"
-                      name="vehicle_type"
-                      type="text"
-                      placeholder="e.g. Sedan, SUV"
-                      value={driverForm.vehicle_type}
-                      onChange={(e) => setDriverForm((p) => ({ ...p, vehicle_type: e.target.value }))}
-                      className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-white"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="notes" className="block text-sm font-medium mb-1">Notes</label>
-                    <textarea
-                      id="notes"
-                      name="notes"
-                      rows={3}
-                      value={driverForm.notes}
-                      onChange={(e) => setDriverForm((p) => ({ ...p, notes: e.target.value }))}
-                      className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-white"
-                    />
-                  </div>
-                  <p className="text-sm text-amber-300 mt-4">Compliance documents (required for all states)</p>
-                  {(["driver_license", "vehicle_registration", "insurance"] as const).map((docType) => (
-                    <div key={docType} className="grid gap-2 sm:grid-cols-2">
-                      <div>
-                        <label htmlFor={docType} className="block text-sm font-medium mb-1">{DOC_LABELS[docType]} <span className="text-red-400">*</span></label>
-                        <input
-                          id={docType}
-                          name={docType}
-                          type="file"
-                          accept=".pdf,.jpg,.jpeg,.png"
-                          className="w-full px-2 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-white text-sm"
-                        />
-                        {docErrors[docType] && <p className="text-red-400 text-xs mt-1">{docErrors[docType]}</p>}
-                      </div>
-                      <div>
-                        <label htmlFor={`${docType}_expires`} className="block text-sm font-medium mb-1">Expiry date <span className="text-red-400">*</span></label>
-                        <input
-                          id={`${docType}_expires`}
-                          name={`${docType}_expires`}
-                          type="date"
-                          value={driverForm[`${docType}_expires`]}
-                          onChange={(e) => setDriverForm((p) => ({ ...p, [`${docType}_expires`]: e.target.value }))}
-                          className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg text-white"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                  <div className="flex gap-3">
-                    <button type="submit" disabled={submitting} className="btn-primary disabled:opacity-50">
-                      {submitting ? "Submitting..." : "Submit Application"}
-                    </button>
-                    <button type="button" onClick={() => setSelected(null)} className="btn-secondary">
-                      Back
-                    </button>
-                  </div>
-                </form>
-              </div>
-            )}
-          </div>
-        </section>
-      </main>
-      <Footer />
-    </div>
-  );
+  return <div className="min-h-screen text-white flex flex-col"><main className="flex-1 section-shell"><div className="max-w-2xl mx-auto"><h1 className="hero-title text-accent mb-2">Become a GHD Driver</h1><p className="text-muted mb-6">Join our delivery network with flexible hours and competitive pay.</p>{errorMsg && <div className="p-3 rounded bg-red-500/20 text-red-200 text-sm mb-5">{errorMsg}</div>}<form onSubmit={handleSubmit} className="space-y-4"><input required className="input-shell w-full" placeholder="Full Name" value={fullName} onChange={(e)=>setFullName(e.target.value)} /><input required type="email" className="input-shell w-full" placeholder="Email" value={email} onChange={(e)=>setEmail(e.target.value)} /><input required type="tel" className="input-shell w-full" placeholder="Phone" value={phone} onChange={(e)=>setPhone(e.target.value)} /><div className="grid grid-cols-2 gap-3"><input required className="input-shell w-full" placeholder="City" value={city} onChange={(e)=>setCity(e.target.value)} /><input required className="input-shell w-full" placeholder="State" maxLength={2} value={stateField} onChange={(e)=>setStateField(e.target.value.toUpperCase())} /></div><select required className="input-shell w-full" value={vehicleType} onChange={(e)=>setVehicleType(e.target.value)}><option value="">Vehicle Type</option>{VEHICLE_TYPES.map((v)=><option key={v} value={v}>{v}</option>)}</select><select required className="input-shell w-full" value={yearsExp} onChange={(e)=>setYearsExp(e.target.value)}><option value="">Years of Experience</option>{EXPERIENCE_OPTIONS.map((v)=><option key={v} value={v}>{v}</option>)}</select>
+  <input type="file" required accept="image/*,.pdf" onChange={(e)=>setLicenseFront(e.target.files?.[0] ?? null)} className="input-shell w-full" />
+  <input type="file" required accept="image/*,.pdf" onChange={(e)=>setLicenseBack(e.target.files?.[0] ?? null)} className="input-shell w-full" />
+  <input type="file" required accept=".pdf" onChange={(e)=>setInsurance(e.target.files?.[0] ?? null)} className="input-shell w-full" />
+  <input type="file" required accept=".pdf" onChange={(e)=>setRegistration(e.target.files?.[0] ?? null)} className="input-shell w-full" />
+  <label className="flex gap-2"><input type="checkbox" checked={hasLicense} onChange={(e)=>setHasLicense(e.target.checked)} />Valid driver's license</label><label className="flex gap-2"><input type="checkbox" checked={is21} onChange={(e)=>setIs21(e.target.checked)} />I am 21 or older</label><label className="flex gap-2"><input type="checkbox" checked={canPassBg} onChange={(e)=>setCanPassBg(e.target.checked)} />Can pass background check</label>
+  <textarea className="input-shell w-full" rows={4} placeholder="Why do you want to drive for GHD? (optional)" value={whyDrive} onChange={(e)=>setWhyDrive(e.target.value)} />
+  <button type="submit" disabled={status==="uploading"||status==="submitting"} className="btn-primary w-full">{status==="uploading"?"Uploading documents...":status==="submitting"?"Submitting application...":"Submit Application"}</button></form></div></main><Footer /></div>;
 }
