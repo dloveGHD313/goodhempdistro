@@ -39,6 +39,10 @@ function setAgeVerified(): void {
       AGE_GATE_KEY,
       JSON.stringify({ verified: true, expiresAt }),
     );
+    document.cookie = `ghd_age_verified=${JSON.stringify({
+      verified: true,
+      expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
+    })}; max-age=${30 * 24 * 60 * 60}; path=/; SameSite=Lax`;
   } catch {
     // continue even if storage fails
   }
