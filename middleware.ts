@@ -24,10 +24,31 @@ export async function middleware(request: NextRequest) {
 
   const isAgeGateExcludedPath =
     pathname === "/welcome" ||
+    pathname === "/" ||
     pathname === "/maintenance" ||
     pathname === "/privacy" ||
     pathname === "/terms" ||
     pathname === "/contact" ||
+    pathname.startsWith("/products") ||
+    pathname.startsWith("/newsfeed") ||
+    pathname.startsWith("/discover") ||
+    pathname.startsWith("/vendors") ||
+    pathname.startsWith("/services") ||
+    pathname.startsWith("/wholesale") ||
+    pathname.startsWith("/events") ||
+    pathname.startsWith("/learning") ||
+    pathname.startsWith("/education") ||
+    pathname.startsWith("/about") ||
+    pathname.startsWith("/account") ||
+    pathname.startsWith("/affiliate") ||
+    pathname.startsWith("/logistics") ||
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/get-started") ||
+    pathname.startsWith("/onboarding") ||
+    pathname.startsWith("/newsfeed") ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
     pathname.startsWith("/api");
@@ -45,6 +66,11 @@ export async function middleware(request: NextRequest) {
         isAgeVerified = false;
       }
     }
+    console.log("[age-gate]", {
+      pathname,
+      cookieRaw: request.cookies.get("ghd_age_verified")?.value?.slice(0, 50),
+      isAgeVerified,
+    });
 
     if (!isAgeVerified) {
       const redirectUrl = request.nextUrl.clone();
