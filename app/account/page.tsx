@@ -54,8 +54,8 @@ export default async function AccountPage() {
 
   let authorTier: PostAuthorTier = "none";
   if (authorRole === "vendor" && vendor?.subscription_status && ["active", "trialing"].includes(vendor.subscription_status)) {
-    if (vendor?.tier === "top") authorTier = "enterprise";
-    else if (vendor?.tier === "mid") authorTier = "pro";
+    if (vendor?.tier === "top") authorTier = "top";
+    else if (vendor?.tier === "mid") authorTier = "mid";
     else if (vendor?.tier === "starter") authorTier = "starter";
   }
   if (authorRole === "consumer" && consumer?.subscription_status && ["active", "trialing"].includes(consumer.subscription_status)) {

@@ -104,7 +104,7 @@ const resolveVendorTier = async (
       .eq("id", vendorPlanId)
       .maybeSingle();
     const name = (plan?.name || "").toLowerCase();
-    if (name.includes("elite")) return "vip";
+    if (name.includes("elite")) return "enterprise";
     if (name.includes("enterprise")) return "enterprise";
     if (name.includes("pro")) return "pro";
     if (name.includes("basic")) return "starter";

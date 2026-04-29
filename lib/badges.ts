@@ -35,8 +35,8 @@ export function isVerifiedVendor(params: {
 const getVendorBadge = (tier: PostAuthorTier, verified?: boolean): BadgeInfo | null => {
   if (!verified) return null;
   if (tier === "vip") return { label: "VIP Vendor", kind: "tier" };
-  if (tier === "enterprise") return { label: "Enterprise Vendor", kind: "tier" };
-  if (tier === "pro") return { label: "Pro Vendor", kind: "tier" };
+  if (tier === "top") return { label: "Enterprise Vendor", kind: "tier" };
+  if (tier === "mid") return { label: "Pro Vendor", kind: "tier" };
   if (tier === "starter") return { label: "Starter Vendor", kind: "tier" };
   return null;
 };
@@ -44,8 +44,8 @@ const getVendorBadge = (tier: PostAuthorTier, verified?: boolean): BadgeInfo | n
 const getConsumerBadge = (tier: PostAuthorTier): BadgeInfo | null => {
   if (tier === "vip") return { label: "VIP Consumer", kind: "tier" };
   if (tier === "starter") return { label: "Starter Consumer", kind: "tier" };
-  if (tier === "pro") return { label: "Pro Consumer", kind: "tier" };
-  if (tier === "enterprise") return { label: "Enterprise Consumer", kind: "tier" };
+  if (tier === "mid") return { label: "Pro Consumer", kind: "tier" };
+  if (tier === "top") return { label: "Enterprise Consumer", kind: "tier" };
   return null;
 };
 

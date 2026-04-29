@@ -48,8 +48,8 @@ export async function GET() {
 
   let tier: PostAuthorTier = "none";
   if (role === "vendor" && vendor?.subscription_status && ["active", "trialing"].includes(vendor.subscription_status)) {
-    if (vendor?.tier === "top") tier = "enterprise";
-    else if (vendor?.tier === "mid") tier = "pro";
+    if (vendor?.tier === "top") tier = "top";
+    else if (vendor?.tier === "mid") tier = "mid";
     else if (vendor?.tier === "starter") tier = "starter";
   }
   if (
