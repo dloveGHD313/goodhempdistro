@@ -189,6 +189,7 @@ export default function AdminPage() {
           <h2 className="text-2xl font-bold mb-4">Quick Actions</h2>
           <div className="flex gap-4">
             <button className="btn-cta">View All Orders</button>
+            <a href="/admin/affiliate-payouts" className="btn-primary">Affiliate Payouts</a>
             <button className="btn-primary">Manage Affiliates</button>
             <button className="btn-primary">Export Reports</button>
             <a href="/admin/jax-applications" className="btn-secondary">

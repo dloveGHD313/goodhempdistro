@@ -532,6 +532,7 @@ export const NAV_ADMIN: NavItemLegacy[] = [
   { label: "🚗 Drivers", href: "/admin/drivers" },
   { label: "🚗 Driver Applications", href: "/admin/driver-applications" },
   { label: "🎙️ Jax Applications", href: "/admin/jax-applications" },
+  { label: "💸 Affiliate Payouts", href: "/admin/affiliate-payouts" },
 ];
 
 export const HIDE_NAV_PATHS = ["/signup", "/login", "/get-started", "/onboarding"];
