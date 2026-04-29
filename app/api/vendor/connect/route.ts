@@ -1,0 +1,63 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/lib/supabase";
+import { stripe, getSiteUrl } from "@/lib/stripe";
+
+export async function POST(req: NextRequest) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const user = session?.user;
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { data: vendor, error: vendorError } = await supabase
+    .from("vendors")
+    .select("id, stripe_account_id")
+    .eq("owner_user_id", user.id)
+    .maybeSingle();
+
+  if (vendorError || !vendor) {
+    return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
+  }
+
+  let stripeAccountId = vendor.stripe_account_id;
+
+  if (!stripeAccountId) {
+    const account = await stripe.accounts.create({
+      type: "express",
+      country: "US",
+      email: user.email ?? undefined,
+      capabilities: {
+        transfers: { requested: true },
+      },
+      metadata: {
+        vendor_id: vendor.id,
+        owner_user_id: user.id,
+      },
+    });
+
+    stripeAccountId = account.id;
+
+    const { error: updateError } = await supabase
+      .from("vendors")
+      .update({ stripe_account_id: stripeAccountId })
+      .eq("id", vendor.id);
+
+    if (updateError) {
+      return NextResponse.json({ error: "Failed to store Stripe account" }, { status: 500 });
+    }
+  }
+
+  const siteUrl = getSiteUrl(req);
+  const link = await stripe.accountLinks.create({
+    account: stripeAccountId,
+    refresh_url: `${siteUrl}/vendors/payouts?retry=1`,
+    return_url: `${siteUrl}/vendors/payouts?connected=1`,
+    type: "account_onboarding",
+  });
+
+  return NextResponse.json({ url: link.url });
+}
