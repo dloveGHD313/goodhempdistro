@@ -1,10 +1,26 @@
 import { Metadata } from "next";
+import { brand } from "@/lib/brand";
 import ContactForm from "./ContactForm";
 import { Reveal, Section, HoverLift } from "@/components/motion";
 
 export const metadata: Metadata = {
-  title: "Contact | Good Hemp Distro",
-  description: "Get in touch with Good Hemp Distro",
+  title: "Contact Good Hemp Distro | Get Support",
+  description:
+    "Contact Good Hemp Distro for marketplace support, vendor questions, partnerships, and general hemp platform inquiries.",
+  openGraph: {
+    title: "Contact Good Hemp Distro | Get Support",
+    description:
+      "Contact Good Hemp Distro for marketplace support, vendor questions, partnerships, and general hemp platform inquiries.",
+    url: `${brand.url}/contact`,
+    siteName: brand.name,
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Contact Good Hemp Distro | Get Support",
+    description:
+      "Contact Good Hemp Distro for marketplace support, vendor questions, partnerships, and general hemp platform inquiries.",
+  },
 };
 
 export default function ContactPage() {

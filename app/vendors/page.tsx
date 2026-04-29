@@ -1,11 +1,27 @@
 import { Metadata } from "next";
+import { brand } from "@/lib/brand";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import Footer from "@/components/Footer";
 import VendorsDirectoryClient from "./VendorsDirectoryClient";
 
 export const metadata: Metadata = {
-  title: "Vendors | Good Hemp Distro",
-  description: "Meet our trusted hemp product vendors",
+  title: "Discover Hemp Vendors | Good Hemp Distro",
+  description:
+    "Find verified hemp vendors near you and nationwide. Growers, processors, retailers, and brands — all vetted and compliant.",
+  openGraph: {
+    title: "Discover Hemp Vendors | Good Hemp Distro",
+    description:
+      "Find verified hemp vendors near you and nationwide. Growers, processors, retailers, and brands — all vetted and compliant.",
+    url: `${brand.url}/vendors`,
+    siteName: brand.name,
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Discover Hemp Vendors | Good Hemp Distro",
+    description:
+      "Find verified hemp vendors near you and nationwide. Growers, processors, retailers, and brands — all vetted and compliant.",
+  },
 };
 
 // Force dynamic rendering for live filters

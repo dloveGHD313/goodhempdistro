@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Metadata } from "next";
+import { brand } from "@/lib/brand";
 import { unstable_noStore as noStore } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { isSafeNextPath } from "@/lib/phase2-workout-flow";
@@ -11,8 +12,23 @@ import MarketSwitcher from "@/components/market/MarketSwitcher";
 import { Reveal, Section, Stagger, StaggerChild, HoverLift } from "@/components/motion";
 
 export const metadata: Metadata = {
-  title: "Services | Good Hemp Distro",
-  description: "Find help in the hemp industry — logistics, compliance, marketing, construction, processing.",
+  title: "Hemp Industry Services | Good Hemp Distro",
+  description:
+    "Find hemp attorneys, cannabis-approved banks, insurance providers, COA analysis companies, and white-label partners.",
+  openGraph: {
+    title: "Hemp Industry Services | Good Hemp Distro",
+    description:
+      "Find hemp attorneys, cannabis-approved banks, insurance providers, COA analysis companies, and white-label partners.",
+    url: `${brand.url}/services`,
+    siteName: brand.name,
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Hemp Industry Services | Good Hemp Distro",
+    description:
+      "Find hemp attorneys, cannabis-approved banks, insurance providers, COA analysis companies, and white-label partners.",
+  },
 };
 
 export const dynamic = "force-dynamic";

@@ -1,12 +1,27 @@
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
+import { brand } from "@/lib/brand";
 import Footer from "@/components/Footer";
 import { createSupabaseServerClient } from "@/lib/supabase";
 
 export const metadata: Metadata = {
-  title: "Wholesale Hemp Distribution | GoodHempDistro",
+  title: "Hemp Wholesale Inquiry | Good Hemp Distro",
   description:
-    "Bulk hemp products for retailers and brands. Verified COAs, competitive pricing, and dedicated account support through GoodHempDistro's wholesale program.",
+    "Submit a wholesale inquiry to connect with verified hemp vendors for bulk orders, distribution partnerships, and B2B sourcing.",
+  openGraph: {
+    title: "Hemp Wholesale Inquiry | Good Hemp Distro",
+    description:
+      "Submit a wholesale inquiry to connect with verified hemp vendors for bulk orders, distribution partnerships, and B2B sourcing.",
+    url: `${brand.url}/wholesale`,
+    siteName: brand.name,
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Hemp Wholesale Inquiry | Good Hemp Distro",
+    description:
+      "Submit a wholesale inquiry to connect with verified hemp vendors for bulk orders, distribution partnerships, and B2B sourcing.",
+  },
 };
 
 async function submitInquiry(formData: FormData) {

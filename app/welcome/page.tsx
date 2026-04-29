@@ -1,5 +1,7 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { brand } from "@/lib/brand";
 import HeroSection from "./components/HeroSection";
 import DualAudienceSection from "./components/DualAudienceSection";
 import FeaturedProductsSection from "./components/FeaturedProductsSection";
@@ -8,6 +10,26 @@ import LearningWithJaxSection from "./components/LearningWithJaxSection";
 import ServicesTeaserSection from "./components/ServicesTeaserSection";
 import TrustBarSection from "./components/TrustBarSection";
 import MarketingFooter from "./components/MarketingFooter";
+
+export const metadata: Metadata = {
+  title: "Good Hemp Distro — The Hemp Industry Platform",
+  description:
+    "Discover verified hemp vendors, shop COA-certified products, and grow your hemp business. Every vendor. Every product. One platform.",
+  openGraph: {
+    title: "Good Hemp Distro — The Hemp Industry Platform",
+    description:
+      "Discover verified hemp vendors, shop COA-certified products, and grow your hemp business. Every vendor. Every product. One platform.",
+    url: `${brand.url}/welcome`,
+    siteName: brand.name,
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Good Hemp Distro — The Hemp Industry Platform",
+    description:
+      "Discover verified hemp vendors, shop COA-certified products, and grow your hemp business. Every vendor. Every product. One platform.",
+  },
+};
 
 type FeaturedProduct = {
   id: string;

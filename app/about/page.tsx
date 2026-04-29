@@ -1,9 +1,25 @@
 import { Metadata } from "next";
+import { brand } from "@/lib/brand";
 import { Section, Stagger, StaggerChild, HoverLift } from "@/components/motion";
 
 export const metadata: Metadata = {
-  title: "About | Good Hemp Distro",
-  description: "Learn about Good Hemp Distro's mission and values",
+  title: "About Good Hemp Distro | Nashville's Hemp Platform",
+  description:
+    "Good Hemp Distro is a hemp industry marketplace connecting verified vendors and informed consumers. Based in Nashville, TN. Serving nationwide.",
+  openGraph: {
+    title: "About Good Hemp Distro | Nashville's Hemp Platform",
+    description:
+      "Good Hemp Distro is a hemp industry marketplace connecting verified vendors and informed consumers. Based in Nashville, TN. Serving nationwide.",
+    url: `${brand.url}/about`,
+    siteName: brand.name,
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "About Good Hemp Distro | Nashville's Hemp Platform",
+    description:
+      "Good Hemp Distro is a hemp industry marketplace connecting verified vendors and informed consumers. Based in Nashville, TN. Serving nationwide.",
+  },
 };
 
 export default function AboutPage() {

@@ -1,10 +1,26 @@
 import Footer from "@/components/Footer";
 import type { Metadata } from "next";
+import { brand } from "@/lib/brand";
 import SignupForm from "./SignupForm";
 
 export const metadata: Metadata = {
-  title: "Sign Up | Good Hemp Distro",
-  description: "Create your Good Hemp Distro account",
+  title: "Join Good Hemp Distro | Create Your Account",
+  description:
+    "Create your free Good Hemp Distro account. Shop compliant hemp products or list your business as a verified vendor.",
+  openGraph: {
+    title: "Join Good Hemp Distro | Create Your Account",
+    description:
+      "Create your free Good Hemp Distro account. Shop compliant hemp products or list your business as a verified vendor.",
+    url: `${brand.url}/signup`,
+    siteName: brand.name,
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Join Good Hemp Distro | Create Your Account",
+    description:
+      "Create your free Good Hemp Distro account. Shop compliant hemp products or list your business as a verified vendor.",
+  },
 };
 
 export default function SignupPage() {
