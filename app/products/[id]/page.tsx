@@ -1,8 +1,10 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import BuyButton from "./BuyButton";
+import AddToCartStub from "./AddToCartStub";
 import { getCategoryCoaRequirement, getDelta8WarningText, requiresWarning } from "@/lib/compliance";
 import { isSafeNextPath } from "@/lib/phase2-workout-flow";
 import FavoriteButton from "@/components/engagement/FavoriteButton";
@@ -12,6 +14,7 @@ import { isGatedProduct, requireMarketAccess } from "@/lib/server/marketGate";
 
 type Product = {
   id: string;
+  slug?: string | null;
   name: string;
   category_id: string | null;
   price_cents: number | null;
@@ -30,6 +33,8 @@ type Product = {
   coa_public_url?: string | null;
   category_requires_coa?: boolean;
   created_at?: string;
+  image_url?: string | null;
+  lab_results_url?: string | null;
 };
 
 type Props = {
@@ -44,15 +49,19 @@ type ProductFetchResult = {
   supabaseErrorMessage: string | null;
 };
 
-async function getProduct(id: string): Promise<ProductFetchResult> {
+async function getProduct(identifier: string): Promise<ProductFetchResult> {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
+  const baseSelect =
+    "id, slug, name, description, category_id, price_cents, is_gated, market_category, featured, vendor_id, status, active, product_type, coa_url, coa_object_path, coa_verified, created_at, image_url, lab_results_url";
+  const slugResult = await supabase
     .from("products")
-    .select(
-      "id, name, description, category_id, price_cents, is_gated, market_category, featured, vendor_id, status, active, product_type, coa_url, coa_object_path, coa_verified, created_at"
-    )
-    .eq("id", id)
-    .single();
+    .select(baseSelect)
+    .eq("slug", identifier)
+    .maybeSingle();
+  const idResult = slugResult.data
+    ? slugResult
+    : await supabase.from("products").select(baseSelect).eq("id", identifier).maybeSingle();
+  const { data, error } = idResult;
 
   if (error) {
     return {
@@ -187,45 +196,7 @@ export default async function ProductDetailPage(props: Props) {
     Boolean(product?.coa_public_url && product.coa_public_url.trim().length > 0);
   const isApprovedActive = product?.status === "approved" && product?.active === true;
 
-  if (!product || supabaseErrorMessage) {
-    if (supabaseErrorMessage === "no_vendor") {
-      notFound();
-    }
-    console.error("[products/detail] product unavailable", {
-      productId: params.id,
-      supabaseErrorMessage,
-      status: product?.status ?? null,
-      active: product?.active ?? null,
-      hasPriceCents,
-      hasCOA: hasCoa,
-      stripeDetected,
-    });
-    return (
-      <div className="min-h-screen text-white flex flex-col">
-        <main className="flex-1">
-          <section className="section-shell">
-            <div className="max-w-3xl mx-auto card-glass p-8 space-y-6 text-center">
-              <div className="space-y-4">
-                <h1 className="text-3xl font-bold text-accent">Product temporarily unavailable</h1>
-                <p className="text-muted">
-                  We could not load this product right now. Please try again later or browse other products.
-                </p>
-              </div>
-              <BuyButton
-                productId={params.id}
-                disabled
-                disabledMessage="Product temporarily unavailable."
-              />
-              <Link href="/products" className="btn-primary">
-                Back to Products
-              </Link>
-            </div>
-          </section>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
+  if (!product || supabaseErrorMessage) notFound();
 
   if (isGatedProduct(product)) {
     const gate = await requireMarketAccess(user?.id ?? null, "gated", "/verify");
@@ -351,16 +322,22 @@ export default async function ProductDetailPage(props: Props) {
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
         <section className="section-shell">
+          <nav className="mb-4 text-sm text-zinc-300" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+            <Link href="/">Home</Link> &gt; <Link href="/products">Shop</Link> &gt; <span>{productName}</span>
+          </nav>
           <Link href="/products" className="text-accent hover:text-accent/80 transition mb-6 inline-block">
             ← Back to Products
           </Link>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             <div className="card-glass p-6 aspect-square flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-6xl text-muted mb-3">📦</div>
-                <p className="text-muted text-sm">Product image coming soon.</p>
-              </div>
+              <Image
+                src={product.image_url || "/placeholder-product.svg"}
+                alt={productName}
+                width={900}
+                height={900}
+                className="h-full w-full object-cover rounded-lg"
+              />
             </div>
 
             <div className="space-y-6">
@@ -393,6 +370,7 @@ export default async function ProductDetailPage(props: Props) {
                 disabled={buyButtonDisabled}
                 disabledMessage={buyButtonMessage}
               />
+              <AddToCartStub productId={product.id} />
 
               <div className="card-glass p-6 space-y-3">
                 <h3 className="text-lg font-semibold">About This Product</h3>
@@ -431,6 +409,16 @@ export default async function ProductDetailPage(props: Props) {
                   )}
                 </div>
               )}
+              {product.lab_results_url ? (
+                <a
+                  href={product.lab_results_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-green-300 underline"
+                >
+                  View Lab Results (PDF)
+                </a>
+              ) : null}
 
               {product.product_type === "delta8" && requiresWarning(product.product_type) && (
                 <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-4">
