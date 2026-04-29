@@ -1,49 +1,88 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
 
 // Pages where age gate should NOT appear
 const EXCLUDED_PATHS = ["/privacy", "/terms", "/contact", "/welcome"];
 
-const STORAGE_KEY = "ghd_age_verified";
+const AGE_GATE_KEY = "ghd_age_verified";
+const AGE_GATE_EXPIRY_DAYS = 30;
+
+function isAgeVerified(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const stored = localStorage.getItem(AGE_GATE_KEY);
+    if (!stored) return false;
+
+    const { verified, expiresAt } = JSON.parse(stored) as {
+      verified?: boolean;
+      expiresAt?: number;
+    };
+
+    if (!verified || typeof expiresAt !== "number" || Date.now() > expiresAt) {
+      localStorage.removeItem(AGE_GATE_KEY);
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function setAgeVerified(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const expiresAt =
+      Date.now() + AGE_GATE_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+    localStorage.setItem(
+      AGE_GATE_KEY,
+      JSON.stringify({ verified: true, expiresAt }),
+    );
+  } catch {
+    // continue even if storage fails
+  }
+}
 
 export default function AgeGate() {
-  const pathname = usePathname();
-  const [show, setShow] = useState(false);
+  const [showGate, setShowGate] = useState(false);
 
   useEffect(() => {
-    // Don't show on excluded paths
-    if (EXCLUDED_PATHS.some((p) => pathname?.startsWith(p))) return;
-
-    // Don't show if already verified
-    try {
-      if (localStorage.getItem(STORAGE_KEY) === "true") return;
-    } catch {
-      // localStorage unavailable — show gate anyway (compliance required)
-      setShow(true);
-      return;
+    function evaluate() {
+      const pathname = window.location.pathname;
+      if (EXCLUDED_PATHS.some((p) => pathname.startsWith(p))) {
+        setShowGate(false);
+        return;
+      }
+      if (!isAgeVerified()) setShowGate(true);
     }
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setShow(true);
-  }, [pathname]);
+    evaluate(); // run on mount
 
-  const handleConfirm = () => {
-    try {
-      localStorage.setItem(STORAGE_KEY, "true");
-      document.cookie = "ghd_age_verified=true; path=/";
-    } catch {
-      // continue even if storage fails
-    }
-    setShow(false);
+    window.addEventListener("popstate", evaluate);
+
+    const origPush = history.pushState.bind(history);
+    history.pushState = (...args) => {
+      origPush(...args);
+      evaluate();
+    };
+
+    return () => {
+      window.removeEventListener("popstate", evaluate);
+      history.pushState = origPush;
+    };
+  }, []);
+
+  const handleVerify = () => {
+    setAgeVerified();
+    setShowGate(false);
   };
 
   const handleDecline = () => {
     window.location.assign("https://google.com");
   };
 
-  if (!show) return null;
+  if (!showGate) return null;
 
   return (
     <div
@@ -76,7 +115,7 @@ export default function AgeGate() {
 
         <div className="flex flex-col gap-3">
           <button
-            onClick={handleConfirm}
+            onClick={handleVerify}
             className="w-full rounded-lg bg-[#3CB97A] px-6 py-3 text-sm font-semibold text-[#0D1512] hover:opacity-90 transition-opacity"
           >
             I am 21 or older — Enter Site
