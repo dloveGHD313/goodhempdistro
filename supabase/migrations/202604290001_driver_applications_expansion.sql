@@ -18,3 +18,19 @@ alter table public.driver_applications alter column user_id drop not null;
 insert into storage.buckets (id, name, public)
 values ('driver-documents', 'driver-documents', false)
 on conflict (id) do nothing;
+
+
+drop policy if exists "Anyone can submit driver application" on public.driver_applications;
+
+create policy "Anyone can submit driver application"
+  on public.driver_applications for insert
+  to anon, authenticated
+  with check (user_id is null or user_id = auth.uid());
+
+create policy "Authenticated users can upload driver documents"
+  on storage.objects for insert to authenticated
+  with check (bucket_id = 'driver-documents');
+
+create policy "Anon users can upload driver documents"
+  on storage.objects for insert to anon
+  with check (bucket_id = 'driver-documents');
