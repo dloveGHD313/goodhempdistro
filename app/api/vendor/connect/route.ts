@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
   const { data: vendor, error: vendorError } = await supabase
     .from("vendors")
-    .select("id, stripe_account_id")
+    .select("id")
     .eq("owner_user_id", user.id)
     .maybeSingle();
 
@@ -23,7 +23,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Vendor not found" }, { status: 404 });
   }
 
-  let stripeAccountId = vendor.stripe_account_id;
+  const { data: existingConnect, error: connectLookupError } = await supabase
+    .from("vendor_connect_accounts")
+    .select("stripe_account_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (connectLookupError) {
+    return NextResponse.json({ error: "Failed to load Connect account" }, { status: 500 });
+  }
+
+  let stripeAccountId = existingConnect?.stripe_account_id ?? null;
 
   if (!stripeAccountId) {
     const account = await stripe.accounts.create({
@@ -41,12 +51,16 @@ export async function POST(req: NextRequest) {
 
     stripeAccountId = account.id;
 
-    const { error: updateError } = await supabase
-      .from("vendors")
-      .update({ stripe_account_id: stripeAccountId })
-      .eq("id", vendor.id);
+    const { error: insertError } = await supabase.from("vendor_connect_accounts").upsert(
+      {
+        user_id: user.id,
+        stripe_account_id: stripeAccountId,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" }
+    );
 
-    if (updateError) {
+    if (insertError) {
       return NextResponse.json({ error: "Failed to store Stripe account" }, { status: 500 });
     }
   }
