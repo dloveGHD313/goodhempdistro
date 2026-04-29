@@ -48,13 +48,29 @@ export default function AgeGate() {
   const [showGate, setShowGate] = useState(false);
 
   useEffect(() => {
-    const pathname = window.location.pathname;
+    function evaluate() {
+      const pathname = window.location.pathname;
+      if (EXCLUDED_PATHS.some((p) => pathname.startsWith(p))) {
+        setShowGate(false);
+        return;
+      }
+      if (!isAgeVerified()) setShowGate(true);
+    }
 
-    // Don't show on excluded paths
-    if (EXCLUDED_PATHS.some((p) => pathname.startsWith(p))) return;
+    evaluate(); // run on mount
 
-    // Runs ONCE on mount — never again
-    if (!isAgeVerified()) setShowGate(true);
+    window.addEventListener("popstate", evaluate);
+
+    const origPush = history.pushState.bind(history);
+    history.pushState = (...args) => {
+      origPush(...args);
+      evaluate();
+    };
+
+    return () => {
+      window.removeEventListener("popstate", evaluate);
+      history.pushState = origPush;
+    };
   }, []);
 
   const handleVerify = () => {
