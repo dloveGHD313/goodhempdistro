@@ -24,6 +24,7 @@ export async function middleware(request: NextRequest) {
 
   const isAgeGateExcludedPath =
     pathname === "/welcome" ||
+    pathname === "/maintenance" ||
     pathname === "/privacy" ||
     pathname === "/terms" ||
     pathname === "/contact" ||
