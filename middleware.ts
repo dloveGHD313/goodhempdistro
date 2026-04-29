@@ -66,12 +66,6 @@ export async function middleware(request: NextRequest) {
         isAgeVerified = false;
       }
     }
-    console.log("[age-gate]", {
-      pathname,
-      cookieRaw: request.cookies.get("ghd_age_verified")?.value?.slice(0, 50),
-      isAgeVerified,
-    });
-
     if (!isAgeVerified) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = "/welcome";
