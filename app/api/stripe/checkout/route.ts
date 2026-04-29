@@ -46,6 +46,8 @@ type CheckoutPayload = {
   cadence?: string;
   productLimit?: number | null;
   commission?: number | null;
+  affiliateCode?: string;
+  referralCode?: string;
 };
 
 export async function POST(req: NextRequest) {
@@ -308,6 +310,8 @@ export async function POST(req: NextRequest) {
           plan_type: "vendor",
           vendor_id: vendor.id,
           user_id: user.id,
+          affiliate_code: body.affiliateCode ?? "",
+          referral_code: body.affiliateCode ?? body.referralCode ?? "",
         },
         subscription_data: {
           metadata: {
@@ -318,6 +322,8 @@ export async function POST(req: NextRequest) {
             plan_type: "vendor",
             vendor_id: vendor.id,
             user_id: user.id,
+            affiliate_code: body.affiliateCode ?? "",
+            referral_code: body.affiliateCode ?? body.referralCode ?? "",
           },
         },
       });
