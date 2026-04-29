@@ -22,6 +22,36 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  const isAgeGateExcludedPath =
+    pathname === "/welcome" ||
+    pathname === "/privacy" ||
+    pathname === "/terms" ||
+    pathname === "/contact" ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/favicon") ||
+    pathname.startsWith("/api");
+
+  if (!isAgeGateExcludedPath) {
+    const ageGateCookie = request.cookies.get("ghd_age_verified")?.value;
+    let isAgeVerified = false;
+
+    if (ageGateCookie) {
+      try {
+        const parsed = JSON.parse(ageGateCookie) as { verified?: unknown; expiresAt?: unknown };
+        const expiresAt = typeof parsed.expiresAt === "number" ? parsed.expiresAt : Number(parsed.expiresAt);
+        isAgeVerified = parsed.verified === true && Number.isFinite(expiresAt) && expiresAt >= Date.now();
+      } catch {
+        isAgeVerified = false;
+      }
+    }
+
+    if (!isAgeVerified) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/welcome";
+      return NextResponse.redirect(redirectUrl);
+    }
+  }
+
   const maintenanceEnabled = isMaintenanceModeEnabled();
 
   const isAllowedPrefix = MAINTENANCE_ALLOWLIST_PREFIXES.some((prefix) =>
