@@ -164,7 +164,13 @@ export default async function JaxFeaturePage({
                     <label htmlFor="vendor_type" className="block text-sm font-medium text-muted mb-1">
                       I am a... <span className="text-red-400">*</span>
                     </label>
-                    <select id="vendor_type" name="vendor_type" required className="input-shell w-full">
+                    <select
+                      id="vendor_type"
+                      name="vendor_type"
+                      required
+                      className="input-shell w-full"
+                      style={{ backgroundColor: "var(--surface, #141F1A)", color: "var(--foreground, #F0EDE6)" }}
+                    >
                       <option value="">Select your role</option>
                       <option value="grower">Hemp Grower / Farmer</option>
                       <option value="processor">Processor / Manufacturer</option>

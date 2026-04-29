@@ -1201,3 +1201,21 @@ footer {
 .nav-logout {
   color: var(--brand-orange);
 }
+
+
+.input-shell {
+  background-color: var(--surface);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 0.625rem 0.75rem;
+}
+
+.input-shell::placeholder {
+  color: var(--muted);
+}
+
+.input-shell option {
+  background-color: var(--surface);
+  color: var(--foreground);
+}

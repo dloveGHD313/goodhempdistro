@@ -19,7 +19,10 @@ alter table public.jax_feature_applications enable row level security;
 create policy "Anyone can submit jax feature application"
   on public.jax_feature_applications
   for insert to anon, authenticated
-  with check (true);
+  with check (
+    user_id is null
+    or user_id = auth.uid()
+  );
 
 create policy "Admin can read jax feature applications"
   on public.jax_feature_applications

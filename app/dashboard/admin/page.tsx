@@ -191,6 +191,9 @@ export default function AdminPage() {
             <button className="btn-cta">View All Orders</button>
             <button className="btn-primary">Manage Affiliates</button>
             <button className="btn-primary">Export Reports</button>
+            <a href="/admin/jax-applications" className="btn-secondary">
+              Jax Feature Applications
+            </a>
           </div>
         </section>
       </div>
