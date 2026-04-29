@@ -1,10 +1,27 @@
+import type { Metadata } from "next";
+import { brand } from "@/lib/brand";
 import { HeroShell } from "@/components/ui/HeroShell";
 import { FeatureSection } from "@/components/ui/FeatureSection";
 import Link from "next/link";
 
-export const metadata = {
-  title: "Education Hub | Good Hemp Distro",
-  description: "Learning with JAX episodes, compliance resources, and education by category.",
+export const metadata: Metadata = {
+  title: "Hemp Education Hub | Good Hemp Distro",
+  description:
+    "Learn about hemp compliance, COA reading, vendor best practices, and industry knowledge. Educational resources for buyers and sellers.",
+  openGraph: {
+    title: "Hemp Education Hub | Good Hemp Distro",
+    description:
+      "Learn about hemp compliance, COA reading, vendor best practices, and industry knowledge. Educational resources for buyers and sellers.",
+    url: `${brand.url}/education`,
+    siteName: brand.name,
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Hemp Education Hub | Good Hemp Distro",
+    description:
+      "Learn about hemp compliance, COA reading, vendor best practices, and industry knowledge. Educational resources for buyers and sellers.",
+  },
 };
 
 const CATEGORIES = [

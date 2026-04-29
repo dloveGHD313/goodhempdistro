@@ -1,10 +1,26 @@
 import Footer from "@/components/Footer";
 import type { Metadata } from "next";
+import { brand } from "@/lib/brand";
 import LoginForm from "./LoginForm";
 
 export const metadata: Metadata = {
-  title: "Login | Good Hemp Distro",
-  description: "Access your Good Hemp Distro account",
+  title: "Sign In | Good Hemp Distro",
+  description:
+    "Sign in to your Good Hemp Distro account to manage your products, track orders, and grow your hemp business.",
+  openGraph: {
+    title: "Sign In | Good Hemp Distro",
+    description:
+      "Sign in to your Good Hemp Distro account to manage your products, track orders, and grow your hemp business.",
+    url: `${brand.url}/login`,
+    siteName: brand.name,
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Sign In | Good Hemp Distro",
+    description:
+      "Sign in to your Good Hemp Distro account to manage your products, track orders, and grow your hemp business.",
+  },
 };
 
 export default async function LoginPage({

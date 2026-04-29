@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { brand } from "@/lib/brand";
 import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import Link from "next/link";
@@ -5,6 +7,26 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 import { hasVendorContext } from "@/lib/authz";
 import Footer from "@/components/Footer";
 import VendorForm from "./VendorForm";
+
+export const metadata: Metadata = {
+  title: "Vendor Registration | Good Hemp Distro",
+  description:
+    "Register your hemp business on Good Hemp Distro. Reach thousands of buyers and grow your brand on the hemp industry's platform.",
+  openGraph: {
+    title: "Vendor Registration | Good Hemp Distro",
+    description:
+      "Register your hemp business on Good Hemp Distro. Reach thousands of buyers and grow your brand on the hemp industry's platform.",
+    url: `${brand.url}/vendor-registration`,
+    siteName: brand.name,
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Vendor Registration | Good Hemp Distro",
+    description:
+      "Register your hemp business on Good Hemp Distro. Reach thousands of buyers and grow your brand on the hemp industry's platform.",
+  },
+};
 
 // Force dynamic rendering and disable caching
 export const dynamic = 'force-dynamic';

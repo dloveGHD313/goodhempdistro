@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { brand } from "@/lib/brand";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import Link from "next/link";
@@ -7,7 +8,21 @@ import Footer from "@/components/Footer";
 export const metadata: Metadata = {
   title: "Feature on Learning with Jax | Good Hemp Distro",
   description:
-    "Apply to be featured on Learning with Jax — hemp industry education for vendors, growers, and business owners.",
+    "Apply to be featured on Learning with Jax. Share your hemp industry expertise with thousands of vendors and consumers.",
+  openGraph: {
+    title: "Feature on Learning with Jax | Good Hemp Distro",
+    description:
+      "Apply to be featured on Learning with Jax. Share your hemp industry expertise with thousands of vendors and consumers.",
+    url: `${brand.url}/learning/jax`,
+    siteName: brand.name,
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Feature on Learning with Jax | Good Hemp Distro",
+    description:
+      "Apply to be featured on Learning with Jax. Share your hemp industry expertise with thousands of vendors and consumers.",
+  },
 };
 
 async function submitJaxApplication(formData: FormData) {

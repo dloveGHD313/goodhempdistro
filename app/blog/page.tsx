@@ -1,4 +1,26 @@
+import type { Metadata } from "next";
+import { brand } from "@/lib/brand";
 import Footer from "@/components/Footer";
+
+export const metadata: Metadata = {
+  title: "Good Hemp Distro Blog | Industry News & Insights",
+  description:
+    "Read the latest hemp industry updates, vendor spotlights, compliance insights, and platform announcements from Good Hemp Distro.",
+  openGraph: {
+    title: "Good Hemp Distro Blog | Industry News & Insights",
+    description:
+      "Read the latest hemp industry updates, vendor spotlights, compliance insights, and platform announcements from Good Hemp Distro.",
+    url: `${brand.url}/blog`,
+    siteName: brand.name,
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Good Hemp Distro Blog | Industry News & Insights",
+    description:
+      "Read the latest hemp industry updates, vendor spotlights, compliance insights, and platform announcements from Good Hemp Distro.",
+  },
+};
 
 export default function BlogPage() {
   const posts: Array<{ id: number; title: string; excerpt: string }> = [];

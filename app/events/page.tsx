@@ -4,10 +4,26 @@ import Footer from "@/components/Footer";
 import { HeroShell } from "@/components/ui/HeroShell";
 import EventsList from "./EventsList";
 import { Metadata } from "next";
+import { brand } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "Events | Good Hemp Distro",
-  description: "Discover upcoming hemp industry events",
+  title: "Hemp Industry Events | Good Hemp Distro",
+  description:
+    "Find hemp industry events, pop-ups, and vendor showcases near you. Connect with the hemp community.",
+  openGraph: {
+    title: "Hemp Industry Events | Good Hemp Distro",
+    description:
+      "Find hemp industry events, pop-ups, and vendor showcases near you. Connect with the hemp community.",
+    url: `${brand.url}/events`,
+    siteName: brand.name,
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Hemp Industry Events | Good Hemp Distro",
+    description:
+      "Find hemp industry events, pop-ups, and vendor showcases near you. Connect with the hemp community.",
+  },
 };
 
 export const dynamic = 'force-dynamic';

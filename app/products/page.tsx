@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { brand } from "@/lib/brand";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { getUserVerificationStatus } from "@/lib/server/idVerification";
@@ -9,16 +10,22 @@ import MarketSwitcher from "@/components/market/MarketSwitcher";
 import { Reveal, Section, HoverLift, HeroParallax } from "@/components/motion";
 
 export const metadata: Metadata = {
-  title: "Browse Hemp Products | GoodHempDistro",
+  title: "Shop Hemp Products | Good Hemp Distro",
   description:
-    "Shop verified, lab-tested hemp products from approved vendors. Filter by category and find exactly what you need on GoodHempDistro.",
+    "Browse COA-certified hemp products from verified vendors. CBD, Delta-8, Delta-9, flower, edibles, topicals, and more — all compliant.",
   openGraph: {
-    title: "Browse Hemp Products | GoodHempDistro",
+    title: "Shop Hemp Products | Good Hemp Distro",
     description:
-      "Shop verified, lab-tested hemp products from approved vendors on GoodHempDistro.",
-    url: "https://www.goodhempdistro.com/products",
-    siteName: "GoodHempDistro",
+      "Browse COA-certified hemp products from verified vendors. CBD, Delta-8, Delta-9, flower, edibles, topicals, and more — all compliant.",
+    url: `${brand.url}/products`,
+    siteName: brand.name,
     type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Shop Hemp Products | Good Hemp Distro",
+    description:
+      "Browse COA-certified hemp products from verified vendors. CBD, Delta-8, Delta-9, flower, edibles, topicals, and more — all compliant.",
   },
 };
 
