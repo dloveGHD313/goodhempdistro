@@ -45,7 +45,8 @@ async function approveAllPending() {
   await getSupabaseAdminClient()
     .from("affiliate_payouts")
     .update({ status: "approved", updated_at: new Date().toISOString() })
-    .eq("status", "pending");
+    .eq("status", "pending")
+    .or(`scheduled_after.is.null,scheduled_after.lte.${new Date().toISOString()}`);
 
   redirect("/admin/affiliate-payouts?bulk=1");
 }
@@ -116,10 +117,15 @@ export default async function AdminAffiliatePayoutsPage({
 
   const { data: allPayoutsForStats } = await admin
     .from("affiliate_payouts")
-    .select("status, amount_cents");
+    .select("status, amount_cents, scheduled_after");
 
   const statsData = allPayoutsForStats ?? [];
   const pendingCount = statsData.filter((p) => p.status === "pending").length;
+  const eligiblePendingCount = statsData.filter((p) =>
+    p.status === "pending" &&
+    (!p.scheduled_after || new Date(p.scheduled_after) <= new Date())
+  ).length;
+  const ineligiblePendingCount = pendingCount - eligiblePendingCount;
   const pendingCents = statsData
     .filter((p) => p.status === "pending")
     .reduce((sum, p) => sum + (p.amount_cents ?? 0), 0);
@@ -147,10 +153,15 @@ export default async function AdminAffiliatePayoutsPage({
             <h1 className="text-3xl font-bold text-accent">Affiliate Payouts</h1>
             <p className="text-muted mt-1">Queue approvals only. CEO executes Stripe transfers manually.</p>
           </div>
-          {pendingCount > 0 && (
+          {eligiblePendingCount > 0 && (
             <form action={approveAllPending}>
-              <button type="submit" className="btn-primary">✅ Approve All Pending ({pendingCount})</button>
+              <button type="submit" className="btn-primary">✅ Approve All Pending ({eligiblePendingCount})</button>
             </form>
+          )}
+          {ineligiblePendingCount > 0 && (
+            <p className="text-xs text-yellow-300">
+              {ineligiblePendingCount} payout(s) pending future eligibility date — not included.
+            </p>
           )}
         </div>
 
