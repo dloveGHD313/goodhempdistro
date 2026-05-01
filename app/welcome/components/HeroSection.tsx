@@ -22,6 +22,21 @@ function AnimatedLine({ children, delayMs = 0, className = "" }: { children: Rea
 }
 
 export default function HeroSection() {
+
+  useEffect(() => {
+    function logTopElement(e: MouseEvent) {
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      console.log('[GLOBAL-CLICK] element at point:', {
+        tag: el?.tagName,
+        className: (el as HTMLElement | null)?.className,
+        id: (el as HTMLElement | null)?.id,
+      });
+    }
+
+    window.addEventListener("click", logTopElement, true);
+    return () => window.removeEventListener("click", logTopElement, true);
+  }, []);
+
   return (
     <section
       className="relative min-h-screen flex items-center justify-center px-6 py-24"
@@ -54,12 +69,28 @@ export default function HeroSection() {
             <Link
               href="/products"
               className="px-7 py-3 rounded-xl font-semibold text-[#0D1512] bg-[#3CB97A] border border-[#3CB97A] hover:scale-[1.02] transition-all duration-200"
+              onClick={(e) => {
+                console.log('[CTA-CLICK] Shop Hemp Products clicked', {
+                  target: e.target,
+                  currentTarget: e.currentTarget,
+                  defaultPrevented: e.defaultPrevented,
+                  bubbles: e.bubbles,
+                });
+              }}
             >
               Shop Hemp Products →
             </Link>
             <Link
               href="/vendor-registration"
               className="px-7 py-3 rounded-xl font-semibold text-[#3CB97A] border border-[#3CB97A] hover:bg-[#1A2820] hover:scale-[1.02] transition-all duration-200"
+              onClick={(e) => {
+                console.log('[CTA-CLICK] Become a Vendor clicked', {
+                  target: e.target,
+                  currentTarget: e.currentTarget,
+                  defaultPrevented: e.defaultPrevented,
+                  bubbles: e.bubbles,
+                });
+              }}
             >
               Become a Vendor →
             </Link>
