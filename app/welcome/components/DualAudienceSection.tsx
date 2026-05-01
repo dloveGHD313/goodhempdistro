@@ -1,7 +1,12 @@
 import Link from "next/link";
 import SectionReveal from "./SectionReveal";
 
-export default function DualAudienceSection() {
+type DualAudienceSectionProps = {
+  isAuthenticated?: boolean;
+};
+
+export default function DualAudienceSection({ isAuthenticated = false }: DualAudienceSectionProps) {
+  const vendorHref = isAuthenticated ? "/vendor-registration" : "/get-started?role=vendor";
   return (
     <section className="grid md:grid-cols-2">
       <SectionReveal className="h-full" delayMs={50}>
@@ -26,7 +31,7 @@ export default function DualAudienceSection() {
           <p className="text-[#8A9E96] mb-6 max-w-lg">
             List products, manage COAs, reach wholesale buyers, and connect with thousands of customers nationwide.
           </p>
-          <Link href="/vendor-registration" className="text-[#C9A84C] font-semibold hover:underline">
+          <Link href={vendorHref} className="text-[#C9A84C] font-semibold hover:underline">
             Start Selling →
           </Link>
         </article>

@@ -80,13 +80,26 @@ async function getFeaturedProducts(): Promise<FeaturedProduct[]> {
   }
 }
 
+async function getIsAuthenticated(): Promise<boolean> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    return !!user;
+  } catch {
+    return false;
+  }
+}
+
 export default async function WelcomePage() {
-  const initialProducts = await getFeaturedProducts();
+  const [initialProducts, isAuthenticated] = await Promise.all([
+    getFeaturedProducts(),
+    getIsAuthenticated(),
+  ]);
 
   return (
     <main className="min-h-screen bg-[#0D1512] text-[#F0EDE6] font-sans">
-      <HeroSection />
-      <DualAudienceSection />
+      <HeroSection isAuthenticated={isAuthenticated} />
+      <DualAudienceSection isAuthenticated={isAuthenticated} />
       <Suspense fallback={<div className="h-64" />}>
         <FeaturedProductsSection initialProducts={initialProducts} />
       </Suspense>
