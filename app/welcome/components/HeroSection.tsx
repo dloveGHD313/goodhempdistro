@@ -21,7 +21,13 @@ function AnimatedLine({ children, delayMs = 0, className = "" }: { children: Rea
   );
 }
 
-export default function HeroSection() {
+type HeroSectionProps = {
+  isAuthenticated?: boolean;
+};
+
+export default function HeroSection({ isAuthenticated = false }: HeroSectionProps) {
+  const vendorHref = isAuthenticated ? "/vendor-registration" : "/get-started?role=vendor";
+
 
 
   useEffect(() => {
@@ -83,7 +89,7 @@ export default function HeroSection() {
               Shop Hemp Products →
             </Link>
             <Link
-              href="/vendor-registration"
+              href={vendorHref}
               className="px-7 py-3 rounded-xl font-semibold text-[#3CB97A] border border-[#3CB97A] hover:bg-[#1A2820] hover:scale-[1.02] transition-all duration-200"
               onClick={(e) => {
                 console.log('[CTA-CLICK] Become a Vendor clicked', {
@@ -91,6 +97,7 @@ export default function HeroSection() {
                   currentTarget: e.currentTarget,
                   defaultPrevented: e.defaultPrevented,
                   bubbles: e.bubbles,
+                  href: vendorHref,
                 });
               }}
             >
