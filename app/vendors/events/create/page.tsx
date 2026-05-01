@@ -1,0 +1,1 @@
+export default function CreateVendorEventPage(){return <main className="section-shell"><h1 className="text-3xl text-accent">Create Event</h1><p className="text-muted">Event creation form coming shortly.</p></main>}
