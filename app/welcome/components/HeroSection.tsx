@@ -23,9 +23,7 @@ function AnimatedLine({ children, delayMs = 0, className = "" }: { children: Rea
 
 export default function HeroSection() {
 
-<<<<<<< codex/fix-product-slug/id-lookup-76pww4
 
-=======
   useEffect(() => {
     function logTopElement(e: MouseEvent) {
       const el = document.elementFromPoint(e.clientX, e.clientY);
@@ -39,7 +37,7 @@ export default function HeroSection() {
     window.addEventListener("click", logTopElement, true);
     return () => window.removeEventListener("click", logTopElement, true);
   }, []);
->>>>>>> main
+
 
   return (
     <section
