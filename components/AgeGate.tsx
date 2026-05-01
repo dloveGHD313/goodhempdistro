@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 // Pages where age gate should NOT appear
-const EXCLUDED_PATHS = ["/privacy", "/terms", "/contact", "/welcome"];
+const EXCLUDED_PATHS = ["/privacy", "/terms", "/contact"];
 
 const AGE_GATE_KEY = "ghd_age_verified";
 const AGE_GATE_EXPIRY_DAYS = 30;
