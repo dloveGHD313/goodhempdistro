@@ -304,7 +304,7 @@ export default function Nav() {
   return (
     <nav ref={navRef} aria-label="Main Navigation" className="flex items-center justify-between w-full gap-4">
       {/* Logo/Brand - Visible on all sizes */}
-      <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition shrink-0 min-w-fit">
+      <Link href="/welcome" className="flex items-center gap-2 hover:opacity-80 transition shrink-0 min-w-fit">
         <BrandLogo size={44} className="hidden sm:block" />
         <BrandLogo size={36} className="sm:hidden" />
         <span className="font-bold text-xs sm:text-sm brand-title whitespace-nowrap">
@@ -503,7 +503,7 @@ export default function Nav() {
           >
             {/* Drawer Header with Logo */}
             <div className="p-6 flex items-center justify-between nav-drawer-header">
-              <Link href="/" className="flex items-center gap-2" onClick={() => setDrawerOpen(false)}>
+              <Link href="/welcome" className="flex items-center gap-2" onClick={() => setDrawerOpen(false)}>
                 <BrandLogo size={32} />
                 <span className="font-bold text-sm brand-title">Good Hemp</span>
               </Link>
