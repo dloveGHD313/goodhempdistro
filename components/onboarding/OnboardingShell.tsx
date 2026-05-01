@@ -6,7 +6,7 @@ import { useSafeReducedMotion } from "@/lib/useSafeReducedMotion";
 import type { OnboardingRole } from "@/lib/onboarding/role";
 import type { Question } from "@/lib/onboarding/questions";
 import type { OnboardingStepStatus } from "./QuestionnaireFlow";
-import QuestionnaireFlow from "./QuestionnaireFlow";
+import QuestionnaireFlow, { type OnboardingCompletePayload } from "./QuestionnaireFlow";
 import JaxOnboardingGuide from "./JaxOnboardingGuide";
 
 type Props = {
@@ -16,6 +16,7 @@ type Props = {
   /** Optional seed answers (e.g. consumer_consumer_use_type when branching). */
   initialAnswers?: Record<string, string | string[]>;
   onSuccessRedirect?: () => void;
+  onCompleteIntercept?: (payload: OnboardingCompletePayload) => void;
 };
 
 /**
@@ -23,7 +24,7 @@ type Props = {
  * Defers motion and QuestionnaireFlow until after client mount to avoid SSR crash
  * when framer-motion useReducedMotion (matchMedia) runs without window.
  */
-function OnboardingShellWithMotion({ role, roles, flatQuestions, initialAnswers, onSuccessRedirect }: Props) {
+function OnboardingShellWithMotion({ role, roles, flatQuestions, initialAnswers, onSuccessRedirect, onCompleteIntercept }: Props) {
   const reducedMotion = useSafeReducedMotion();
   const [stepStatus, setStepStatus] = useState({
     stepIndex: 0,
@@ -83,13 +84,14 @@ function OnboardingShellWithMotion({ role, roles, flatQuestions, initialAnswers,
           reducedMotion={reducedMotion}
           onStepStatusChange={handleStepStatusChange}
           onSuccessRedirect={onSuccessRedirect}
+          onCompleteIntercept={onCompleteIntercept}
         />
       </motion.div>
     </div>
   );
 }
 
-export default function OnboardingShell({ role, roles, flatQuestions, initialAnswers, onSuccessRedirect }: Props) {
+export default function OnboardingShell({ role, roles, flatQuestions, initialAnswers, onSuccessRedirect, onCompleteIntercept }: Props) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -122,6 +124,7 @@ export default function OnboardingShell({ role, roles, flatQuestions, initialAns
       flatQuestions={flatQuestions}
       initialAnswers={initialAnswers}
       onSuccessRedirect={onSuccessRedirect}
+      onCompleteIntercept={onCompleteIntercept}
     />
   );
 }

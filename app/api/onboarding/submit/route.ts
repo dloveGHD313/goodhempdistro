@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { ALLOWED_ROLES, hasRole } from "@/lib/roles";
 import { getConsumerUseType, isConsumerWholesaleChoice } from "@/lib/onboarding/answers";
+import { isValidOnboardingState } from "@/lib/onboarding/us-states";
 import { deriveProfileFieldsFromUser } from "@/lib/profile-utils";
 
 type Payload = {
@@ -10,6 +11,7 @@ type Payload = {
   roles?: string[];
   answers?: Record<string, string | string[]>;
   driver_mode?: string;
+  onboarding_state?: string;
 };
 
 /** Onboarding request may only send these roles (subset of ALLOWED_ROLES; no admin). Payload cannot grant admin. */
@@ -63,6 +65,7 @@ export async function POST(req: NextRequest) {
   const role = baseRoles[0] ?? "consumer";
   const answers = body?.answers && typeof body.answers === "object" ? body.answers : {};
   const driver_mode = typeof body?.driver_mode === "string" ? body.driver_mode : undefined;
+  const onboardingState = isValidOnboardingState(body?.onboarding_state) ? body.onboarding_state : null;
 
   const payload = {
     version: typeof body?.version === "string" ? body.version : "1.5",
@@ -103,14 +106,17 @@ export async function POST(req: NextRequest) {
   }
 
   if (existingProfile?.id) {
+    const updatePayload: Record<string, unknown> = {
+      onboarding_answers: payload,
+      onboarding_completed_at: now,
+      updated_at: now,
+      roles: rolesToWrite,
+    };
+    if (onboardingState) updatePayload.onboarding_state = onboardingState;
+
     const { error } = await supabase
       .from("profiles")
-      .update({
-        onboarding_answers: payload,
-        onboarding_completed_at: now,
-        updated_at: now,
-        roles: rolesToWrite,
-      })
+      .update(updatePayload)
       .eq("id", user.id);
 
     if (error) {
@@ -122,7 +128,7 @@ export async function POST(req: NextRequest) {
   } else {
     const { email, displayName, username } = deriveProfileFieldsFromUser(user);
 
-    const { error } = await supabase.from("profiles").insert({
+    const insertPayload: Record<string, unknown> = {
       id: user.id,
       email,
       role: "consumer",
@@ -133,7 +139,10 @@ export async function POST(req: NextRequest) {
       onboarding_completed_at: now,
       updated_at: now,
       market_mode_preference: "CBD_WELLNESS",
-    });
+    };
+    if (onboardingState) insertPayload.onboarding_state = onboardingState;
+
+    const { error } = await supabase.from("profiles").insert(insertPayload);
 
     if (error) {
       return NextResponse.json(

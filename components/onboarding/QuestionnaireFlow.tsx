@@ -15,6 +15,11 @@ import ProgressIndicator from "./ProgressIndicator";
 
 export type OnboardingStepStatus = "idle" | "submitting" | "error" | "success";
 
+export type OnboardingCompletePayload = {
+  answers: Record<string, string | string[]>;
+  driver_mode?: string;
+};
+
 type Props = {
   role: OnboardingRole;
   roles?: string[];
@@ -26,6 +31,11 @@ type Props = {
   onStepStatusChange?: (stepIndex: number, totalSteps: number, status: OnboardingStepStatus) => void;
   /** If provided, called on success instead of redirecting. */
   onSuccessRedirect?: () => void;
+  /**
+   * If provided, called when user clicks Continue on the last question INSTEAD of POSTing.
+   * Parent takes over submit + redirect (used by GetStartedClient to insert the state picker).
+   */
+  onCompleteIntercept?: (payload: OnboardingCompletePayload) => void;
 };
 
 const SUCCESS_DELAY_MS = 550;
@@ -38,6 +48,7 @@ export default function QuestionnaireFlow({
   reducedMotion: reducedMotionProp,
   onStepStatusChange,
   onSuccessRedirect,
+  onCompleteIntercept,
 }: Props) {
   const router = useRouter();
   const systemReduced = useSafeReducedMotion();
@@ -126,6 +137,11 @@ export default function QuestionnaireFlow({
     const driver_mode =
       typeof driver_modeRaw === "string" ? driver_modeRaw : undefined;
 
+    if (onCompleteIntercept) {
+      onCompleteIntercept({ answers, driver_mode });
+      return;
+    }
+
     emit("submitting");
     setSubmitting(true);
     setError(null);
@@ -210,7 +226,7 @@ export default function QuestionnaireFlow({
     } finally {
       setSubmitting(false);
     }
-  }, [submitting, role, rolesProp, answers, questions.length, router, emit, onSuccessRedirect]);
+  }, [submitting, role, rolesProp, answers, questions.length, router, emit, onSuccessRedirect, onCompleteIntercept]);
 
   const handleNext = useCallback(() => {
     if (!canProceed || submitting) return;
