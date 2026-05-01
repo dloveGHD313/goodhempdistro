@@ -53,15 +53,11 @@ async function getProduct(identifier: string): Promise<ProductFetchResult> {
   const supabase = await createSupabaseServerClient();
   const baseSelect =
     "id, slug, name, description, category_id, price_cents, is_gated, market_category, featured, vendor_id, status, active, product_type, coa_url, coa_object_path, coa_verified, created_at, image_url, lab_results_url";
-  const slugResult = await supabase
+  const { data, error } = await supabase
     .from("products")
     .select(baseSelect)
-    .eq("slug", identifier)
+    .or(`slug.eq.${identifier},id.eq.${identifier}`)
     .maybeSingle();
-  const idResult = slugResult.data
-    ? slugResult
-    : await supabase.from("products").select(baseSelect).eq("id", identifier).maybeSingle();
-  const { data, error } = idResult;
 
   if (error) {
     return {
