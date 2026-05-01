@@ -24,13 +24,13 @@ function AnimatedLine({ children, delayMs = 0, className = "" }: { children: Rea
 export default function HeroSection() {
   return (
     <section
-      className="min-h-screen flex items-center justify-center px-6 py-24"
+      className="relative min-h-screen flex items-center justify-center px-6 py-24"
       style={{
         background:
           "radial-gradient(ellipse 80% 50% at 50% 40%, rgba(60,185,122,0.12) 0%, transparent 70%), #0D1512",
       }}
     >
-      <div className="max-w-5xl w-full text-center">
+      <div className="relative z-10 max-w-5xl w-full text-center">
         <AnimatedLine delayMs={100}>
           <p className="text-xs uppercase tracking-[0.35em] text-[#3CB97A] mb-6">THE HEMP INDUSTRY PLATFORM</p>
         </AnimatedLine>
@@ -50,7 +50,7 @@ export default function HeroSection() {
         </AnimatedLine>
 
         <AnimatedLine delayMs={550}>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
+          <div className="relative z-10 flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
             <Link
               href="/products"
               className="px-7 py-3 rounded-xl font-semibold text-[#0D1512] bg-[#3CB97A] border border-[#3CB97A] hover:scale-[1.02] transition-all duration-200"
