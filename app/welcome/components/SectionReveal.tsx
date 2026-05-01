@@ -17,11 +17,14 @@ export default function SectionReveal({ children, className = "", delayMs = 0 }:
     const node = ref.current;
     if (!node) return;
 
+    const fallbackTimer = setTimeout(() => setVisible(true), 1500);
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             setVisible(true);
+            clearTimeout(fallbackTimer);
             observer.unobserve(entry.target);
           }
         });
@@ -30,13 +33,16 @@ export default function SectionReveal({ children, className = "", delayMs = 0 }:
     );
 
     observer.observe(node);
-    return () => observer.disconnect();
+    return () => {
+      clearTimeout(fallbackTimer);
+      observer.disconnect();
+    };
   }, []);
 
   return (
     <div
       ref={ref}
-      className={`transition-all duration-700 ease-out ${className} ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"}`}
+      className={`transition-all duration-700 ease-out ${className} ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6 pointer-events-none"}`}
       style={{ transitionDelay: `${delayMs}ms` }}
     >
       {children}

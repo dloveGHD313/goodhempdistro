@@ -1,0 +1,33 @@
+import Link from "next/link";
+import { createSupabaseServerClient } from "@/lib/supabase";
+
+type ServiceRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  vendor_id: string | null;
+};
+
+export default async function ServiceCategoryPage({ title, description, slug }: { title: string; description: string; slug: string }) {
+  const supabase = await createSupabaseServerClient();
+
+  const { data: category } = await supabase
+    .from("categories")
+    .select("id")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  let services: ServiceRow[] = [];
+  if (category?.id) {
+    const { data } = await supabase
+      .from("services")
+      .select("id, title, description, vendor_id")
+      .eq("category_id", category.id)
+      .eq("status", "approved")
+      .eq("active", true)
+      .limit(20);
+    services = (data as ServiceRow[] | null) ?? [];
+  }
+
+  return <main className="min-h-screen bg-[#0D1512] text-[#F0EDE6] px-6 py-16"><div className="max-w-5xl mx-auto space-y-10"><section><h1 className="text-5xl font-serif mb-4">{title}</h1><p className="text-[#8A9E96]">{description}</p></section><section><h2 className="text-3xl font-serif mb-4">Listed Providers</h2>{services.length===0?<p className="text-[#8A9E96]">No providers listed yet</p>:<div className="grid md:grid-cols-2 gap-4">{services.map((d)=><article key={d.id} className="bg-[#141F1A] border border-white/10 rounded-xl p-5"><h3 className="text-xl mb-2">{d.title}</h3><p className="text-[#8A9E96] mb-3">{d.description||"No description provided."}</p><Link href={`/services/${d.id}`} className="text-[#3CB97A]">View Service</Link></article>)}</div>}</section><section className="bg-[#141F1A] border border-[#3CB97A]/30 rounded-xl p-6"><h3 className="text-2xl font-serif mb-2">List Your Services</h3><Link className="inline-block px-5 py-3 rounded-lg bg-[#3CB97A] text-[#0D1512] font-semibold" href={`/vendor-registration?category=${slug}`}>List Your Services</Link></section></div></main>
+}

@@ -69,6 +69,13 @@ export async function POST(_req: NextRequest) {
         },
       });
 
+      await stripe.payouts.create({
+        amount: transfer.amount,
+        currency: "usd",
+      }, {
+        stripeAccount: destinationAccountId,
+      });
+
       const { error: updateError } = await admin
         .from("affiliate_payouts")
         .update({

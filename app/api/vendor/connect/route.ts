@@ -43,6 +43,16 @@ export async function POST(req: NextRequest) {
       capabilities: {
         transfers: { requested: true },
       },
+      settings: {
+        payouts: {
+          schedule: {
+            interval: "manual",
+          },
+        },
+      },
+      tos_acceptance: {
+        service_agreement: "recipient",
+      },
       metadata: {
         vendor_id: vendor.id,
         owner_user_id: user.id,

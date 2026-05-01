@@ -13,7 +13,7 @@ export default function DualAudienceSection() {
             Browse lab-tested products from verified vendors. Check COAs, compare prices, and order with confidence.
           </p>
           <Link href="/products" className="text-[#3CB97A] font-semibold hover:underline">
-            Shop Products →
+            Shop Hemp Products →
           </Link>
         </article>
       </SectionReveal>

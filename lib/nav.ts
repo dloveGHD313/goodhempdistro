@@ -508,17 +508,18 @@ export const NAV_BUSINESS: NavItemLegacy[] = [
   { label: "Wholesale Inquiry", href: "/wholesale" },
   { label: "Feature on Learning with Jax", href: "/learning/jax" },
   { label: "Services", href: "/services" },
+  { label: "📅 My Events", href: "/vendors/events" },
 ];
 
 export const NAV_SERVICES: NavItemLegacy[] = [
-  { label: "Hemp Developers", href: "/services?category=hemp-developers" },
-  { label: "Cannabis Attorneys", href: "/services?category=cannabis-attorneys" },
-  { label: "Cannabis-Approved Banks", href: "/services?category=cannabis-banks" },
-  { label: "Insurance Providers", href: "/services?category=insurance-providers" },
-  { label: "Farm Leasing", href: "/services?category=farm-leasing" },
-  { label: "White-Label Partners", href: "/services?category=white-label" },
-  { label: "COA Analysis Companies", href: "/services?category=coa-analysis" },
-  { label: "Wholesalers", href: "/services?category=wholesalers" },
+  { label: "Hemp Developers", href: "/services/hemp-developers" },
+  { label: "Cannabis Attorneys", href: "/services/cannabis-attorneys" },
+  { label: "Cannabis-Approved Banks", href: "/services/cannabis-banks" },
+  { label: "Insurance Providers", href: "/services/insurance-providers" },
+  { label: "Farm Leasing", href: "/services/farm-leasing" },
+  { label: "White-Label Partners", href: "/services/white-label" },
+  { label: "COA Analysis Companies", href: "/services/coa-analysis" },
+  { label: "Wholesalers", href: "/services/wholesalers" },
 ];
 
 export const NAV_ADMIN: NavItemLegacy[] = [
