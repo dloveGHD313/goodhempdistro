@@ -53,10 +53,10 @@ async function getProduct(identifier: string): Promise<ProductFetchResult> {
   const supabase = await createSupabaseServerClient();
   const baseSelect =
     "id, slug, name, description, category_id, price_cents, is_gated, market_category, featured, vendor_id, status, active, product_type, coa_url, coa_object_path, coa_verified, created_at, image_url, lab_results_url";
-  const { data, error } = await supabase
+  const { data: slugData, error } = await supabase
     .from("products")
     .select(baseSelect)
-    .or(`slug.eq.${identifier},id.eq.${identifier}`)
+    .eq("slug", identifier)
     .maybeSingle();
 
   if (error) {
@@ -66,20 +66,42 @@ async function getProduct(identifier: string): Promise<ProductFetchResult> {
     };
   }
 
-  if (!data) {
+  let dataToUse: any = slugData;
+  if (!dataToUse) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+    if (isUuid) {
+      const { data: idData, error: idError } = await supabase
+        .from("products")
+        .select(baseSelect)
+        .eq("id", identifier)
+        .maybeSingle();
+
+      if (idError) {
+        return {
+          product: null,
+          supabaseErrorMessage: idError.message,
+        };
+      }
+
+      dataToUse = idData;
+    }
+  }
+
+  if (!dataToUse) {
     return {
       product: null,
       supabaseErrorMessage: "not_found",
     };
   }
 
+  
   // Products without vendor_id are not visible (consistent with list page)
-  if (data.vendor_id == null || String(data.vendor_id).trim() === "") {
+  if (dataToUse.vendor_id == null || String(dataToUse.vendor_id).trim() === "") {
     return { product: null, supabaseErrorMessage: "no_vendor" };
   }
 
-  const normalizedCoaPath = data.coa_object_path
-    ? data.coa_object_path.trim().replace(/^\/+/, "")
+  const normalizedCoaPath = dataToUse.coa_object_path
+    ? dataToUse.coa_object_path.trim().replace(/^\/+/, "")
     : "";
   const storageCoaPath = normalizedCoaPath
     ? normalizedCoaPath.startsWith("coas/")
@@ -88,14 +110,14 @@ async function getProduct(identifier: string): Promise<ProductFetchResult> {
     : "";
   const coaPublicUrl = storageCoaPath
     ? supabase.storage.from("coas").getPublicUrl(storageCoaPath).data.publicUrl
-    : data.coa_url || null;
+    : dataToUse.coa_url || null;
 
   // Hide product if vendor is suspended (4.3.B)
-  if (data.vendor_id) {
+  if (dataToUse.vendor_id) {
     const { data: vendor } = await supabase
       .from("vendors")
       .select("status")
-      .eq("id", data.vendor_id)
+      .eq("id", dataToUse.vendor_id)
       .maybeSingle();
     if (vendor?.status !== "active") {
       return { product: null, supabaseErrorMessage: "vendor_suspended" };
@@ -103,15 +125,15 @@ async function getProduct(identifier: string): Promise<ProductFetchResult> {
   }
 
   // Category COA requirement (for display: View COA vs COA required badge)
-  const categoryRequiresCoa = await getCategoryCoaRequirement(supabase, data.category_id);
+  const categoryRequiresCoa = await getCategoryCoaRequirement(supabase, dataToUse.category_id);
 
   return {
     product: {
-      ...data,
+      ...dataToUse,
       market_mode:
-        data.is_gated ||
-        data.market_category === "RECREATIONAL" ||
-        data.market_category === "INTOXICATING"
+        dataToUse.is_gated ||
+        dataToUse.market_category === "RECREATIONAL" ||
+        dataToUse.market_category === "INTOXICATING"
           ? "gated"
           : "ungated",
       coa_public_url: coaPublicUrl,
