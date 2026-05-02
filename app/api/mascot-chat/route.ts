@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
-import { requirePaidAI } from "@/lib/requirePaidAI";
+import { getJaxEligibility } from "@/lib/jax/eligibility";
+import {
+  getGlobalDailyCount,
+  getUserMonthlyCount,
+  incrementGlobalDaily,
+  incrementUserMonthly,
+  JAX_USAGE_HELPERS,
+} from "@/lib/jax/usage";
+import { extractInterestsFromAnswers } from "@/lib/onboarding/interests";
 import { classifyIntent } from "@/server/mascot/intents";
 import { checkSafety } from "@/server/mascot/safety";
 import { quickRepliesByContext, type MascotContext, type MascotMood } from "@/components/mascot/config";
@@ -30,7 +38,7 @@ const normalizeProductQuery = (text: string) =>
     .replace(/what'?s a coa\??/gi, "")
     .trim();
 
-const response = (payload: {
+type BasePayload = {
   reply: string;
   mood: MascotMood;
   results: {
@@ -44,7 +52,9 @@ const response = (payload: {
     }>;
   };
   suggestions: string[];
-}) => NextResponse.json(payload);
+};
+
+const response = (payload: BasePayload) => NextResponse.json(payload);
 
 const unavailableResponse = (message: string, suggestions: string[] = []) =>
   response({
@@ -54,15 +64,23 @@ const unavailableResponse = (message: string, suggestions: string[] = []) =>
     suggestions,
   });
 
+type UserContext = {
+  name: string;
+  roles: string[];
+  location: string;
+  topInterests: string[];
+};
+
 const buildSystemPrompt = (params: {
   contextMode: MascotContext;
   route: string;
   intent: string;
   baseReply: string;
-  results: { type: string; items: Array<{ title: string; subtitle?: string | null }> };
+  results: BasePayload["results"];
   suggestions: string[];
+  userContext: UserContext | null;
 }) => {
-  return [
+  const lines = [
     "You are the Good Hemp Distros mascot assistant.",
     "Stay concise, friendly, and action-oriented.",
     "Never claim to complete purchases or account changes; only guide and link.",
@@ -73,7 +91,21 @@ const buildSystemPrompt = (params: {
     `Base reply: ${params.baseReply}`,
     `Results: ${JSON.stringify(params.results)}`,
     `Quick replies: ${params.suggestions.join(" | ")}`,
-  ].join("\n");
+  ];
+
+  if (params.userContext) {
+    const u = params.userContext;
+    lines.push(
+      "",
+      "USER CONTEXT (use naturally, don't list back robotically):",
+      `Name: ${u.name}`,
+      `Roles: ${u.roles.length ? u.roles.join(", ") : "consumer"}`,
+      `Location: ${u.location || "unknown"}`,
+      `Top interests: ${u.topInterests.length ? u.topInterests.join(", ") : "general"}`
+    );
+  }
+
+  return lines.join("\n");
 };
 
 const isTransientStatus = (status?: number) =>
@@ -91,7 +123,7 @@ const openaiChat = async (params: {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      const upstream = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${params.apiKey}`,
@@ -108,45 +140,36 @@ const openaiChat = async (params: {
         }),
       });
 
-      if (!response.ok) {
-        if (attempt === 0 && isTransientStatus(response.status)) {
+      if (!upstream.ok) {
+        if (attempt === 0 && isTransientStatus(upstream.status)) {
           continue;
         }
         return {
           ok: false as const,
-          status: response.status,
+          status: upstream.status,
           errorName: "OpenAIResponseError",
-          errorMessage: `OpenAI status ${response.status}`,
+          errorMessage: `OpenAI status ${upstream.status}`,
         };
       }
 
-      const data = await response.json();
+      const data = await upstream.json();
       const reply = data?.choices?.[0]?.message?.content?.trim();
       if (!reply) {
-        if (attempt === 0) {
-          continue;
-        }
+        if (attempt === 0) continue;
         return {
           ok: false as const,
-          status: response.status,
+          status: upstream.status,
           errorName: "OpenAIEmptyReply",
           errorMessage: "OpenAI returned no reply",
         };
       }
 
-      return { ok: true as const, status: response.status, reply };
+      return { ok: true as const, status: upstream.status, reply };
     } catch (error) {
       const errorName = error instanceof Error ? error.name : "UnknownError";
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      if (attempt === 0) {
-        continue;
-      }
-      return {
-        ok: false as const,
-        status: undefined,
-        errorName,
-        errorMessage,
-      };
+      if (attempt === 0) continue;
+      return { ok: false as const, status: undefined, errorName, errorMessage };
     } finally {
       clearTimeout(timeoutId);
     }
@@ -160,13 +183,51 @@ const openaiChat = async (params: {
   };
 };
 
+async function loadUserContext(userId: string): Promise<UserContext | null> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase
+      .from("profiles")
+      .select("display_name, email, roles, onboarding_state, onboarding_answers")
+      .eq("id", userId)
+      .maybeSingle();
+    const profile = (data ?? null) as {
+      display_name: string | null;
+      email: string | null;
+      roles: string[] | null;
+      onboarding_state: string | null;
+      onboarding_answers: Record<string, unknown> | null;
+    } | null;
+    if (!profile) return null;
+
+    const answers =
+      profile.onboarding_answers && typeof profile.onboarding_answers === "object"
+        ? ((profile.onboarding_answers as { answers?: Record<string, unknown> }).answers ??
+          (profile.onboarding_answers as Record<string, unknown>))
+        : null;
+
+    const name =
+      (profile.display_name && profile.display_name.trim()) ||
+      (profile.email && profile.email.split("@")[0]) ||
+      "there";
+
+    return {
+      name,
+      roles: profile.roles ?? [],
+      location: profile.onboarding_state ?? "",
+      topInterests: extractInterestsFromAnswers(answers, profile.roles, 3),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest) {
   const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID();
   const flagStatus = logMascotFlagMismatch("api/mascot-chat");
   const aiEnabled = flagStatus.serverEnabled;
   const openaiKey = process.env.OPENAI_API_KEY?.trim();
   const hasOpenAIKey = Boolean(openaiKey);
-  const fallbackSuggestions = quickRepliesByContext.GENERIC || [];
 
   if (!aiEnabled) {
     console.info(
@@ -180,6 +241,57 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // Build 10: paid-only gate. Eligibility check first; auth required.
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const eligibility = await getJaxEligibility(user?.id ?? null, user?.email ?? null);
+  if (!eligibility.eligible) {
+    return NextResponse.json(
+      {
+        error: "jax_paid_only",
+        message: "JAX is available with a paid plan.",
+        upgradeUrl: "/pricing",
+      },
+      { status: 403 }
+    );
+  }
+
+  // user is non-null here because eligibility.eligible can only be true with a userId.
+  const userId = user!.id;
+
+  // Per-user cap (skip for unlimited tiers).
+  const monthlyLimit = eligibility.monthlyLimit;
+  const currentUsage = await getUserMonthlyCount(userId);
+  if (typeof monthlyLimit === "number" && currentUsage >= monthlyLimit) {
+    return NextResponse.json(
+      {
+        error: "jax_cap_exceeded",
+        message: `You've used your ${monthlyLimit} messages this month. Upgrade for more.`,
+        upgradeUrl: "/pricing",
+        monthlyLimit,
+        currentUsage,
+      },
+      { status: 429 }
+    );
+  }
+
+  // Global daily circuit breaker.
+  const dailyCap = JAX_USAGE_HELPERS.getDailyGlobalCap();
+  const dailyCount = await getGlobalDailyCount();
+  if (dailyCount >= dailyCap) {
+    console.error(
+      `[mascot-chat] global circuit breaker tripped: ${dailyCount} >= ${dailyCap}`
+    );
+    return NextResponse.json(
+      {
+        error: "jax_global_cap",
+        message: "JAX is taking a break — back tomorrow.",
+      },
+      { status: 503 }
+    );
+  }
+
   if (!hasOpenAIKey) {
     setMascotLastError({
       name: "MissingOpenAIKey",
@@ -189,7 +301,7 @@ export async function POST(req: NextRequest) {
     console.info(
       `[mascot-chat] requestId=${requestId} status=200 flags:client=${flagStatus.clientEnabled} server=${flagStatus.serverEnabled} key=${hasOpenAIKey}`
     );
-    return unavailableResponse("AI is temporarily unavailable. Please try again soon.", fallbackSuggestions);
+    return unavailableResponse("AI is temporarily unavailable. Please try again soon.");
   }
 
   try {
@@ -199,23 +311,18 @@ export async function POST(req: NextRequest) {
     const route = (body?.route || "/") as string;
 
     const lastUser = [...messages].reverse().find((message) => message.role === "user");
+    const suggestions = quickRepliesByContext[contextMode] || [];
     if (!lastUser?.content) {
-      console.info(
-        `[mascot-chat] requestId=${requestId} status=200 flags:client=${flagStatus.clientEnabled} server=${flagStatus.serverEnabled} key=${hasOpenAIKey}`
-      );
       return response({
         reply: "Tell me what you're looking for and I'll pull real results.",
         mood: "CHILL",
         results: { type: "none", items: [] },
-        suggestions: quickRepliesByContext[contextMode] || [],
+        suggestions,
       });
     }
 
     const safety = checkSafety(lastUser.content);
     if (safety) {
-      console.info(
-        `[mascot-chat] requestId=${requestId} status=200 flags:client=${flagStatus.clientEnabled} server=${flagStatus.serverEnabled} key=${hasOpenAIKey}`
-      );
       return response({
         reply: safety.reply,
         mood: safety.mood,
@@ -226,14 +333,8 @@ export async function POST(req: NextRequest) {
 
     const intent = classifyIntent(lastUser.content, contextMode);
     const normalized = lastUser.content.toLowerCase();
-    const suggestions = quickRepliesByContext[contextMode] || [];
 
-    let basePayload: {
-      reply: string;
-      mood: MascotMood;
-      results: { type: string; items: Array<{ title: string; subtitle?: string | null }> };
-      suggestions: string[];
-    };
+    let basePayload: BasePayload;
 
     if (intent === "product_search") {
       const maxPrice = normalized.includes("under $50") ? 5000 : undefined;
@@ -316,38 +417,7 @@ export async function POST(req: NextRequest) {
       };
     }
 
-    let allowFullAI = false;
-    try {
-      const supabase = await createSupabaseServerClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user ?? null;
-      if (user) {
-        allowFullAI = await requirePaidAI(user.id, user.email ?? null);
-      }
-      if (!allowFullAI) {
-        if (intent === "general_help") {
-          return response({
-            reply: user
-              ? "Full AI assistance is available on a paid plan. Use the suggestions below to navigate the site, or upgrade for full AI."
-              : "Sign in for full AI assistance, or use the suggestions below to navigate.",
-            mood: "BLOCKED",
-            results: { type: "none", items: [] },
-            suggestions,
-          });
-        }
-        return response({ ...basePayload });
-      }
-    } catch {
-      if (intent === "general_help") {
-        return response({
-          reply: "Sign in for full AI assistance, or use the suggestions below to navigate.",
-          mood: "CHILL",
-          results: { type: "none", items: [] },
-          suggestions,
-        });
-      }
-      return response({ ...basePayload });
-    }
+    const userContext = await loadUserContext(userId);
 
     const openaiModel = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
     const openaiSearchModel =
@@ -364,6 +434,7 @@ export async function POST(req: NextRequest) {
       baseReply: basePayload.reply,
       results: basePayload.results,
       suggestions: basePayload.suggestions,
+      userContext,
     });
 
     const openaiResult = await openaiChat({
@@ -389,9 +460,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // OpenAI succeeded — burn one message off the user's monthly quota
+    // and increment the global daily counter. Errors here are logged but
+    // do not block the response (the user already got their answer).
+    try {
+      await incrementUserMonthly(userId);
+      await incrementGlobalDaily();
+    } catch (err) {
+      console.error("[mascot-chat] usage increment failed", err);
+    }
+
     setMascotLastError(null);
     console.info(
-      `[mascot-chat] requestId=${requestId} status=200 flags:client=${flagStatus.clientEnabled} server=${flagStatus.serverEnabled} key=${hasOpenAIKey}`
+      `[mascot-chat] requestId=${requestId} status=200 tier=${eligibility.tier} flags:client=${flagStatus.clientEnabled} server=${flagStatus.serverEnabled} key=${hasOpenAIKey}`
     );
 
     return response({
@@ -407,9 +488,6 @@ export async function POST(req: NextRequest) {
       at: new Date().toISOString(),
     });
     console.error("[mascot-chat] error", error);
-    console.info(
-      `[mascot-chat] requestId=${requestId} status=500 flags:client=${flagStatus.clientEnabled} server=${flagStatus.serverEnabled} key=${hasOpenAIKey}`
-    );
     return response({
       reply: "AI is temporarily unavailable. Please try again soon.",
       mood: "ERROR",
