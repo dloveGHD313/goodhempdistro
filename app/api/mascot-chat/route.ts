@@ -260,7 +260,9 @@ export async function POST(req: NextRequest) {
   // user is non-null here because eligibility.eligible can only be true with a userId.
   const userId = user!.id;
 
-  // Per-user cap (skip for unlimited tiers).
+  // Per-user cap (skip for unlimited tiers). The read here is racey by
+  // design — atomic correctness lives in the post-OpenAI RPC increment.
+  // Worst case is one extra message at the boundary, which is acceptable.
   const monthlyLimit = eligibility.monthlyLimit;
   const currentUsage = await getUserMonthlyCount(userId);
   if (typeof monthlyLimit === "number" && currentUsage >= monthlyLimit) {
@@ -276,9 +278,22 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Global daily circuit breaker.
+  // Global daily circuit breaker — fail closed. If the read errors we
+  // return 503 rather than letting JAX run unmetered during DB instability.
   const dailyCap = JAX_USAGE_HELPERS.getDailyGlobalCap();
-  const dailyCount = await getGlobalDailyCount();
+  let dailyCount: number;
+  try {
+    dailyCount = await getGlobalDailyCount();
+  } catch (err) {
+    console.error("[mascot-chat] global daily read failed; failing closed", err);
+    return NextResponse.json(
+      {
+        error: "jax_unavailable",
+        message: "JAX is temporarily unavailable. Please try again.",
+      },
+      { status: 503 }
+    );
+  }
   if (dailyCount >= dailyCap) {
     console.error(
       `[mascot-chat] global circuit breaker tripped: ${dailyCount} >= ${dailyCap}`
@@ -461,11 +476,23 @@ export async function POST(req: NextRequest) {
     }
 
     // OpenAI succeeded — burn one message off the user's monthly quota
-    // and increment the global daily counter. Errors here are logged but
-    // do not block the response (the user already got their answer).
+    // and increment the global daily counter. The atomic RPCs return the
+    // post-increment count; logging when it exceeds the limit makes the
+    // boundary race observable. Errors do not block the response (the
+    // user already got their answer).
     try {
-      await incrementUserMonthly(userId);
-      await incrementGlobalDaily();
+      const newUserCount = await incrementUserMonthly(userId);
+      if (typeof monthlyLimit === "number" && newUserCount > monthlyLimit) {
+        console.warn(
+          `[mascot-chat] cap-boundary overshoot user=${userId} tier=${eligibility.tier} count=${newUserCount} limit=${monthlyLimit}`
+        );
+      }
+      const newDailyCount = await incrementGlobalDaily();
+      if (newDailyCount > dailyCap) {
+        console.warn(
+          `[mascot-chat] daily-boundary overshoot count=${newDailyCount} cap=${dailyCap}`
+        );
+      }
     } catch (err) {
       console.error("[mascot-chat] usage increment failed", err);
     }

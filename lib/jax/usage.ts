@@ -58,20 +58,23 @@ export async function getUserMonthlyCount(userId: string): Promise<number> {
 /**
  * Read the current day's global message count. Returns 0 when no row
  * exists yet. Does not increment.
+ *
+ * THROWS on DB error. The circuit breaker MUST fail closed — silently
+ * returning 0 here would disable cost protection at exactly the moment
+ * we most need it (e.g. a DB hiccup during a usage spike).
  */
 export async function getGlobalDailyCount(): Promise<number> {
-  try {
-    const admin = createSupabaseAdminClient();
-    const { data } = await admin
-      .from("jax_global_daily")
-      .select("message_count")
-      .eq("day_utc", currentDayUtc())
-      .maybeSingle();
-    const count = (data as { message_count?: number } | null)?.message_count;
-    return typeof count === "number" ? count : 0;
-  } catch {
-    return 0;
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin
+    .from("jax_global_daily")
+    .select("message_count")
+    .eq("day_utc", currentDayUtc())
+    .maybeSingle();
+  if (error) {
+    throw new Error(`jax_global_daily read failed: ${error.message}`);
   }
+  const count = (data as { message_count?: number } | null)?.message_count;
+  return typeof count === "number" ? count : 0;
 }
 
 /**
