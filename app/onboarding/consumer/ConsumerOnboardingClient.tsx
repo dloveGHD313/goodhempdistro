@@ -34,6 +34,7 @@ type InitialProfile = {
   company_size: string | null;
   consumer_interest_tags: string[] | null;
   consumer_use_case: string | null;
+  shopping_interests: string[] | null;
   consumer_onboarding_step: number | null;
   consumer_onboarding_completed: boolean | null;
 };
@@ -186,9 +187,19 @@ export default function ConsumerOnboardingClient({
   const [experienceLevel, setExperienceLevel] = useState<ExperienceLevel | "">(
     initialProfile.experience_level || ""
   );
-  const [useCase, setUseCase] = useState<UseCase | "">(
-    (initialProfile.consumer_use_case as UseCase | null) || ""
-  );
+  // Multi-select shopping goals. Hydrate from shopping_interests (new),
+  // falling back to legacy consumer_use_case for in-progress profiles.
+  const [useCases, setUseCases] = useState<UseCase[]>(() => {
+    const fromNew = (initialProfile.shopping_interests || []).filter((v): v is UseCase =>
+      ["Business Supplies", "Skincare", "Wellness", "General"].includes(v)
+    );
+    if (fromNew.length > 0) return fromNew;
+    const legacy = initialProfile.consumer_use_case;
+    if (legacy && ["Business Supplies", "Skincare", "Wellness", "General"].includes(legacy)) {
+      return [legacy as UseCase];
+    }
+    return [];
+  });
   const [interestTags, setInterestTags] = useState<string[]>(
     initialProfile.consumer_interest_tags || []
   );
@@ -253,6 +264,32 @@ export default function ConsumerOnboardingClient({
     );
   };
 
+  // "General" ("I'm just browsing") is mutually exclusive with the other
+  // use-case cards. Toggling General clears the rest; toggling any other
+  // card clears General.
+  const toggleUseCase = (value: UseCase) => {
+    setUseCases((prev) => {
+      if (prev.includes(value)) return prev.filter((v) => v !== value);
+      if (value === "General") return ["General"];
+      return [...prev.filter((v) => v !== "General"), value];
+    });
+  };
+
+  // Combined shopping_interests value persisted to the new column.
+  // Cards + interest tags merged + deduped (case-insensitive).
+  const buildShoppingInterests = (): string[] => {
+    const merged = [...useCases, ...interestTags];
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const value of merged) {
+      const key = value.trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(value.trim());
+    }
+    return out;
+  };
+
   const validateStep = (stepKey: string) => {
     if (stepKey === "location") {
       if (!stateValue) return "Please select your state.";
@@ -268,8 +305,9 @@ export default function ConsumerOnboardingClient({
       if (!marketPreference) return "Please select a market.";
     }
     if (stepKey === "use_case") {
-      if (!useCase) return "Please select your shopping goal.";
-      if (interestTags.length === 0) return "Select at least one interest tag.";
+      if (useCases.length === 0 && interestTags.length === 0) {
+        return "Select at least one shopping goal or interest tag.";
+      }
     }
     if (stepKey === "interests") {
       if (interests.length === 0) return "Select at least one interest.";
@@ -281,6 +319,11 @@ export default function ConsumerOnboardingClient({
   };
 
   const saveProfile = async (nextStepIndex: number, completed: boolean) => {
+    // Legacy column kept for backward compat. Holds the first selected
+    // card so existing readers (lib/badges, ProductsList fallback) keep
+    // working until they're migrated to shopping_interests.
+    const legacyUseCase = useCases[0] ?? null;
+
     const payload = {
       id: userId,
       market_mode_preference: marketPreference === "BROWSING" ? "CBD_WELLNESS" : marketPreference,
@@ -290,7 +333,8 @@ export default function ConsumerOnboardingClient({
       company_size: consumerType === "business" ? companySize || null : null,
       interests,
       consumer_interest_tags: interestTags,
-      consumer_use_case: useCase || null,
+      consumer_use_case: legacyUseCase,
+      shopping_interests: buildShoppingInterests(),
       experience_level: experienceLevel || null,
       state: stateValue || null,
       city: city || null,
@@ -526,26 +570,35 @@ export default function ConsumerOnboardingClient({
             <div className="space-y-2">
               <h2 className="text-xl font-semibold">What are you shopping for?</h2>
               <p className="text-sm text-muted">
-                This helps us tailor your browsing experience.
+                Pick any that apply. We&apos;ll tailor your browsing experience.
               </p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
-              {USE_CASES.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setUseCase(option.value)}
-                  className={[
-                    "p-4 rounded-lg border text-left transition-all",
-                    useCase === option.value
-                      ? "border-accent bg-[rgba(95,255,215,0.08)]"
-                      : "border-[var(--border)]",
-                  ].join(" ")}
-                >
-                  <p className="text-lg font-semibold">{option.label}</p>
-                  <p className="text-sm text-muted mt-1">{option.description}</p>
-                </button>
-              ))}
+              {USE_CASES.map((option) => {
+                const isSelected = useCases.includes(option.value);
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => toggleUseCase(option.value)}
+                    aria-pressed={isSelected}
+                    className={[
+                      "p-4 rounded-lg border text-left transition-all relative",
+                      isSelected
+                        ? "border-accent bg-[rgba(95,255,215,0.08)]"
+                        : "border-[var(--border)]",
+                    ].join(" ")}
+                  >
+                    <p className="text-lg font-semibold">{option.label}</p>
+                    <p className="text-sm text-muted mt-1">{option.description}</p>
+                    {isSelected && (
+                      <span className="absolute top-3 right-3 text-accent" aria-hidden>
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
             <div>
               <p className="text-sm text-muted mb-2">Pick interest tags</p>
@@ -653,7 +706,8 @@ export default function ConsumerOnboardingClient({
                 purchaseIntent,
                 companySize,
                 interests,
-                consumerUseCase: useCase,
+                useCases,
+                shoppingInterests: buildShoppingInterests(),
                 consumerInterestTags: interestTags,
                 experienceLevel,
                 state: stateValue,

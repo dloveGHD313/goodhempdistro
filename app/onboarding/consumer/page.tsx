@@ -31,6 +31,7 @@ type ConsumerProfile = {
   company_size: string | null;
   consumer_interest_tags: string[] | null;
   consumer_use_case: string | null;
+  shopping_interests: string[] | null;
   consumer_onboarding_step: number | null;
   consumer_onboarding_completed: boolean | null;
 };
@@ -47,7 +48,7 @@ export default async function ConsumerOnboardingPage() {
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select(
-      "role, market_mode_preference, consumer_type, business_type, purchase_intent, interests, experience_level, state, city, company_size, consumer_interest_tags, consumer_use_case, consumer_onboarding_step, consumer_onboarding_completed"
+      "role, market_mode_preference, consumer_type, business_type, purchase_intent, interests, experience_level, state, city, company_size, consumer_interest_tags, consumer_use_case, shopping_interests, consumer_onboarding_step, consumer_onboarding_completed"
     )
     .eq("id", user.id)
     .maybeSingle();
@@ -73,6 +74,7 @@ export default async function ConsumerOnboardingPage() {
     company_size: profile?.company_size ?? null,
     consumer_interest_tags: profile?.consumer_interest_tags ?? [],
     consumer_use_case: profile?.consumer_use_case ?? null,
+    shopping_interests: (profile?.shopping_interests as string[] | null) ?? [],
     consumer_onboarding_step: profile?.consumer_onboarding_step ?? 0,
     consumer_onboarding_completed: profile?.consumer_onboarding_completed ?? false,
   };
