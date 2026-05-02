@@ -1,17 +1,34 @@
 import { getMascotFlagStatus } from "@/lib/mascotFlags";
+import { createSupabaseServerClient } from "@/lib/supabase";
+import { getJaxEligibility } from "@/lib/jax/eligibility";
 import JaxFloatingScaffold from "./JaxFloatingScaffold";
 
 /**
- * Server-only gate for the global mascot.
- * Renders JaxFloatingScaffold only when BOTH are true:
- * - NEXT_PUBLIC_MASCOT_ENABLED (client/public)
- * - MASCOT_AI_ENABLED (server)
- * This keeps gating deterministic and avoids client-side hook-order issues.
+ * Build 10: paid-only Ask JAX gate.
+ *
+ * Layered checks (any false = render NOTHING):
+ *   1. NEXT_PUBLIC_MASCOT_ENABLED (client kill-switch)
+ *   2. MASCOT_AI_ENABLED (server kill-switch)
+ *   3. User authenticated AND eligible (paid plan)
+ *
+ * Note: this component performs an auth lookup on every page render,
+ * which forces the root layout to be dynamic. Marketing pages lose
+ * static generation as a result. Documented as a known tradeoff.
  */
-export default function MascotGate() {
+export default async function MascotGate() {
   const { clientEnabled, serverEnabled } = getMascotFlagStatus();
-  if (!clientEnabled || !serverEnabled) {
+  if (!clientEnabled || !serverEnabled) return null;
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const eligibility = await getJaxEligibility(user.id, user.email ?? null);
+    if (!eligibility.eligible) return null;
+  } catch {
     return null;
   }
+
   return <JaxFloatingScaffold />;
 }
