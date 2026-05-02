@@ -6,7 +6,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase";
 import type { MascotContext, MascotMove } from "./config";
 import { mascotByContext, mascotAssets, quickRepliesByContext } from "./config";
 import { detectContext, type MascotUserRole } from "./context";
-import MascotPanel from "./MascotPanel";
+import MascotPanel, { type UpgradeContext } from "./MascotPanel";
 import type { MascotMessage, MascotResults } from "./types";
 import { pickMicroLine } from "./microLines";
 import { getJaxAvatarSources, getJaxPersona, jaxSpec } from "./spec/jaxSpec";
@@ -26,6 +26,49 @@ const initialRole: MascotUserRole = {
   isDriver: false,
   isLogistics: false,
 };
+
+type EligibilityState =
+  | { status: "unknown" }
+  | { status: "unauthed" }
+  | { status: "authed"; eligible: boolean };
+
+function getUpgradeContext(
+  eligibility: EligibilityState,
+  route: string
+): UpgradeContext | null {
+  if (eligibility.status === "unauthed") {
+    return {
+      title: "Chat with JAX",
+      message:
+        "Sign in to chat with JAX, or upgrade for unlimited AI assistance about hemp, products, and the platform.",
+      primaryButton: { label: "Sign In", href: "/login" },
+      secondaryButton: { label: "See Plans", href: "/pricing" },
+    };
+  }
+  if (eligibility.status === "authed" && !eligibility.eligible) {
+    const isVendorContext =
+      route.startsWith("/vendor") ||
+      route.startsWith("/vendors") ||
+      route.startsWith("/wholesale");
+    if (isVendorContext) {
+      return {
+        title: "Unlock JAX for your business",
+        message:
+          "Become a vendor to unlock JAX for compliance, COA help, product listings, and business guidance.",
+        primaryButton: { label: "See Vendor Plans", href: "/pricing?tab=vendor" },
+        secondaryButton: null,
+      };
+    }
+    return {
+      title: "Upgrade to chat with JAX",
+      message:
+        "Upgrade your account to chat with JAX about products, vendors, hemp education, and more.",
+      primaryButton: { label: "See Consumer Plans", href: "/pricing?tab=consumer" },
+      secondaryButton: null,
+    };
+  }
+  return null;
+}
 
 const tooltipKey = "ghd_mascot_tooltip_shown";
 const contextLabels: Record<MascotContext, string> = {
@@ -51,6 +94,32 @@ export default function MascotWidget() {
   const [moveOverride, setMoveOverride] = useState<MascotMove | null>(null);
   const moveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasInteractionRef = useRef(false);
+  const [eligibility, setEligibility] = useState<EligibilityState>({ status: "unknown" });
+  const eligibilityFetchedRef = useRef(false);
+
+  const ensureEligibilityLoaded = useCallback(async () => {
+    if (eligibilityFetchedRef.current) return;
+    eligibilityFetchedRef.current = true;
+    try {
+      const res = await fetch("/api/jax/eligibility", { credentials: "include" });
+      if (res.status === 401) {
+        setEligibility({ status: "unauthed" });
+        return;
+      }
+      const data = (await res.json().catch(() => null)) as { eligible?: boolean } | null;
+      setEligibility({ status: "authed", eligible: !!data?.eligible });
+    } catch {
+      // If we can't determine, fall back to "authed but ineligible" to be safe —
+      // the API itself will gate the actual chat. Showing the upgrade UI is better
+      // than crashing the widget.
+      setEligibility({ status: "authed", eligible: false });
+    }
+  }, []);
+
+  const upgradeContext = useMemo(
+    () => getUpgradeContext(eligibility, pathname),
+    [eligibility, pathname]
+  );
 
   const context: MascotContext = useMemo(() => detectContext(pathname, role), [pathname, role]);
   const mascot = mascotByContext[context];
@@ -320,6 +389,9 @@ export default function MascotWidget() {
         isOpen={isOpen}
         onToggle={() => {
           hasInteractionRef.current = true;
+          // Lazy-load eligibility on first interaction so the widget bubble
+          // doesn't fire an API call for every page view.
+          ensureEligibilityLoaded();
           setIsOpen((prev) => {
             const next = !prev;
             if (next && messages.length === 0) {
@@ -350,6 +422,7 @@ export default function MascotWidget() {
         headerTitle={headerTitle}
         headerTagline={headerTagline}
         moveOverride={moveOverride}
+        upgradeContext={upgradeContext}
       />
     </div>
   );

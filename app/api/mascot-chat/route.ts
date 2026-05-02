@@ -81,10 +81,37 @@ const buildSystemPrompt = (params: {
   userContext: UserContext | null;
 }) => {
   const lines = [
-    "You are the Good Hemp Distros mascot assistant.",
-    "Stay concise, friendly, and action-oriented.",
-    "Never claim to complete purchases or account changes; only guide and link.",
-    "If you are unsure, ask a short clarifying question.",
+    "You are JAX, the comprehensive AI assistant for Good Hemp Distros — a hemp marketplace platform. You help users with:",
+    "",
+    "HEMP & CANNABIS KNOWLEDGE:",
+    "- Product education (CBD, THC, Delta-8, Delta-9, CBG, CBN, etc.)",
+    "- Compliance and legal (Farm Bill, state laws, age requirements)",
+    "- Industry facts, news, trends",
+    "- Cultivation, processing, lab testing (COA literacy)",
+    "- Medical and wellness applications (with disclaimers)",
+    "",
+    "PLATFORM GUIDANCE:",
+    "- Finding products and vendors",
+    "- Understanding pricing tiers (consumer + vendor plans)",
+    "- Selling on the platform (vendor onboarding)",
+    "- Affiliate program, wholesale, delivery, events",
+    "- Account features and account management",
+    "",
+    "PERSONAL RECOMMENDATIONS:",
+    "- Product matching based on user interests",
+    "- Vendor recommendations",
+    "- Comparing products by price/quality/ingredients",
+    "- Finding nearby compliance services (attorneys, banks, labs)",
+    "",
+    "TONE: Friendly, knowledgeable, action-oriented. Concise replies unless detail is requested. Always include compliance disclaimers for medical claims. Never claim to complete purchases or account changes — always guide and link.",
+    "",
+    "SAFETY:",
+    "- Never give medical advice, only general wellness information with \"consult a healthcare provider\" disclaimer",
+    "- Always note state legality varies for THC products",
+    "- Respect user privacy, don't reference profile data unless relevant",
+    "",
+    "Use tools when relevant (product search, vendor search, event search). For knowledge questions, answer from general training.",
+    "",
     `Context: ${params.contextMode}`,
     `Route: ${params.route}`,
     `Intent: ${params.intent}`,
@@ -241,41 +268,36 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Build 10: paid-only gate. Eligibility check first; auth required.
+  // Build 10 revision: paid users get full OpenAI; ineligible callers
+  // (free, unauthed, or affiliate/wholesale fallthroughs) drop into the
+  // deterministic basePayload path defensively. The widget UI primarily
+  // gates the flow at click-time; this is the API-side backstop that
+  // returns navigation help instead of 403 to anyone who hits us anyway.
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   const eligibility = await getJaxEligibility(user?.id ?? null, user?.email ?? null);
-  if (!eligibility.eligible) {
-    return NextResponse.json(
-      {
-        error: "jax_paid_only",
-        message: "JAX is available with a paid plan.",
-        upgradeUrl: "/pricing",
-      },
-      { status: 403 }
-    );
-  }
+  const userId = user?.id ?? null;
 
-  // user is non-null here because eligibility.eligible can only be true with a userId.
-  const userId = user!.id;
-
-  // Per-user cap (skip for unlimited tiers). The read here is racey by
-  // design — atomic correctness lives in the post-OpenAI RPC increment.
-  // Worst case is one extra message at the boundary, which is acceptable.
+  // Per-user cap (skip for unlimited or ineligible tiers). The read here
+  // is racey by design — atomic correctness lives in the post-OpenAI RPC
+  // increment. Worst case is one extra message at the boundary.
   const monthlyLimit = eligibility.monthlyLimit;
-  const currentUsage = await getUserMonthlyCount(userId);
-  if (typeof monthlyLimit === "number" && currentUsage >= monthlyLimit) {
-    return NextResponse.json(
-      {
-        error: "jax_cap_exceeded",
-        message: `You've used your ${monthlyLimit} messages this month. Upgrade for more.`,
-        upgradeUrl: "/pricing",
-        monthlyLimit,
-        currentUsage,
-      },
-      { status: 429 }
-    );
+  let currentUsage = 0;
+  if (eligibility.eligible && userId) {
+    currentUsage = await getUserMonthlyCount(userId);
+    if (typeof monthlyLimit === "number" && currentUsage >= monthlyLimit) {
+      return NextResponse.json(
+        {
+          error: "jax_cap_exceeded",
+          message: `You've used your ${monthlyLimit} messages this month. Upgrade for more.`,
+          upgradeUrl: "/pricing",
+          monthlyLimit,
+          currentUsage,
+        },
+        { status: 429 }
+      );
+    }
   }
 
   // Global daily circuit breaker — fail closed. If the read errors we
@@ -430,6 +452,17 @@ export async function POST(req: NextRequest) {
         results: { type: "none", items: [] },
         suggestions,
       };
+    }
+
+    // Non-eligible callers get the deterministic basePayload (search
+    // results, navigation help) but never reach OpenAI. The widget UI is
+    // the primary gate; this is a defensive backstop in case someone
+    // bypasses it.
+    if (!eligibility.eligible || !userId) {
+      return response({
+        ...basePayload,
+        reply: `${basePayload.reply} Upgrade to chat with JAX for personalized AI guidance — /pricing`,
+      });
     }
 
     const userContext = await loadUserContext(userId);

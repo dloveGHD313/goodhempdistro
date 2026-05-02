@@ -2,6 +2,7 @@
 
 import { useMemo, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import { getCategoriesClient, type Category } from "@/lib/categories";
 import SearchInput from "@/components/discovery/SearchInput";
 import FilterSelect from "@/components/discovery/FilterSelect";
@@ -33,13 +34,31 @@ type Props = {
 export default function ProductsList({ initialProducts, initialCategoryId, catalogueEmpty = false }: Props) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const { mode, isVerified } = useMarketMode();
+  const router = useRouter();
+  const pathname = usePathname() || "/products";
+  const searchParams = useSearchParams();
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(initialCategoryId || "");
   const [search, setSearch] = useState("");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [ratings, setRatings] = useState<Record<string, { avg: number; count: number }>>({});
+  // shopping_interests has priority for the auto-category match. Legacy
+  // consumer_interest_tags + consumer_use_case kept as a fallback so users
+  // who completed onboarding before Build 10 still get pre-filtering.
+  const [profileInterests, setProfileInterests] = useState<string[]>([]);
   const [interestTags, setInterestTags] = useState<string[]>([]);
   const [useCase, setUseCase] = useState<string | null>(null);
+
+  // ?interests=skincare,wellness wins over profile data. Lets a user
+  // share a filtered link or click "Use My Interests" without changing
+  // their saved profile.
+  const urlInterests = useMemo(() => {
+    const raw = searchParams?.get("interests") ?? "";
+    return raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }, [searchParams]);
 
   useEffect(() => {
     async function loadCategories() {
@@ -56,10 +75,11 @@ export default function ProductsList({ initialProducts, initialCategoryId, catal
       if (!user) return;
       const { data } = await supabase
         .from("profiles")
-        .select("consumer_interest_tags, consumer_use_case")
+        .select("shopping_interests, consumer_interest_tags, consumer_use_case")
         .eq("id", user.id)
         .maybeSingle();
       if (!mounted) return;
+      setProfileInterests((data?.shopping_interests as string[] | null) || []);
       setInterestTags((data?.consumer_interest_tags as string[] | null) || []);
       setUseCase((data?.consumer_use_case as string | null) || null);
     }
@@ -69,11 +89,17 @@ export default function ProductsList({ initialProducts, initialCategoryId, catal
     };
   }, [supabase]);
 
+  // Resolved interest list: URL > shopping_interests > legacy fields.
+  const effectiveInterests = useMemo<string[]>(() => {
+    if (urlInterests.length > 0) return urlInterests;
+    if (profileInterests.length > 0) return profileInterests;
+    const legacy = [...interestTags, useCase || ""].filter(Boolean);
+    return legacy;
+  }, [urlInterests, profileInterests, interestTags, useCase]);
+
   useEffect(() => {
     if (selectedCategoryId || categories.length === 0) return;
-    const normalized = [...interestTags, useCase || ""]
-      .map((value) => value.toLowerCase())
-      .filter(Boolean);
+    const normalized = effectiveInterests.map((value) => value.toLowerCase()).filter(Boolean);
     if (normalized.length === 0) return;
     const match = categories.find((category) =>
       normalized.some((tag) => category.name.toLowerCase().includes(tag))
@@ -82,7 +108,20 @@ export default function ProductsList({ initialProducts, initialCategoryId, catal
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedCategoryId(match.id);
     }
-  }, [categories, interestTags, useCase, selectedCategoryId]);
+  }, [categories, effectiveInterests, selectedCategoryId]);
+
+  // "Use My Interests" — pushes shopping_interests into the URL so the
+  // filter is shareable and re-applies cleanly. Visible only to users
+  // who have saved interests. (TODO: tighten to paid consumers only
+  // once a server-rendered eligibility prop is wired through.)
+  const canUseMyInterests = profileInterests.length > 0 && urlInterests.length === 0;
+  const applyMyInterests = () => {
+    if (profileInterests.length === 0) return;
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.set("interests", profileInterests.join(","));
+    router.push(`${pathname}?${params.toString()}`);
+    setSelectedCategoryId(""); // re-run the auto-match
+  };
 
   useEffect(() => {
     if (!initialProducts.length) return;
@@ -164,6 +203,28 @@ export default function ProductsList({ initialProducts, initialCategoryId, catal
           onChange={setSelectedCategoryId}
         />
       </div>
+
+      {(canUseMyInterests || urlInterests.length > 0) && (
+        <div className="flex flex-wrap items-center gap-3 mb-6 text-sm">
+          {urlInterests.length > 0 ? (
+            <>
+              <span className="text-muted">
+                Filtered by your interests: {urlInterests.join(", ")}
+              </span>
+              <Link
+                href={pathname}
+                className="text-accent underline-offset-2 hover:underline"
+              >
+                Clear
+              </Link>
+            </>
+          ) : (
+            <button type="button" onClick={applyMyInterests} className="btn-secondary text-sm">
+              Use My Interests
+            </button>
+          )}
+        </div>
+      )}
 
       {filteredProducts.length === 0 ? (
         catalogueEmpty ? (
