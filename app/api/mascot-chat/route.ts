@@ -268,41 +268,36 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Build 10: paid-only gate. Eligibility check first; auth required.
+  // Build 10 revision: paid users get full OpenAI; ineligible callers
+  // (free, unauthed, or affiliate/wholesale fallthroughs) drop into the
+  // deterministic basePayload path defensively. The widget UI primarily
+  // gates the flow at click-time; this is the API-side backstop that
+  // returns navigation help instead of 403 to anyone who hits us anyway.
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   const eligibility = await getJaxEligibility(user?.id ?? null, user?.email ?? null);
-  if (!eligibility.eligible) {
-    return NextResponse.json(
-      {
-        error: "jax_paid_only",
-        message: "JAX is available with a paid plan.",
-        upgradeUrl: "/pricing",
-      },
-      { status: 403 }
-    );
-  }
+  const userId = user?.id ?? null;
 
-  // user is non-null here because eligibility.eligible can only be true with a userId.
-  const userId = user!.id;
-
-  // Per-user cap (skip for unlimited tiers). The read here is racey by
-  // design — atomic correctness lives in the post-OpenAI RPC increment.
-  // Worst case is one extra message at the boundary, which is acceptable.
+  // Per-user cap (skip for unlimited or ineligible tiers). The read here
+  // is racey by design — atomic correctness lives in the post-OpenAI RPC
+  // increment. Worst case is one extra message at the boundary.
   const monthlyLimit = eligibility.monthlyLimit;
-  const currentUsage = await getUserMonthlyCount(userId);
-  if (typeof monthlyLimit === "number" && currentUsage >= monthlyLimit) {
-    return NextResponse.json(
-      {
-        error: "jax_cap_exceeded",
-        message: `You've used your ${monthlyLimit} messages this month. Upgrade for more.`,
-        upgradeUrl: "/pricing",
-        monthlyLimit,
-        currentUsage,
-      },
-      { status: 429 }
-    );
+  let currentUsage = 0;
+  if (eligibility.eligible && userId) {
+    currentUsage = await getUserMonthlyCount(userId);
+    if (typeof monthlyLimit === "number" && currentUsage >= monthlyLimit) {
+      return NextResponse.json(
+        {
+          error: "jax_cap_exceeded",
+          message: `You've used your ${monthlyLimit} messages this month. Upgrade for more.`,
+          upgradeUrl: "/pricing",
+          monthlyLimit,
+          currentUsage,
+        },
+        { status: 429 }
+      );
+    }
   }
 
   // Global daily circuit breaker — fail closed. If the read errors we
@@ -457,6 +452,17 @@ export async function POST(req: NextRequest) {
         results: { type: "none", items: [] },
         suggestions,
       };
+    }
+
+    // Non-eligible callers get the deterministic basePayload (search
+    // results, navigation help) but never reach OpenAI. The widget UI is
+    // the primary gate; this is a defensive backstop in case someone
+    // bypasses it.
+    if (!eligibility.eligible || !userId) {
+      return response({
+        ...basePayload,
+        reply: `${basePayload.reply} Upgrade to chat with JAX for personalized AI guidance — /pricing`,
+      });
     }
 
     const userContext = await loadUserContext(userId);
