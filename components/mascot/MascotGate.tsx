@@ -1,34 +1,21 @@
 import { getMascotFlagStatus } from "@/lib/mascotFlags";
-import { createSupabaseServerClient } from "@/lib/supabase";
-import { getJaxEligibility } from "@/lib/jax/eligibility";
 import JaxFloatingScaffold from "./JaxFloatingScaffold";
 
 /**
- * Build 10: paid-only Ask JAX gate.
+ * Build 10 revision: widget visible to ALL users (paid, free, unauthed).
+ * Plan-based gating happens at click time inside MascotWidget so free
+ * users see a tiered upgrade UI in the panel rather than no widget at all.
  *
- * Layered checks (any false = render NOTHING):
- *   1. NEXT_PUBLIC_MASCOT_ENABLED (client kill-switch)
- *   2. MASCOT_AI_ENABLED (server kill-switch)
- *   3. User authenticated AND eligible (paid plan)
+ * Layered kill-switches still apply:
+ *   1. NEXT_PUBLIC_MASCOT_ENABLED (client)
+ *   2. MASCOT_AI_ENABLED (server)
  *
- * Note: this component performs an auth lookup on every page render,
- * which forces the root layout to be dynamic. Marketing pages lose
- * static generation as a result. Documented as a known tradeoff.
+ * Note: this restores root layout to mostly-static rendering — the
+ * auth check that used to live here was the cause of the previous
+ * dynamic-render side effect.
  */
-export default async function MascotGate() {
+export default function MascotGate() {
   const { clientEnabled, serverEnabled } = getMascotFlagStatus();
   if (!clientEnabled || !serverEnabled) return null;
-
-  try {
-    const supabase = await createSupabaseServerClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return null;
-
-    const eligibility = await getJaxEligibility(user.id, user.email ?? null);
-    if (!eligibility.eligible) return null;
-  } catch {
-    return null;
-  }
-
   return <JaxFloatingScaffold />;
 }
