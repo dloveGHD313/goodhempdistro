@@ -8,6 +8,15 @@ import MascotAvatar from "./MascotAvatar";
 import { getMoveForMood } from "./mood";
 import type { MascotMessage, MascotResults } from "./types";
 
+export type UpgradeButton = { label: string; href: string };
+
+export type UpgradeContext = {
+  title: string;
+  message: string;
+  primaryButton: UpgradeButton;
+  secondaryButton: UpgradeButton | null;
+};
+
 type Props = {
   mascot: MascotId;
   context: MascotContext;
@@ -22,6 +31,8 @@ type Props = {
   headerTitle: string;
   headerTagline: string;
   moveOverride?: MascotMove | null;
+  /** When provided, panel body renders the upgrade UI instead of chat. */
+  upgradeContext?: UpgradeContext | null;
 };
 
 export default function MascotPanel({
@@ -38,6 +49,7 @@ export default function MascotPanel({
   headerTitle,
   headerTagline,
   moveOverride,
+  upgradeContext,
 }: Props) {
   const [input, setInput] = useState("");
   const asset = mascotAssets[mascot];
@@ -72,6 +84,33 @@ export default function MascotPanel({
             </button>
           </div>
 
+          {upgradeContext ? (
+            <div className="mascot-chat" data-jax-upgrade>
+              <div className="mascot-message assistant">
+                <h4 className="text-base font-semibold text-accent mb-2">
+                  {upgradeContext.title}
+                </h4>
+                <div className="mascot-bubble-text">{upgradeContext.message}</div>
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <Link
+                    href={upgradeContext.primaryButton.href}
+                    className="btn-primary text-sm px-4 py-2"
+                  >
+                    {upgradeContext.primaryButton.label}
+                  </Link>
+                  {upgradeContext.secondaryButton && (
+                    <Link
+                      href={upgradeContext.secondaryButton.href}
+                      className="btn-secondary text-sm px-4 py-2"
+                    >
+                      {upgradeContext.secondaryButton.label}
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+          <>
           <div className="mascot-chat">
             {messages.map((message) => (
               <div
@@ -149,6 +188,8 @@ export default function MascotPanel({
               Send
             </button>
           </div>
+          </>
+          )}
         </div>
       )}
 
