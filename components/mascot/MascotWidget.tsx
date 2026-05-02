@@ -218,6 +218,47 @@ export default function MascotWidget() {
           userRole: role,
         }),
       });
+
+      if (response.status === 403) {
+        const errorBody = await response.json().catch(() => null) as
+          | { message?: string; upgradeUrl?: string }
+          | null;
+        const upgradeUrl = errorBody?.upgradeUrl ?? "/pricing";
+        const message = errorBody?.message ?? "JAX is available with a paid plan.";
+        setMessages([
+          ...nextMessages,
+          {
+            id: `assistant-${Date.now()}`,
+            role: "assistant",
+            content: `${message} See plans → ${upgradeUrl}`,
+            mood: "BLOCKED",
+            microLine: null,
+          },
+        ]);
+        return;
+      }
+
+      if (response.status === 429) {
+        const errorBody = await response.json().catch(() => null) as
+          | { message?: string; upgradeUrl?: string; monthlyLimit?: number; currentUsage?: number }
+          | null;
+        const upgradeUrl = errorBody?.upgradeUrl ?? "/pricing";
+        const message =
+          errorBody?.message ??
+          "You've used your JAX messages for this month. Upgrade for more.";
+        setMessages([
+          ...nextMessages,
+          {
+            id: `assistant-${Date.now()}`,
+            role: "assistant",
+            content: `${message} Upgrade → ${upgradeUrl}`,
+            mood: "BLOCKED",
+            microLine: null,
+          },
+        ]);
+        return;
+      }
+
       const payload: MascotApiResponse | null = await response.json().catch(() => null);
       if (!response.ok || !payload?.reply) {
         throw new Error("Mascot API unavailable");
