@@ -248,6 +248,22 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
+  // Write ghd_travel_state cookie from Vercel geo headers (no DB call).
+  // TravelAdvisory component compares this against profile.onboarding_state client-side.
+  const detectedCountry = request.headers.get("x-vercel-ip-country");
+  const detectedRegion = request.headers.get("x-vercel-ip-country-region");
+  if (detectedCountry === "US" && detectedRegion && detectedRegion.length === 2) {
+    const existing = request.cookies.get("ghd_travel_state")?.value;
+    if (existing !== detectedRegion) {
+      response.cookies.set("ghd_travel_state", detectedRegion, {
+        path: "/",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 6, // 6 hours — refreshes on travel
+        httpOnly: false, // readable by TravelAdvisory client component
+      });
+    }
+  }
+
   return response;
 }
 
