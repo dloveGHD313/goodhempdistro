@@ -46,6 +46,7 @@ type Product = {
   vendor_name?: string | null;
   /** When true, category requires COA (Phase 3B: logged-out shop hides these). */
   category_requires_coa?: boolean;
+  ship_to_states?: string[] | null;
 };
 
 async function getProducts(
@@ -83,7 +84,7 @@ async function getProducts(
 
     const query = queryClient
       .from("products")
-      .select("id, name, category_id, price_cents, is_gated, market_category, featured, description, vendor_id")
+      .select("id, name, category_id, price_cents, is_gated, market_category, featured, description, vendor_id, ship_to_states")
       .eq("status", "approved") // Only approved products
       .eq("active", true) // Only active products
       .order("created_at", { ascending: false });
@@ -201,6 +202,21 @@ export default async function ProductsPage({
   const includeGated = verification.status === "approved";
   const publicShopOnly = !user;
   const { products, vendorName, productsLookupFailed } = await getProducts(vendorId, includeGated, publicShopOnly);
+
+  // Fetch user's onboarding state for shipping filter
+  let userState: string | null = null;
+  if (user) {
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("onboarding_state")
+        .eq("id", user.id)
+        .maybeSingle();
+      userState = (profile as { onboarding_state?: string | null } | null)?.onboarding_state ?? null;
+    } catch {
+      // non-critical — filter just won't pre-apply
+    }
+  }
   const countClient = (() => {
     try {
       return getSupabaseAdminClient();
@@ -285,6 +301,7 @@ export default async function ProductsPage({
           <ProductsList
             initialProducts={products}
             catalogueEmpty={catalogueEmpty}
+            userState={userState}
           />
         </Section>
       </main>

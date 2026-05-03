@@ -22,6 +22,7 @@ type Product = {
   featured: boolean;
   description?: string | null;
   vendor_name?: string | null;
+  ship_to_states?: string[] | null;
 };
 
 type Props = {
@@ -29,9 +30,11 @@ type Props = {
   initialCategoryId?: string | null;
   /** When true, the catalogue has no approved products at all (not just filtered to zero). */
   catalogueEmpty?: boolean;
+  /** User's profile.onboarding_state — used for shipping filter. */
+  userState?: string | null;
 };
 
-export default function ProductsList({ initialProducts, initialCategoryId, catalogueEmpty = false }: Props) {
+export default function ProductsList({ initialProducts, initialCategoryId, catalogueEmpty = false, userState }: Props) {
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
   const { mode, isVerified } = useMarketMode();
   const router = useRouter();
@@ -48,6 +51,8 @@ export default function ProductsList({ initialProducts, initialCategoryId, catal
   const [profileInterests, setProfileInterests] = useState<string[]>([]);
   const [interestTags, setInterestTags] = useState<string[]>([]);
   const [useCase, setUseCase] = useState<string | null>(null);
+  // Default to ON for authenticated users who have a state set
+  const [hideUnavailableForState, setHideUnavailableForState] = useState<boolean>(!!userState);
 
   // ?interests=skincare,wellness wins over profile data. Lets a user
   // share a filtered link or click "Use My Interests" without changing
@@ -163,8 +168,14 @@ export default function ProductsList({ initialProducts, initialCategoryId, catal
         product.name.toLowerCase().includes(search.toLowerCase())
       );
     }
+    if (hideUnavailableForState && userState) {
+      filtered = filtered.filter((product) => {
+        if (!product.ship_to_states || product.ship_to_states.length === 0) return true;
+        return product.ship_to_states.includes(userState);
+      });
+    }
     return filtered;
-  }, [mode, initialProducts, isVerified, selectedCategoryId, search]);
+  }, [mode, initialProducts, isVerified, selectedCategoryId, search, hideUnavailableForState, userState]);
 
   return (
     <>
@@ -223,6 +234,22 @@ export default function ProductsList({ initialProducts, initialCategoryId, catal
               Use My Interests
             </button>
           )}
+        </div>
+      )}
+
+      {userState && (
+        <div className="flex items-center gap-3 mb-6 text-sm">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={hideUnavailableForState}
+              onChange={(e) => setHideUnavailableForState(e.target.checked)}
+              className="w-4 h-4 accent-accent"
+            />
+            <span className="text-muted">
+              Hide products not shipping to {userState}
+            </span>
+          </label>
         </div>
       )}
 
