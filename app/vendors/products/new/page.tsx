@@ -7,6 +7,7 @@ import Footer from "@/components/Footer";
 import { getCategoriesClient, organizeCategoriesHierarchically, type Category } from "@/lib/categories";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { getDelta8WarningText, getIntoxicatingCutoffDate, isIntoxicatingAllowedNow, requiresCOA } from "@/lib/compliance";
+import { RESTRICTED_STATES_FOR_INTOXICATING, ALL_US_STATES } from "@/lib/compliance/constants";
 
 export default function NewProductPage() {
   const router = useRouter();
@@ -36,6 +37,8 @@ export default function NewProductPage() {
   const [hempDerivedAttestation, setHempDerivedAttestation] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showShippingPanel, setShowShippingPanel] = useState(false);
+  const [excludedStates, setExcludedStates] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     async function loadCategories() {
@@ -401,6 +404,59 @@ export default function NewProductPage() {
                         I acknowledge the Delta-8 disclaimer <span className="text-red-400">*</span>
                       </span>
                     </label>
+                  </div>
+                )}
+
+                {(productType === "intoxicating" || productType === "delta8") && (
+                  <div className="rounded-lg border border-blue-500/30 bg-blue-950/30 p-4 text-sm text-blue-200">
+                    <p>
+                      ℹ️ This product type is restricted in some states (
+                      {RESTRICTED_STATES_FOR_INTOXICATING.join(", ")}). Shipping to
+                      these states will be auto-disabled on save. You can adjust further
+                      in advanced settings.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowShippingPanel((v) => !v)}
+                      className="mt-2 text-xs text-blue-300 underline hover:text-blue-100"
+                    >
+                      {showShippingPanel ? "Hide" : "Show"} advanced shipping settings
+                    </button>
+                    {showShippingPanel && (
+                      <div className="mt-3 space-y-2">
+                        <p className="text-xs text-blue-300 mb-2">
+                          Uncheck states to block shipping. Restricted states (
+                          {RESTRICTED_STATES_FOR_INTOXICATING.join(", ")}) are
+                          pre-excluded and cannot be re-enabled here.
+                        </p>
+                        <div className="grid grid-cols-6 gap-1">
+                          {[...ALL_US_STATES].map((state) => {
+                            const isRestricted = (RESTRICTED_STATES_FOR_INTOXICATING as readonly string[]).includes(state);
+                            const isExcluded = excludedStates.has(state) || isRestricted;
+                            return (
+                              <label key={state} className={`flex items-center gap-1 text-xs ${isRestricted ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}>
+                                <input
+                                  type="checkbox"
+                                  checked={!isExcluded}
+                                  disabled={isRestricted}
+                                  onChange={() => {
+                                    if (isRestricted) return;
+                                    setExcludedStates((prev) => {
+                                      const next = new Set(prev);
+                                      if (next.has(state)) next.delete(state);
+                                      else next.add(state);
+                                      return next;
+                                    });
+                                  }}
+                                  className="w-3 h-3"
+                                />
+                                {state}
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
