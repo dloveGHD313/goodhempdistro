@@ -11,6 +11,7 @@ import RecoveryHashRedirect from "@/components/RecoveryHashRedirect";
 import MascotGate from "@/components/mascot/MascotGate";
 import PersistWelcomeIntents from "@/components/PersistWelcomeIntents";
 import Phase15Gate from "@/components/Phase15Gate";
+import TravelAdvisory from "@/components/TravelAdvisory";
 import { MarketModeProvider } from "@/lib/marketMode";
 import { MotionProvider, PageTransition } from "@/components/motion";
 
@@ -116,6 +117,7 @@ export default function RootLayout({
           <PersistWelcomeIntents />
           <Phase15Gate />
           <MascotGate />
+          <TravelAdvisory />
           <AgeGate />
           <RecoveryHashRedirect />
         </MarketModeProvider>
