@@ -6,6 +6,7 @@ import { isAdminEmail } from "@/lib/admin";
 import { requireAdminUsers } from "@/lib/auth/requireAdminUsers";
 import { requireVendorActive } from "@/lib/server/vendorStatusGate";
 import { writeAdminActionLog } from "@/lib/adminActionLog";
+import { computeShipToStates } from "@/lib/compliance/getRestrictedStatesForProduct";
 
 /** Full select for product edit + admin detail (status, review fields) */
 const PRODUCT_EDIT_SELECT_FULL =
@@ -305,6 +306,15 @@ export async function PUT(
     if (coa_object_path !== undefined) updates.coa_object_path = normalizedCoaObjectPath;
     if (delta8_disclaimer_ack !== undefined) updates.delta8_disclaimer_ack = delta8_disclaimer_ack === true;
     if (hemp_derived_attestation !== undefined) updates.hemp_derived_attestation = hempDerivedAttestation;
+
+    // Re-compute ship_to_states when product_type changes
+    if (product_type !== undefined) {
+      const isIntox = product_type === "intoxicating" || product_type === "delta8";
+      const adminForShipping = (() => { try { return getSupabaseAdminClient(); } catch { return null; } })();
+      if (adminForShipping) {
+        updates.ship_to_states = await computeShipToStates(isIntox, isIntox, adminForShipping);
+      }
+    }
 
     const { data: updatedProduct, error: updateError } = await supabase
       .from("products")

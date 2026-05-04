@@ -5,6 +5,7 @@ import { getCategoryCoaRequirement, validateProductCompliance } from "@/lib/comp
 import { resolveIsAdmin } from "@/lib/server/isAdmin";
 import { requireVendorActive } from "@/lib/server/vendorStatusGate";
 import { getProductLimitStatus, getVendorEntitlements, getVendorPlanByPriceId } from "@/lib/pricing";
+import { computeShipToStates } from "@/lib/compliance/getRestrictedStatesForProduct";
 
 /**
  * Create a new product
@@ -574,6 +575,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Compute ship_to_states: remove restricted states for intoxicating/gated products
+    const isIntoxicatingProduct =
+      normalizedProductType === "intoxicating" || normalizedProductType === "delta8";
+    const isGatedProduct = isIntoxicatingProduct;
+    const adminForShipping = (() => { try { return getSupabaseAdminClient(); } catch { return null; } })();
+    const shipToStates = adminForShipping
+      ? await computeShipToStates(isIntoxicatingProduct, isGatedProduct, adminForShipping)
+      : null;
+
     // Create product with draft status (requires admin approval)
     const baseInsertPayload: Record<string, unknown> = {
       ...(requestedProductId ? { id: requestedProductId } : {}),
@@ -586,6 +596,7 @@ export async function POST(req: NextRequest) {
       status: "draft", // Always start as draft
       active: false,
       product_type: normalizedProductType,
+      ...(shipToStates !== null ? { ship_to_states: shipToStates } : {}),
     };
 
     const payloadKeys = Object.keys(baseInsertPayload);

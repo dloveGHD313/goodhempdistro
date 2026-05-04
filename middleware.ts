@@ -22,6 +22,28 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Detect geo state early — runs on every non-prefetch request, no auth needed.
+  // TravelAdvisory client component reads this cookie to detect travel.
+  const detectedCountry = request.headers.get("x-vercel-ip-country");
+  const detectedRegion = request.headers.get("x-vercel-ip-country-region");
+  const shouldSetTravelCookie =
+    detectedCountry === "US" &&
+    typeof detectedRegion === "string" &&
+    detectedRegion.length === 2 &&
+    request.cookies.get("ghd_travel_state")?.value !== detectedRegion;
+
+  function applyTravelCookie(res: NextResponse): NextResponse {
+    if (shouldSetTravelCookie) {
+      res.cookies.set("ghd_travel_state", detectedRegion as string, {
+        path: "/",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 6, // 6 hours — refreshes on travel
+        httpOnly: false, // readable by TravelAdvisory client component
+      });
+    }
+    return res;
+  }
+
   const isAgeGateExcludedPath =
     pathname === "/welcome" ||
     pathname === "/" ||
@@ -70,7 +92,7 @@ export async function middleware(request: NextRequest) {
     if (!isAgeVerified) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = "/welcome";
-      return NextResponse.redirect(redirectUrl);
+      return applyTravelCookie(NextResponse.redirect(redirectUrl));
     }
   }
 
@@ -109,9 +131,10 @@ export async function middleware(request: NextRequest) {
         const redirectUrl = request.nextUrl.clone();
         redirectUrl.pathname = "/login";
         redirectUrl.searchParams.set("next", pathname);
-        return NextResponse.redirect(redirectUrl);
+        return applyTravelCookie(NextResponse.redirect(redirectUrl));
       }
 
+      return applyTravelCookie(response);
     }
   }
 
@@ -132,7 +155,7 @@ export async function middleware(request: NextRequest) {
   if (maintenanceEnabled) {
     // Always allow core maintenance, static assets, auth pages, and explicitly allowlisted APIs.
     if (isAllowedPrefix || isAllowedRoute || isAllowedApiPrefix) {
-      return NextResponse.next();
+      return applyTravelCookie(NextResponse.next());
     }
 
     let isAdmin = false;
@@ -166,7 +189,7 @@ export async function middleware(request: NextRequest) {
         isAdmin = !!email && isAdminEmail(email);
 
         if (isAdmin) {
-          return response;
+          return applyTravelCookie(response);
         }
       }
     }
@@ -185,7 +208,7 @@ export async function middleware(request: NextRequest) {
 
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/maintenance";
-    return NextResponse.redirect(redirectUrl, 307);
+    return applyTravelCookie(NextResponse.redirect(redirectUrl, 307));
   }
 
   // Auth-gated routes only: dashboard, account, checkout, vendors/*, driver/dashboard, admin/*
@@ -206,14 +229,14 @@ export async function middleware(request: NextRequest) {
   const isAdminApi = pathname.startsWith("/api/admin");
 
   if (!isProtectedPage && !isAdminApi) {
-    return NextResponse.next();
+    return applyTravelCookie(NextResponse.next());
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    return NextResponse.next();
+    return applyTravelCookie(NextResponse.next());
   }
 
   const response = NextResponse.next({
@@ -245,10 +268,10 @@ export async function middleware(request: NextRequest) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(redirectUrl);
+    return applyTravelCookie(NextResponse.redirect(redirectUrl));
   }
 
-  return response;
+  return applyTravelCookie(response);
 }
 
 export const config = {

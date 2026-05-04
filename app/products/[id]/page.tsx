@@ -35,6 +35,7 @@ type Product = {
   created_at?: string;
   image_url?: string | null;
   lab_results_url?: string | null;
+  ship_to_states?: string[] | null;
 };
 
 type Props = {
@@ -52,7 +53,7 @@ type ProductFetchResult = {
 async function getProduct(identifier: string): Promise<ProductFetchResult> {
   const supabase = await createSupabaseServerClient();
   const baseSelect =
-    "id, slug, name, description, category_id, price_cents, is_gated, market_category, featured, vendor_id, status, active, product_type, coa_url, coa_object_path, coa_verified, created_at, image_url, lab_results_url";
+    "id, slug, name, description, category_id, price_cents, is_gated, market_category, featured, vendor_id, status, active, product_type, coa_url, coa_object_path, coa_verified, created_at, image_url, lab_results_url, ship_to_states";
   const { data: slugData, error } = await supabase
     .from("products")
     .select(baseSelect)
@@ -204,6 +205,21 @@ export default async function ProductDetailPage(props: Props) {
   const stripeDetected = Boolean(process.env.STRIPE_SECRET_KEY);
   const { product, supabaseErrorMessage } = await getProduct(params.id);
 
+  // Fetch user's location state for shipping compliance banner
+  let userState: string | null = null;
+  if (user) {
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("onboarding_state")
+        .eq("id", user.id)
+        .maybeSingle();
+      userState = (profile as { onboarding_state?: string | null } | null)?.onboarding_state ?? null;
+    } catch {
+      // non-critical
+    }
+  }
+
   const hasPriceCents =
     typeof product?.price_cents === "number" &&
     Number.isFinite(product.price_cents) &&
@@ -346,6 +362,23 @@ export default async function ProductDetailPage(props: Props) {
           <Link href="/products" className="text-accent hover:text-accent/80 transition mb-6 inline-block">
             ← Back to Products
           </Link>
+
+          {userState &&
+            product.ship_to_states &&
+            product.ship_to_states.length > 0 &&
+            !product.ship_to_states.includes(userState) && (
+              <div className="mb-6 rounded-xl border border-yellow-500/40 bg-yellow-900/20 p-4 text-yellow-200">
+                <p className="font-semibold text-sm mb-1">
+                  ⚠️ Shipping not available to {userState}
+                </p>
+                <p className="text-xs text-yellow-200/80">
+                  Based on state law, this product cannot be shipped to {userState}.{" "}
+                  <Link href="/compliance/state-laws" className="underline hover:text-yellow-100">
+                    Why?
+                  </Link>
+                </p>
+              </div>
+            )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             <div className="card-glass p-6 aspect-square flex items-center justify-center">
