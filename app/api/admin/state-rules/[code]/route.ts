@@ -4,6 +4,13 @@ import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 type Params = { code: string };
 
+const BOOL_FIELDS = [
+  "allows_sale_non_intoxicating",
+  "allows_delivery_non_intoxicating",
+  "allows_sale_intoxicating",
+  "allows_delivery_intoxicating",
+] as const;
+
 export async function PATCH(request: NextRequest, { params }: { params: Promise<Params> }) {
   const adminCheck = await requireAdmin();
   if (!adminCheck.user || !adminCheck.isAdmin) {
@@ -24,18 +31,35 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const allowed = ["allows_sale_hemp", "allows_sale_intoxicating", "notes"] as const;
   const updates: Record<string, unknown> = {};
-  for (const key of allowed) {
-    if (key in body) updates[key] = body[key] ?? null;
+
+  for (const field of BOOL_FIELDS) {
+    if (field in body) {
+      const v = body[field];
+      if (v !== null && v !== true && v !== false) {
+        return NextResponse.json(
+          { error: `${field} must be true, false, or null` },
+          { status: 400 }
+        );
+      }
+      updates[field] = v;
+    }
+  }
+
+  if ("notes" in body) {
+    updates.notes = typeof body.notes === "string" ? body.notes || null : null;
+  }
+
+  if ("sources" in body) {
+    const src = body.sources;
+    if (src !== null && typeof src !== "object" && !Array.isArray(src)) {
+      return NextResponse.json({ error: "sources must be a JSON object/array or null" }, { status: 400 });
+    }
+    updates.sources = src ?? null;
   }
 
   if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ error: "No valid fields" }, { status: 400 });
-  }
-
-  if ("allows_sale_hemp" in updates && typeof updates.allows_sale_hemp !== "boolean") {
-    return NextResponse.json({ error: "allows_sale_hemp must be boolean" }, { status: 400 });
+    return NextResponse.json({ error: "No valid fields provided" }, { status: 400 });
   }
 
   const admin = getSupabaseAdminClient();
@@ -43,7 +67,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     .from("hemp_state_rules")
     .update(updates)
     .eq("state_code", stateCode)
-    .select()
+    .select(`
+      state_code,
+      allows_sale_non_intoxicating,
+      allows_delivery_non_intoxicating,
+      allows_sale_intoxicating,
+      allows_delivery_intoxicating,
+      notes,
+      sources,
+      updated_at
+    `)
     .maybeSingle();
 
   if (error) {

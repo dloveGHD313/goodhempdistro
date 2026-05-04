@@ -6,19 +6,31 @@ import StateRulesClient from "./StateRulesClient";
 
 export const dynamic = "force-dynamic";
 
-type StateRule = {
+export type StateRule = {
   state_code: string;
-  state_name: string;
-  allows_sale_hemp: boolean;
+  allows_sale_non_intoxicating: boolean | null;
+  allows_delivery_non_intoxicating: boolean | null;
   allows_sale_intoxicating: boolean | null;
+  allows_delivery_intoxicating: boolean | null;
   notes: string | null;
+  sources: unknown | null;
+  updated_at: string | null;
 };
 
 async function getStateRules(): Promise<StateRule[]> {
   const admin = getSupabaseAdminClient();
   const { data, error } = await admin
     .from("hemp_state_rules")
-    .select("state_code, state_name, allows_sale_hemp, allows_sale_intoxicating, notes")
+    .select(`
+      state_code,
+      allows_sale_non_intoxicating,
+      allows_delivery_non_intoxicating,
+      allows_sale_intoxicating,
+      allows_delivery_intoxicating,
+      notes,
+      sources,
+      updated_at
+    `)
     .order("state_code", { ascending: true });
 
   if (error) {
@@ -45,10 +57,10 @@ export default async function AdminStateRulesPage() {
             </p>
             <h1 className="text-4xl font-bold text-accent">State Shipping Rules</h1>
             <p className="text-muted mt-2 text-sm max-w-2xl">
-              Configure which states allow hemp sales and intoxicating product delivery. Changes
-              apply immediately to new product uploads. Existing product{" "}
-              <code className="text-xs bg-white/5 px-1 rounded">ship_to_states</code> arrays are
-              not retroactively updated — re-save a product to recompute.
+              Configure which states allow hemp sales and delivery for non-intoxicating and
+              intoxicating products. Changes apply to new product uploads; re-save an existing
+              product to recompute its{" "}
+              <code className="text-xs bg-white/5 px-1 rounded">ship_to_states</code> array.
             </p>
           </div>
           <StateRulesClient initialRules={rules} />
