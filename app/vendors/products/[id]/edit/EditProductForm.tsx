@@ -20,6 +20,7 @@ type Product = {
   product_type?: string;
   coa_url?: string | null;
   coa_object_path?: string | null;
+  image_url?: string | null;
   delta8_disclaimer_ack?: boolean;
   hemp_derived_attestation?: boolean;
   status?: string;
@@ -43,6 +44,9 @@ export default function EditProductForm({ productId, initialProduct, initialCate
   const [productType, setProductType] = useState<"non_intoxicating" | "intoxicating" | "delta8">(
     (initialProduct.product_type as "non_intoxicating" | "intoxicating" | "delta8") || "non_intoxicating"
   );
+  const [imageUrl, setImageUrl] = useState(initialProduct.image_url || "");
+  const [imageUploading, setImageUploading] = useState(false);
+  const [useImageUrl, setUseImageUrl] = useState(!!initialProduct.image_url);
   const [coaUrl, setCoaUrl] = useState(initialProduct.coa_url || "");
   const [coaObjectPath, setCoaObjectPath] = useState(initialProduct.coa_object_path || "");
   const [useManualUrl, setUseManualUrl] = useState(!!initialProduct.coa_url);
@@ -106,6 +110,27 @@ export default function EditProductForm({ productId, initialProduct, initialCate
     loadSubscriptionStatus();
   }, []);
 
+  const handleImageFile = async (file: File) => {
+    setImageUploading(true);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const path = `${user.id}/${productId}-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("product-images")
+        .upload(path, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from("product-images").getPublicUrl(path);
+      setImageUrl(publicUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Image upload failed");
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -138,7 +163,7 @@ export default function EditProductForm({ productId, initialProduct, initialCate
     }
 
     if (!hempDerivedAttestation) {
-      setError("You must confirm this product is hemp-derived.");
+      setError("You must confirm this product is hemp-based.");
       setSaving(false);
       return;
     }
@@ -157,6 +182,7 @@ export default function EditProductForm({ productId, initialProduct, initialCate
           category_id: categoryId || null,
           active,
           product_type: productType,
+          image_url: imageUrl.trim() || null,
           coa_url: useManualUrl ? coaUrl.trim() : null,
           coa_object_path: !useManualUrl ? coaObjectPath.trim() || null : null,
           delta8_disclaimer_ack: productType === "delta8" ? delta8DisclaimerAck : false,
@@ -289,6 +315,53 @@ export default function EditProductForm({ productId, initialProduct, initialCate
                 </div>
               </div>
 
+              <div className="border-t border-[var(--border)] pt-6 space-y-4">
+                <div>
+                  <p className="block text-sm font-medium mb-2">Product Image (recommended)</p>
+                  <label className="flex items-center gap-2 mb-2">
+                    <input
+                      type="checkbox"
+                      checked={useImageUrl}
+                      onChange={(e) => { setUseImageUrl(e.target.checked); if (!e.target.checked) setImageUrl(""); }}
+                      className="w-4 h-4 accent-accent"
+                    />
+                    <span className="text-sm text-muted">Paste image URL instead</span>
+                  </label>
+                  {useImageUrl ? (
+                    <input
+                      type="url"
+                      value={imageUrl}
+                      onChange={(e) => setImageUrl(e.target.value)}
+                      className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
+                      placeholder="https://example.com/image.jpg"
+                    />
+                  ) : (
+                    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-lg p-4">
+                      {imageUrl ? (
+                        <div className="flex items-center gap-3">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={imageUrl} alt="Product preview" className="h-16 w-16 object-cover rounded" />
+                          <div className="flex-1 text-sm text-green-400">Image set</div>
+                          <button type="button" onClick={() => setImageUrl("")} className="text-muted hover:text-red-400 text-sm">Remove</button>
+                        </div>
+                      ) : imageUploading ? (
+                        <p className="text-sm text-muted">Uploading…</p>
+                      ) : (
+                        <label className="cursor-pointer">
+                          <span className="text-sm text-accent hover:text-accent/80">Choose image (JPEG, PNG, WebP — max 10 MB)</span>
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/gif"
+                            className="hidden"
+                            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageFile(f); }}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="border-t border-[var(--border)] pt-6 space-y-6">
                 {subscriptionChecked && !subscriptionActive && !isAdmin && (
                   <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-4 text-yellow-300 text-sm">
@@ -308,9 +381,14 @@ export default function EditProductForm({ productId, initialProduct, initialCate
                       disabled={subscriptionChecked && !subscriptionActive && !isAdmin}
                       className="mt-1 w-4 h-4 accent-accent"
                     />
-                    <span className="text-sm">
-                      This product is hemp-derived <span className="text-red-400">*</span>
-                    </span>
+                    <div className="text-sm space-y-2">
+                      <span className="font-semibold">
+                        This product is hemp-based <span className="text-red-400">*</span>
+                      </span>
+                      <p className="text-xs text-muted">
+                        I attest this product is derived from Cannabis sativa L. containing no more than 0.3% Δ9-THC on a dry weight basis as defined by the 2018 Farm Bill (7 U.S.C. § 1639o). I understand I am legally responsible for this attestation and that false claims may result in product removal, vendor suspension, and potential legal liability.
+                      </p>
+                    </div>
                   </label>
                 </div>
                 <div>

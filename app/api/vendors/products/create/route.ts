@@ -371,6 +371,7 @@ export async function POST(req: NextRequest) {
       active,
       coa_url,
       coa_object_path,
+      image_url,
       delta8_disclaimer_ack,
       hemp_derived_attestation,
     } = body;
@@ -679,6 +680,9 @@ export async function POST(req: NextRequest) {
     }
     if (hemp_derived_attestation !== undefined) {
       optionalUpdates.hemp_derived_attestation = hempDerivedAttestation;
+    }
+    if (typeof image_url === "string" && image_url.trim()) {
+      optionalUpdates.image_url = image_url.trim();
     }
 
     let optionalUpdateError:
