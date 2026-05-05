@@ -14,7 +14,6 @@ import { isGatedProduct, requireMarketAccess } from "@/lib/server/marketGate";
 
 type Product = {
   id: string;
-  slug?: string | null;
   name: string;
   category_id: string | null;
   price_cents: number | null;
@@ -53,40 +52,23 @@ type ProductFetchResult = {
 async function getProduct(identifier: string): Promise<ProductFetchResult> {
   const supabase = await createSupabaseServerClient();
   const baseSelect =
-    "id, slug, name, description, category_id, price_cents, is_gated, market_category, featured, vendor_id, status, active, product_type, coa_url, coa_object_path, coa_verified, created_at, image_url, lab_results_url, ship_to_states";
-  const { data: slugData, error } = await supabase
+    "id, name, description, category_id, price_cents, is_gated, market_category, featured, vendor_id, status, active, product_type, coa_url, coa_object_path, coa_verified, created_at, image_url, lab_results_url, ship_to_states";
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+  if (!isUuid) {
+    return { product: null, supabaseErrorMessage: "not_found" };
+  }
+
+  const { data: idData, error: idError } = await supabase
     .from("products")
     .select(baseSelect)
-    .eq("slug", identifier)
+    .eq("id", identifier)
     .maybeSingle();
 
-  if (error) {
-    return {
-      product: null,
-      supabaseErrorMessage: error.message,
-    };
+  if (idError) {
+    return { product: null, supabaseErrorMessage: idError.message };
   }
 
-  let dataToUse: any = slugData;
-  if (!dataToUse) {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
-    if (isUuid) {
-      const { data: idData, error: idError } = await supabase
-        .from("products")
-        .select(baseSelect)
-        .eq("id", identifier)
-        .maybeSingle();
-
-      if (idError) {
-        return {
-          product: null,
-          supabaseErrorMessage: idError.message,
-        };
-      }
-
-      dataToUse = idData;
-    }
-  }
+  let dataToUse: any = idData;
 
   if (!dataToUse) {
     return {
