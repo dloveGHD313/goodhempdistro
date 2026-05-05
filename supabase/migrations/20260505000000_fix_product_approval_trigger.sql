@@ -5,9 +5,19 @@
 -- That made every legitimate admin approval throw
 -- "Only admins can approve products".
 --
--- New version:
--- - Recognizes service_role context and trusts upstream
---   application gate (lib/auth/requireAdmin.ts)
+-- First fix attempt used a local variable named 'current_role',
+-- which silently resolved to the PostgreSQL built-in current_role
+-- (synonym for current_user) in IF conditions, bypassing the
+-- declared variable entirely and making the service-role check
+-- always evaluate against the DB username ('postgres'), not the
+-- JWT claim.
+--
+-- Corrected version:
+-- - Renames variable to 'detected_role' (avoids reserved keyword)
+-- - PRIMARY bypass: auth.uid() IS NULL — the only universally
+--   reliable service-role signal (true for service_role, direct
+--   postgres, and any non-session context)
+-- - SECONDARY bypass: JWT claim check via detected_role
 -- - Still blocks authenticated non-admin users from flipping
 --   status to 'approved' (defense-in-depth against direct DB
 --   updates from vendor sessions)
@@ -28,29 +38,42 @@ security definer
 set search_path = public, auth
 as $$
 declare
-  current_role text;
+  detected_role text;
   user_is_admin boolean;
 begin
-  -- Only fire when status is being changed to 'approved'
+  -- Only fire on actual transitions to 'approved'
   if new.status is null or new.status != 'approved' then
     return new;
   end if;
 
   if old.status = 'approved' then
-    return new; -- already approved, no change to gate
-  end if;
-
-  -- Detect role of current connection.
-  -- Service role bypasses this check (application code already
-  -- verified admin via requireAdmin()).
-  select current_setting('request.jwt.claim.role', true) into current_role;
-
-  if current_role = 'service_role' or current_role is null then
-    -- Service role context: trust the application gate
     return new;
   end if;
 
-  -- Authenticated user context: require admin in profiles
+  -- PRIMARY CHECK: auth.uid() is null only when there's no user
+  -- session. This is the most reliable service-role indicator.
+  -- Service-role admin updates (from API routes using
+  -- SUPABASE_SERVICE_ROLE_KEY) and direct postgres connections
+  -- both have null auth.uid().
+  -- Application-level admin gate (lib/auth/requireAdmin.ts)
+  -- has already verified admin status before reaching this
+  -- trigger via the API path.
+  if auth.uid() is null then
+    return new;
+  end if;
+
+  -- SECONDARY CHECK: try to detect service_role via JWT claim
+  -- (defense-in-depth for any future caller patterns)
+  detected_role := coalesce(
+    current_setting('request.jwt.claim.role', true),
+    auth.role()
+  );
+
+  if detected_role = 'service_role' then
+    return new;
+  end if;
+
+  -- AUTHENTICATED USER PATH: must be admin in profiles
   select exists (
     select 1 from public.profiles
     where id = auth.uid() and role = 'admin'
