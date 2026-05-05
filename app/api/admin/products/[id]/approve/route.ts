@@ -147,6 +147,30 @@ export async function POST(
 
     logStage("approved", { productId: id, adminId: adminCheck.user.id });
 
+    // Defensive auto-activation: if vendor is not yet active, activate now.
+    // Prevents "approved product, invisible vendor" trap for new vendors.
+    if (updatedProduct) {
+      const { data: fullProduct } = await admin
+        .from("products")
+        .select("vendor_id")
+        .eq("id", id)
+        .maybeSingle();
+      if (fullProduct?.vendor_id) {
+        const { data: vendorRow } = await admin
+          .from("vendors")
+          .select("id, status")
+          .eq("id", fullProduct.vendor_id)
+          .maybeSingle();
+        if (vendorRow && vendorRow.status !== "active") {
+          await admin
+            .from("vendors")
+            .update({ status: "active", is_approved: true, is_active: true, updated_at: new Date().toISOString() })
+            .eq("id", vendorRow.id);
+          logStage("vendor_auto_activated", { vendorId: vendorRow.id, prevStatus: vendorRow.status });
+        }
+      }
+    }
+
     await writeAdminActionLog(admin, {
       actor_user_id: adminCheck.user.id,
       actor_email: adminCheck.user.email ?? null,
