@@ -44,6 +44,7 @@ type Product = {
   description?: string | null;
   vendor_id?: string | null;
   vendor_name?: string | null;
+  image_url?: string | null;
   /** When true, category requires COA (Phase 3B: logged-out shop hides these). */
   category_requires_coa?: boolean;
   ship_to_states?: string[] | null;
@@ -84,7 +85,7 @@ async function getProducts(
 
     const query = queryClient
       .from("products")
-      .select("id, name, category_id, price_cents, is_gated, market_category, featured, description, vendor_id, ship_to_states")
+      .select("id, name, category_id, price_cents, is_gated, market_category, featured, description, vendor_id, image_url, ship_to_states")
       .eq("status", "approved") // Only approved products
       .eq("active", true) // Only active products
       .order("created_at", { ascending: false });

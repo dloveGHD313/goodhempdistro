@@ -8,6 +8,7 @@ import SearchInput from "@/components/discovery/SearchInput";
 import FilterSelect from "@/components/discovery/FilterSelect";
 import FavoriteButton from "@/components/engagement/FavoriteButton";
 import RatingBadge from "@/components/engagement/RatingBadge";
+import Image from "next/image";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { useMarketMode } from "@/lib/marketMode";
 
@@ -22,6 +23,7 @@ type Product = {
   featured: boolean;
   description?: string | null;
   vendor_name?: string | null;
+  image_url?: string | null;
   ship_to_states?: string[] | null;
 };
 
@@ -317,7 +319,11 @@ export default function ProductsList({ initialProducts, initialCategoryId, catal
               </div>
               {isLocked ? (
                 <div className="group">
-                  <div className="aspect-square bg-[var(--surface)]/60 rounded-lg mb-4" />
+                  <div className="aspect-square bg-[var(--surface)]/60 rounded-lg mb-4 overflow-hidden relative">
+                    {product.image_url ? (
+                      <Image src={product.image_url} alt={product.name} fill className="object-cover" sizes="(max-width: 768px) 100vw, 33vw" />
+                    ) : null}
+                  </div>
                   <h3 className="text-xl font-semibold mb-2">{product.name}</h3>
                   <p className="text-sm text-muted">{product.vendor_name ?? "Unknown Vendor"}</p>
                   <p className="text-muted mb-2 text-sm">{categoryName}</p>
@@ -327,7 +333,11 @@ export default function ProductsList({ initialProducts, initialCategoryId, catal
                 </div>
               ) : (
                 <Link href={`/products/${product.id}`} className="group">
-                  <div className="aspect-square bg-[var(--surface)]/60 rounded-lg mb-4 group-hover:bg-[var(--surface)]/80 transition" />
+                  <div className="aspect-square bg-[var(--surface)]/60 rounded-lg mb-4 overflow-hidden relative group-hover:bg-[var(--surface)]/80 transition">
+                    {product.image_url ? (
+                      <Image src={product.image_url} alt={product.name} fill className="object-cover" sizes="(max-width: 768px) 100vw, 33vw" />
+                    ) : null}
+                  </div>
                   <h3 className="text-xl font-semibold mb-2 group-hover:text-accent transition">
                     {product.name}
                   </h3>
