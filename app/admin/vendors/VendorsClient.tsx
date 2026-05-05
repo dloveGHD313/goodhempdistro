@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 type VendorApplication = {
   id: string;
@@ -16,13 +16,24 @@ type VendorApplication = {
   } | null;
 };
 
-type Props = {
-  initialApplications: VendorApplication[];
+type InactiveVendor = {
+  id: string;
+  business_name: string | null;
+  status: string;
+  owner_user_id: string | null;
+  created_at: string;
 };
 
-export default function VendorsClient({ initialApplications }: Props) {
+type Props = {
+  initialApplications: VendorApplication[];
+  inactiveVendors?: InactiveVendor[];
+};
+
+export default function VendorsClient({ initialApplications, inactiveVendors: initialInactiveVendors = [] }: Props) {
   const [applications, setApplications] = useState<VendorApplication[]>(initialApplications);
+  const [inactiveVendors, setInactiveVendors] = useState<InactiveVendor[]>(initialInactiveVendors);
   const [loading, setLoading] = useState(false);
+  const [activating, setActivating] = useState<string | null>(null);
 
   // Refresh applications from API
   const refreshApplications = async () => {
@@ -76,6 +87,24 @@ export default function VendorsClient({ initialApplications }: Props) {
     } catch (error) {
       console.error("Error updating application status:", error);
       alert("Failed to update application status");
+    }
+  };
+
+  const activateVendor = async (vendorId: string, businessName: string | null) => {
+    if (!confirm(`Activate vendor "${businessName ?? vendorId}"? This will make their products publicly visible.`)) return;
+    setActivating(vendorId);
+    try {
+      const res = await fetch(`/api/admin/vendors/${vendorId}/activate`, { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || "Failed to activate vendor");
+        return;
+      }
+      setInactiveVendors((prev) => prev.filter((v) => v.id !== vendorId));
+    } catch {
+      alert("Failed to activate vendor");
+    } finally {
+      setActivating(null);
     }
   };
 
@@ -141,6 +170,51 @@ export default function VendorsClient({ initialApplications }: Props) {
           </div>
         )}
       </div>
+
+      {inactiveVendors.length > 0 && (
+        <div className="card-glass p-6">
+          <h2 className="text-2xl font-bold mb-2">Inactive Vendors</h2>
+          <p className="text-muted text-sm mb-4">
+            These vendor accounts exist but are not yet active. Their products are hidden from the public listing.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="border-b border-[var(--border)]">
+                <tr>
+                  <th className="pb-3 font-semibold text-muted">Business Name</th>
+                  <th className="pb-3 font-semibold text-muted">Status</th>
+                  <th className="pb-3 font-semibold text-muted">Created</th>
+                  <th className="pb-3 font-semibold text-muted">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inactiveVendors.map((vendor) => (
+                  <tr key={vendor.id} className="border-b border-[var(--border)]/60">
+                    <td className="py-3 font-semibold">{vendor.business_name ?? "—"}</td>
+                    <td className="py-3">
+                      <span className="px-2 py-1 rounded text-xs font-semibold bg-yellow-500/20 text-yellow-400">
+                        {vendor.status.toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="py-3 text-muted">
+                      {new Date(vendor.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="py-3">
+                      <button
+                        onClick={() => activateVendor(vendor.id, vendor.business_name)}
+                        disabled={activating === vendor.id}
+                        className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm disabled:opacity-50"
+                      >
+                        {activating === vendor.id ? "Activating…" : "Activate"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {otherApps.length > 0 && (
         <div className="card-glass p-6">
