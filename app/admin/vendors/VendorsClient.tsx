@@ -118,6 +118,7 @@ export default function VendorsClient({ initialApplications, inactiveVendors: in
           <p className="text-muted">Refreshing...</p>
         </div>
       )}
+      {applications.length > 0 && (
       <div className="card-glass p-6">
         <h2 className="text-2xl font-bold mb-4">Pending Applications</h2>
         {pendingApps.length === 0 ? (
@@ -170,6 +171,7 @@ export default function VendorsClient({ initialApplications, inactiveVendors: in
           </div>
         )}
       </div>
+      )}
 
       {inactiveVendors.length > 0 && (
         <div className="card-glass p-6">
