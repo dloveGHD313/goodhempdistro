@@ -12,11 +12,12 @@ export type VendorActivityRow = {
 
 /** A vendor is "active" for gating purposes if ANY of:
  *  - profiles.vendor_status === 'active' (SSOT, set by Stripe webhook)
- *  - vendors.subscription_status in ('active','trialing')
- *  - vendors.stripe_subscription_id IS NOT NULL AND vendors.status === 'active'
+ *  - vendors.subscription_status in ('active','trialing') AND vendors.stripe_subscription_id IS NOT NULL
  *
- *  The OR fallback recognizes legacy paid vendors who subscribed before
- *  migration 086 added the profiles.vendor_status SSOT column.
+ *  Legacy paid vendors who subscribed before migration 086 introduced the
+ *  SSOT have already been backfilled via 20260506000000_vendor_status_backfill.sql,
+ *  so the runtime helper now requires either the SSOT or a real Stripe subscription.
+ *  Tier-only fallback was removed to prevent future false-positives.
  */
 export function evaluateVendorActive(
   profileVendorStatus: string | null | undefined,
@@ -24,8 +25,9 @@ export function evaluateVendorActive(
 ): boolean {
   if (profileVendorStatus === "active") return true;
   if (!vendor) return false;
-  if (vendor.subscription_status === "active" || vendor.subscription_status === "trialing") return true;
-  if (vendor.stripe_subscription_id && vendor.status === "active") return true;
+  const hasActiveSub =
+    vendor.subscription_status === "active" || vendor.subscription_status === "trialing";
+  if (hasActiveSub && vendor.stripe_subscription_id) return true;
   return false;
 }
 
