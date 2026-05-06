@@ -38,6 +38,7 @@ type FeaturedProduct = {
   price_cents: number;
   vendor_id: string | null;
   vendor_name: string | null;
+  image_url: string | null;
 };
 
 async function getFeaturedProducts(): Promise<FeaturedProduct[]> {
@@ -45,7 +46,7 @@ async function getFeaturedProducts(): Promise<FeaturedProduct[]> {
     const supabase = await createSupabaseServerClient();
     const { data: rawProducts, error } = await supabase
       .from("products")
-      .select("id, name, market_category, price_cents, vendor_id")
+      .select("id, name, market_category, price_cents, vendor_id, image_url")
       .eq("status", "approved")
       .eq("active", true)
       .order("created_at", { ascending: false })
