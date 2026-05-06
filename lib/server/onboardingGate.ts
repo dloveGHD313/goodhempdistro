@@ -1,6 +1,7 @@
 import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { hasRole } from "@/lib/roles";
+import { evaluateVendorActive } from "@/lib/server/isVendorActive";
 
 type GateResult = { allow: true } | { redirectTo: string };
 
@@ -18,6 +19,10 @@ type VendorRow = {
   vendor_onboarding_completed: boolean | null;
   terms_accepted_at: string | null;
   compliance_acknowledged_at: string | null;
+  status: string | null;
+  is_approved: boolean | null;
+  subscription_status: string | null;
+  stripe_subscription_id: string | null;
 };
 
 const isDev = process.env.NODE_ENV !== "production";
@@ -52,7 +57,7 @@ async function loadProfile(supabase: SupabaseClient, userId: string) {
 async function loadVendor(supabase: SupabaseClient, userId: string) {
   const { data, error } = await supabase
     .from("vendors")
-    .select("id, owner_user_id, vendor_onboarding_completed, terms_accepted_at, compliance_acknowledged_at")
+    .select("id, owner_user_id, vendor_onboarding_completed, terms_accepted_at, compliance_acknowledged_at, status, is_approved, subscription_status, stripe_subscription_id")
     .eq("owner_user_id", userId)
     .maybeSingle();
 
@@ -101,18 +106,27 @@ export async function requireVendorOnboarding(userId: string | null): Promise<Ga
     return { allow: true };
   }
 
-  // SSOT: Vendor dashboard requires profiles.vendor_status === "active" (set only by Stripe webhook)
-  if (profile?.vendor_status !== "active") {
-    logDev("redirect: vendor status not active", { userId, vendor_status: profile?.vendor_status ?? null });
-    // Has vendor record but not active -> choose plan
-    const vendor = await loadVendor(supabase, userId);
+  // SSOT: profiles.vendor_status === "active" plus legacy paid vendor fallback
+  // (subscription_status, stripe_subscription_id) for vendors who subscribed
+  // before migration 086 introduced the SSOT column.
+  const vendor = await loadVendor(supabase, userId);
+  const isActive = evaluateVendorActive(profile?.vendor_status ?? null, vendor);
+  if (!isActive) {
     if (vendor && vendor.owner_user_id === userId) {
+      console.log("[onboardingGate] redirecting to activate", {
+        userId,
+        profile_vendor_status: profile?.vendor_status ?? null,
+        vendor_subscription_status: vendor.subscription_status,
+        vendor_stripe_sub_id: vendor.stripe_subscription_id,
+        vendor_status: vendor.status,
+        vendor_is_approved: vendor.is_approved,
+      });
       return { redirectTo: "/vendors/activate" };
     }
+    logDev("redirect: vendor registration", { userId });
     return { redirectTo: "/vendor-registration" };
   }
 
-  const vendor = await loadVendor(supabase, userId);
   if (!vendor || vendor.owner_user_id !== userId) {
     logDev("redirect: vendor registration", { userId });
     return { redirectTo: "/vendor-registration" };
