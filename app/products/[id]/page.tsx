@@ -33,7 +33,6 @@ type Product = {
   category_requires_coa?: boolean;
   created_at?: string;
   image_url?: string | null;
-  lab_results_url?: string | null;
   ship_to_states?: string[] | null;
 };
 
@@ -52,7 +51,7 @@ type ProductFetchResult = {
 async function getProduct(identifier: string): Promise<ProductFetchResult> {
   const supabase = await createSupabaseServerClient();
   const baseSelect =
-    "id, name, description, category_id, price_cents, is_gated, market_category, featured, vendor_id, status, active, product_type, coa_url, coa_object_path, coa_verified, created_at, image_url, lab_results_url, ship_to_states";
+    "id, name, description, category_id, price_cents, is_gated, market_category, featured, vendor_id, status, active, product_type, coa_url, coa_object_path, coa_verified, created_at, image_url, ship_to_states";
   const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
   if (!isUuid) {
     return { product: null, supabaseErrorMessage: "not_found" };
@@ -443,17 +442,6 @@ export default async function ProductDetailPage(props: Props) {
                   )}
                 </div>
               )}
-              {product.lab_results_url ? (
-                <a
-                  href={product.lab_results_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-green-300 underline"
-                >
-                  View Lab Results (PDF)
-                </a>
-              ) : null}
-
               {product.product_type === "delta8" && requiresWarning(product.product_type) && (
                 <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-4">
                   <p className="text-yellow-400 text-sm">{getDelta8WarningText()}</p>
