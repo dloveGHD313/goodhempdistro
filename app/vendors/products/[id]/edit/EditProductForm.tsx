@@ -118,13 +118,25 @@ export default function EditProductForm({ productId, initialProduct, initialCate
       if (!user) throw new Error("Not authenticated");
       const ext = file.name.split(".").pop() ?? "jpg";
       const path = `${user.id}/${productId}-${Date.now()}.${ext}`;
+      console.log("[edit/image-upload] before upload", {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        path,
+        userId: user.id,
+      });
       const { error: uploadError } = await supabase.storage
         .from("product-images")
         .upload(path, file, { upsert: true });
+      console.log("[edit/image-upload] after upload", {
+        error: uploadError ? { message: uploadError.message, name: uploadError.name } : null,
+      });
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from("product-images").getPublicUrl(path);
+      console.log("[edit/image-upload] publicUrl", { publicUrl });
       setImageUrl(publicUrl);
     } catch (err) {
+      console.error("[edit/image-upload] caught error", err);
       setError(err instanceof Error ? err.message : "Image upload failed");
     } finally {
       setImageUploading(false);
@@ -170,24 +182,26 @@ export default function EditProductForm({ productId, initialProduct, initialCate
 
     // Backend enforces COA when category requires it (admin bypass).
 
+    const putPayload = {
+      name,
+      description,
+      price_cents: priceCents,
+      category_id: categoryId || null,
+      active,
+      product_type: productType,
+      image_url: imageUrl.trim() || null,
+      coa_url: useManualUrl ? coaUrl.trim() : null,
+      coa_object_path: !useManualUrl ? coaObjectPath.trim() || null : null,
+      delta8_disclaimer_ack: productType === "delta8" ? delta8DisclaimerAck : false,
+      hemp_derived_attestation: hempDerivedAttestation,
+    };
+    console.log("[edit/submit] PUT payload", { productId, ...putPayload });
     try {
       const response = await fetch(`/api/vendors/products/${productId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          name,
-          description,
-          price_cents: priceCents,
-          category_id: categoryId || null,
-          active,
-          product_type: productType,
-          image_url: imageUrl.trim() || null,
-          coa_url: useManualUrl ? coaUrl.trim() : null,
-          coa_object_path: !useManualUrl ? coaObjectPath.trim() || null : null,
-          delta8_disclaimer_ack: productType === "delta8" ? delta8DisclaimerAck : false,
-          hemp_derived_attestation: hempDerivedAttestation,
-        }),
+        body: JSON.stringify(putPayload),
       });
 
       const data = await response.json();
@@ -561,10 +575,10 @@ export default function EditProductForm({ productId, initialProduct, initialCate
               <div className="flex flex-wrap gap-4 items-center">
                 <button
                   type="submit"
-                  disabled={saving || deleting || (subscriptionChecked && !subscriptionActive && !isAdmin)}
+                  disabled={saving || deleting || imageUploading || (subscriptionChecked && !subscriptionActive && !isAdmin)}
                   className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {saving ? "Saving..." : "Save Product"}
+                  {saving ? "Saving..." : imageUploading ? "Uploading image..." : "Save Product"}
                 </button>
                 <Link href="/vendors/dashboard" className="btn-secondary">
                   Cancel

@@ -554,10 +554,10 @@ export default function NewProductPage() {
               <div className="flex gap-4">
                 <button
                   type="submit"
-                  disabled={loading || (subscriptionChecked && !subscriptionActive && !isAdmin)}
+                  disabled={loading || imageUploading || (subscriptionChecked && !subscriptionActive && !isAdmin)}
                   className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? "Creating..." : "Create Product"}
+                  {loading ? "Creating..." : imageUploading ? "Uploading image..." : "Create Product"}
                 </button>
                 <Link href="/vendors/dashboard" className="btn-secondary">
                   Cancel
