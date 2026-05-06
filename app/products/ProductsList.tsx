@@ -321,7 +321,7 @@ export default function ProductsList({ initialProducts, initialCategoryId, catal
                 <div className="group">
                   <div className="aspect-square bg-[var(--surface)]/60 rounded-lg mb-4 overflow-hidden relative">
                     {product.image_url ? (
-                      <Image src={product.image_url} alt={product.name} fill className="object-cover" sizes="(max-width: 768px) 100vw, 33vw" />
+                      <Image src={product.image_url} alt={product.name} fill className="object-cover" sizes="(max-width: 768px) 100vw, 33vw" unoptimized />
                     ) : null}
                   </div>
                   <h3 className="text-xl font-semibold mb-2">{product.name}</h3>
@@ -335,7 +335,7 @@ export default function ProductsList({ initialProducts, initialCategoryId, catal
                 <Link href={`/products/${product.id}`} className="group">
                   <div className="aspect-square bg-[var(--surface)]/60 rounded-lg mb-4 overflow-hidden relative group-hover:bg-[var(--surface)]/80 transition">
                     {product.image_url ? (
-                      <Image src={product.image_url} alt={product.name} fill className="object-cover" sizes="(max-width: 768px) 100vw, 33vw" />
+                      <Image src={product.image_url} alt={product.name} fill className="object-cover" sizes="(max-width: 768px) 100vw, 33vw" unoptimized />
                     ) : null}
                   </div>
                   <h3 className="text-xl font-semibold mb-2 group-hover:text-accent transition">

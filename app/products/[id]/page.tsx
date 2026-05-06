@@ -370,6 +370,7 @@ export default async function ProductDetailPage(props: Props) {
                 width={900}
                 height={900}
                 className="h-full w-full object-cover rounded-lg"
+                unoptimized
               />
             </div>
 

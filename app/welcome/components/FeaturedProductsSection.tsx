@@ -53,6 +53,7 @@ export default function FeaturedProductsSection({ initialProducts }: { initialPr
                         fill
                         className="object-cover"
                         sizes="(max-width: 768px) 85vw, 33vw"
+                        unoptimized
                       />
                     ) : (
                       <span>🌿</span>
