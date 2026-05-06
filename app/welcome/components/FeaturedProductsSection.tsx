@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import SectionReveal from "./SectionReveal";
 
 type ProductCard = {
@@ -7,6 +8,7 @@ type ProductCard = {
   market_category: string | null;
   price_cents: number;
   vendor_name: string | null;
+  image_url: string | null;
 };
 
 export default function FeaturedProductsSection({ initialProducts }: { initialProducts: ProductCard[] }) {
@@ -43,7 +45,20 @@ export default function FeaturedProductsSection({ initialProducts }: { initialPr
                   key={product.id}
                   className="rounded-2xl bg-[#141F1A] border border-white/10 p-5 hover:scale-[1.02] hover:shadow-lg hover:border-[rgba(60,185,122,0.25)] transition-all duration-200"
                 >
-                  <div className="aspect-square rounded-xl bg-[#1A2820] mb-4 flex items-center justify-center text-4xl">🌿</div>
+                  <div className="aspect-square rounded-xl bg-[#1A2820] mb-4 flex items-center justify-center text-4xl overflow-hidden relative">
+                    {product.image_url ? (
+                      <Image
+                        src={product.image_url}
+                        alt={product.name}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 85vw, 33vw"
+                        unoptimized
+                      />
+                    ) : (
+                      <span>🌿</span>
+                    )}
+                  </div>
                   <p className="inline-flex px-3 py-1 rounded-full text-xs bg-[rgba(60,185,122,0.10)] text-[#3CB97A] mb-3">
                     {product.market_category || "Hemp"}
                   </p>

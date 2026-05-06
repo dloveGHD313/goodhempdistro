@@ -192,6 +192,7 @@ export async function PUT(
       coa_object_path,
       delta8_disclaimer_ack,
       hemp_derived_attestation,
+      image_url,
     } = await req.json();
 
     const normalizeCoaObjectPath = (value: unknown) => {
@@ -306,6 +307,14 @@ export async function PUT(
     if (coa_object_path !== undefined) updates.coa_object_path = normalizedCoaObjectPath;
     if (delta8_disclaimer_ack !== undefined) updates.delta8_disclaimer_ack = delta8_disclaimer_ack === true;
     if (hemp_derived_attestation !== undefined) updates.hemp_derived_attestation = hempDerivedAttestation;
+    if (image_url !== undefined) {
+      if (image_url === null) {
+        updates.image_url = null;
+      } else if (typeof image_url === "string") {
+        const trimmed = image_url.trim();
+        updates.image_url = trimmed.length > 0 ? trimmed : null;
+      }
+    }
 
     // Re-compute ship_to_states when product_type changes
     if (product_type !== undefined) {

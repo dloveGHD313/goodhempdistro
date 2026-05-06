@@ -214,6 +214,19 @@ export default async function AdminVendorsPage() {
 
   // Fetch applications using RPC (no service role required)
   const { all: allApplications, pending: pendingApplications, recent: recentApplications, error: rpcError } = await getVendorApplications(supabase);
+
+  // Fetch vendor records that are not yet active (separate from applications)
+  const adminForVendors = (() => { try { return getSupabaseAdminClient(); } catch { return null; } })();
+  let inactiveVendors: Array<{ id: string; business_name: string | null; status: string; owner_user_id: string | null; created_at: string }> = [];
+  if (adminForVendors) {
+    // Three-valued logic: NULL != 'active' is NULL (not TRUE), so .neq drops NULL rows.
+    const { data: vendorRows } = await adminForVendors
+      .from("vendors")
+      .select("id, business_name, status, owner_user_id, created_at")
+      .or("status.is.null,status.neq.active")
+      .order("created_at", { ascending: false });
+    inactiveVendors = vendorRows ?? [];
+  }
   
   const totalCount = allApplications.length;
   const pendingCount = pendingApplications.length;
@@ -287,6 +300,14 @@ export default async function AdminVendorsPage() {
               <div className="text-2xl font-bold text-yellow-400">{pendingCount}</div>
             </div>
           </div>
+
+          {/* Inactive Vendors — always mounted at top when any exist, regardless of applications */}
+          {inactiveVendors.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-2xl font-semibold mb-4">Inactive Vendors ({inactiveVendors.length})</h2>
+              <VendorsClient initialApplications={[]} inactiveVendors={inactiveVendors} />
+            </div>
+          )}
 
           {/* Pending Applications */}
           {pendingApplications.length > 0 ? (
