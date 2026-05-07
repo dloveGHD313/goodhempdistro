@@ -121,94 +121,6 @@ const productSeeds = [
   },
 ];
 
-const vendorPackageSeeds = [
-  {
-    id: generateUUID(),
-    slug: "basic",
-    name: "Basic",
-    monthly_price_cents: 5000,
-    commission_bps: 700,
-    product_limit: 25,
-    event_limit: 5,
-    featured: false,
-    wholesale_access: false,
-    perks: ["Starter listing", "Limited events", "Basic analytics"],
-    is_active: true,
-    sort_order: 1,
-  },
-  {
-    id: generateUUID(),
-    slug: "plus",
-    name: "Plus",
-    monthly_price_cents: 12500,
-    commission_bps: 400,
-    product_limit: 100,
-    event_limit: null,
-    featured: false,
-    wholesale_access: false,
-    perks: ["Unlimited events", "More visibility", "Priority placement"],
-    is_active: true,
-    sort_order: 2,
-  },
-  {
-    id: generateUUID(),
-    slug: "premium",
-    name: "Premium",
-    monthly_price_cents: 25000,
-    commission_bps: 200,
-    product_limit: null,
-    event_limit: null,
-    featured: true,
-    wholesale_access: true,
-    perks: [
-      "Featured vendor",
-      "Discounted Good Hemp events",
-      "Discounted COAs",
-      "Wholesale access",
-    ],
-    is_active: true,
-    sort_order: 3,
-  },
-];
-
-const consumerPackageSeeds = [
-  {
-    id: generateUUID(),
-    slug: "starter",
-    name: "Starter",
-    monthly_price_cents: 599,
-    perks: ["Basic community access", "Loyalty points"],
-    loyalty_points_multiplier: 1,
-    is_active: true,
-    sort_order: 1,
-  },
-  {
-    id: generateUUID(),
-    slug: "plus",
-    name: "Plus",
-    monthly_price_cents: 1299,
-    perks: ["More points", "Early product alerts", "Special discounts"],
-    loyalty_points_multiplier: 2,
-    is_active: true,
-    sort_order: 2,
-  },
-  {
-    id: generateUUID(),
-    slug: "vip",
-    name: "VIP",
-    monthly_price_cents: 2399,
-    perks: [
-      "Discounted Good Hemp events",
-      "DM vendors",
-      "Monthly loyalty drops",
-      "Featured customer",
-    ],
-    loyalty_points_multiplier: 3,
-    is_active: true,
-    sort_order: 3,
-  },
-];
-
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
@@ -389,28 +301,6 @@ async function seedSupabase() {
     console.log(`   ✅ Upserted ${productsResult.count} products`);
   } else {
     console.log(`   ⚠️  ${productsResult.error}`);
-  }
-
-  // 5. Seed vendor packages
-  console.log("💼 Seeding vendor packages...");
-  const vendorPackagesResult = await upsertData("vendor_packages", vendorPackageSeeds, "slug");
-  results.push({ table: "vendor_packages", ...vendorPackagesResult });
-  
-  if (vendorPackagesResult.success) {
-    console.log(`   ✅ Upserted ${vendorPackagesResult.count} vendor packages`);
-  } else {
-    console.log(`   ⚠️  ${vendorPackagesResult.error}`);
-  }
-
-  // 6. Seed consumer packages
-  console.log("👤 Seeding consumer packages...");
-  const consumerPackagesResult = await upsertData("consumer_packages", consumerPackageSeeds, "slug");
-  results.push({ table: "consumer_packages", ...consumerPackagesResult });
-  
-  if (consumerPackagesResult.success) {
-    console.log(`   ✅ Upserted ${consumerPackagesResult.count} consumer packages`);
-  } else {
-    console.log(`   ⚠️  ${consumerPackagesResult.error}`);
   }
 
   // Summary
