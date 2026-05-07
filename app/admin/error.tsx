@@ -40,8 +40,8 @@ export default function AdminError({ error, reset }: Props) {
               <button type="button" onClick={reset} className="btn-primary">
                 Try again
               </button>
-              <Link href="/dashboard/admin" className="btn-secondary">
-                Admin dashboard
+              <Link href="/" className="btn-secondary">
+                Back to homepage
               </Link>
             </div>
           </div>
