@@ -113,14 +113,7 @@ export async function requireVendorOnboarding(userId: string | null): Promise<Ga
   const isActive = evaluateVendorActive(profile?.vendor_status ?? null, vendor);
   if (!isActive) {
     if (vendor && vendor.owner_user_id === userId) {
-      console.log("[onboardingGate] redirecting to activate", {
-        userId,
-        profile_vendor_status: profile?.vendor_status ?? null,
-        vendor_subscription_status: vendor.subscription_status,
-        vendor_stripe_sub_id: vendor.stripe_subscription_id,
-        vendor_status: vendor.status,
-        vendor_is_approved: vendor.is_approved,
-      });
+      logDev("redirect: vendor activation", { userId });
       return { redirectTo: "/vendors/activate" };
     }
     logDev("redirect: vendor registration", { userId });
