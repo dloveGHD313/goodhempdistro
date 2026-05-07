@@ -91,14 +91,21 @@ export async function spendLoyaltyPoints(userId: string, pointsToSpend: number, 
 export async function queueAffiliatePayouts(params: { affiliateUserId: string; referralEventId: string; planKey: string; planCadence: "monthly" | "annual"; planPriceCents: number; stripeSubscriptionId: string; }): Promise<void> {
   const admin = getSupabaseAdminClient();
   const { affiliateUserId, referralEventId, planKey, planCadence, planPriceCents } = params;
-  if (planCadence === "annual") {
-    const monthlyEquivalentCents = Math.round(planPriceCents / 12);
-    await admin.from("affiliate_payouts").insert({ affiliate_user_id: affiliateUserId, referral_event_id: referralEventId, instalment_number: 1, amount_cents: monthlyEquivalentCents, plan_key: planKey, plan_cadence: planCadence, status: "pending", scheduled_after: new Date().toISOString(), notes: "Annual referral — 100% of 1 month equivalent" });
-  } else {
-    const instalmentCents = Math.round(planPriceCents / 2);
-    const twoMonthsLater = new Date();
-    twoMonthsLater.setDate(twoMonthsLater.getDate() + 60);
-    await admin.from("affiliate_payouts").insert([{ affiliate_user_id: affiliateUserId, referral_event_id: referralEventId, instalment_number: 1, amount_cents: instalmentCents, plan_key: planKey, plan_cadence: planCadence, status: "pending", scheduled_after: new Date().toISOString(), notes: "Monthly referral instalment 1/2 — 50% of plan price" }, { affiliate_user_id: affiliateUserId, referral_event_id: referralEventId, instalment_number: 2, amount_cents: instalmentCents, plan_key: planKey, plan_cadence: planCadence, status: "pending", scheduled_after: twoMonthsLater.toISOString(), notes: "Monthly referral instalment 2/2 — requires 2 consecutive months" }]);
+  try {
+    if (planCadence === "annual") {
+      const monthlyEquivalentCents = Math.round(planPriceCents / 12);
+      const { error } = await admin.from("affiliate_payouts").insert({ affiliate_user_id: affiliateUserId, referral_event_id: referralEventId, instalment_number: 1, amount_cents: monthlyEquivalentCents, plan_key: planKey, plan_cadence: planCadence, status: "pending", scheduled_after: new Date().toISOString(), notes: "Annual referral — 100% of 1 month equivalent" });
+      if (error) throw error;
+    } else {
+      const instalmentCents = Math.round(planPriceCents / 2);
+      const twoMonthsLater = new Date();
+      twoMonthsLater.setDate(twoMonthsLater.getDate() + 60);
+      const { error } = await admin.from("affiliate_payouts").insert([{ affiliate_user_id: affiliateUserId, referral_event_id: referralEventId, instalment_number: 1, amount_cents: instalmentCents, plan_key: planKey, plan_cadence: planCadence, status: "pending", scheduled_after: new Date().toISOString(), notes: "Monthly referral instalment 1/2 — 50% of plan price" }, { affiliate_user_id: affiliateUserId, referral_event_id: referralEventId, instalment_number: 2, amount_cents: instalmentCents, plan_key: planKey, plan_cadence: planCadence, status: "pending", scheduled_after: twoMonthsLater.toISOString(), notes: "Monthly referral instalment 2/2 — requires 2 consecutive months" }]);
+      if (error) throw error;
+    }
+  } catch (err) {
+    console.error("[queueAffiliatePayouts] insert failed", { affiliateUserId, referralEventId, planKey, planCadence, error: err instanceof Error ? err.message : String(err) });
+    throw err;
   }
 }
 
