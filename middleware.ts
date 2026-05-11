@@ -173,21 +173,48 @@ export async function middleware(request: NextRequest) {
     return applyTravelCookie(NextResponse.redirect(redirectUrl, 307));
   }
 
-  // Auth-gated routes only: dashboard, account, checkout, driver/dashboard, admin/*
+  // Auth-gated routes only.
   //
-  // /vendors and /vendors/* are NOT in this list. The /vendors namespace
-  // contains both public surfaces (/vendors directory, /vendors/[id] detail,
-  // /vendors/activate) and authenticated surfaces (/vendors/dashboard,
-  // /vendors/billing, etc.). Each authenticated subroute enforces its own
-  // session check via its own layout.tsx — see audit P0 Fix #2 + PR #174.
-  // Middleware previously gated the entire namespace, which 307-redirected
-  // anonymous visitors to /login on the public /vendors directory page.
+  // /vendors/* handling (defense-in-depth — see GATE-02):
   //
-  // SECURITY: each gated /vendors/* subroute (billing, dashboard, events,
-  // orders, payouts, products, referrals, services, settings) has its own
-  // layout.tsx that calls redirect("/login?redirect=...") on missing session.
-  // Removing the middleware gate changes nothing for those routes — it only
-  // unblocks the three public surfaces.
+  // PR #176 removed /vendors/* from this list expecting layout-level
+  // redirect() calls to gate authed subroutes. That was insufficient:
+  // 9 of 10 authed vendor routes lacked `export const dynamic = "force-dynamic"`,
+  // so Next.js statically pre-rendered them at build time and served the
+  // cached HTML to anonymous users — the layout session check never ran.
+  //
+  // This middleware now re-gates /vendors/<reserved>* but explicitly
+  // allowlists the public surfaces:
+  //   - /vendors                  (directory)
+  //   - /vendors/activate         (post-application landing)
+  //   - /vendors/<uuid>           (vendor detail — id is a UUID from the
+  //                                vendors table primary key, NOT a
+  //                                user-controlled handle, so it cannot
+  //                                collide with a reserved subroute name)
+  //
+  // RESERVED_VENDOR_SUBROUTES is the source of truth for which child
+  // segments are authed. Adding a new authed subroute under /vendors/?
+  // Add it here AND add `export const dynamic = "force-dynamic"` to its
+  // layout/page.
+  const RESERVED_VENDOR_SUBROUTES = new Set([
+    "billing",
+    "dashboard",
+    "events",
+    "orders",
+    "payouts",
+    "products",
+    "referrals",
+    "services",
+    "settings",
+  ]);
+
+  const isVendorAuthedRoute = (() => {
+    if (!pathname.startsWith("/vendors/")) return false;
+    const segments = pathname.split("/").filter(Boolean); // ["vendors", "<sub>", ...]
+    if (segments.length < 2) return false;
+    return RESERVED_VENDOR_SUBROUTES.has(segments[1]);
+  })();
+
   const isProtectedPage =
     pathname === "/dashboard" ||
     pathname.startsWith("/dashboard/") ||
@@ -195,6 +222,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/account/") ||
     pathname === "/checkout" ||
     pathname.startsWith("/checkout/") ||
+    isVendorAuthedRoute ||
     pathname === "/driver/dashboard" ||
     pathname.startsWith("/driver/dashboard/") ||
     pathname === "/admin" ||
