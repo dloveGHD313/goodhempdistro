@@ -173,7 +173,21 @@ export async function middleware(request: NextRequest) {
     return applyTravelCookie(NextResponse.redirect(redirectUrl, 307));
   }
 
-  // Auth-gated routes only: dashboard, account, checkout, vendors/*, driver/dashboard, admin/*
+  // Auth-gated routes only: dashboard, account, checkout, driver/dashboard, admin/*
+  //
+  // /vendors and /vendors/* are NOT in this list. The /vendors namespace
+  // contains both public surfaces (/vendors directory, /vendors/[id] detail,
+  // /vendors/activate) and authenticated surfaces (/vendors/dashboard,
+  // /vendors/billing, etc.). Each authenticated subroute enforces its own
+  // session check via its own layout.tsx — see audit P0 Fix #2 + PR #174.
+  // Middleware previously gated the entire namespace, which 307-redirected
+  // anonymous visitors to /login on the public /vendors directory page.
+  //
+  // SECURITY: each gated /vendors/* subroute (billing, dashboard, events,
+  // orders, payouts, products, referrals, services, settings) has its own
+  // layout.tsx that calls redirect("/login?redirect=...") on missing session.
+  // Removing the middleware gate changes nothing for those routes — it only
+  // unblocks the three public surfaces.
   const isProtectedPage =
     pathname === "/dashboard" ||
     pathname.startsWith("/dashboard/") ||
@@ -181,8 +195,6 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/account/") ||
     pathname === "/checkout" ||
     pathname.startsWith("/checkout/") ||
-    pathname === "/vendors" ||
-    pathname.startsWith("/vendors/") ||
     pathname === "/driver/dashboard" ||
     pathname.startsWith("/driver/dashboard/") ||
     pathname === "/admin" ||
