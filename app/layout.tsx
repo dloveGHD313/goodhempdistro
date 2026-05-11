@@ -103,6 +103,10 @@ export default function RootLayout({
     <html lang="en" className={`${playfair.variable} ${dmSans.variable}`} style={themeVars}>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <MarketModeProvider>
+          {/* AgeGate is mounted FIRST so its sticky natural-flow position
+              is above the fold. Without this, first-time visitors don't
+              see the 21+ warning until they scroll. Codex P1 from PR #173. */}
+          <AgeGate />
           <div className="app-bg" aria-hidden="true" />
           <MotionProvider>
             <header className="topbar">
@@ -118,7 +122,6 @@ export default function RootLayout({
           <Phase15Gate />
           <MascotGate />
           <TravelAdvisory />
-          <AgeGate />
           <RecoveryHashRedirect />
         </MarketModeProvider>
       </body>
