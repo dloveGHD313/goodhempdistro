@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import DeliveryRequestForm from "./DeliveryRequestForm";
 
-export const metadata: Metadata = { title: "Request Delivery | GoodHempDistro" };
+export const metadata: Metadata = { title: "Request Delivery | Good Hemp Distros" };
 
 export default async function DeliveryRequestPage() {
   const supabase = await createSupabaseServerClient();
