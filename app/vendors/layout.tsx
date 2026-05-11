@@ -1,25 +1,31 @@
-import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "@/lib/supabase";
-import { requirePhase15Complete } from "@/lib/server/phase15Gate";
-import { requireConsumerOnboarding } from "@/lib/server/onboardingGate";
-
-export default async function VendorsLayout({
+/**
+ * /vendors layout — INTENTIONALLY UNGATED.
+ *
+ * The /vendors namespace contains two surface types:
+ *   1. Public surfaces (no auth required):
+ *        - /vendors                  (directory)
+ *        - /vendors/[id]             (vendor detail)
+ *        - /vendors/activate         (post-application landing)
+ *   2. Authenticated vendor-only surfaces (each has its OWN layout
+ *      that enforces session + onboarding):
+ *        - /vendors/billing, /vendors/dashboard, /vendors/events,
+ *          /vendors/orders, /vendors/payouts, /vendors/products,
+ *          /vendors/referrals, /vendors/services, /vendors/settings
+ *
+ * Previously this layout enforced session globally, which forced
+ * anonymous visitors hitting /vendors (the public directory) to
+ * /login?redirect=/vendors/dashboard. That broke the discovery
+ * funnel — see audit P0 Fix #2.
+ *
+ * Each authenticated subroute keeps its own auth check, so removing
+ * the parent check changes nothing for those routes; it only
+ * unblocks the public surfaces. Verified subroute coverage in the
+ * fix commit.
+ */
+export default function VendorsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createSupabaseServerClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  const user = session?.user;
-  if (!user) {
-    redirect("/login?redirect=/vendors/dashboard");
-  }
-  const phase15Redirect = await requirePhase15Complete(user.id);
-  if (phase15Redirect) redirect(phase15Redirect);
-  const result = await requireConsumerOnboarding(user.id);
-  if ("redirectTo" in result) {
-    redirect(result.redirectTo);
-  }
-
   return <>{children}</>;
 }
