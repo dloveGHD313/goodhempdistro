@@ -44,57 +44,19 @@ export async function middleware(request: NextRequest) {
     return res;
   }
 
-  const isAgeGateExcludedPath =
-    pathname === "/welcome" ||
-    pathname === "/" ||
-    pathname === "/maintenance" ||
-    pathname === "/privacy" ||
-    pathname === "/terms" ||
-    pathname === "/contact" ||
-    pathname.startsWith("/products") ||
-    pathname.startsWith("/newsfeed") ||
-    pathname.startsWith("/discover") ||
-    pathname.startsWith("/vendors") ||
-    pathname.startsWith("/services") ||
-    pathname.startsWith("/wholesale") ||
-    pathname.startsWith("/events") ||
-    pathname.startsWith("/learning") ||
-    pathname.startsWith("/education") ||
-    pathname.startsWith("/about") ||
-    pathname.startsWith("/account") ||
-    pathname.startsWith("/affiliate") ||
-    pathname.startsWith("/logistics") ||
-    pathname.startsWith("/admin") ||
-    pathname.startsWith("/dashboard") ||
-    pathname.startsWith("/signup") ||
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/get-started") ||
-    pathname.startsWith("/jax-preview") ||
-    pathname.startsWith("/onboarding") ||
-    pathname.startsWith("/newsfeed") ||
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon") ||
-    pathname.startsWith("/api");
-
-  if (!isAgeGateExcludedPath) {
-    const ageGateCookie = request.cookies.get("ghd_age_verified")?.value;
-    let isAgeVerified = false;
-
-    if (ageGateCookie) {
-      try {
-        const parsed = JSON.parse(ageGateCookie) as { verified?: unknown; expiresAt?: unknown };
-        const expiresAt = typeof parsed.expiresAt === "number" ? parsed.expiresAt : Number(parsed.expiresAt);
-        isAgeVerified = parsed.verified === true && Number.isFinite(expiresAt) && expiresAt >= Date.now();
-      } catch {
-        isAgeVerified = false;
-      }
-    }
-    if (!isAgeVerified) {
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/welcome";
-      return applyTravelCookie(NextResponse.redirect(redirectUrl));
-    }
-  }
+  // Age gate is now a warning model handled by <AgeGate /> client banner
+  // mounted globally in app/layout.tsx. Middleware no longer redirects
+  // unverified visitors to /welcome — that broke /pricing, /sitemap.xml,
+  // /robots.txt, and the entire SEO crawl path (audit P0 Fix #1, CEO Build #1).
+  //
+  // Infrastructure paths that should never carry any age-gate UX side-effect:
+  // /sitemap.xml, /sitemap-*.xml, /robots.txt, /api/*, /_next/*, /favicon.ico,
+  // /come-back-later (the friendly "not 21+" landing). These are exempt by
+  // virtue of the client banner not rendering on them (handled in AgeGate
+  // component) — middleware itself does no age-gate work.
+  //
+  // State-law product restrictions are enforced at the PRODUCT level via
+  // ship_to_states + hemp_state_rules, not at the request level.
 
 
   const requiresSessionOnly =
