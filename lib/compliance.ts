@@ -1,33 +1,26 @@
 /**
- * Compliance helpers for product types, COAs, and intoxicating product cutoff
- * Phase 2: COA required for hemp-derived/consumable/topical/inhalable/wellness/recreational/industrial;
- * COA NOT required only for: apparel, non-consumable home goods.
+ * Compliance helpers for product types, COAs, and intoxicating product cutoff.
+ *
+ * COA SSOT (post GATE-03 cutover): the `categories.requires_coa` column is
+ * the single source of truth. The hardcoded slug allowlist that previously
+ * lived here was removed; admins now manage COA rules via the DB.
+ *
+ * Compliance-safe failure mode: when a category cannot be resolved (unknown
+ * id, missing slug, RLS hiding a row), requiresCOA() defaults to TRUE and
+ * emits a console.warn. This matches the previous "unknown → require COA"
+ * behavior while making missing-category bugs surface in logs.
  */
 
 const INTOXICATING_ALLOWED_UNTIL = process.env.INTOXICATING_ALLOWED_UNTIL || "2026-11-01";
 
-/** Slugs/name fragments that do NOT require a COA (apparel, non-consumable home goods only) */
-const COA_EXCEPTION_PATTERNS: string[] = [
-  "textiles-apparel",
-  "clothing",
-  "fabric-yarn",
-  "accessories",
-  "apparel",
-  "hats",
-  "merch",
-  "home-goods",
-  "curtains",
-  "blinds",
-  "decor",
-  "home-decor",
-  "textiles",
-];
-
 export type ProductType = "non_intoxicating" | "intoxicating" | "delta8";
 
+/** Category shape consumed by requiresCOA. requires_coa is the SSOT field. */
 export interface ProductCategoryInfo {
   slug?: string | null;
   name?: string | null;
+  /** SSOT — when undefined, requiresCOA defaults TRUE and warns. */
+  requires_coa?: boolean | null;
 }
 
 export interface ProductCompliancePayload {
@@ -52,29 +45,35 @@ export interface ValidateProductComplianceOptions {
 }
 
 /**
- * Single source of truth: does this product category/type require a full-panel COA?
- * Returns true for hemp-derived, consumable, topical, inhalable, CBD/wellness, recreational, industrial.
- * Returns false ONLY for: apparel (clothing, hats, merch), non-consumable home goods (curtains, blinds, decor).
- * Use for UI validation, API validation, and server-side enforcement.
+ * Single source of truth: does this product category require a full-panel COA?
+ *
+ * Reads `categories.requires_coa` directly. Defaults to TRUE when the category
+ * is null/undefined or has no `requires_coa` value — safe failure mode.
+ * Emits a console.warn so missing-category bugs surface in logs.
+ *
+ * @param productCategory - { slug, name, requires_coa } from the categories table
  */
 export function requiresCOA(
   productCategory: ProductCategoryInfo | null | undefined,
   _productType?: string | null
 ): boolean {
   if (!productCategory) {
-    return true; // unknown category → require COA for safety
-  }
-  const slug = (productCategory.slug ?? "").trim().toLowerCase().replace(/\s+/g, "-");
-  const name = (productCategory.name ?? "").trim().toLowerCase().replace(/\s+/g, "-");
-  if (!slug && !name) {
+    console.warn(
+      `[compliance] Category lookup returned null/undefined — defaulting requires_coa=true. ` +
+      `Check that the product has a valid category_id and the categories row exists.`
+    );
     return true;
   }
-  const combined = [slug, name].filter(Boolean).join(" ");
-  for (const pattern of COA_EXCEPTION_PATTERNS) {
-    if (slug === pattern || name === pattern) return false;
-    if (slug.includes(pattern) || name.includes(pattern)) return false;
-    if (combined.includes(pattern)) return false;
+  if (typeof productCategory.requires_coa === "boolean") {
+    return productCategory.requires_coa;
   }
+  // Field is null or undefined on the category row — treat as unknown.
+  const slug = productCategory.slug ?? "(unknown)";
+  console.warn(
+    `[compliance] Unknown category slug "${slug}" — defaulting ` +
+    `requires_coa=true. Add this category to the categories table ` +
+    `or correct the product's category reference.`
+  );
   return true;
 }
 
@@ -165,11 +164,21 @@ export function requiresWarning(productType: ProductType): boolean {
 }
 
 /**
- * Server-side: determine if a category requires COA by ID.
- * Fetches category, calls requiresCOA; if child category and category requires COA, also checks parent.
- * Returns true when categoryId is null/undefined (unknown → require COA for safety).
+ * Server-side: determine if a category requires COA by ID, reading the
+ * `categories.requires_coa` SSOT column directly. Returns true when:
+ *   - categoryId is null/empty (unknown → safe default)
+ *   - category row doesn't exist (unknown → safe default + warn)
+ *   - the category's requires_coa column is set true
  *
- * @param supabase - Supabase client (server or route handler) with from().select().eq().maybeSingle()
+ * Returns false only when the resolved row explicitly has requires_coa = false.
+ *
+ * Parent-category override (compliance loosening): only kicks in when the
+ * child's requires_coa is true AND its parent's requires_coa is explicitly
+ * false. This preserves the prior behavior where parent categories could
+ * opt their children out of COA. (Today no such configuration exists, but
+ * the override is kept available for future use.)
+ *
+ * @param supabase - Supabase client (server or route handler)
  */
 export async function getCategoryCoaRequirement(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- avoids deep Supabase generic instantiation
@@ -181,20 +190,24 @@ export async function getCategoryCoaRequirement(
   }
   const { data: category } = await supabase
     .from("categories")
-    .select("id, name, slug, parent_id")
+    .select("id, name, slug, parent_id, requires_coa")
     .eq("id", categoryId.trim())
     .maybeSingle();
   if (!category) {
     return true;
   }
-  let result = requiresCOA({ slug: category.slug, name: category.name });
+  let result = requiresCOA({
+    slug: category.slug,
+    name: category.name,
+    requires_coa: category.requires_coa,
+  });
   if (category.parent_id && result) {
     const { data: parent } = await supabase
       .from("categories")
-      .select("slug, name")
+      .select("slug, name, requires_coa")
       .eq("id", category.parent_id)
       .maybeSingle();
-    if (parent && !requiresCOA({ slug: parent.slug, name: parent.name })) {
+    if (parent && parent.requires_coa === false) {
       result = false;
     }
   }
@@ -203,8 +216,8 @@ export async function getCategoryCoaRequirement(
 
 /**
  * Batch version: returns a map of category id -> whether that category requires COA.
- * Uses at most 2 queries (categories + parents). Unknown/missing IDs are treated as requiring COA (safe default).
- * Use for filtering or tagging product lists (e.g. Phase 3B: hide COA-required from logged-out shop).
+ * Reads categories.requires_coa as SSOT. Unknown/missing IDs default to true
+ * (safe failure mode + console.warn via requiresCOA helper).
  *
  * @param supabase - Supabase client (server or route handler)
  * @param categoryIds - non-null category IDs to look up
@@ -219,32 +232,44 @@ export async function getCategoriesCoaRequirementMap(
 
   const { data: categories } = await supabase
     .from("categories")
-    .select("id, name, slug, parent_id")
+    .select("id, name, slug, parent_id, requires_coa")
     .in("id", unique);
 
-  const list = (categories || []) as { id: string; name?: string | null; slug?: string | null; parent_id?: string | null }[];
+  type CategoryRow = {
+    id: string;
+    name?: string | null;
+    slug?: string | null;
+    parent_id?: string | null;
+    requires_coa?: boolean | null;
+  };
+
+  const list = (categories || []) as CategoryRow[];
   const parentIds = Array.from(
     new Set(list.map((c) => c.parent_id).filter((id): id is string => typeof id === "string" && id.trim().length > 0))
   );
-  let parents: { id: string; slug?: string | null; name?: string | null }[] = [];
+  let parents: CategoryRow[] = [];
   if (parentIds.length > 0) {
     const { data: parentRows } = await supabase
       .from("categories")
-      .select("id, slug, name")
+      .select("id, slug, name, requires_coa")
       .in("id", parentIds);
-    parents = (parentRows || []) as { id: string; slug?: string | null; name?: string | null }[];
+    parents = (parentRows || []) as CategoryRow[];
   }
   const parentMap = Object.fromEntries(parents.map((p) => [p.id, p]));
 
   const map: Record<string, boolean> = {};
   for (const id of unique) {
-    map[id] = true; // default when category not in list
+    map[id] = true; // default when category not in list (safe failure)
   }
   for (const cat of list) {
-    let result = requiresCOA({ slug: cat.slug, name: cat.name });
+    let result = requiresCOA({
+      slug: cat.slug,
+      name: cat.name,
+      requires_coa: cat.requires_coa,
+    });
     if (cat.parent_id && result) {
       const parent = parentMap[cat.parent_id];
-      if (parent && !requiresCOA({ slug: parent.slug, name: parent.name })) {
+      if (parent && parent.requires_coa === false) {
         result = false;
       }
     }

@@ -40,11 +40,12 @@ export async function GET(
     );
   }
 
+  // Reads categories.requires_coa as SSOT (GATE-03 cutover).
   let coaRequired = true;
   if (product.category_id) {
     const { data: category } = await admin
       .from("categories")
-      .select("slug, name")
+      .select("slug, name, requires_coa")
       .eq("id", product.category_id)
       .maybeSingle();
     coaRequired = requiresCOA(category ?? undefined);

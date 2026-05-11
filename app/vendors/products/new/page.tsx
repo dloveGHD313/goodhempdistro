@@ -90,10 +90,12 @@ export default function NewProductPage() {
       setCategoryRequiresCoa(true); // unknown → require COA for safety
       return;
     }
-    let needCoa = requiresCOA({ slug: category.slug, name: category.name });
+    // GATE-03: reads categories.requires_coa as SSOT. Parent override fires
+    // only when parent's requires_coa is explicitly false (compliance loosening).
+    let needCoa = requiresCOA({ slug: category.slug, name: category.name, requires_coa: category.requires_coa });
     if (needCoa && category.parent_id) {
       const parent = categories.find((c) => c.id === category.parent_id);
-      if (parent && !requiresCOA({ slug: parent.slug, name: parent.name })) {
+      if (parent && parent.requires_coa === false) {
         needCoa = false;
       }
     }
