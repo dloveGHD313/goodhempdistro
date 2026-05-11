@@ -76,10 +76,12 @@ export default function EditProductForm({ productId, initialProduct, initialCate
     if (!categoryId || !initialCategories.length) return false;
     const category = initialCategories.find((c) => c.id === categoryId);
     if (!category) return true;
-    let needCoa = requiresCOA({ slug: category.slug, name: category.name });
+    // GATE-03: reads categories.requires_coa as SSOT. Parent override fires
+    // only when parent's requires_coa is explicitly false (compliance loosening).
+    let needCoa = requiresCOA({ slug: category.slug, name: category.name, requires_coa: category.requires_coa });
     if (needCoa && category.parent_id) {
       const parent = initialCategories.find((c) => c.id === category.parent_id);
-      if (parent && !requiresCOA({ slug: parent.slug, name: parent.name })) needCoa = false;
+      if (parent && parent.requires_coa === false) needCoa = false;
     }
     return needCoa;
   }, [categoryId, initialCategories]);

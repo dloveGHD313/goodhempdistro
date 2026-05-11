@@ -90,3 +90,113 @@ Append-only log per directive Phase 2 Step G.
 - **CEO decision required:** Yes — see GATE-02
 
 **Phase 2 STEPS 4-7 (COA SSOT, brand casing, tier mapping, admin catalog import) HALTED until GATE-02 is resolved.**
+
+---
+
+## PR #177 — `fix/vendors-auth-defense-in-depth` (GATE-02 RESOLUTION)
+
+- **Started:** 2026-05-11
+- **CEO directive item:** GATE-02 Option C (middleware allowlist + force-dynamic + regression test)
+- **Branch:** `fix/vendors-auth-defense-in-depth` (fresh from main `2c13fa0`)
+- **Files changed:** 12 (middleware.ts + 8 vendor layouts + 1 regression test + 2 audit docs)
+- **Migrations applied:** none
+- **Local build:** ✅ 16.4s
+- **Local tests:** ✅ 26/26 pass (`vendors-auth.test.ts` + `vendors-public-directory.test.ts`)
+- **Vendor [id] format verification:** UUIDs (DB-generated primary key); no user-controlled handles. Reserved-words approach is safe. Documented in middleware comment block.
+- **PR opened:** [#177](https://github.com/dloveGHD313/goodhempdistro/pull/177)
+- **Merged:** 2026-05-11 17:11:24 UTC (autonomous, CI green: CLEAN)
+- **Revert needed:** No
+
+### Production regression sweep (post-merge)
+
+22 routes verified via cache-busted curl:
+
+| Route | Status | Notes |
+|---|---|---|
+| /vendors | 200 ✅ | public directory |
+| /vendors/activate | 200 ✅ | public activation landing |
+| /vendors/24a1bd8e-... (real vendor UUID) | 200 ✅ | public vendor detail |
+| /vendors/billing | 307 → /login ✅ | authed |
+| /vendors/dashboard | 307 → /login ✅ | authed |
+| /vendors/dashboard/products | 307 → /login ✅ | authed (inherits dashboard layout force-dynamic) |
+| /vendors/dashboard/events | 307 → /login ✅ | authed |
+| /vendors/dashboard/profile | 307 → /login ✅ | authed |
+| /vendors/orders | 307 → /login ✅ | authed |
+| /vendors/payouts | 307 → /login ✅ | authed (existing) |
+| /vendors/products | 307 → /login ✅ | authed |
+| /vendors/services | 307 → /login ✅ | authed |
+| /vendors/settings | 307 → /login ✅ | authed |
+| /vendors/referrals | 307 → /login ✅ | authed |
+| /admin | 307 → /login ✅ | unchanged |
+| /pricing | 200 ✅ | from PR #173 |
+| /sitemap.xml | 200 ✅ | from PR #173 |
+| /robots.txt | 200 ✅ | from PR #173 |
+| /come-back-later | 200 ✅ | from PR #173 |
+| /shop, /community, /ask-jax | 200 ✅ | from PR #175 |
+
+**Verdict:** No regressions. All routes match the contract. GATE-02 fully closed.
+
+**Phase 2 STEPS 4-7 RESUMED.** Next per CEO sequence: PR #5 (brand casing) → GATE-03 (COA) → PR #6 (tier mapping) → PR #7 (catalog import) → halt for catalog seed.
+
+---
+
+## PR #178 — `chore/brand-title-casing`
+
+- **Started:** 2026-05-11
+- **CEO directive item:** Phase 2 STEP 5 (audit P0 #8)
+- **Branch:** `chore/brand-title-casing` (fresh from `main` post-#177)
+- **Files changed:** 2 (`app/page.tsx`, `app/delivery/request/page.tsx`) — 5 LOC swap
+- **Migrations applied:** none
+- **Local build:** ✅ 11.6s
+- **Variant counts:**
+  - "GoodHempDistro" (no space): 5 → 0 ✅
+  - "Good Hemp Distros" (plural — brand.ts canonical): 11 → 16
+  - "Good Hemp Distro" (singular — de facto dominant): 140 (unchanged — separate decision)
+- **PR opened:** [#178](https://github.com/dloveGHD313/goodhempdistro/pull/178)
+- **Merged:** 2026-05-11 17:17:44 UTC (autonomous, CI green: CLEAN)
+- **Revert needed:** No
+- **Followup logged:** Singular vs plural sweep (140 occurrences) deferred to a CEO marketing decision.
+
+---
+
+## GATE-03 — COA categories SSOT cutover (HALTED for CEO approval)
+
+- **Created:** 2026-05-11
+- **PR (planned):** `data/coa-categories-flip-then-refactor`
+- **Rule 6 trigger:** Compliance behavior change + data UPDATE on production
+- **Pre-flight verifications:**
+  - ✅ All 86 planned slugs exist in production categories table
+  - ✅ Duplicate slugs (concentrates, edibles, tinctures, vapes) handled idempotently via `WHERE requires_coa = false` guard
+  - ✅ Cannabinoid pattern scan run — 17 additional slugs found that match patterns but aren't in planned list. 15 are clear non-consumables (apparel, hardware, industrial). **2 require CEO decision: `raw-hemp-biomass` and `candles-hemp-cbd-`.**
+  - ✅ Behavior diff documented: no tightening, ~50+ non-cannabinoid categories will LOOSEN from "COA required via fallthrough" to "COA not required (DB explicit false)" — correct outcome
+  - ✅ 0 currently-existing products in any bucket-3 category (GHD Tee is in Clothing which stays false)
+  - ✅ Rollback SQL pre-staged
+- **GATE-03 doc:** `.claude/audit/GATE-03-coa-categories-ssot-cutover.md`
+- **CEO decision required:** Option 1 (apply as written), Option 2 (also flip biomass + candles), Option 3 (data only), Option 4 (reject)
+
+**Phase 2 STEPS 6-7 (tier mapping, admin catalog import) HALTED pending GATE-03 decision.** Per the CEO Phase 2 sequence, the gate doc must be reviewed before the COA migration runs.
+
+---
+
+## PR #179 — `data/coa-categories-flip-then-refactor` (GATE-03 RESOLUTION)
+
+- **Started:** 2026-05-11
+- **CEO directive:** GATE-03 Option 1 (apply UPDATE as written + ship code refactor; biomass + candles stay FALSE)
+- **Branch:** `data/coa-categories-flip-then-refactor` (fresh from `main` at `ed1c59c`)
+- **Two-commit structure:**
+  - **Commit 1 (data):** migration `supabase/migrations/20260511_coa_categories_data_fix.sql` — applied to production via Supabase MCP, 86 rows flipped (17→103 require_coa=true)
+  - **Commit 2 (code):** `lib/compliance.ts` switched to `categories.requires_coa` SSOT, slug allowlist removed, default-TRUE + console.warn safe failure mode added per CEO refinement
+- **Files changed:** 8 (migration sql, audit csv, lib/compliance.ts, 4 callers updated to select requires_coa, 1 test rewrite)
+- **Migration applied:** via Supabase MCP 2026-05-11
+- **Local build:** Compiled in 9.3s
+- **Local tests:** 13/13 pass on coa-compliance.test.ts
+- **Production verification (pre-merge, post-migration):**
+  - before_true=17, before_false=152, total=169
+  - after_true=103, after_false=66, total=169
+  - 86 rows flipped via idempotent UPDATE
+  - GHD Tee category (clothing) confirmed requires_coa=false — unaffected
+  - Post-cutover slug list saved to .claude/audit/coa-categories-post-cutover.csv
+- **PR:** #179 [pending merge]
+- **Revert plan:**
+  - Commit 1 rollback: UPDATE categories SET requires_coa=false WHERE slug IN (...) (full list in migration file commented-out section at the bottom)
+  - Commit 2 rollback: git revert
