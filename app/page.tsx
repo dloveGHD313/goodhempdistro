@@ -6,15 +6,15 @@ import { hasRole } from "@/lib/roles";
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: "GoodHempDistro — The Hemp Industry, All in One Place",
+  title: "Good Hemp Distros — The Hemp Industry, All in One Place",
   description:
-    "Discover lab-tested hemp products, connect with verified vendors, and explore the hemp ecosystem on GoodHempDistro's compliant marketplace.",
+    "Discover lab-tested hemp products, connect with verified vendors, and explore the hemp ecosystem on Good Hemp Distros' compliant marketplace.",
   openGraph: {
-    title: "GoodHempDistro — The Hemp Industry, All in One Place",
+    title: "Good Hemp Distros — The Hemp Industry, All in One Place",
     description:
       "Discover lab-tested hemp products, connect with verified vendors, and explore the hemp ecosystem.",
     url: "https://www.goodhempdistro.com",
-    siteName: "GoodHempDistro",
+    siteName: "Good Hemp Distros",
     type: "website",
   },
 };
