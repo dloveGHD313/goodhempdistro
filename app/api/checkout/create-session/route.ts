@@ -13,6 +13,7 @@ import {
   isDeliveryAllowedForCategory,
   isSaleAllowedForCategory,
 } from "@/lib/server/hempStateRules";
+import { buildPaymentIntentData, getConnectFeeForCheckout } from "@/lib/billing/connectFees";
 
 type FulfillmentMethod = "pickup" | "delivery" | "shipping";
 
@@ -371,6 +372,23 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Stripe Connect destination charge: if the vendor has an active Connect
+    // account, route the platform fee + vendor net automatically. application_fee
+    // applies to PRODUCT subtotal only — delivery fees stay on the platform
+    // (or get paid out to drivers separately). When no active Connect account
+    // exists, helper returns null and we fall back to full platform collection
+    // (legacy behavior). See lib/billing/connectFees.ts for the exact failure
+    // modes — all of which log a structured warn.
+    const adminForConnect = getSupabaseAdminClient();
+    const connectFee = product.vendor_id && vendorOwnerId
+      ? await getConnectFeeForCheckout(adminForConnect, {
+          vendorId: product.vendor_id,
+          vendorOwnerUserId: vendorOwnerId,
+          productSubtotalCents: lineTotalCents,
+        })
+      : null;
+    const paymentIntentData = buildPaymentIntentData(connectFee);
+
     // Create Stripe checkout session
     const stripeSession = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -383,7 +401,11 @@ export async function POST(req: NextRequest) {
         order_id: order.id,
         product_id: product.id,
         vendor_id: product.vendor_id || "",
+        platform_fee_cents: connectFee ? String(connectFee.applicationFeeAmount) : "",
+        platform_fee_tier: connectFee?.tier ?? "",
+        platform_fee_bps: connectFee ? String(connectFee.feeBps) : "",
       },
+      ...(paymentIntentData ? { payment_intent_data: paymentIntentData } : {}),
     });
 
     // Update order with session ID
