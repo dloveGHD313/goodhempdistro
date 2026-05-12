@@ -200,3 +200,107 @@ Append-only log per directive Phase 2 Step G.
 - **Revert plan:**
   - Commit 1 rollback: UPDATE categories SET requires_coa=false WHERE slug IN (...) (full list in migration file commented-out section at the bottom)
   - Commit 2 rollback: git revert
+
+---
+
+## PR #180 — `fix/build-2-tier-mapping-strict-lookup`
+
+- **Started:** 2026-05-12
+- **CEO directive item:** Build #2 + Phase 2 STEP 6
+- **Branch:** fresh from `main` at `055a959` (post-PR-#179)
+- **Files changed:** 3 (lib/billing/tier-mapping.ts new, lib/referral.ts, __tests__/tier-mapping.test.ts new)
+- **Local build:** Compiled in 17.5s
+- **Local tests:** 20/20 pass
+- **Stripe inventory audit:** All 6 vendor plan keys mapped, no GATE-04 needed
+- **PR:** #180
+- **Merged:** 2026-05-12 01:39:22 UTC (autonomous, CI green)
+- **Revert needed:** No
+
+---
+
+## PR #181 — `feat/admin-catalog-import-csv`
+
+- **Started:** 2026-05-12
+- **CEO directive item:** Phase 2 STEP 7 (last autonomous PR before catalog-seed halt)
+- **Branch:** fresh from `main` at `b880521` (post-PR-#180)
+- **Files added:** 5 (lib/admin/catalogImport.ts, api route, admin page, client component, tests)
+- **Local build:** Compiled in 12.4s
+- **Local tests:** 30/30 pass
+- **PR:** #181
+- **Merged:** 2026-05-12 01:47:06 UTC (autonomous, CI green)
+- **Revert needed:** No
+
+---
+
+# Phase 2 — Final Summary
+
+## All PRs shipped
+
+| # | Title | Merged | Highlight |
+|---|---|---|---|
+| #173 | age-gate warning model + middleware exemptions | 2026-05-11 12:47 | Closed P0 funnel + SEO blocker |
+| #174 | vendors directory layout fix | 2026-05-11 12:57 | Initial fix (incomplete) |
+| #175 | shop/community/ask-jax stubs | 2026-05-11 ~13:05 | Closed 404 P0 |
+| #176 | middleware vendors public routes | 2026-05-11 13:17 | Caused GATE-02 |
+| #177 | defense-in-depth auth boundary (GATE-02 resolution) | 2026-05-11 17:11 | Forced force-dynamic + middleware allowlist |
+| #178 | brand title casing cleanup | 2026-05-11 17:17 | GoodHempDistro typo fix |
+| #179 | COA categories SSOT cutover (GATE-03 resolution) | 2026-05-11 18:00 | 86 categories flipped + lib/compliance.ts refactor |
+| #180 | tier mapping strict lookup | 2026-05-12 01:39 | Build #2 — replaced .includes() |
+| #181 | admin catalog import CSV | 2026-05-12 01:47 | Build #7 — anchor seed surface |
+
+## Gates resolved
+
+- **GATE-00** — preflight blockers (Master_agent_prompt template provided inline)
+- **GATE-01** — age-gate warning model (CEO approved before PR #173 merge)
+- **GATE-02** — vendor auth regression (CEO chose Option C; resolved by PR #177)
+- **GATE-03** — COA SSOT cutover (CEO chose Option 1; resolved by PR #179)
+- **GATE-04** — Stripe inventory (not needed; pre-flight confirmed no missing mappings)
+
+## Production schema diff vs Phase-0 baseline
+
+| Resource | Phase-0 | Phase-2 close | Δ |
+|---|---:|---:|---:|
+| categories.requires_coa=true | 17 | **103** | +86 |
+| affiliate_payouts columns | 15 | 15 | 0 |
+| Total products | 1 | 1 | 0 (catalog seed pending) |
+| Active vendors | 3 | 3 | 0 |
+| Active vendor profiles (vendor_status='active') | 2 | 2 | 0 |
+| Affiliate payouts | 0 | 0 | 0 |
+
+## Production route regression (post-Phase-2)
+
+27/27 routes match expected status (cache-busted curl, 2026-05-12):
+
+**Public (200):** /, /pricing, /products, /vendors, /vendors/activate, /vendors/<uuid>, /events, /community, /services, /shop, /ask-jax, /come-back-later, /about, /sitemap.xml, /robots.txt
+
+**Authed (307 → /login):** /vendors/billing, /vendors/dashboard, /vendors/orders, /vendors/payouts, /vendors/products, /vendors/services, /vendors/settings, /vendors/referrals, /vendors/events, /admin, /admin/catalog-import
+
+**API:** /api/newsletter/subscribe → 405 on HEAD (POST-only, correct)
+
+## What's HALTED next
+
+`.claude/audit/HALT-CATALOG-SEED.md` documents the catalog-seed halt. CEO uploads anchor catalog via /admin/catalog-import. Phase 3 (Stripe Connect, Ask JAX, regional compliance UI) waits behind this halt.
+
+## Recommended next steps (post-halt)
+
+1. **CEO seeds anchor catalog** via /admin/catalog-import (~12 products mix recommended)
+2. **Phase 3 verification** per original directive — schema audit re-run, route crawl, Lighthouse mobile ≥ 80
+3. **Build #3 — Stripe Connect** (CEO gate per Rule 6 — Stripe live mode)
+4. **Build #4 — Ask JAX OpenAI** (CEO gate per Rule 6 — cost ceiling)
+5. **Build #5 — Regional compliance UI surface** (CEO gate per Rule 6 — state matrix)
+6. **Build #6** (already shipped — personalized onboarding partially done per PR #164)
+7. **Build #7** (community feed prominence — needs catalog + posts)
+8. **Build #8** (events payout routing — needs events)
+9. **Build #9** (8 individual service pages — needs services)
+10. **Build #10** (Jax episodes content surface)
+
+## Followups tracked (P2/P3)
+
+- Singular vs plural "Good Hemp Distro" brand sweep (140 instances; marketing decision)
+- Codex audit-export script bugs (build-summary.mjs line 81, build-nav-and-links.mjs line 185 — both P2)
+- Categories dedupe (5+ duplicate slugs across standalone + under-Consumables)
+- 22 → 7 local branches cleanup (already done; some archived under archive/* tags)
+- Diagnostic logs in EditProductForm.tsx (already removed)
+- Brand `Good Hemp Distros` (plural) vs `Good Hemp Distro` (singular) full sweep
+
+**Phase 2 complete. Halting per HALT-CATALOG-SEED.**
