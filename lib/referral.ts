@@ -1,11 +1,12 @@
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { stripe } from "@/lib/stripe";
+import { getTierFromPlanKey, type VendorTier } from "@/lib/billing/tier-mapping";
 
 const REFERRAL_COOKIE_NAME = "ghd_affiliate_ref";
 const REFERRAL_COOKIE_MAX_AGE = 7 * 24 * 60 * 60;
 
-export const COMMISSION_RATES: Record<string, number> = { starter: 700, mid: 500, top: 100 };
-export const LISTING_LIMITS: Record<string, number | null> = { starter: 15, mid: 100, top: null };
+export const COMMISSION_RATES: Record<VendorTier, number> = { starter: 700, mid: 500, top: 100 };
+export const LISTING_LIMITS: Record<VendorTier, number | null> = { starter: 15, mid: 100, top: null };
 export const LOYALTY_POINTS_PER_FREE_REFERRAL = 1;
 
 export function captureReferralCode() {
@@ -109,7 +110,22 @@ export async function queueAffiliatePayouts(params: { affiliateUserId: string; r
   }
 }
 
-export function getCommissionRateBps(planKey: string): number { const key = planKey.toLowerCase(); if (key.includes("enterprise") || key.includes("vip") || key.includes("top")) return COMMISSION_RATES.top; if (key.includes("pro") || key.includes("mid")) return COMMISSION_RATES.mid; if (key.includes("free")) return COMMISSION_RATES.starter; return COMMISSION_RATES.starter; }
-export function getListingLimit(planKey: string): number | null { const key = planKey.toLowerCase(); if (key.includes("enterprise") || key.includes("vip") || key.includes("top")) return LISTING_LIMITS.top; if (key.includes("pro") || key.includes("mid")) return LISTING_LIMITS.mid as number; if (key.includes("free")) return LISTING_LIMITS.starter as number; return LISTING_LIMITS.starter as number; }
+/**
+ * Resolve commission rate (basis points) for a vendor plan key.
+ * Throws on unknown plan key — no silent default. See lib/billing/tier-mapping.ts.
+ */
+export function getCommissionRateBps(planKey: string): number {
+  const tier = getTierFromPlanKey(planKey);
+  return COMMISSION_RATES[tier];
+}
+
+/**
+ * Resolve product listing limit for a vendor plan key.
+ * Throws on unknown plan key — no silent default. See lib/billing/tier-mapping.ts.
+ */
+export function getListingLimit(planKey: string): number | null {
+  const tier = getTierFromPlanKey(planKey);
+  return LISTING_LIMITS[tier];
+}
 export async function checkAffiliateEligibility(userId: string): Promise<{ eligible: boolean; reason?: string }> { const admin = getSupabaseAdminClient(); const { data: profile } = await admin.from("profiles").select("role, consumer_plan").eq("id", userId).maybeSingle(); if (!profile) return { eligible: false, reason: "Profile not found" }; const hasConsumerPlan = Boolean(profile.consumer_plan && profile.consumer_plan !== ""); if (!hasConsumerPlan && profile.role !== "vendor" && profile.role !== "admin") return { eligible: false, reason: "You need at least a Beginner consumer account to become an affiliate" }; return { eligible: true }; }
 export async function getStripePriceAmount(priceId: string): Promise<number> { try { const price = await stripe.prices.retrieve(priceId); return price.unit_amount ?? 0; } catch { return 0; } }
