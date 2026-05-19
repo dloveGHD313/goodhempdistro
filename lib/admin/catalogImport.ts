@@ -14,7 +14,11 @@
  *   - price_cents required, > 0
  *   - category_slug required, must resolve to a real categories row
  *   - product_type required: non_intoxicating | intoxicating | delta8
- *   - image_url required (must look like a URL)
+ *   - image_url required when status === "approved" (staged "pending_review"
+ *     rows may have empty image_url; the normal product edit form enforces
+ *     image at the point of approval). Format check applies whenever the
+ *     field is non-empty. — supports the staging workflow where the CEO
+ *     imports 78 SKUs as hidden, swaps in real images later, then approves.
  *   - ship_to_states required, non-empty
  *   - coa_url required when the resolved category has requires_coa = true
  *   - hemp_derived_attestation required ("true")
@@ -129,7 +133,10 @@ export type ValidatedRow = {
   category_slug: string;
   product_type: "non_intoxicating" | "intoxicating" | "delta8";
   coa_url: string | null;
-  image_url: string;
+  /** Required when status === "approved"; nullable when status === "pending_review"
+   *  (the staging-import workflow lets the CEO seed SKUs as hidden, swap in
+   *  real images via the product edit UI, then promote to approved). */
+  image_url: string | null;
   ship_to_states: string[];
   status: "approved" | "pending_review";
   hemp_derived_attestation: true;
@@ -200,11 +207,15 @@ export function validateRow(
     });
   }
 
-  const image_url = (r.image_url || "").trim();
-  if (!image_url) {
-    errors.push({ rowNumber: row.rowNumber, field: "image_url", message: "image_url is required" });
-  } else if (!isUrlish(image_url)) {
-    errors.push({ rowNumber: row.rowNumber, field: "image_url", message: "image_url must be an http(s) URL" });
+  // image_url: parsed early; required-when-approved enforced after status resolves below.
+  const image_url_raw = (r.image_url || "").trim();
+  let image_url: string | null = null;
+  if (image_url_raw) {
+    if (!isUrlish(image_url_raw)) {
+      errors.push({ rowNumber: row.rowNumber, field: "image_url", message: "image_url must be an http(s) URL" });
+    } else {
+      image_url = image_url_raw;
+    }
   }
 
   const ship_to_states_raw = (r.ship_to_states || "").trim();
@@ -282,6 +293,19 @@ export function validateRow(
       rowNumber: row.rowNumber,
       field: "status",
       message: `status must be one of: approved | pending_review (got "${r.status}")`,
+    });
+  }
+
+  // image_url is required only when the row is being imported as `approved`.
+  // For `pending_review` (the staging default), an empty image_url is allowed —
+  // the CEO swaps in the real image via the product edit UI before approving,
+  // and that flow has its own image_url enforcement at the point of approval.
+  // A hidden / pending_review product cannot be purchased, so no compliance gap.
+  if (status === "approved" && !image_url) {
+    errors.push({
+      rowNumber: row.rowNumber,
+      field: "image_url",
+      message: 'image_url is required when status="approved" (omit status or set "pending_review" to stage hidden SKUs without an image yet)',
     });
   }
 
