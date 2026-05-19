@@ -526,6 +526,7 @@ export const NAV_ADMIN: NavItemLegacy[] = [
   { label: "👥 Vendor Applications", href: "/admin/vendors" },
   { label: "🔍 Vendor Integrity", href: "/admin/vendors/integrity" },
   { label: "📦 Product Review", href: "/admin/products" },
+  { label: "📤 Catalog Import", href: "/admin/catalog-import" },
   { label: "📅 Event Review", href: "/admin/events" },
   { label: "🛠️ Service Review", href: "/admin/services" },
   { label: "💬 Service Inquiries", href: "/admin/inquiries" },
