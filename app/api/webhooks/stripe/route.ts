@@ -721,6 +721,36 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
     await applyPlatformFeesToOrder(admin, orderId);
     await awardPurchasePointsForOrder(orderId);
     await awardVendorReferralFirstSale(admin, orderId);
+
+    // Phase 4 PR-D — queue 7-day platform_reserve row for the vendor's net
+    // share when the session used a Connect destination charge (PR-B added
+    // platform_fee_cents to session metadata). The daily cron at
+    // /api/cron/release-reserves transfers funds out once the hold elapses.
+    try {
+      const platformFeeMetadata = Number.parseInt(session.metadata?.platform_fee_cents ?? "", 10);
+      const sessionVendorId = session.metadata?.vendor_id;
+      const grossCents = typeof session.amount_total === "number" ? session.amount_total : 0;
+      if (
+        sessionVendorId &&
+        Number.isFinite(platformFeeMetadata) &&
+        platformFeeMetadata >= 0 &&
+        grossCents > 0
+      ) {
+        const vendorNetCents = Math.max(0, grossCents - platformFeeMetadata);
+        const { queueOrderReserve } = await import("@/lib/server/platformReserve");
+        await queueOrderReserve(admin, {
+          vendor_id: sessionVendorId,
+          order_id: orderId,
+          amount_cents: vendorNetCents,
+          notes: `Auto-queued from checkout.session.completed; gross=${grossCents}, fee=${platformFeeMetadata}, tier=${session.metadata?.platform_fee_tier || "?"}`,
+        });
+        console.log(`💰 [reserve] queued order_id=${orderId} vendor=${sessionVendorId} net=${vendorNetCents}c`);
+      }
+    } catch (reserveErr) {
+      // Reserve queueing must not break order completion. Log and move on.
+      const msg = reserveErr instanceof Error ? reserveErr.message : String(reserveErr);
+      console.error(`⚠️ [reserve] queue failed for order_id=${orderId}: ${msg}`);
+    }
   }
 }
 
