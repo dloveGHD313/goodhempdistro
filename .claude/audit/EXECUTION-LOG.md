@@ -334,3 +334,63 @@ Result: **1 row** — the canonical one we just renamed. No stale test vendors; 
 ### Impact
 - Rename propagates automatically wherever the vendor renders (product cards, /vendors directory, /vendors/[id] detail, Stripe Connect `business_profile.name` if synced via webhook). No code change required — every consumer reads via `vendor_id` FK.
 - 78 anchor catalog SKUs will reference this vendor by UUID after import; the name they display will be "Good Hemp Distros" immediately.
+
+---
+
+## PHASE 4 COMPLETE — Build #3 Stripe Connect (6 PRs shipped this push)
+
+| PR | Title | Merged |
+|---|---|---|
+| #185 | PR-A schema additions (platform_reserve, stripe_connect_events) | 2026-05-12 11:53 UTC |
+| #186 | PR-B payment splitting on checkout via destination charges | 2026-05-12 12:02 UTC |
+| #190 | PR-E vendor payouts dashboard extension + anchor rename log | 2026-05-19 17:22 UTC |
+| #191 | PR-C Connect webhook endpoint + 7 event handlers | 2026-05-19 17:31 UTC |
+| #192 | PR-D reserve queue on checkout + daily release cron | 2026-05-19 18:24 UTC |
+| #(this PR) | PR-F integration tests + test-mode smoke checklist | pending |
+
+### Scope reduction explanation
+
+Original directive said 7 PRs (PR-A through PR-G). Brownfield discovery this session (vendor_connect_accounts table + 4 API routes already shipped in migration 069) collapsed PR-A and PR-B's "Connect onboarding flow" work into a single schema PR. Final shipped count: 6 PRs, all functionally complete.
+
+### Funds flow now operational (test mode)
+
+1. Vendor connects → /vendors/payouts shows Stripe Connect status + Manage account link
+2. Customer checkout → Stripe Connect destination charge automatically splits funds: platform fee (per tier bps) to GHD, vendor net to vendor's Connect account
+3. Order completion webhook → platform_reserve row queued with held_until = now + 7 days
+4. Daily cron at 07:00 UTC → finds due reserves → stripe.transfers.create to vendor's Connect account → stamps released_at
+5. charge.dispute.created webhook → extends held_until by 30 days on affected reserves
+6. All Connect events (account.updated, capability.updated, payout.paid/failed, transfer.created/reversed, charge.dispute.created) logged to stripe_connect_events with idempotent event_id PK
+
+### Env vars added (CEO confirmed scope)
+
+| Var | Scope | Purpose |
+|---|---|---|
+| STRIPE_CONNECT_WEBHOOK_SECRET | Vercel Preview+Dev | Signs Connect webhook events; Production scope deferred per CEO test-mode-first |
+| CRON_SECRET | Vercel Preview+Dev | Authorization Bearer header for /api/cron/release-reserves; must be added before live cron |
+
+### Test coverage
+
+- connect-fees.test.ts (18 cases) — PR-B fee calc, failure modes, math.floor rounding
+- stripe-connect-events.test.ts (15 cases) — PR-C webhook helpers, idempotency 23505 contract
+- platform-reserve.test.ts (15 cases) — PR-D queue + release helpers
+- stripe-connect-flow-integration.test.ts (8 cases) — end-to-end mocked flow
+
+Total: 56 unit/integration test cases pinning the contracts. All pass.
+
+### What still needs human verification (PR-F smoke)
+
+.claude/audit/STRIPE-CONNECT-TEST-MODE-SMOKE.md is a 7-step checklist for CEO/operator to run against Stripe test mode. Validates the things mocks can't: real signature verification, real Stripe API responses, real webhook delivery, real dispute simulation.
+
+### Open Phase 4 follow-ups (non-blocking)
+
+- Vendor notification on payout.failed / transfer.reversed (currently logs to console only)
+- Admin UI for manual reserve hold/release override
+- Production scope for STRIPE_CONNECT_WEBHOOK_SECRET + CRON_SECRET (gated on smoke passing)
+- platformFees.ts ↔ destination-charge fee alignment (acknowledged drift in PR-B note)
+
+### Next phase
+
+Phase 5 — Build #4 Ask JAX thin wrapper (GATE-08 scope: reuse existing /api/mascot-chat, add /ask-jax page + $50/month cap + system prompt audit). Single PR per CEO direction.
+
+Anchor catalog seed: CEO manual task, parallel to Phase 5+ build work. Does not block.
+
