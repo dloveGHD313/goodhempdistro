@@ -304,3 +304,33 @@ Append-only log per directive Phase 2 Step G.
 - Brand `Good Hemp Distros` (plural) vs `Good Hemp Distro` (singular) full sweep
 
 **Phase 2 complete. Halting per HALT-CATALOG-SEED.**
+
+---
+
+## PRE-LAUNCH-TASK — Anchor vendor public-name correction (autonomous)
+
+- **Executed:** 2026-05-19 17:15 UTC via Supabase MCP
+- **Type:** Single-row UPDATE on display column (not a Rule 6 gate)
+- **CEO directive:** rename `vendors.business_name` from "DLove Test Vendor" to "Good Hemp Distros" (plural, matches brand canonical per PR #178) so the public name is correct before 78-SKU anchor catalog reveals.
+- **Vendor:** `debf6809-dbb4-4987-aabe-60c5fdf7ab49` (owner: dlove313d@gmail.com)
+
+### Before (verified, full row)
+- `business_name`: **"DLove Test Vendor"**
+- `tier`: top
+- `is_vip`: true
+- `status`: active
+- `owner_user_id`: 6c363e91-45bd-4f5c-a41b-7615b25fe5b3
+- `updated_at`: 2026-04-29 16:47:41 UTC
+
+### After (verified)
+- `business_name`: **"Good Hemp Distros"**
+- `updated_at`: 2026-05-19 17:15:23 UTC
+
+### Duplicate-row check (step 4)
+Query: `SELECT * FROM vendors v JOIN auth.users u ON u.id=v.owner_user_id WHERE u.email='dlove313d@gmail.com'`
+
+Result: **1 row** — the canonical one we just renamed. No stale test vendors; no cleanup needed.
+
+### Impact
+- Rename propagates automatically wherever the vendor renders (product cards, /vendors directory, /vendors/[id] detail, Stripe Connect `business_profile.name` if synced via webhook). No code change required — every consumer reads via `vendor_id` FK.
+- 78 anchor catalog SKUs will reference this vendor by UUID after import; the name they display will be "Good Hemp Distros" immediately.
