@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { queueOrderReserve, findDueReserves, markReserveReleased } from "@/lib/server/platformReserve";
 import { logConnectEvent, extendReserveForDispute } from "@/lib/server/stripeConnectEvents";
-import { getConnectFeeForCheckout } from "@/lib/billing/connectFees";
+import { getPlatformFeeForCheckout } from "@/lib/billing/connectFees";
 import { getTierFromPlanKey } from "@/lib/billing/tier-mapping";
 import { COMMISSION_RATES } from "@/lib/referral";
 
@@ -13,6 +13,11 @@ import { COMMISSION_RATES } from "@/lib/referral";
  * intentionally do NOT touch the live Stripe API — the smoke checklist
  * in .claude/audit/STRIPE-CONNECT-TEST-MODE-SMOKE.md is the human-driven
  * complement that exercises real Stripe test mode end-to-end.
+ *
+ * P0-1 (2026-07-03): checkout no longer creates destination charges —
+ * the reserve→cron transfer is the ONLY vendor payment. Fee metadata is
+ * computed from tier alone; Connect eligibility is enforced once, by the
+ * cron at transfer time.
  */
 
 const VENDOR_ID = "v-test-pr-f";
@@ -230,17 +235,31 @@ function freshState(): State {
 // ─────────────────────────────────────────────────────────────
 
 describe("Phase 4 integration: fee → reserve → release", () => {
-  it("step 1: getConnectFeeForCheckout returns 500 bps fee for tier=mid", async () => {
+  it("step 1: getPlatformFeeForCheckout returns 500 bps fee for tier=mid (tier-only, no Connect dependency)", async () => {
     const admin = makeAdmin(freshState());
-    const fee = await getConnectFeeForCheckout(admin, {
+    const fee = await getPlatformFeeForCheckout(admin, {
       vendorId: VENDOR_ID,
-      vendorOwnerUserId: OWNER_USER_ID,
       productSubtotalCents: PRODUCT_SUBTOTAL_CENTS,
     });
     expect(fee).not.toBeNull();
     expect(fee!.feeBps).toBe(COMMISSION_RATES.mid);
     expect(fee!.applicationFeeAmount).toBe(500);
-    expect(fee!.destination).toBe(STRIPE_ACCT);
+  });
+
+  it("step 1b (P0-1): fee metadata still computed when vendor has NO enabled Connect account", async () => {
+    const state = freshState();
+    // Simulate mid-onboarding: Connect account exists but not enabled.
+    state.connectAccounts[STRIPE_ACCT]!.charges_enabled = false;
+    state.connectAccounts[STRIPE_ACCT]!.payouts_enabled = false;
+    const admin = makeAdmin(state);
+    const fee = await getPlatformFeeForCheckout(admin, {
+      vendorId: VENDOR_ID,
+      productSubtotalCents: PRODUCT_SUBTOTAL_CENTS,
+    });
+    // Reserve still accrues; the CRON is what skips unhealthy accounts
+    // (resolveDestinationAccount) and retries next tick after onboarding.
+    expect(fee).not.toBeNull();
+    expect(fee!.applicationFeeAmount).toBe(500);
   });
 
   it("step 2: queueOrderReserve writes a 7-day hold for vendor net", async () => {
