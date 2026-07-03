@@ -1,17 +1,23 @@
 /**
  * Stripe LIVE config assertion for production.
- * Call at top of Stripe/Connect/checkout routes when VERCEL_ENV or NODE_ENV is production.
+ * Call at top of Stripe/Connect/checkout routes.
  * Safe messages only — no secret echoing.
+ *
+ * Environment gating uses isStripeProductionEnv() from liveGuard: on Vercel,
+ * VERCEL_ENV is authoritative. The previous local isProduction() included
+ * `NODE_ENV === "production"` — but Vercel PREVIEW builds run with
+ * NODE_ENV=production, so preview deploys were incorrectly enforced as live
+ * and could never use sk_test_ keys for the test-mode smoke checklist.
  */
+
+import { isStripeProductionEnv } from "@/lib/stripe/liveGuard";
 
 const STRIPE_SECRET_KEY = "STRIPE_SECRET_KEY";
 const NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY = "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY";
 const STRIPE_WEBHOOK_SECRET = "STRIPE_WEBHOOK_SECRET";
 
 function isProduction(): boolean {
-  const vercelEnv = process.env.VERCEL_ENV;
-  const nodeEnv = process.env.NODE_ENV;
-  return vercelEnv === "production" || nodeEnv === "production";
+  return isStripeProductionEnv();
 }
 
 /**
