@@ -141,8 +141,16 @@ describe("validateRow — required fields", () => {
     }
   });
 
-  it("rejects missing image_url", () => {
+  // PR #189: image_url is required only when status === "approved".
+  // Staged rows (default status pending_review) may omit it — this is the
+  // anchor-catalog workflow: import hidden SKUs now, add photos later.
+  it("accepts missing image_url when row is staged (default pending_review)", () => {
     const result = validateRow(buildRow({ image_url: "" }), { categoryRequiresCoaBySlug });
+    expect(result.ok).toBe(true);
+  });
+
+  it("rejects missing image_url when status=approved (would be publicly visible)", () => {
+    const result = validateRow(buildRow({ image_url: "", status: "approved" }), { categoryRequiresCoaBySlug });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.errors.some((e) => e.field === "image_url")).toBe(true);

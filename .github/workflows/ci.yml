@@ -1,0 +1,33 @@
+# CI test gate — added 2026-07-03.
+#
+# Why this exists: three test files sat broken on main for weeks after the
+# GATE-03 COA SSOT cutover (PR #179) because "CI" was Vercel-build-only —
+# nothing ran the test suite on PRs. That's a silent-failure gap in the
+# pipeline itself. This workflow makes vitest a required check on every
+# push + PR against main. Vercel still owns build/deploy.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: vitest
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run test suite
+        run: npx vitest run

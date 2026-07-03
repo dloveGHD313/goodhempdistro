@@ -54,7 +54,8 @@ describe("vendor entitlements", () => {
   it("returns entitlements for plan key", () => {
     const entitlements = getVendorEntitlements("vendor_enterprise_monthly");
     expect(entitlements?.productLimit).toBeNull();
-    expect(entitlements?.commissionPercent).toBe(0);
+    // P1-1 CEO decision (2026-07-03): Enterprise commission is 1%, not 0%.
+    expect(entitlements?.commissionPercent).toBe(1);
   });
 
   it("detects product limit reached", () => {
