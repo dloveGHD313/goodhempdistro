@@ -8,7 +8,10 @@ async function getFeaturedServices() {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("services")
-      .select("id, name, title, description, pricing_type, price_cents, slug, categories(name)")
+      // services has TWO FKs to categories (category_id + subcategory_id) —
+      // an unqualified categories(name) embed is ambiguous and PostgREST
+      // rejects it with PGRST201, silently emptying this section.
+      .select("id, name, title, description, pricing_type, price_cents, slug, categories!services_category_id_fkey(name)")
       .eq("status", "approved")
       .eq("active", true)
       .order("created_at", { ascending: false })
