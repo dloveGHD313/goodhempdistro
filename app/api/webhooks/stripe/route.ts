@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { createSupabaseServerClient } from "@/lib/supabase";
+// NOTE (P0-0b): webhooks run with NO user session — the session-scoped
+// createSupabaseServerClient() resolves to anon and RLS blocks every write
+// (42501). All handlers in this file must use getSupabaseAdminClient().
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { getStripeServer } from "@/lib/stripe/server";
 import { assertStripeLiveSecret, assertStripeWebhookSecret } from "@/lib/stripe/liveGuard";
@@ -506,7 +508,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
 
   console.log(`💰 [handleCheckoutSessionCompleted] ${reqId} | order_id=${orderId} | mode=${session.mode} | session=${session.id} | user_id=${userId} | plan=${planName} | affiliate=${affiliateCode}`);
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = getSupabaseAdminClient();
 
   // Handle subscription checkout (vendor sends plan_type/vendor_id, consumer may send plan_id)
   const hasVendorOrConsumer = planType === "vendor" || planType === "consumer";
@@ -759,7 +761,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
 async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
   console.log(`💳 [handlePaymentIntentSucceeded] intent=${paymentIntent.id} | amount=${paymentIntent.amount_received}`);
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = getSupabaseAdminClient();
 
   // Find order by payment_intent_id
   const { data: order } = await supabase
@@ -801,7 +803,7 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
   const failureReason = paymentIntent.last_payment_error?.message || "unknown";
   console.log(`❌ [handlePaymentIntentFailed] intent=${paymentIntent.id} | reason=${failureReason}`);
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = getSupabaseAdminClient();
 
   // Find order by payment_intent_id
   const { data: order } = await supabase
@@ -838,7 +840,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   const subscriptionId = resolveInvoiceSubscriptionId(invoice);
   if (!subscriptionId) return;
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = getSupabaseAdminClient();
 
   // Get subscription to find user
   const { data: subscription } = await supabase
@@ -887,7 +889,7 @@ async function handleSubscriptionChange(
   
   console.log(`🔄 [handleSubscriptionChange] event_type=${eventType} | subscription=${subscription.id} | user_id=${userId || "N/A"} | status=${subscription.status}`);
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = getSupabaseAdminClient();
 
   if (!userId && process.env.NODE_ENV !== "production") {
     console.warn(`⚠️ [handleSubscriptionChange] No user_id in subscription metadata | subscription=${subscription.id}`);
@@ -1376,7 +1378,7 @@ async function handleReferralTracking(
 async function handleEventOrderCompleted(
   session: Stripe.Checkout.Session,
   orderId: string,
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>
+  supabase: ReturnType<typeof getSupabaseAdminClient>
 ) {
   console.log(`🎫 [handleEventOrderCompleted] Processing event order | order_id=${orderId} | session=${session.id}`);
 
