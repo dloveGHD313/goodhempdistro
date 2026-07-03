@@ -22,6 +22,11 @@ import {
   getDesiredVendorStatusFromSubscription,
   VENDOR_ACTIVE_SUBSCRIPTION_STATUSES,
 } from "@/lib/stripe/vendorStatusFromSubscription";
+import {
+  getSubPeriodEndISO,
+  getSubPeriodStartISO,
+  resolveInvoiceSubscriptionId,
+} from "@/lib/stripe/subscriptionCompat";
 
 /** Award vendor referral first-sale reward when a referred vendor's first order is paid. */
 async function awardVendorReferralFirstSale(
@@ -168,24 +173,23 @@ export async function POST(req: NextRequest) {
 
       case "invoice.paid": {
         const invoice = event.data.object as Stripe.Invoice;
-        console.log(`💰 Processing invoice.paid | subscription=${invoice.subscription || "N/A"} | invoice=${invoice.id}`);
+        console.log(`💰 Processing invoice.paid | subscription=${resolveInvoiceSubscriptionId(invoice) || "N/A"} | invoice=${invoice.id}`);
         await handleInvoicePaid(invoice);
         break;
       }
       case "invoice.payment_succeeded": {
         const invoice = event.data.object as Stripe.Invoice;
-        console.log(`💰 Processing invoice.payment_succeeded | subscription=${invoice.subscription || "N/A"} | invoice=${invoice.id}`);
+        console.log(`💰 Processing invoice.payment_succeeded | subscription=${resolveInvoiceSubscriptionId(invoice) || "N/A"} | invoice=${invoice.id}`);
         await handleInvoicePaid(invoice);
         break;
       }
       case "invoice.payment_failed": {
         const invoice = event.data.object as Stripe.Invoice;
-        console.log(`💥 Processing invoice.payment_failed | subscription=${invoice.subscription || "N/A"} | invoice=${invoice.id}`);
-        if (invoice.subscription) {
+        const failedSubId = resolveInvoiceSubscriptionId(invoice);
+        console.log(`💥 Processing invoice.payment_failed | subscription=${failedSubId || "N/A"} | invoice=${invoice.id}`);
+        if (failedSubId) {
           const stripeClient = getStripeServer();
-          const subscription = await stripeClient.subscriptions.retrieve(
-            invoice.subscription as string
-          );
+          const subscription = await stripeClient.subscriptions.retrieve(failedSubId);
           await handleSubscriptionChange(event.type, subscription);
         }
         break;
@@ -516,9 +520,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
     }
     const stripeClient = getStripeServer();
     const subscription = await stripeClient.subscriptions.retrieve(subscriptionId);
-    const currentPeriodEnd = subscription.current_period_end
-      ? new Date(subscription.current_period_end * 1000).toISOString()
-      : null;
+    const currentPeriodEnd = getSubPeriodEndISO(subscription);
     const subscriptionStatus = subscription.status;
     const subscriptionPriceId = subscription.items.data[0]?.price.id || null;
     let subscriptionPlanKey: string | null = null;
@@ -833,7 +835,7 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
 }
 
 async function handleInvoicePaid(invoice: Stripe.Invoice) {
-  const subscriptionId = invoice.subscription as string;
+  const subscriptionId = resolveInvoiceSubscriptionId(invoice);
   if (!subscriptionId) return;
 
   const supabase = await createSupabaseServerClient();
@@ -926,8 +928,8 @@ async function handleSubscriptionChange(
           stripe_customer_id: subscription.customer as string,
           status: status,
           price_id: subscription.items.data[0]?.price.id,
-          current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-          current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+          current_period_start: getSubPeriodStartISO(subscription),
+          current_period_end: getSubPeriodEndISO(subscription),
           cancel_at_period_end: subscription.cancel_at_period_end,
           updated_at: new Date().toISOString(),
         },
@@ -970,7 +972,7 @@ async function handleSubscriptionChange(
         subscription_status: status,
         subscription_price_id: subscriptionPriceId,
         subscription_plan_key: subscriptionPlanKey,
-        subscription_current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+        subscription_current_period_end: getSubPeriodEndISO(subscription),
         subscription_cancel_at_period_end: subscription.cancel_at_period_end,
         subscription_updated_at: new Date().toISOString(),
       };
@@ -1075,7 +1077,7 @@ async function handleSubscriptionChange(
             stripe_subscription_id: subscription.id,
             consumer_plan_key: resolvedPlanKey,
             subscription_status: status,
-            current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+            current_period_end: getSubPeriodEndISO(subscription),
             cancel_at_period_end: subscription.cancel_at_period_end,
             updated_at: new Date().toISOString(),
           },
