@@ -49,7 +49,8 @@ describe("Phase 3A: COA compliance rules", () => {
     });
 
     it("requiresCOA is false for apparel", () => {
-      expect(requiresCOA({ slug: "textiles-apparel", name: "Textiles & Apparel" })).toBe(false);
+      // GATE-03 SSOT: categories.requires_coa is authoritative; slug allowlist removed.
+      expect(requiresCOA({ slug: "textiles-apparel", name: "Textiles & Apparel", requires_coa: false })).toBe(false);
     });
 
     it("submit block: effectiveRequiresCoa && !hasCoaUrl && !hasCoaPath => blocked", () => {

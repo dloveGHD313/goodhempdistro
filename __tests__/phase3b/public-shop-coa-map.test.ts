@@ -19,8 +19,8 @@ describe("Phase 3B: getCategoriesCoaRequirementMap", () => {
 
   it("returns map with category COA requirement when supabase returns categories", async () => {
     const categoriesData = [
-      { id: "cat-apparel", name: "Apparel", slug: "apparel", parent_id: null },
-      { id: "cat-cbd", name: "CBD Tinctures", slug: "cbd-tinctures", parent_id: null },
+      { id: "cat-apparel", name: "Apparel", slug: "apparel", parent_id: null, requires_coa: false },
+      { id: "cat-cbd", name: "CBD Tinctures", slug: "cbd-tinctures", parent_id: null, requires_coa: true },
     ];
     const inMock = vi.fn().mockResolvedValue({ data: categoriesData });
     const selectMock = vi.fn().mockReturnValue({ in: inMock });
@@ -29,8 +29,9 @@ describe("Phase 3B: getCategoriesCoaRequirementMap", () => {
 
     const result = await getCategoriesCoaRequirementMap(supabase as never, ["cat-apparel", "cat-cbd"]);
 
-    expect(requiresCOA({ slug: "apparel", name: "Apparel" })).toBe(false);
-    expect(requiresCOA({ slug: "cbd-tinctures", name: "CBD Tinctures" })).toBe(true);
+    // GATE-03 SSOT: requires_coa field is authoritative
+    expect(requiresCOA({ slug: "apparel", name: "Apparel", requires_coa: false })).toBe(false);
+    expect(requiresCOA({ slug: "cbd-tinctures", name: "CBD Tinctures", requires_coa: true })).toBe(true);
     expect(result["cat-apparel"]).toBe(false);
     expect(result["cat-cbd"]).toBe(true);
   });
