@@ -5,7 +5,7 @@ import Stripe from "stripe";
 // (42501). All handlers in this file must use getSupabaseAdminClient().
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { getStripeServer } from "@/lib/stripe/server";
-import { assertStripeLiveSecret, assertStripeWebhookSecret } from "@/lib/stripe/liveGuard";
+import { assertStripeLiveSecret, assertStripeWebhookSecret, isStripeProductionEnv } from "@/lib/stripe/liveGuard";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 import { getVendorPlanByPriceId } from "@/lib/pricing";
 import { getConsumerPlanByKey, getConsumerPlanByPriceId } from "@/lib/consumer-plans";
@@ -151,9 +151,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // LIVE MODE ONLY: reject test-mode events
-  if (event.livemode !== true) {
-    console.error("❌ Webhook rejected: event is not live (livemode=false). Test-mode events are not allowed.");
+  // PRODUCTION: live-mode events only. Preview/dev accept test-mode events —
+  // required by the test-mode smoke checklist, which fires test events at a
+  // preview deploy. (Signature verification above already guarantees the
+  // event came from the endpoint's own Stripe account either way.)
+  if (event.livemode !== true && isStripeProductionEnv()) {
+    console.error("❌ Webhook rejected: event is not live (livemode=false). Test-mode events are not allowed in production.");
     return NextResponse.json(
       { error: "Webhook rejected: live mode only" },
       { status: 400 }
