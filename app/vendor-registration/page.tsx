@@ -230,9 +230,13 @@ export default async function VendorRegistrationPage() {
     );
   }
 
-  // Show vendor creation form (no context or context but no vendor data)
+  // Show vendor creation form (no context or context but no vendor data).
+  // Logged-out visitors are EXPECTED here (public registration form) —
+  // auth.getUser() returns AuthSessionMissingError for them, which is not
+  // an error condition. info-level so it doesn't pollute error dashboards
+  // (was firing ~98x/week as console.error).
   if (!user && userError) {
-    console.error("[vendor-registration] rendering public form without authenticated user", {
+    console.info("[vendor-registration] rendering public form without authenticated user", {
       userError,
     });
   }
