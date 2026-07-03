@@ -48,7 +48,8 @@ type VendorPlanEnv = {
   imageAlt: string;
 };
 
-const VENDOR_PLAN_ENVS: VendorPlanEnv[] = [
+/** Exported for tests — static plan config independent of env price IDs (commission-schedule.test.ts pins advertised == charged). */
+export const VENDOR_PLAN_ENVS: VendorPlanEnv[] = [
   {
     key: "starter_monthly",
     planKey: "vendor_starter_monthly",
@@ -162,13 +163,13 @@ const VENDOR_PLAN_ENVS: VendorPlanEnv[] = [
     envKey: "STRIPE_VENDOR_ENTERPRISE_MONTHLY_PRICE_ID",
     displayName: "Vendor Enterprise (VIP)",
     headlinePriceText: "$275/month",
-    commissionText: "Commission: 0%",
-    commissionPercent: 0,
+    commissionText: "Commission: 1%",
+    commissionPercent: 1,
     productLimitText: "Product Limit: Unlimited products",
     productLimit: null,
     includedBullets: [
       "Upload unlimited approved products",
-      "0% commission on all sales",
+      "1% commission on all sales",
       "Direct messaging with customers",
       "External website link on vendor profile",
       "VIP placement and priority marketplace visibility",
@@ -188,13 +189,13 @@ const VENDOR_PLAN_ENVS: VendorPlanEnv[] = [
     displayName: "Vendor Enterprise (VIP)",
     headlinePriceText: "$2,805/year",
     subPriceNote: "$3,300 | 15% off",
-    commissionText: "Commission: 0%",
-    commissionPercent: 0,
+    commissionText: "Commission: 1%",
+    commissionPercent: 1,
     productLimitText: "Product Limit: Unlimited products",
     productLimit: null,
     includedBullets: [
       "Upload unlimited approved products",
-      "0% commission on all sales",
+      "1% commission on all sales",
       "Direct messaging with customers",
       "External website link on vendor profile",
       "VIP placement and priority marketplace visibility",
