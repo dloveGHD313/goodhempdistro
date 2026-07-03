@@ -1,41 +1,40 @@
 /**
- * Stripe Connect destination-charge computation for product checkout.
+ * Platform-fee computation for product checkout — reserve-transfer model.
  *
- * When a vendor has an active Stripe Connect account (charges_enabled=true,
- * payouts_enabled=true), checkout uses a destination charge:
+ * ── P0-1 HISTORY (2026-07-03) ─────────────────────────────────────────────
+ * The original PR-B implementation used Stripe Connect DESTINATION CHARGES
+ * (`transfer_data.destination` + `application_fee_amount`), which pays the
+ * vendor their net IMMEDIATELY at charge time. But the checkout.session.
+ * completed webhook ALSO queued the same vendor net into platform_reserve,
+ * and the daily cron created a SECOND stripe.transfers.create for the same
+ * amount 7 days later → vendor paid ~2× net on every Connect order.
  *
- *   payment_intent_data: {
- *     application_fee_amount: <platform_fee_cents>,
- *     transfer_data: { destination: <stripe_account_id> },
- *     on_behalf_of: <stripe_account_id>,
- *   }
+ * Per the 7-day-hold CEO directive (see lib/server/platformReserve.ts), the
+ * reserve-then-transfer path is the intended payment mechanism. So checkout
+ * no longer creates destination charges at all:
  *
- * Platform fee is computed from vendor.tier via lib/billing/tier-mapping.ts
- * + lib/referral.ts COMMISSION_RATES. The fee applies to the PRODUCT subtotal
- * only — delivery fees go entirely to the platform (or driver), not to the
- * vendor, so they're excluded from the application_fee base.
+ *   1. CHECKOUT — full charge settles on the PLATFORM account. We compute
+ *      the platform fee from the vendor's tier and write it to session
+ *      metadata (platform_fee_cents / platform_fee_tier / platform_fee_bps).
+ *   2. WEBHOOK — checkout.session.completed reads the metadata and queues a
+ *      platform_reserve row for vendor net = gross − fee, held 7 days.
+ *   3. CRON — /api/cron/release-reserves transfers the net to the vendor's
+ *      Connect account once the hold elapses. resolveDestinationAccount()
+ *      skips vendors whose Connect account is missing/not-enabled and the
+ *      next tick retries — so onboarding can complete AFTER the sale and
+ *      the vendor still gets paid.
  *
- * Failure modes (all return null → checkout falls back to platform-collection
- * behavior, vendor gets no transfer this round; admin reconciles manually):
- *
- *   - vendor has no Connect account yet
- *   - Connect account exists but charges_enabled / payouts_enabled is false
- *     (KYC incomplete, restricted, disabled)
- *   - vendor row missing or tier null
- *
- * In every failure case we log a structured warn so production logs surface
- * unconnected vendors that started getting orders. Future PR-D's cron should
- * also flag these.
+ * Because payment happens at release time (not charge time), the fee
+ * computation here deliberately does NOT check the vendor's Connect account
+ * health — a vendor mid-onboarding still accrues reserves. Eligibility is
+ * enforced exactly once, at transfer time, by the cron.
  */
 
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { COMMISSION_RATES } from "@/lib/referral";
 import type { VendorTier } from "@/lib/billing/tier-mapping";
 
-export type ConnectFeeParams = {
-  /** Stripe Connect destination account ID (acct_...). */
-  destination: string;
-  /** Platform fee in cents — subtract this from gross to know vendor net. */
+export type PlatformFeeParams = {
+  /** Platform fee in cents — vendor net = gross − this. */
   applicationFeeAmount: number;
   /** Tier used for fee calculation (audit trail). */
   tier: VendorTier;
@@ -43,17 +42,10 @@ export type ConnectFeeParams = {
   feeBps: number;
 };
 
-export type ConnectFeeContext = {
+export type PlatformFeeContext = {
   vendorId: string;
-  vendorOwnerUserId: string;
   /** Product (or order) subtotal that the fee is computed against. Cents. */
   productSubtotalCents: number;
-};
-
-type ConnectAccountRow = {
-  stripe_account_id: string;
-  charges_enabled: boolean;
-  payouts_enabled: boolean;
 };
 
 type VendorRow = {
@@ -64,80 +56,56 @@ const isValidTier = (t: string | null | undefined): t is VendorTier =>
   t === "starter" || t === "mid" || t === "top";
 
 /**
- * Compute Connect destination charge params for the given vendor + subtotal.
- * Returns null when no destination charge should be applied (vendor not
- * connected / Connect account not enabled / vendor row missing).
+ * Compute the platform fee for the given vendor + subtotal, from the
+ * vendor's tier alone. Returns null when the fee can't be computed
+ * (vendor row missing, tier invalid, bad subtotal) — checkout proceeds
+ * without fee metadata and no reserve is queued (admin reconciles).
  *
  * @param admin - Supabase admin (service-role) client
- * @param ctx - vendor + subtotal context
  */
-export async function getConnectFeeForCheckout(
+export async function getPlatformFeeForCheckout(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- avoids deep Supabase generic instantiation in callers
   admin: any,
-  ctx: ConnectFeeContext
-): Promise<ConnectFeeParams | null> {
-  const { vendorId, vendorOwnerUserId, productSubtotalCents } = ctx;
+  ctx: PlatformFeeContext
+): Promise<PlatformFeeParams | null> {
+  const { vendorId, productSubtotalCents } = ctx;
 
-  if (!vendorOwnerUserId) {
-    console.warn("[connect-fees] no vendor owner_user_id — skipping destination charge", { vendorId });
+  if (!vendorId) {
+    console.warn("[platform-fees] no vendorId — skipping fee metadata");
     return null;
   }
 
   if (!Number.isFinite(productSubtotalCents) || productSubtotalCents <= 0) {
-    console.warn("[connect-fees] invalid subtotal — skipping destination charge", {
+    console.warn("[platform-fees] invalid subtotal — skipping fee metadata", {
       vendorId,
       productSubtotalCents,
     });
     return null;
   }
 
-  // Fetch Connect account + vendor in parallel — both are point lookups
-  const [connectResult, vendorResult] = await Promise.all([
-    admin
-      .from("vendor_connect_accounts")
-      .select("stripe_account_id, charges_enabled, payouts_enabled")
-      .eq("user_id", vendorOwnerUserId)
-      .maybeSingle(),
-    admin.from("vendors").select("tier").eq("id", vendorId).maybeSingle(),
-  ]);
+  const { data: vendor } = await admin
+    .from("vendors")
+    .select("tier")
+    .eq("id", vendorId)
+    .maybeSingle();
 
-  const connect = (connectResult.data ?? null) as ConnectAccountRow | null;
-  const vendor = (vendorResult.data ?? null) as VendorRow | null;
+  const vendorRow = (vendor ?? null) as VendorRow | null;
 
-  if (!connect) {
-    console.warn("[connect-fees] vendor has no Connect account — skipping destination charge", {
+  if (!vendorRow || !isValidTier(vendorRow.tier)) {
+    console.warn("[platform-fees] vendor row missing or tier invalid — skipping fee metadata", {
       vendorId,
-      vendorOwnerUserId,
+      tier: vendorRow?.tier ?? null,
     });
     return null;
   }
 
-  if (!connect.charges_enabled || !connect.payouts_enabled) {
-    console.warn("[connect-fees] Connect account not fully enabled — skipping destination charge", {
-      vendorId,
-      stripe_account_id: connect.stripe_account_id,
-      charges_enabled: connect.charges_enabled,
-      payouts_enabled: connect.payouts_enabled,
-    });
-    return null;
-  }
-
-  if (!vendor || !isValidTier(vendor.tier)) {
-    console.warn("[connect-fees] vendor row missing or tier invalid — skipping destination charge", {
-      vendorId,
-      tier: vendor?.tier ?? null,
-    });
-    return null;
-  }
-
-  const tier = vendor.tier;
+  const tier = vendorRow.tier;
   const feeBps = COMMISSION_RATES[tier];
-  // Use Math.floor so we never overcharge the vendor — fee is always
-  // rounded down to the nearest cent.
+  // Math.floor so we never overcharge the vendor — fee always rounds down.
   const applicationFeeAmount = Math.floor((productSubtotalCents * feeBps) / 10000);
 
   if (applicationFeeAmount < 0) {
-    console.warn("[connect-fees] computed negative application_fee_amount — skipping destination charge", {
+    console.warn("[platform-fees] computed negative fee — skipping fee metadata", {
       vendorId,
       productSubtotalCents,
       feeBps,
@@ -145,33 +113,5 @@ export async function getConnectFeeForCheckout(
     return null;
   }
 
-  return {
-    destination: connect.stripe_account_id,
-    applicationFeeAmount,
-    tier,
-    feeBps,
-  };
-}
-
-/**
- * Build the Stripe `payment_intent_data` block for a Checkout Session when
- * the vendor has an active Connect account. Returns `undefined` when no
- * destination charge should be applied — callers should spread the result
- * conditionally:
- *
- *   const piData = buildPaymentIntentData(connectFee);
- *   stripe.checkout.sessions.create({
- *     ...,
- *     ...(piData ? { payment_intent_data: piData } : {}),
- *   });
- */
-export function buildPaymentIntentData(
-  connectFee: ConnectFeeParams | null,
-): Record<string, unknown> | undefined {
-  if (!connectFee) return undefined;
-  return {
-    application_fee_amount: connectFee.applicationFeeAmount,
-    transfer_data: { destination: connectFee.destination },
-    on_behalf_of: connectFee.destination,
-  };
+  return { applicationFeeAmount, tier, feeBps };
 }

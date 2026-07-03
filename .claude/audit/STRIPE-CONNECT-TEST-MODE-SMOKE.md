@@ -53,10 +53,11 @@ SELECT id, status, total_cents, vendor_id FROM orders WHERE user_id = '<consumer
 ```
 Expect `status='paid'`.
 
-**Stripe Dashboard verification:**
+**Stripe Dashboard verification (updated for P0-1 reserve-transfer model):**
 - Test mode → Payments → most recent → confirm:
-  - **Application fee** > 0 (matches `tier_bps × subtotal / 10000`)
-  - **Transfer** auto-created to the test vendor's connected account
+  - **Full amount settles on the PLATFORM account** — there must be **NO application fee and NO transfer at charge time** (the old destination-charge behavior double-paid vendors; see P0-1)
+  - The Checkout Session metadata carries `platform_fee_cents` / `platform_fee_tier` / `platform_fee_bps`
+- The ONLY vendor payment happens at step 4 (cron release). If you see a transfer to the vendor's account at charge time, the P0-1 fix is not deployed — STOP.
 
 ### 3. Reserve queued
 

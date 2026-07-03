@@ -13,7 +13,7 @@ import {
   isDeliveryAllowedForCategory,
   isSaleAllowedForCategory,
 } from "@/lib/server/hempStateRules";
-import { buildPaymentIntentData, getConnectFeeForCheckout } from "@/lib/billing/connectFees";
+import { getPlatformFeeForCheckout } from "@/lib/billing/connectFees";
 
 type FulfillmentMethod = "pickup" | "delivery" | "shipping";
 
@@ -372,22 +372,23 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Stripe Connect destination charge: if the vendor has an active Connect
-    // account, route the platform fee + vendor net automatically. application_fee
-    // applies to PRODUCT subtotal only — delivery fees stay on the platform
-    // (or get paid out to drivers separately). When no active Connect account
-    // exists, helper returns null and we fall back to full platform collection
-    // (legacy behavior). See lib/billing/connectFees.ts for the exact failure
-    // modes — all of which log a structured warn.
+    // Platform fee metadata (reserve-transfer model — see P0-1 note in
+    // lib/billing/connectFees.ts). The FULL charge settles on the platform
+    // account: no destination charge, no application_fee_amount. The
+    // checkout.session.completed webhook reads platform_fee_cents from
+    // metadata and queues a 7-day platform_reserve for vendor net; the
+    // daily cron makes the ONE transfer to the vendor's Connect account.
+    // Fee applies to PRODUCT subtotal only — delivery fees stay with the
+    // platform (or pay out to drivers separately). Fee is computed from the
+    // vendor's tier alone: a vendor mid-Connect-onboarding still accrues
+    // reserves; the cron enforces Connect eligibility at transfer time.
     const adminForConnect = getSupabaseAdminClient();
-    const connectFee = product.vendor_id && vendorOwnerId
-      ? await getConnectFeeForCheckout(adminForConnect, {
+    const platformFee = product.vendor_id
+      ? await getPlatformFeeForCheckout(adminForConnect, {
           vendorId: product.vendor_id,
-          vendorOwnerUserId: vendorOwnerId,
           productSubtotalCents: lineTotalCents,
         })
       : null;
-    const paymentIntentData = buildPaymentIntentData(connectFee);
 
     // Create Stripe checkout session
     const stripeSession = await stripe.checkout.sessions.create({
@@ -401,11 +402,10 @@ export async function POST(req: NextRequest) {
         order_id: order.id,
         product_id: product.id,
         vendor_id: product.vendor_id || "",
-        platform_fee_cents: connectFee ? String(connectFee.applicationFeeAmount) : "",
-        platform_fee_tier: connectFee?.tier ?? "",
-        platform_fee_bps: connectFee ? String(connectFee.feeBps) : "",
+        platform_fee_cents: platformFee ? String(platformFee.applicationFeeAmount) : "",
+        platform_fee_tier: platformFee?.tier ?? "",
+        platform_fee_bps: platformFee ? String(platformFee.feeBps) : "",
       },
-      ...(paymentIntentData ? { payment_intent_data: paymentIntentData } : {}),
     });
 
     // Update order with session ID
