@@ -394,3 +394,37 @@ Phase 5 — Build #4 Ask JAX thin wrapper (GATE-08 scope: reuse existing /api/ma
 
 Anchor catalog seed: CEO manual task, parallel to Phase 5+ build work. Does not block.
 
+
+---
+
+## 2026-07-10 — Storefront audit P0 + P1s (PRs #202, #203)
+
+Source: GHD-STOREFRONT-AUDIT-2026-07-10 (CEO-pasted inline; file not on disk).
+
+### PR #202 — P0 · COA buy-gate blocked COA-exempt apparel (MERGED)
+
+- Bug: `app/products/[id]/page.tsx` demanded an uploaded COA on EVERY product; GHD Tee (Clothing, `requires_coa=false`) showed disabled Buy Now with "COA required before purchase."
+- Fix: new pure helper `lib/products/buyGate.ts` (`evaluateBuyGate`) — COA only required when `product.category_requires_coa === true` (GATE-03 SSOT). Same conditional drives `buyButtonMessage` + `availabilityMessage`, with reason priority coa > price > stripe > unavailable.
+- Tests: `__tests__/buy-gate.test.ts`, 8 cases incl. THE case (COA-exempt + no COA = buyable) and COA-required + no COA still blocked.
+- Post-deploy verification pending: checklist items 1–2 (Tee Buy Now enabled; guest gating unchanged).
+
+### PR #203 — P1s · /shop redirect + Discover state normalization (MERGED)
+
+- Commit 1: `app/shop/page.tsx` ComingSoonPage → `redirect("/products")`. One canonical catalog home (audit-recommended option).
+- Commit 2: `lib/usStates.ts` (new) — `normalizeUsState` (USPS code | full name → canonical 2-letter code; unrecognizable → null, built on `STATE_NAMES` SSOT) + `sameUsState`. `lib/recommendations.ts` `fetchVendors` no longer exact-matches `.eq("state", viewer.state)`; fetches active vendors (limit×4) and filters in JS via `sameUsState`. TN viewer now matches vendor `state="tennessee"`.
+- Tests: `__tests__/us-states-normalize.test.ts`, 7 cases incl. production data shapes (`tennessee`, `michigan`, `nashville`→null) and null-never-matches guard.
+- NOT touched: `vendors.state` data itself — audit P2, CEO-gated. Read-time normalization makes Discover robust regardless.
+- Post-deploy verification pending: checklist items 3–4.
+
+### BLOCKED — Consumer tier-perks build
+
+- CEO directed: build from `GHD-CONSUMER-TIER-PERKS-SPEC-2026-07-10.md`. File not found: repo, Downloads, Documents, Desktop all searched; not pasted in chat (only the storefront audit was). Audit itself says perk set is "Decision needed from you."
+- Only locked decision in hand: coupon stacking = one platform + one vendor coupon, 25% hard discount cap enforced server-side.
+- Per no-speculative-work rule (and payments/checkout touch = Rule 6 adjacent): HALTED pending the spec document. Will start immediately once pasted or dropped on disk.
+
+### Still-open CEO-side items (reminders, unchanged)
+
+- Stripe env vars "All Environments" scope in Vercel → split so smoke-testmode preview gets `sk_test_`; then re-run Connect money-loop smoke.
+- P0-2: `STRIPE_VENDOR_PRO_ANNUAL_PRICE_ID = price_1TondtEKpXx4yA1RlJ4GrFnI` in Vercel Production.
+- Fire live `customer.subscription.updated` to verify PR #200 admin-client fix.
+- Vendor state data hygiene migration (audit P2) awaiting approval.
