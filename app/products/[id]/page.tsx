@@ -12,6 +12,9 @@ import ReviewSection from "@/components/engagement/ReviewSection";
 import Footer from "@/components/Footer";
 import { isGatedProduct, requireMarketAccess } from "@/lib/server/marketGate";
 import { evaluateBuyGate } from "@/lib/products/buyGate";
+import { TIER_ENTITLEMENTS } from "@/lib/entitlements";
+import { resolveConsumerTier } from "@/lib/server/consumerTier";
+import { calculatePurchasePoints } from "@/lib/consumer-loyalty";
 
 type Product = {
   id: string;
@@ -314,6 +317,17 @@ export default async function ProductDetailPage(props: Props) {
       ? `$${(product.price_cents / 100).toFixed(2)}`
       : "Price unavailable";
   const stripeEnabled = stripeDetected;
+
+  // Perks spec 2026-07-10 §8: "you earn N points" for the logged-in tier.
+  const viewerTier = user ? await resolveConsumerTier(user.id) : "Free";
+  const pointsEarned =
+    user && hasPriceCents
+      ? calculatePurchasePoints(
+          product.price_cents as number,
+          TIER_ENTITLEMENTS[viewerTier].pointsMultiplier
+        )
+      : 0;
+
   // P0 (storefront audit 2026-07-10): COA gates purchase only when the
   // product's CATEGORY requires one (categories.requires_coa SSOT, GATE-03).
   // Gate logic lives in lib/products/buyGate.ts so it's unit-testable.
@@ -387,6 +401,12 @@ export default async function ProductDetailPage(props: Props) {
               <div className="card-glass p-6">
                 <p className="text-muted text-sm mb-2">Price</p>
                 <p className="text-4xl font-bold text-accent">{priceLabel}</p>
+                {pointsEarned > 0 && (
+                  <p className="text-sm text-[var(--brand-lime)] mt-2">
+                    You earn {pointsEarned.toLocaleString()} loyalty points
+                    {viewerTier !== "Free" ? ` (${TIER_ENTITLEMENTS[viewerTier].pointsMultiplier}× ${viewerTier} rate)` : ""}
+                  </p>
+                )}
               </div>
 
               {availabilityMessage && (

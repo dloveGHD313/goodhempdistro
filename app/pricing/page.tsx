@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { getReferralCode } from "@/lib/referral";
 import Footer from "@/components/Footer";
 import { ScrollReveal, Stagger, StaggerChild, HoverLift } from "@/components/motion";
+import ConsumerPerkMatrix from "@/components/perks/ConsumerPerkMatrix";
 
 type VendorPlan = {
   key: string;
@@ -300,6 +301,18 @@ export default function PricingPage() {
                   </StaggerChild>
                 )}
               </Stagger>
+            )}
+
+            {activeTab === "consumer" && (
+              <div className="card-glass p-6 mt-10">
+                <h2 className="text-2xl font-bold mb-1 text-center">
+                  What each membership unlocks
+                </h2>
+                <p className="text-muted text-sm text-center mb-6">
+                  Every tier includes everything below it.
+                </p>
+                <ConsumerPerkMatrix />
+              </div>
             )}
 
             {activeTab === "vendor" && (

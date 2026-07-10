@@ -17,7 +17,8 @@ import {
   calculatePurchasePoints,
   getSpendMilestonesToAward,
 } from "@/lib/consumer-loyalty";
-import { TIER_ENTITLEMENTS, planKeyToTier, resolveConsumerTier } from "@/lib/entitlements";
+import { TIER_ENTITLEMENTS, planKeyToTier } from "@/lib/entitlements";
+import { resolveConsumerTier } from "@/lib/server/consumerTier";
 import { redeemCoupons } from "@/lib/coupons";
 import { recordBrandLoyaltyForOrder } from "@/lib/brandLoyalty";
 import { recordFreeEventTicketRedemption } from "@/lib/events/perks";

@@ -3,7 +3,7 @@ import { stripe, getSiteUrl } from "@/lib/stripe";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import type { TicketPurchase } from "@/lib/events.types";
-import { resolveConsumerTier } from "@/lib/entitlements";
+import { resolveConsumerTier } from "@/lib/server/consumerTier";
 import {
   eventTicketDiscountCents,
   freeEventTicketsRemaining,

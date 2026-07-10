@@ -11,11 +11,8 @@
  */
 
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
-import {
-  TIER_ENTITLEMENTS,
-  resolveConsumerTier,
-  type ConsumerTier,
-} from "@/lib/entitlements";
+import { TIER_ENTITLEMENTS, type ConsumerTier } from "@/lib/entitlements";
+import { resolveConsumerTier } from "@/lib/server/consumerTier";
 
 export type JaxEpisode = {
   id: string;

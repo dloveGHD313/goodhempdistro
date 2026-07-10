@@ -14,7 +14,7 @@ import {
   isSaleAllowedForCategory,
 } from "@/lib/server/hempStateRules";
 import { getPlatformFeeForCheckout } from "@/lib/billing/connectFees";
-import { resolveConsumerTier } from "@/lib/entitlements";
+import { resolveConsumerTier } from "@/lib/server/consumerTier";
 import {
   computeDiscountCents,
   fetchUserCouponsByCodes,

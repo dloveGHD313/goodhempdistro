@@ -15,9 +15,9 @@ import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import {
   BRAND_LOYALTY_ORDER_THRESHOLD,
   TIER_ENTITLEMENTS,
-  resolveConsumerTier,
   type BrandLoyaltyTier,
 } from "@/lib/entitlements";
+import { resolveConsumerTier } from "@/lib/server/consumerTier";
 import { generateCouponCode } from "@/lib/coupons";
 
 /** 90-day validity for brand coupons (tunable). */

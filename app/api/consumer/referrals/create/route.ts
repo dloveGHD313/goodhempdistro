@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 import { getConsumerAccessStatus } from "@/lib/consumer-access";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { getVendorAccessStatus } from "@/lib/vendor-access";
-import { resolveConsumerEntitlements } from "@/lib/entitlements";
+import { resolveConsumerEntitlements } from "@/lib/server/consumerTier";
 import { isReferralLinkEligible } from "@/lib/referral-eligibility";
 
 export async function POST(_req: NextRequest) {
