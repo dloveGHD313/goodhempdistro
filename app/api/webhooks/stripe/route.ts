@@ -20,6 +20,7 @@ import {
 import { TIER_ENTITLEMENTS, planKeyToTier, resolveConsumerTier } from "@/lib/entitlements";
 import { redeemCoupons } from "@/lib/coupons";
 import { recordBrandLoyaltyForOrder } from "@/lib/brandLoyalty";
+import { recordFreeEventTicketRedemption } from "@/lib/events/perks";
 import { isConsumerSubscriptionActive } from "@/lib/consumer-access";
 import { applyPlatformFeesToOrder } from "@/lib/platformFees";
 import { queueAffiliatePayouts, getStripePriceAmount } from "@/lib/referral";
@@ -1462,7 +1463,7 @@ async function handleEventOrderCompleted(
   // Fetch order with items
   const { data: order, error: orderError } = await admin
     .from("event_orders")
-    .select("id, event_id, status")
+    .select("id, event_id, status, user_id")
     .eq("id", orderId)
     .single();
 
@@ -1474,6 +1475,18 @@ async function handleEventOrderCompleted(
   if (order.status === "paid") {
     console.log(`ℹ️ [handleEventOrderCompleted] Order already paid | order_id=${orderId}`);
     return;
+  }
+
+  // Perks §7: burn the Premium free-quarterly-ticket allowance on PAYMENT
+  // (abandoned checkouts don't consume it). Idempotent per event order.
+  const freeTicketCents = Number.parseInt(session.metadata?.free_ticket_cents ?? "", 10);
+  if (Number.isFinite(freeTicketCents) && freeTicketCents > 0 && order.user_id) {
+    await recordFreeEventTicketRedemption({
+      userId: order.user_id,
+      eventOrderId: orderId,
+      eventId: order.event_id,
+      amountCents: freeTicketCents,
+    });
   }
 
   // Fetch order items with ticket types
