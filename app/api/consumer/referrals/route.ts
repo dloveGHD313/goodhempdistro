@@ -24,7 +24,7 @@ export async function GET() {
     });
     if (!eligible) {
       return NextResponse.json(
-        { error: "Referral links are only available to Starter consumers or vendors." },
+        { error: "Referral links are not available for this account." },
         { status: 403 }
       );
     }

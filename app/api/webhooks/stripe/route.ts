@@ -17,7 +17,7 @@ import {
   calculatePurchasePoints,
   getSpendMilestonesToAward,
 } from "@/lib/consumer-loyalty";
-import { TIER_ENTITLEMENTS, planKeyToTier } from "@/lib/entitlements";
+import { TIER_ENTITLEMENTS, planKeyToTier, resolveConsumerTier } from "@/lib/entitlements";
 import { isConsumerSubscriptionActive } from "@/lib/consumer-access";
 import { applyPlatformFeesToOrder } from "@/lib/platformFees";
 import { queueAffiliatePayouts, getStripePriceAmount } from "@/lib/referral";
@@ -358,11 +358,26 @@ async function grantReferralRewardForUser(userId: string) {
   }
 
   for (const referral of referrals) {
+    // Perks spec 2026-07-10: reward is computed from the REFERRER's tier at
+    // grant time — referralRewardPoints × referralEarnMultiplier (Plus →
+    // 500 × 1.5 = 750). The reward_points stored at link creation is
+    // display-only and may be stale if the referrer changed tiers since.
+    const tier = await resolveConsumerTier(referral.referrer_user_id);
+    const perks = TIER_ENTITLEMENTS[tier];
+    const points = Math.round(
+      perks.referralRewardPoints * perks.referralEarnMultiplier
+    );
     const { error } = await admin.rpc("consumer_referrals_grant_reward", {
       p_referral_id: referral.id,
       p_referrer_user_id: referral.referrer_user_id,
-      p_points: referral.reward_points,
-      p_metadata: { source: "subscription" },
+      p_points: points,
+      p_metadata: {
+        source: "subscription",
+        referrer_tier: tier,
+        reward_points_base: perks.referralRewardPoints,
+        earn_multiplier: perks.referralEarnMultiplier,
+        reward_points_at_creation: referral.reward_points,
+      },
     });
 
     if (error && process.env.NODE_ENV !== "production") {
