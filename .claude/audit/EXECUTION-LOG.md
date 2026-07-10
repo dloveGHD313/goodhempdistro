@@ -428,3 +428,41 @@ Source: GHD-STOREFRONT-AUDIT-2026-07-10 (CEO-pasted inline; file not on disk).
 - P0-2: `STRIPE_VENDOR_PRO_ANNUAL_PRICE_ID = price_1TondtEKpXx4yA1RlJ4GrFnI` in Vercel Production.
 - Fire live `customer.subscription.updated` to verify PR #200 admin-client fix.
 - Vendor state data hygiene migration (audit P2) awaiting approval.
+
+---
+
+## 2026-07-10 — Consumer tier-perks build (PRs #204–#211)
+
+Source: GHD-CONSUMER-TIER-PERKS-SPEC-2026-07-10.md (OneDrive/Documents/Claude/Projects). All 8 build steps shipped, CI green, squash-merged in sequence. All spec numbers are CEO-tunable in ONE file: lib/entitlements.ts TIER_ENTITLEMENTS.
+
+| PR | Scope |
+|---|---|
+| #204 | lib/entitlements.ts SSOT — tiers Free/Basic/Plus/Premium, full perk matrix, planKeyToTier (fails closed to Free), 25% cap + 3-order threshold constants; legacy loyalty maps synced (Starter multiplier 1.0→1.25, Free referral 100) |
+| #205 | Purchase points use tier multiplier from SSOT (Free now earns 1.0×; inactive subs no longer keep paid multiplier); subscription bonus tiered 500/1000/2000 on start + each renewal (billing_reason=subscription_cycle, idempotent per invoice) |
+| #206 | Referral grant = referrer's tier at grant time × earn multiplier (Plus → 750); referral links open to all tiers |
+| #207 | consumer_coupons table (prod migration, additive) + monthly grant cron (vercel.json 0 8 1 * *) + checkout stacking (1 platform + 1 vendor, Plus/Premium only) + 25% hard cap clamped server-side; coupons burn on payment via webhook |
+| #208 | brand_loyalty table (prod migration) + paid-webhook hook: 3 orders with a vendor → Bronze/Silver/Gold by tier + vendor-scoped brand coupon; badge on vendor page |
+| #209 | jax_episodes table (prod migration) + tier early access 24/72/168h + members-only episodes; /learning-with-jax/webisodes live |
+| #210 | Event perks: events.tickets_on_sale_at + tier discount 5/10/20% + early on-sale window 24/48h + Premium free quarterly ticket (burns on payment) |
+| #211 | UI: perk matrix on /pricing?tab=consumer, member-perks panel on /account/subscription, "you earn N points" on product pages; entitlements module split pure/server |
+
+### Schema changes (all additive, applied to prod via Supabase MCP + mirrored in supabase/migrations/)
+- consumer_coupons (RLS: user reads own; service-role writes; unique user+grant_key)
+- brand_loyalty (RLS: user reads own; unique user+vendor)
+- jax_episodes (no anon policies — server-side tier gate is the only read path)
+- orders.discount_cents, event_orders.discount_cents, events.tickets_on_sale_at
+
+### Test coverage added
+entitlements (matrix + monotonicity + fail-closed), points math per tier, referral math, coupons (stacking matrix, 25% clamp, floor), brand loyalty thresholds, JAX visibility windows, event perks windows/discounts. Suite: 501 passing.
+
+### CEO knobs / notes
+- All perk numbers: lib/entitlements.ts (config-only edits)
+- Brand coupon validity 90d (lib/brandLoyalty.ts); monthly coupons expire end of granted month (no rollover)
+- Free quarterly event ticket = cheapest ticket in the order; clamped to Stripe 50¢ minimum
+- CRON_SECRET must exist in Vercel prod for the new monthly coupon cron (same secret as release-reserves)
+
+### Logged follow-ups (non-blocking)
+- Coupon funding split: platform-coupon discounts currently reduce the settled amount (vendor absorbs); platform-absorbed accounting is a follow-up
+- Free-ticket perk applies to any event (no "community event" flag exists yet) — CEO may want an event flag
+- Coupon race: parallel checkout sessions could reference the same coupon until webhook burns it (validated active at creation; acceptable v1)
+- jax_episodes has no admin UI — episodes seed via SQL/service role for now
