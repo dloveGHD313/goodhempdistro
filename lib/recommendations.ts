@@ -1,4 +1,5 @@
 import { createSupabaseServerClient, hasSupabase } from "@/lib/supabase";
+import { sameUsState } from "@/lib/usStates";
 import { getUserVerificationStatus } from "@/lib/server/idVerification";
 
 export type ViewerProfile = {
@@ -164,25 +165,32 @@ function scoreEducation(resource: EducationResource, viewer: ViewerProfile | nul
 
 async function fetchVendors(viewer: ViewerProfile | null, limit: number) {
   const supabase = await createSupabaseServerClient();
-  const baseQuery = supabase
+
+  // P1 (storefront audit 2026-07-10): vendor state values are inconsistent
+  // ("TN", "tennessee", "michigan", …) while the viewer's state is a USPS
+  // code. The previous exact-match .eq("state", viewer.state) silently
+  // dropped vendors like "good hemp distro" (state="tennessee") from a TN
+  // viewer's Discover — and with them, their products. Fetch active vendors
+  // and match state in JS with normalizeUsState on BOTH sides. Vendors whose
+  // state isn't recognizable (e.g. a city name) don't state-match but still
+  // surface via the fallback path.
+  const { data: primaryVendors, error } = await supabase
     .from("vendors")
-    .select("id, business_name, description, state, city, vendor_type, categories, tags, status, is_active, is_approved");
-
-  if (viewer?.state) {
-    baseQuery.eq("state", viewer.state);
-  }
-
-  const { data: primaryVendors, error } = await baseQuery
+    .select("id, business_name, description, state, city, vendor_type, categories, tags, status, is_active, is_approved")
     .eq("is_active", true)
     .or("is_approved.eq.true,status.eq.active")
-    .limit(limit * 2);
+    .limit(limit * 4);
 
   if (error) {
     console.error("[recommendations] vendor query failed:", error.message);
     return [];
   }
 
-  return (primaryVendors || []) as DiscoveryVendor[];
+  const vendors = (primaryVendors || []) as DiscoveryVendor[];
+  if (!viewer?.state) return vendors.slice(0, limit * 2);
+
+  const matched = vendors.filter((v) => sameUsState(v.state, viewer.state));
+  return matched.slice(0, limit * 2);
 }
 
 async function fetchFallbackVendors(limit: number, excludeIds: string[]) {
