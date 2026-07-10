@@ -14,6 +14,12 @@ import {
   isSaleAllowedForCategory,
 } from "@/lib/server/hempStateRules";
 import { getPlatformFeeForCheckout } from "@/lib/billing/connectFees";
+import { resolveConsumerTier } from "@/lib/entitlements";
+import {
+  computeDiscountCents,
+  fetchUserCouponsByCodes,
+  selectApplicableCoupons,
+} from "@/lib/coupons";
 
 type FulfillmentMethod = "pickup" | "delivery" | "shipping";
 
@@ -209,6 +215,38 @@ export async function POST(req: NextRequest) {
 
     let totalCents = product.price_cents * quantity;
     const lineTotalCents = product.price_cents * quantity;
+
+    // Member coupons (perks spec 2026-07-10 §4, CEO stacking decision):
+    // validate server-side against the user's OWN coupons; at most one
+    // platform + one vendor coupon (stacking Plus/Premium only, otherwise
+    // best single coupon); total discount clamped to the 25% order cap —
+    // never reject. Discount applies to the product subtotal only, never
+    // delivery fees. Coupons are marked redeemed by the paid webhook, not
+    // here, so abandoned checkouts don't burn them.
+    const rawCouponCodes: string[] = Array.isArray(body?.coupon_codes)
+      ? body.coupon_codes.filter((c: unknown): c is string => typeof c === "string").slice(0, 4)
+      : typeof body?.coupon_code === "string"
+        ? [body.coupon_code]
+        : [];
+    let discountCents = 0;
+    let appliedCouponIds: string[] = [];
+    let appliedCouponCodes: string[] = [];
+    let discountPct = 0;
+    if (rawCouponCodes.length > 0) {
+      const tier = await resolveConsumerTier(user.id);
+      const coupons = await fetchUserCouponsByCodes(user.id, rawCouponCodes);
+      const selection = selectApplicableCoupons({
+        tier,
+        coupons,
+        orderVendorId: product.vendor_id ?? null,
+      });
+      const discount = computeDiscountCents(lineTotalCents, selection.applied);
+      discountCents = discount.discountCents;
+      discountPct = discount.effectivePct;
+      appliedCouponIds = selection.applied.map((c) => c.id);
+      appliedCouponCodes = selection.applied.map((c) => c.code);
+    }
+    totalCents -= discountCents;
     const siteUrl = getSiteUrl(req);
     const vendorOwnerId = Array.isArray(product.vendors)
       ? (product.vendors as { owner_user_id: string }[])[0]?.owner_user_id
@@ -282,6 +320,7 @@ export async function POST(req: NextRequest) {
       delivery_selected: isDelivery,
       fulfillment_method: fulfillmentMethod,
       delivery_status: isDelivery ? "unassigned" : null,
+      discount_cents: discountCents,
     };
     if (deliveryFees) {
       orderPayload.delivery_distance_miles = deliveryFees.distanceMiles;
@@ -382,19 +421,39 @@ export async function POST(req: NextRequest) {
     // platform (or pay out to drivers separately). Fee is computed from the
     // vendor's tier alone: a vendor mid-Connect-onboarding still accrues
     // reserves; the cron enforces Connect eligibility at transfer time.
+    // Platform fee is computed on the DISCOUNTED product subtotal — the
+    // charge that actually settles. Funding-split accounting (platform
+    // absorbs platform-coupon discounts instead of the vendor) is a logged
+    // follow-up; v1 keeps fee ∝ settled amount.
+    const discountedSubtotalCents = lineTotalCents - discountCents;
     const adminForConnect = getSupabaseAdminClient();
     const platformFee = product.vendor_id
       ? await getPlatformFeeForCheckout(adminForConnect, {
           vendorId: product.vendor_id,
-          productSubtotalCents: lineTotalCents,
+          productSubtotalCents: discountedSubtotalCents,
         })
       : null;
+
+    // Stripe: apply the discount as a one-off amount_off coupon so the
+    // charged total matches orders.total_cents (percent_off on the session
+    // would also discount delivery fees — not allowed).
+    let stripeDiscounts: Array<{ coupon: string }> | undefined;
+    if (discountCents > 0) {
+      const stripeCoupon = await stripe.coupons.create({
+        amount_off: discountCents,
+        currency: "usd",
+        duration: "once",
+        name: `Member coupon${appliedCouponCodes.length > 1 ? "s" : ""} (${discountPct}% off items)`,
+      });
+      stripeDiscounts = [{ coupon: stripeCoupon.id }];
+    }
 
     // Create Stripe checkout session
     const stripeSession = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
       line_items: lineItems,
+      ...(stripeDiscounts ? { discounts: stripeDiscounts } : {}),
       success_url: `${siteUrl}/orders/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/orders/cancel`,
       client_reference_id: user.id,
@@ -405,6 +464,8 @@ export async function POST(req: NextRequest) {
         platform_fee_cents: platformFee ? String(platformFee.applicationFeeAmount) : "",
         platform_fee_tier: platformFee?.tier ?? "",
         platform_fee_bps: platformFee ? String(platformFee.feeBps) : "",
+        coupon_ids: appliedCouponIds.join(","),
+        discount_cents: discountCents > 0 ? String(discountCents) : "",
       },
     });
 
@@ -417,6 +478,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       sessionId: stripeSession.id,
       url: stripeSession.url,
+      applied_coupons: appliedCouponCodes,
+      discount_cents: discountCents,
     }, { headers: { "Cache-Control": "no-store" } });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);

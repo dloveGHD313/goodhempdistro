@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/release-reserves",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/grant-member-coupons",
+      "schedule": "0 8 1 * *"
     }
   ]
 }
