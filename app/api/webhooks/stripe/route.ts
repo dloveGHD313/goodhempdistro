@@ -19,6 +19,7 @@ import {
 } from "@/lib/consumer-loyalty";
 import { TIER_ENTITLEMENTS, planKeyToTier, resolveConsumerTier } from "@/lib/entitlements";
 import { redeemCoupons } from "@/lib/coupons";
+import { recordBrandLoyaltyForOrder } from "@/lib/brandLoyalty";
 import { isConsumerSubscriptionActive } from "@/lib/consumer-access";
 import { applyPlatformFeesToOrder } from "@/lib/platformFees";
 import { queueAffiliatePayouts, getStripePriceAmount } from "@/lib/referral";
@@ -763,6 +764,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
     await applyPlatformFeesToOrder(admin, orderId);
     await awardPurchasePointsForOrder(orderId);
     await awardVendorReferralFirstSale(admin, orderId);
+    await recordBrandLoyaltyForOrder(orderId);
 
     // Perks §4: coupons burn on PAYMENT, not on session creation —
     // abandoned checkouts leave them active. The redeem update is scoped
@@ -843,6 +845,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     await applyPlatformFeesToOrder(admin, order.id);
     await awardPurchasePointsForOrder(order.id);
     await awardVendorReferralFirstSale(admin, order.id);
+    await recordBrandLoyaltyForOrder(order.id);
   } else {
     console.warn(`⚠️ [handlePaymentIntentSucceeded] No order found for intent=${paymentIntent.id}`);
   }
