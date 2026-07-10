@@ -148,6 +148,28 @@ export default async function VendorDetailPage(props: Props) {
 
   const listings = await getVendorListings(vendor.id, includeGated);
 
+  // Brand loyalty badge (perks spec 2026-07-10 §5): the viewer's own
+  // Bronze/Silver/Gold status with THIS vendor. RLS: user reads own rows.
+  let brandStatus: string | null = null;
+  let brandOrders = 0;
+  if (user) {
+    const { data: brand } = await supabase
+      .from("brand_loyalty")
+      .select("status, completed_orders")
+      .eq("user_id", user.id)
+      .eq("vendor_id", vendor.id)
+      .maybeSingle();
+    if (brand && brand.status !== "None") {
+      brandStatus = brand.status;
+      brandOrders = brand.completed_orders ?? 0;
+    }
+  }
+  const brandBadgeStyles: Record<string, string> = {
+    Bronze: "text-amber-500 border-amber-500/40 bg-amber-500/15",
+    Silver: "text-slate-300 border-slate-300/40 bg-slate-300/15",
+    Gold: "text-yellow-400 border-yellow-400/40 bg-yellow-400/15",
+  };
+
   return (
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
@@ -162,6 +184,14 @@ export default async function VendorDetailPage(props: Props) {
                 <div className="text-sm text-[var(--brand-lime)] border border-[var(--brand-lime)]/40 bg-[var(--brand-lime)]/15 px-3 py-1 rounded-full inline-flex mb-4">
                   Verified & Approved
                 </div>
+                {brandStatus && (
+                  <div
+                    className={`text-sm border px-3 py-1 rounded-full inline-flex mb-4 ml-2 ${brandBadgeStyles[brandStatus] ?? ""}`}
+                    title={`${brandOrders} completed orders with this vendor`}
+                  >
+                    {brandStatus === "Gold" ? "🥇" : brandStatus === "Silver" ? "🥈" : "🥉"} {brandStatus} member
+                  </div>
+                )}
                 <div className="flex justify-center mb-4">
                   <FavoriteButton entityType="vendor" entityId={vendor.id} size="md" />
                 </div>
