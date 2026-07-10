@@ -18,6 +18,7 @@ import {
   getSpendMilestonesToAward,
 } from "@/lib/consumer-loyalty";
 import { TIER_ENTITLEMENTS, planKeyToTier, resolveConsumerTier } from "@/lib/entitlements";
+import { redeemCoupons } from "@/lib/coupons";
 import { isConsumerSubscriptionActive } from "@/lib/consumer-access";
 import { applyPlatformFeesToOrder } from "@/lib/platformFees";
 import { queueAffiliatePayouts, getStripePriceAmount } from "@/lib/referral";
@@ -762,6 +763,17 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
     await applyPlatformFeesToOrder(admin, orderId);
     await awardPurchasePointsForOrder(orderId);
     await awardVendorReferralFirstSale(admin, orderId);
+
+    // Perks §4: coupons burn on PAYMENT, not on session creation —
+    // abandoned checkouts leave them active. The redeem update is scoped
+    // to status=active, so webhook replays are no-ops.
+    const couponIds = (session.metadata?.coupon_ids ?? "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+    if (couponIds.length > 0) {
+      await redeemCoupons(couponIds, orderId);
+    }
 
     // Phase 4 PR-D — queue 7-day platform_reserve row for the vendor's net
     // share when the session used a Connect destination charge (PR-B added
