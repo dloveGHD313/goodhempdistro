@@ -30,6 +30,11 @@ export function getReferralRewardPoints(tier: keyof typeof REFERRAL_REWARD_POINT
   return REFERRAL_REWARD_POINTS[tier];
 }
 
+/**
+ * @deprecated Flat legacy bonus. The webhook awards the TIERED bonus from
+ * lib/entitlements.ts (subscriptionBonusPoints per tier) — perks spec
+ * 2026-07-10. Kept only for existing tests/back-compat.
+ */
 export function getSubscriptionBonusPoints(): number {
   return SUBSCRIPTION_BONUS_POINTS;
 }
