@@ -1,10 +1,14 @@
+// Tier numbers below mirror lib/entitlements.ts (TIER_ENTITLEMENTS), the
+// perk SSOT keyed by the Free/Basic/Plus/Premium tier names. These legacy
+// Starter/Plus/VIP maps stay for existing callers; keep values in sync.
 export const LOYALTY_MULTIPLIERS = {
-  Starter: 1.0,
+  Starter: 1.25,
   Plus: 1.5,
   VIP: 2.0,
 } as const;
 
 export const REFERRAL_REWARD_POINTS = {
+  Free: 100,
   Starter: 250,
   Plus: 500,
   VIP: 1000,
