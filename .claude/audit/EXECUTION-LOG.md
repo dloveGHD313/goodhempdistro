@@ -466,3 +466,35 @@ entitlements (matrix + monotonicity + fail-closed), points math per tier, referr
 - Free-ticket perk applies to any event (no "community event" flag exists yet) — CEO may want an event flag
 - Coupon race: parallel checkout sessions could reference the same coupon until webhook burns it (validated active at creation; acceptable v1)
 - jax_episodes has no admin UI — episodes seed via SQL/service role for now
+
+---
+
+## 2026-07-14 — Shop visibility, compliance categories, driver insurance (PRs #212–#214)
+
+Source: GHD-SHOP-COMPLIANCE-DRIVER-BRIEF-2026-07-14.md (OneDrive CEO docs folder). P0 → P1 → P2, one PR each, CI green, squash-merged.
+
+### PR #212 — P0 · Silent interest auto-filter hid catalog items (MERGED)
+
+- Root cause was NOT the ship-state toggle (Tee ships to TN; consumer is TN). ProductsList auto-selected the first category whose name contains any SAVED shopping_interest (ghdconsumer: ["Wellness","Business Supplies","Skincare"] → a Wellness category) and silently pre-filtered the entire catalog. Admin has no interests → account-dependent behavior.
+- Fix: category auto-match runs only on explicit ?interests= URL values ("Use My Interests" button / shared links). Helper extracted to lib/products/interestCategoryMatch.ts + 4 regression tests.
+- Post-deploy verify: ghdconsumer sees the Tee on /products and can buy it.
+
+### PR #213 — P1 · Data-driven category compliance matrix (MERGED)
+
+- Schema (prod, additive): categories += requires_age_21, requires_vendor_license_doc, ship_restricted_states[], legal_review_status (approved|pending, DEFAULT pending), category_group; vendors += license_doc_url/license_doc_object_path.
+- Seeds: existing categories approved (preserves GATE-03 behavior); 43 smokable/inhalable/cannabinoid-consumable categories seeded requires_age_21=true (conservative — includes CBD edibles/gummies/tinctures); 10 new convenience/industrial categories inserted PENDING (fully restrictive until reviewed); license flags all false.
+- Enforcement: submit route gates listings on category doc requirements (COA / vendor license); checkout blocks CATEGORY_STATE_BLOCK + treats age-21 categories as gated (21+ ID verification — behavior change on the 43 seeds); /products hides category-state-restricted items server-side.
+- ⚠️ CEO + CANNABIS-ATTORNEY REVIEW REQUIRED: approve the 10 pending categories, tune the 43 age-21 seeds, populate ship_restricted_states. 11 tests pin pending→restrictive, GATE-03 null→true default, listing-gate matrix, state normalization.
+
+### PR #214 — P2 · Driver insurance upload broken (MERGED)
+
+- Diagnosis: 0 applications ever landed with an insurance doc. (1) insurance/registration inputs accepted .pdf only — phone JPG photos unselectable; (2) browser-direct storage upload used upsert:true against an INSERT-only bucket policy → RLS rejection; (3) the error was swallowed into a generic retry message.
+- Fix: /api/drivers/apply-with-docs (service-role, mirrors the working logistics on-demand route) validates PDF/JPG/PNG/WebP ≤10MB server-side, uploads to driver-documents under applications/{id}/, records paths, full cleanup on failure, specific error messages surfaced by the form. Admin review page unchanged (same bucket + relative paths). 6 regression tests.
+- Post-deploy verify: submit a test application with a JPG insurance photo; confirm admin can view the signed URL.
+
+### Follow-ups logged (not guessed)
+
+- Vendor license-doc upload UI (flags exist, all false until it ships)
+- Attorney review pass on the seeded compliance matrix before loosening/launching pending categories
+- ship_restricted_states data entry per category (state divergence on delta-8/THCA/consumables)
+- Legacy /api/drivers/apply route (driver-docs bucket flow) appears unused by any live page — candidate for removal after confirming no callers
