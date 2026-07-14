@@ -11,6 +11,7 @@ import RatingBadge from "@/components/engagement/RatingBadge";
 import Image from "next/image";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { useMarketMode } from "@/lib/marketMode";
+import { matchCategoryForInterests } from "@/lib/products/interestCategoryMatch";
 
 type Product = {
   id: string;
@@ -96,36 +97,36 @@ export default function ProductsList({ initialProducts, initialCategoryId, catal
     };
   }, [supabase]);
 
-  // Resolved interest list: URL > shopping_interests > legacy fields.
-  const effectiveInterests = useMemo<string[]>(() => {
-    if (urlInterests.length > 0) return urlInterests;
-    if (profileInterests.length > 0) return profileInterests;
-    const legacy = [...interestTags, useCase || ""].filter(Boolean);
-    return legacy;
-  }, [urlInterests, profileInterests, interestTags, useCase]);
-
+  // P0 (shop brief 2026-07-14): the category auto-match runs ONLY for
+  // EXPLICIT interests (?interests= in the URL — a shared link or the
+  // "Use My Interests" button). It previously also ran on saved profile
+  // interests, silently pre-filtering the catalog to one category: a
+  // consumer with shopping_interests=["Wellness",…] never saw the
+  // (COA-exempt, buyable) Clothing/Tee on /products. Default view shows
+  // everything legal for the user; profile interests only power the button.
   useEffect(() => {
     if (selectedCategoryId || categories.length === 0) return;
-    const normalized = effectiveInterests.map((value) => value.toLowerCase()).filter(Boolean);
-    if (normalized.length === 0) return;
-    const match = categories.find((category) =>
-      normalized.some((tag) => category.name.toLowerCase().includes(tag))
-    );
+    const match = matchCategoryForInterests(categories, urlInterests);
     if (match) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedCategoryId(match.id);
     }
-  }, [categories, effectiveInterests, selectedCategoryId]);
+  }, [categories, urlInterests, selectedCategoryId]);
 
-  // "Use My Interests" — pushes shopping_interests into the URL so the
-  // filter is shareable and re-applies cleanly. Visible only to users
-  // who have saved interests. (TODO: tighten to paid consumers only
-  // once a server-rendered eligibility prop is wired through.)
-  const canUseMyInterests = profileInterests.length > 0 && urlInterests.length === 0;
+  // "Use My Interests" — pushes saved interests into the URL so the
+  // filter is EXPLICIT, shareable, and clearable. shopping_interests has
+  // priority; legacy consumer_interest_tags/consumer_use_case are the
+  // fallback for pre-Build-10 profiles. (TODO: tighten to paid consumers
+  // only once a server-rendered eligibility prop is wired through.)
+  const savedInterests = useMemo<string[]>(() => {
+    if (profileInterests.length > 0) return profileInterests;
+    return [...interestTags, useCase || ""].filter(Boolean);
+  }, [profileInterests, interestTags, useCase]);
+  const canUseMyInterests = savedInterests.length > 0 && urlInterests.length === 0;
   const applyMyInterests = () => {
-    if (profileInterests.length === 0) return;
+    if (savedInterests.length === 0) return;
     const params = new URLSearchParams(searchParams?.toString() ?? "");
-    params.set("interests", profileInterests.join(","));
+    params.set("interests", savedInterests.join(","));
     router.push(`${pathname}?${params.toString()}`);
     setSelectedCategoryId(""); // re-run the auto-match
   };
