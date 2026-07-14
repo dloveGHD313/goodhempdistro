@@ -16,6 +16,10 @@ import {
 import { getPlatformFeeForCheckout } from "@/lib/billing/connectFees";
 import { resolveConsumerTier } from "@/lib/server/consumerTier";
 import {
+  getCategoryCompliance,
+  isCategoryRestrictedInState,
+} from "@/lib/compliance/categoryCompliance";
+import {
   computeDiscountCents,
   fetchUserCouponsByCodes,
   selectApplicableCoupons,
@@ -105,7 +109,7 @@ export async function POST(req: NextRequest) {
     // Fetch product and vendor (status) for order_items — suspended vendors cannot accept orders (4.3.B)
     const { data: product, error: productError } = await supabase
       .from("products")
-      .select("id, name, price_cents, vendor_id, active, status, is_gated, market_category, product_type, is_intoxicating, is_delta8, vendors(owner_user_id, status)")
+      .select("id, name, price_cents, vendor_id, category_id, active, status, is_gated, market_category, product_type, is_intoxicating, is_delta8, vendors(owner_user_id, status)")
       .eq("id", productId)
       .single();
 
@@ -183,10 +187,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Category compliance matrix (shop brief 2026-07-14 P1): the category's
+    // requires_age_21 flag gates checkout like recreational products, and
+    // ship_restricted_states blocks sale into restricted states. 'pending'
+    // legal-review categories are fully restrictive.
+    const categoryCompliance = await getCategoryCompliance(supabase, product.category_id);
+    if (customerState && isCategoryRestrictedInState(categoryCompliance, customerState)) {
+      return NextResponse.json(
+        {
+          code: "CATEGORY_STATE_BLOCK",
+          message: "This product category cannot be sold in your state due to local regulations.",
+        },
+        { status: 400, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
     const marketMode: "gated" | "ungated" =
       product.is_gated ||
       product.market_category === "RECREATIONAL" ||
-      product.market_category === "INTOXICATING"
+      product.market_category === "INTOXICATING" ||
+      categoryCompliance.requiresAge21
         ? "gated"
         : "ungated";
     const gatedProduct = { ...product, market_mode: marketMode };

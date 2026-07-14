@@ -4,6 +4,10 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { getUserVerificationStatus } from "@/lib/server/idVerification";
 import { getCategoriesCoaRequirementMap } from "@/lib/compliance";
+import {
+  getCategoryComplianceMap,
+  isCategoryRestrictedInState,
+} from "@/lib/compliance/categoryCompliance";
 import Footer from "@/components/Footer";
 import ProductsList from "./ProductsList";
 import MarketSwitcher from "@/components/market/MarketSwitcher";
@@ -54,7 +58,9 @@ async function getProducts(
   vendorId?: string | null,
   includeGated = false,
   /** When true, only return products whose category does NOT require COA (Phase 3B: public shop). */
-  publicShopOnly = false
+  publicShopOnly = false,
+  /** Viewer's US state — category-level ship_restricted_states filter (brief 2026-07-14 P1). */
+  viewerState: string | null = null
 ): Promise<{
   products: Product[];
   vendorName?: string | null;
@@ -169,6 +175,18 @@ async function getProducts(
       products = products.filter((p) => p.category_requires_coa !== true);
     }
 
+    // Category-level state restriction (brief 2026-07-14 P1): hide products
+    // whose category can't ship/sell to the viewer's state. Data-driven via
+    // categories.ship_restricted_states; checkout re-enforces server-side.
+    if (viewerState) {
+      const complianceMap = await getCategoryComplianceMap(queryClient, categoryIds);
+      products = products.filter((p) => {
+        if (!p.category_id) return true;
+        const compliance = complianceMap[p.category_id];
+        return !compliance || !isCategoryRestrictedInState(compliance, viewerState);
+      });
+    }
+
     return { products, vendorName, productsLookupFailed: false };
   } catch (err) {
     console.error("[products] Fatal error fetching products:", err);
@@ -202,9 +220,9 @@ export default async function ProductsPage({
   const verification = await getUserVerificationStatus(user?.id ?? null);
   const includeGated = verification.status === "approved";
   const publicShopOnly = !user;
-  const { products, vendorName, productsLookupFailed } = await getProducts(vendorId, includeGated, publicShopOnly);
 
-  // Fetch user's onboarding state for shipping filter
+  // Fetch user's onboarding state first — used for both the category-level
+  // state restriction (server-side) and the client shipping filter.
   let userState: string | null = null;
   if (user) {
     try {
@@ -218,6 +236,13 @@ export default async function ProductsPage({
       // non-critical — filter just won't pre-apply
     }
   }
+
+  const { products, vendorName, productsLookupFailed } = await getProducts(
+    vendorId,
+    includeGated,
+    publicShopOnly,
+    userState
+  );
   const countClient = (() => {
     try {
       return getSupabaseAdminClient();
