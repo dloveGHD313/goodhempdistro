@@ -5,10 +5,13 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { getConsumerEntitlements, getConsumerPlanByKey } from "@/lib/consumer-plans";
 import { isAdminEmail } from "@/lib/admin";
-import { isStarterConsumerPlanKey } from "@/lib/referral-eligibility";
 import Footer from "@/components/Footer";
 import BillingPortalButton from "./BillingPortalButton";
 import ReferralCodeCard from "./ReferralCodeCard";
+import ConsumerPerkMatrix from "@/components/perks/ConsumerPerkMatrix";
+import { TIER_ENTITLEMENTS, planKeyToTier } from "@/lib/entitlements";
+import { isConsumerSubscriptionActive } from "@/lib/consumer-access";
+import { getBrandLoyaltyStatuses } from "@/lib/brandLoyalty";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -40,7 +43,35 @@ export default async function AccountSubscriptionPage() {
   const planKey = subscription?.consumer_plan_key || null;
   const entitlements = planKey ? getConsumerEntitlements(planKey) : null;
   const planConfig = planKey ? getConsumerPlanByKey(planKey) : null;
-  const canShowReferralCard = isAdmin || isStarterConsumerPlanKey(planKey);
+  // Perks spec 2026-07-10: referral links are open to all tiers.
+  const canShowReferralCard = true;
+
+  // Perks (spec §8): current tier + live perk state.
+  const tier = isConsumerSubscriptionActive(subscription?.subscription_status)
+    ? planKeyToTier(planKey)
+    : "Free";
+  const perks = TIER_ENTITLEMENTS[tier];
+
+  const { data: activeCoupons } = await admin
+    .from("consumer_coupons")
+    .select("code, percent_off, source, status, expires_at")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .order("expires_at", { ascending: true });
+
+  const brandStatuses = (await getBrandLoyaltyStatuses(user.id)).filter(
+    (b) => b.status !== "None"
+  );
+  let brandVendorNames = new Map<string, string>();
+  if (brandStatuses.length > 0) {
+    const { data: brandVendors } = await admin
+      .from("vendors")
+      .select("id, business_name")
+      .in("id", brandStatuses.map((b) => b.vendor_id));
+    brandVendorNames = new Map(
+      (brandVendors || []).map((v) => [v.id, v.business_name])
+    );
+  }
 
   const { data: loyalty } = await admin
     .from("consumer_loyalty")
@@ -178,6 +209,95 @@ export default async function AccountSubscriptionPage() {
               </div>
             </div>
           )}
+
+          {/* Member perks (perks spec 2026-07-10 §8) */}
+          <div className="surface-card p-6 mt-8">
+            <h2 className="text-2xl font-semibold mb-4">
+              Your member perks — {tier}
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="surface-card p-4">
+                <div className="text-xs uppercase tracking-wide text-muted">Points multiplier</div>
+                <div className="text-2xl font-semibold text-white">
+                  {perks.pointsMultiplier}× on every purchase
+                </div>
+              </div>
+              <div className="surface-card p-4">
+                <div className="text-xs uppercase tracking-wide text-muted">
+                  Learning with JAX
+                </div>
+                <div className="text-base text-white">
+                  {perks.jaxEarlyAccessHours > 0
+                    ? `${perks.jaxEarlyAccessHours / 24}-day early access${perks.jaxMembersOnly ? " + members-only episodes" : ""}`
+                    : "Episodes on public release"}
+                </div>
+              </div>
+              <div className="surface-card p-4">
+                <div className="text-xs uppercase tracking-wide text-muted">Event tickets</div>
+                <div className="text-base text-white">
+                  {perks.eventTicketDiscountPct > 0
+                    ? `${perks.eventTicketDiscountPct}% off${perks.eventEarlyAccessHours > 0 ? ` · ${perks.eventEarlyAccessHours}h early` : ""}${perks.freeEventTicketsPerQuarter > 0 ? " · 1 free community ticket/quarter" : ""}`
+                    : "Full price"}
+                </div>
+              </div>
+            </div>
+
+            <h3 className="text-lg font-semibold mb-2">Your coupons</h3>
+            {activeCoupons && activeCoupons.length > 0 ? (
+              <ul className="text-sm space-y-2 mb-6">
+                {activeCoupons.map((coupon) => (
+                  <li key={coupon.code} className="flex items-center gap-3">
+                    <code className="bg-[var(--bg)] border border-white/10 px-2 py-1 rounded">
+                      {coupon.code}
+                    </code>
+                    <span className="text-white">{Number(coupon.percent_off)}% off</span>
+                    <span className="text-muted">
+                      {coupon.source === "vendor" ? "vendor coupon" : "platform coupon"}
+                      {coupon.expires_at
+                        ? ` · expires ${new Date(coupon.expires_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                        : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted mb-6">
+                {perks.monthlyCoupons
+                  ? `Your ${perks.monthlyCoupons.count} × ${perks.monthlyCoupons.percentOff}% member coupon${perks.monthlyCoupons.count > 1 ? "s" : ""} arrive at the start of each month.`
+                  : "Members receive monthly platform coupons — upgrade to unlock."}
+              </p>
+            )}
+
+            {brandStatuses.length > 0 && (
+              <>
+                <h3 className="text-lg font-semibold mb-2">Brand loyalty</h3>
+                <ul className="text-sm space-y-2 mb-6">
+                  {brandStatuses.map((b) => (
+                    <li key={b.vendor_id} className="flex items-center gap-3">
+                      <span>
+                        {b.status === "Gold" ? "🥇" : b.status === "Silver" ? "🥈" : "🥉"}
+                      </span>
+                      <span className="text-white">
+                        {brandVendorNames.get(b.vendor_id) || "Vendor"}
+                      </span>
+                      <span className="text-muted">
+                        {b.status} · {b.completed_orders} orders
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+
+            <details>
+              <summary className="cursor-pointer text-accent text-sm font-semibold">
+                Compare all membership tiers
+              </summary>
+              <div className="mt-4">
+                <ConsumerPerkMatrix highlightTier={tier} />
+              </div>
+            </details>
+          </div>
         </section>
       </main>
       <Footer />

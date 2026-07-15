@@ -1,20 +1,13 @@
-import type { Metadata } from "next";
-import ComingSoonPage from "@/components/ComingSoonPage";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Shop Hemp Products | Good Hemp Distro",
-  description:
-    "The Good Hemp Distro shop is launching with COA-verified hemp products from vetted vendors. Get notified when our shop opens.",
-};
-
-export default function ShopPage() {
-  return (
-    <ComingSoonPage
-      eyebrow="Coming Soon"
-      headline="The shop is almost open."
-      valueProp="We're seeding the catalog with COA-verified hemp products from vetted vendors. Drop your email and we'll let you know the moment the doors open."
-      source="shop-coming-soon"
-      secondaryCta={{ label: "Browse vendors instead", href: "/vendors" }}
-    />
-  );
+/**
+ * /shop → /products (P1, storefront audit 2026-07-10).
+ *
+ * The live catalog is /products — MascotAssistant, /welcome, and order pages
+ * all link there. This route previously rendered a "Coming Soon" placeholder
+ * (PR #175, when the catalog was empty), which became a dead end that lost
+ * sales once /products went live. One canonical catalog home.
+ */
+export default function ShopRedirect() {
+  redirect("/products");
 }

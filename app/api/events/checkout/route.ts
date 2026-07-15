@@ -3,6 +3,12 @@ import { stripe, getSiteUrl } from "@/lib/stripe";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import type { TicketPurchase } from "@/lib/events.types";
+import { resolveConsumerTier } from "@/lib/server/consumerTier";
+import {
+  eventTicketDiscountCents,
+  freeEventTicketsRemaining,
+  isTicketSalesOpenForTier,
+} from "@/lib/events/perks";
 
 /** Normalize email for guest checkout */
 function parseEmail(value: unknown): string | null {
@@ -71,7 +77,7 @@ export async function POST(req: NextRequest) {
     const admin = getSupabaseAdminClient();
     const { data: event, error: eventError } = await admin
       .from("events")
-      .select("id, title, capacity, tickets_sold, status")
+      .select("id, title, capacity, tickets_sold, status, tickets_on_sale_at")
       .eq("id", event_id)
       .single();
 
@@ -83,6 +89,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Event is not available for ticket purchases" },
         { status: 400 }
+      );
+    }
+
+    // Event perks (spec 2026-07-10 §7): resolve the buyer's tier once —
+    // guests are Free. Drives the early on-sale window, the tier discount,
+    // and the Premium free-quarterly-ticket perk below.
+    const tier = user ? await resolveConsumerTier(user.id) : "Free";
+
+    // Early on-sale window: Plus 24h / Premium 48h before the public time.
+    const salesWindow = isTicketSalesOpenForTier(
+      event.tickets_on_sale_at ?? null,
+      tier
+    );
+    if (!salesWindow.open) {
+      return NextResponse.json(
+        {
+          code: "TICKETS_NOT_ON_SALE",
+          error: "Tickets are not on sale yet for your membership level.",
+          opens_at: salesWindow.opensAt?.toISOString() ?? null,
+        },
+        { status: 403 }
       );
     }
 
@@ -135,15 +162,42 @@ export async function POST(req: NextRequest) {
       totalCents += ticketType.price_cents * purchase.quantity;
     }
 
+    // Tier discount (0/5/10/20%) on the ticket subtotal, floor rounding.
+    // Premium may additionally redeem 1 free community-event ticket per
+    // quarter (cheapest single ticket in the order becomes free; redemption
+    // is recorded by the paid webhook so abandoned checkouts don't burn it).
+    const discountPctCents = eventTicketDiscountCents(totalCents, tier);
+    let freeTicketCents = 0;
+    const wantsFreeTicket = body?.use_free_quarterly_ticket === true;
+    if (wantsFreeTicket && user) {
+      const remaining = await freeEventTicketsRemaining(user.id, tier);
+      if (remaining > 0) {
+        const cheapestTicketCents = Math.min(
+          ...normalizedTickets.map(
+            (t) => ticketTypeMap.get(t.ticket_type_id)!.price_cents
+          )
+        );
+        if (Number.isFinite(cheapestTicketCents) && cheapestTicketCents > 0) {
+          freeTicketCents = cheapestTicketCents;
+        }
+      }
+    }
+    // Stripe payment-mode sessions can't charge $0 — keep at least the
+    // 50¢ card minimum when a free ticket + discount would zero the order.
+    const maxDiscount = Math.max(totalCents - 50, 0);
+    const discountCents = Math.min(discountPctCents + freeTicketCents, maxDiscount);
+    totalCents -= discountCents;
+
     const orderUserId = user?.id ?? null;
     const orderEmail = isGuest ? purchaser_email : null;
 
     // Create pending event order (guest: user_id null, purchaser_email set)
-    const insertPayload: { user_id: string | null; event_id: string; total_cents: number; status: string; purchaser_email?: string | null } = {
+    const insertPayload: { user_id: string | null; event_id: string; total_cents: number; status: string; discount_cents: number; purchaser_email?: string | null } = {
       user_id: orderUserId,
       event_id: event_id,
       total_cents: totalCents,
       status: "pending",
+      discount_cents: discountCents,
     };
     if (orderEmail) insertPayload.purchaser_email = orderEmail;
 
@@ -202,10 +256,24 @@ export async function POST(req: NextRequest) {
       };
     });
 
+    // Apply the tier discount (+ free quarterly ticket) as a one-off
+    // amount_off coupon so the charge matches event_orders.total_cents.
+    let stripeDiscounts: Array<{ coupon: string }> | undefined;
+    if (discountCents > 0) {
+      const stripeCoupon = await stripe.coupons.create({
+        amount_off: discountCents,
+        currency: "usd",
+        duration: "once",
+        name: freeTicketCents > 0 ? "Member perk (incl. free ticket)" : "Member ticket discount",
+      });
+      stripeDiscounts = [{ coupon: stripeCoupon.id }];
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
       line_items: lineItems,
+      ...(stripeDiscounts ? { discounts: stripeDiscounts } : {}),
       success_url: `${siteUrl}/events/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/events/checkout/cancel`,
       metadata: {
@@ -213,6 +281,9 @@ export async function POST(req: NextRequest) {
         order_id: eventOrder.id,
         order_type: "event",
         ...(orderUserId ? { user_id: orderUserId } : {}),
+        ...(freeTicketCents > 0
+          ? { free_ticket_cents: String(freeTicketCents) }
+          : {}),
       },
       ...(orderEmail ? { customer_email: orderEmail } : {}),
     });

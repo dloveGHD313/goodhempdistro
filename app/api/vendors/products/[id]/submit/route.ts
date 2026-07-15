@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { requireVendorActive } from "@/lib/server/vendorStatusGate";
-import { getCategoryCoaRequirement } from "@/lib/compliance";
+import { getCategoryCompliance, evaluateListingGate } from "@/lib/compliance/categoryCompliance";
 import { isAdminEmail } from "@/lib/admin";
 import { revalidatePath } from "next/cache";
 
@@ -94,18 +94,44 @@ export async function POST(
       status: product.status,
     });
 
-    // COA required for vendors before submit (admin bypass)
+    // Upload-time compliance gate (shop brief 2026-07-14 P1): the category's
+    // compliance matrix decides which documents must be on file before the
+    // listing can go to review. Non-gated categories (apparel, paper goods…)
+    // require nothing; 'pending' legal-review categories are fully
+    // restrictive. Admin bypass preserved.
     const isAdmin = isAdminEmail(user.email);
-    const categoryRequiresCoa = await getCategoryCoaRequirement(supabase, product.category_id);
-    const effectiveRequiresCoa = !isAdmin && categoryRequiresCoa;
-    if (effectiveRequiresCoa) {
+    if (!isAdmin) {
+      const compliance = await getCategoryCompliance(supabase, product.category_id);
+
       const hasCoaUrl = !!product.coa_url && String(product.coa_url).trim().length > 0;
       const hasCoaPath = !!product.coa_object_path && String(product.coa_object_path).trim().length > 0;
-      if (!hasCoaUrl && !hasCoaPath) {
+
+      let vendorHasLicenseDoc = true;
+      if (compliance.requiresVendorLicenseDoc) {
+        const { data: vendorDocs } = await supabase
+          .from("vendors")
+          .select("license_doc_url, license_doc_object_path")
+          .eq("owner_user_id", user.id)
+          .maybeSingle();
+        vendorHasLicenseDoc = Boolean(
+          (vendorDocs?.license_doc_url && String(vendorDocs.license_doc_url).trim()) ||
+            (vendorDocs?.license_doc_object_path && String(vendorDocs.license_doc_object_path).trim())
+        );
+      }
+
+      const gate = evaluateListingGate({
+        compliance,
+        hasCoa: hasCoaUrl || hasCoaPath,
+        vendorHasLicenseDoc,
+      });
+      if (!gate.canSubmit) {
+        const message = gate.missing.includes("coa")
+          ? "A COA (Certificate of Analysis) is required for this product category before submitting for review."
+          : "A hemp/processing license document is required on your vendor profile for this product category.";
         return NextResponse.json(
           process.env.NODE_ENV === "production"
-            ? { error: "COA is required for this product category before submitting for review." }
-            : { error: "COA is required for this product category before submitting for review.", requestId },
+            ? { error: message, missing: gate.missing }
+            : { error: message, missing: gate.missing, requestId },
           { status: 400 }
         );
       }

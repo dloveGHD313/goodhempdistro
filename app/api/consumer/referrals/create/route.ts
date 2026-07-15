@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getConsumerAccessStatus } from "@/lib/consumer-access";
-import { getConsumerEntitlements } from "@/lib/consumer-plans";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { getVendorAccessStatus } from "@/lib/vendor-access";
-import { REFERRAL_SIGNUP_BONUS_POINTS } from "@/lib/consumer-loyalty";
-import { isReferralLinkEligible, isStarterConsumerPlanKey } from "@/lib/referral-eligibility";
+import { resolveConsumerEntitlements } from "@/lib/server/consumerTier";
+import { isReferralLinkEligible } from "@/lib/referral-eligibility";
 
 export async function POST(_req: NextRequest) {
   try {
@@ -27,16 +26,19 @@ export async function POST(_req: NextRequest) {
 
     if (!eligible) {
       return NextResponse.json(
-        { error: "Referral links are only available to Starter consumers or vendors." },
+        { error: "Referral links are not available for this account." },
         { status: 403 }
       );
     }
 
-    const entitlements = access.planKey ? getConsumerEntitlements(access.planKey) : null;
-    const isStarter = isStarterConsumerPlanKey(access.planKey);
-    const rewardPoints = isStarter
-      ? entitlements?.referralRewardPoints ?? REFERRAL_SIGNUP_BONUS_POINTS
-      : REFERRAL_SIGNUP_BONUS_POINTS;
+    // Perks spec 2026-07-10: reward = tier's referralRewardPoints × its
+    // referralEarnMultiplier (verification #3: Plus → 500 × 1.5 = 750).
+    // Stored here for display; the grant path recomputes from the
+    // referrer's tier at grant time, which is authoritative.
+    const { entitlements } = await resolveConsumerEntitlements(user.id);
+    const rewardPoints = Math.round(
+      entitlements.referralRewardPoints * entitlements.referralEarnMultiplier
+    );
 
     const admin = getSupabaseAdminClient();
     const { data, error } = await admin.rpc("consumer_referrals_create", {

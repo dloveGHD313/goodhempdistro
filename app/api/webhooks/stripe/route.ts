@@ -8,7 +8,7 @@ import { getStripeServer } from "@/lib/stripe/server";
 import { assertStripeLiveSecret, assertStripeWebhookSecret, isStripeProductionEnv } from "@/lib/stripe/liveGuard";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 import { getVendorPlanByPriceId } from "@/lib/pricing";
-import { getConsumerPlanByKey, getConsumerPlanByPriceId } from "@/lib/consumer-plans";
+import { getConsumerPlanByPriceId } from "@/lib/consumer-plans";
 import { getInternalPlanFromStripePriceId } from "@/lib/stripe/planMapping";
 import {
   BONUS_POINTS_PER_100_SPENT,
@@ -16,8 +16,13 @@ import {
   HIGH_SPEND_THRESHOLD_DOLLARS,
   calculatePurchasePoints,
   getSpendMilestonesToAward,
-  getSubscriptionBonusPoints,
 } from "@/lib/consumer-loyalty";
+import { TIER_ENTITLEMENTS, planKeyToTier } from "@/lib/entitlements";
+import { resolveConsumerTier } from "@/lib/server/consumerTier";
+import { redeemCoupons } from "@/lib/coupons";
+import { recordBrandLoyaltyForOrder } from "@/lib/brandLoyalty";
+import { recordFreeEventTicketRedemption } from "@/lib/events/perks";
+import { isConsumerSubscriptionActive } from "@/lib/consumer-access";
 import { applyPlatformFeesToOrder } from "@/lib/platformFees";
 import { queueAffiliatePayouts, getStripePriceAmount } from "@/lib/referral";
 import {
@@ -294,24 +299,36 @@ async function resolveConsumerUserId(params: {
   return null;
 }
 
+/**
+ * Tiered welcome/renewal bonus (perks spec 2026-07-10): Basic 500,
+ * Plus 1000, Premium 2000. Awarded on subscription start (renewalInvoiceId
+ * omitted — idempotent per subscription_id, so replays and the
+ * customer.subscription.updated echo of a checkout can't double-award) and
+ * on each renewal cycle (renewalInvoiceId set — idempotent per invoice).
+ */
 async function awardConsumerSubscriptionBonus(
   userId: string,
   planKey: string | null,
-  subscriptionId: string
+  subscriptionId: string,
+  renewalInvoiceId?: string
 ) {
-  const bonusPoints = getSubscriptionBonusPoints();
+  const bonusPoints =
+    TIER_ENTITLEMENTS[planKeyToTier(planKey)].subscriptionBonusPoints;
   if (bonusPoints <= 0) {
     return;
   }
 
   const admin = getSupabaseAdminClient();
-  const { data: existing } = await admin
+  let dedupe = admin
     .from("consumer_loyalty_events")
     .select("id")
     .eq("user_id", userId)
     .eq("event_type", "subscription_bonus")
-    .filter("metadata->>subscription_id", "eq", subscriptionId)
-    .maybeSingle();
+    .filter("metadata->>subscription_id", "eq", subscriptionId);
+  dedupe = renewalInvoiceId
+    ? dedupe.filter("metadata->>renewal_invoice_id", "eq", renewalInvoiceId)
+    : dedupe.is("metadata->renewal_invoice_id", null);
+  const { data: existing } = await dedupe.maybeSingle();
 
   if (existing?.id) {
     return;
@@ -320,7 +337,11 @@ async function awardConsumerSubscriptionBonus(
     p_user_id: userId,
     p_points: bonusPoints,
     p_event_type: "subscription_bonus",
-    p_metadata: { planKey, subscription_id: subscriptionId },
+    p_metadata: {
+      planKey,
+      subscription_id: subscriptionId,
+      ...(renewalInvoiceId ? { renewal_invoice_id: renewalInvoiceId } : {}),
+    },
   });
 
   if (error && process.env.NODE_ENV !== "production") {
@@ -341,11 +362,26 @@ async function grantReferralRewardForUser(userId: string) {
   }
 
   for (const referral of referrals) {
+    // Perks spec 2026-07-10: reward is computed from the REFERRER's tier at
+    // grant time — referralRewardPoints × referralEarnMultiplier (Plus →
+    // 500 × 1.5 = 750). The reward_points stored at link creation is
+    // display-only and may be stale if the referrer changed tiers since.
+    const tier = await resolveConsumerTier(referral.referrer_user_id);
+    const perks = TIER_ENTITLEMENTS[tier];
+    const points = Math.round(
+      perks.referralRewardPoints * perks.referralEarnMultiplier
+    );
     const { error } = await admin.rpc("consumer_referrals_grant_reward", {
       p_referral_id: referral.id,
       p_referrer_user_id: referral.referrer_user_id,
-      p_points: referral.reward_points,
-      p_metadata: { source: "subscription" },
+      p_points: points,
+      p_metadata: {
+        source: "subscription",
+        referrer_tier: tier,
+        reward_points_base: perks.referralRewardPoints,
+        earn_multiplier: perks.referralEarnMultiplier,
+        reward_points_at_creation: referral.reward_points,
+      },
     });
 
     if (error && process.env.NODE_ENV !== "production") {
@@ -438,19 +474,20 @@ async function awardPurchasePointsForOrder(orderId: string) {
     return;
   }
 
+  // Perks spec 2026-07-10: the tier multiplier comes from the entitlements
+  // SSOT, and Free consumers (no active subscription) earn base 1.0× points
+  // — the old early-return on a missing plan key gave them nothing. Only an
+  // ACTIVE subscription grants a paid multiplier.
   const { data: subscription } = await admin
     .from("consumer_subscriptions")
-    .select("consumer_plan_key")
+    .select("consumer_plan_key, subscription_status")
     .eq("user_id", order.user_id)
     .maybeSingle();
 
-  const planKey = subscription?.consumer_plan_key || null;
-  if (!planKey) {
-    return;
-  }
-
-  const plan = getConsumerPlanByKey(planKey);
-  const multiplier = plan?.loyaltyMultiplier ?? 1;
+  const tier = isConsumerSubscriptionActive(subscription?.subscription_status)
+    ? planKeyToTier(subscription?.consumer_plan_key)
+    : "Free";
+  const multiplier = TIER_ENTITLEMENTS[tier].pointsMultiplier;
   const purchaseMultiplier =
     order.total_cents >= HIGH_SPEND_THRESHOLD_DOLLARS * 100
       ? HIGH_SPEND_MULTIPLIER
@@ -470,6 +507,7 @@ async function awardPurchasePointsForOrder(orderId: string) {
       amount_cents: order.total_cents,
       purchase_multiplier: purchaseMultiplier,
       plan_multiplier: multiplier,
+      consumer_tier: tier,
     },
   });
 
@@ -728,6 +766,18 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
     await applyPlatformFeesToOrder(admin, orderId);
     await awardPurchasePointsForOrder(orderId);
     await awardVendorReferralFirstSale(admin, orderId);
+    await recordBrandLoyaltyForOrder(orderId);
+
+    // Perks §4: coupons burn on PAYMENT, not on session creation —
+    // abandoned checkouts leave them active. The redeem update is scoped
+    // to status=active, so webhook replays are no-ops.
+    const couponIds = (session.metadata?.coupon_ids ?? "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+    if (couponIds.length > 0) {
+      await redeemCoupons(couponIds, orderId);
+    }
 
     // Phase 4 PR-D — queue 7-day platform_reserve row for the vendor's net
     // share when the session used a Connect destination charge (PR-B added
@@ -797,6 +847,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     await applyPlatformFeesToOrder(admin, order.id);
     await awardPurchasePointsForOrder(order.id);
     await awardVendorReferralFirstSale(admin, order.id);
+    await recordBrandLoyaltyForOrder(order.id);
   } else {
     console.warn(`⚠️ [handlePaymentIntentSucceeded] No order found for intent=${paymentIntent.id}`);
   }
@@ -844,6 +895,29 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   if (!subscriptionId) return;
 
   const supabase = getSupabaseAdminClient();
+
+  // Perks spec 2026-07-10: tiered bonus on each RENEWAL cycle. The first
+  // invoice (billing_reason=subscription_create) is covered by the start
+  // bonus in the checkout/subscription handlers — awarding it here too
+  // would double-pay the welcome bonus. Idempotent per invoice id.
+  if (invoice.billing_reason === "subscription_cycle" && invoice.id) {
+    const { data: consumerSub } = await supabase
+      .from("consumer_subscriptions")
+      .select("user_id, consumer_plan_key, subscription_status")
+      .eq("stripe_subscription_id", subscriptionId)
+      .maybeSingle();
+    if (
+      consumerSub?.user_id &&
+      isConsumerSubscriptionActive(consumerSub.subscription_status)
+    ) {
+      await awardConsumerSubscriptionBonus(
+        consumerSub.user_id,
+        consumerSub.consumer_plan_key,
+        subscriptionId,
+        invoice.id
+      );
+    }
+  }
 
   // Get subscription to find user
   const { data: subscription } = await supabase
@@ -1390,7 +1464,7 @@ async function handleEventOrderCompleted(
   // Fetch order with items
   const { data: order, error: orderError } = await admin
     .from("event_orders")
-    .select("id, event_id, status")
+    .select("id, event_id, status, user_id")
     .eq("id", orderId)
     .single();
 
@@ -1402,6 +1476,18 @@ async function handleEventOrderCompleted(
   if (order.status === "paid") {
     console.log(`ℹ️ [handleEventOrderCompleted] Order already paid | order_id=${orderId}`);
     return;
+  }
+
+  // Perks §7: burn the Premium free-quarterly-ticket allowance on PAYMENT
+  // (abandoned checkouts don't consume it). Idempotent per event order.
+  const freeTicketCents = Number.parseInt(session.metadata?.free_ticket_cents ?? "", 10);
+  if (Number.isFinite(freeTicketCents) && freeTicketCents > 0 && order.user_id) {
+    await recordFreeEventTicketRedemption({
+      userId: order.user_id,
+      eventOrderId: orderId,
+      eventId: order.event_id,
+      amountCents: freeTicketCents,
+    });
   }
 
   // Fetch order items with ticket types

@@ -11,7 +11,7 @@ import { useMotion } from "@/components/motion";
 const PILLARS = [
   { title: "Business & Development", description: "Vendor onboarding, listings, and growing your hemp business.", href: "/learning-with-jax/business", comingSoon: true, icon: "📈" },
   { title: "Hemp Basics", description: "Cannabis and hemp fundamentals, compliance basics, and terminology.", href: "/learning-with-jax/basics", comingSoon: true, icon: "🌿" },
-  { title: "Webisodes", description: "Short-form episodes with JAX on marketplace tips and industry news.", href: "/learning-with-jax/webisodes", comingSoon: true, icon: "🎬" },
+  { title: "Webisodes", description: "Short-form episodes with JAX on marketplace tips and industry news.", href: "/learning-with-jax/webisodes", comingSoon: false, icon: "🎬" },
   { title: "Deep Dives", description: "In-depth guides on construction, logistics, and industrial hemp.", href: "/learning-with-jax/deep-dives", comingSoon: true, icon: "📚" },
 ] as const;
 

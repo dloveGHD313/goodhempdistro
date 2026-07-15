@@ -16,12 +16,13 @@ import { ensureReferralCode } from "@/lib/consumer-referrals";
 
 describe("consumer loyalty rules", () => {
   it("returns correct loyalty multipliers", () => {
-    expect(LOYALTY_MULTIPLIERS.Starter).toBe(1.0);
+    expect(LOYALTY_MULTIPLIERS.Starter).toBe(1.25);
     expect(LOYALTY_MULTIPLIERS.Plus).toBe(1.5);
     expect(LOYALTY_MULTIPLIERS.VIP).toBe(2.0);
   });
 
   it("returns correct referral reward points", () => {
+    expect(REFERRAL_REWARD_POINTS.Free).toBe(100);
     expect(REFERRAL_REWARD_POINTS.Starter).toBe(250);
     expect(REFERRAL_REWARD_POINTS.Plus).toBe(500);
     expect(REFERRAL_REWARD_POINTS.VIP).toBe(1000);

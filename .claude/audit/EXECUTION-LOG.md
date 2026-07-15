@@ -394,3 +394,107 @@ Phase 5 — Build #4 Ask JAX thin wrapper (GATE-08 scope: reuse existing /api/ma
 
 Anchor catalog seed: CEO manual task, parallel to Phase 5+ build work. Does not block.
 
+
+---
+
+## 2026-07-10 — Storefront audit P0 + P1s (PRs #202, #203)
+
+Source: GHD-STOREFRONT-AUDIT-2026-07-10 (CEO-pasted inline; file not on disk).
+
+### PR #202 — P0 · COA buy-gate blocked COA-exempt apparel (MERGED)
+
+- Bug: `app/products/[id]/page.tsx` demanded an uploaded COA on EVERY product; GHD Tee (Clothing, `requires_coa=false`) showed disabled Buy Now with "COA required before purchase."
+- Fix: new pure helper `lib/products/buyGate.ts` (`evaluateBuyGate`) — COA only required when `product.category_requires_coa === true` (GATE-03 SSOT). Same conditional drives `buyButtonMessage` + `availabilityMessage`, with reason priority coa > price > stripe > unavailable.
+- Tests: `__tests__/buy-gate.test.ts`, 8 cases incl. THE case (COA-exempt + no COA = buyable) and COA-required + no COA still blocked.
+- Post-deploy verification pending: checklist items 1–2 (Tee Buy Now enabled; guest gating unchanged).
+
+### PR #203 — P1s · /shop redirect + Discover state normalization (MERGED)
+
+- Commit 1: `app/shop/page.tsx` ComingSoonPage → `redirect("/products")`. One canonical catalog home (audit-recommended option).
+- Commit 2: `lib/usStates.ts` (new) — `normalizeUsState` (USPS code | full name → canonical 2-letter code; unrecognizable → null, built on `STATE_NAMES` SSOT) + `sameUsState`. `lib/recommendations.ts` `fetchVendors` no longer exact-matches `.eq("state", viewer.state)`; fetches active vendors (limit×4) and filters in JS via `sameUsState`. TN viewer now matches vendor `state="tennessee"`.
+- Tests: `__tests__/us-states-normalize.test.ts`, 7 cases incl. production data shapes (`tennessee`, `michigan`, `nashville`→null) and null-never-matches guard.
+- NOT touched: `vendors.state` data itself — audit P2, CEO-gated. Read-time normalization makes Discover robust regardless.
+- Post-deploy verification pending: checklist items 3–4.
+
+### BLOCKED — Consumer tier-perks build
+
+- CEO directed: build from `GHD-CONSUMER-TIER-PERKS-SPEC-2026-07-10.md`. File not found: repo, Downloads, Documents, Desktop all searched; not pasted in chat (only the storefront audit was). Audit itself says perk set is "Decision needed from you."
+- Only locked decision in hand: coupon stacking = one platform + one vendor coupon, 25% hard discount cap enforced server-side.
+- Per no-speculative-work rule (and payments/checkout touch = Rule 6 adjacent): HALTED pending the spec document. Will start immediately once pasted or dropped on disk.
+
+### Still-open CEO-side items (reminders, unchanged)
+
+- Stripe env vars "All Environments" scope in Vercel → split so smoke-testmode preview gets `sk_test_`; then re-run Connect money-loop smoke.
+- P0-2: `STRIPE_VENDOR_PRO_ANNUAL_PRICE_ID = price_1TondtEKpXx4yA1RlJ4GrFnI` in Vercel Production.
+- Fire live `customer.subscription.updated` to verify PR #200 admin-client fix.
+- Vendor state data hygiene migration (audit P2) awaiting approval.
+
+---
+
+## 2026-07-10 — Consumer tier-perks build (PRs #204–#211)
+
+Source: GHD-CONSUMER-TIER-PERKS-SPEC-2026-07-10.md (OneDrive/Documents/Claude/Projects). All 8 build steps shipped, CI green, squash-merged in sequence. All spec numbers are CEO-tunable in ONE file: lib/entitlements.ts TIER_ENTITLEMENTS.
+
+| PR | Scope |
+|---|---|
+| #204 | lib/entitlements.ts SSOT — tiers Free/Basic/Plus/Premium, full perk matrix, planKeyToTier (fails closed to Free), 25% cap + 3-order threshold constants; legacy loyalty maps synced (Starter multiplier 1.0→1.25, Free referral 100) |
+| #205 | Purchase points use tier multiplier from SSOT (Free now earns 1.0×; inactive subs no longer keep paid multiplier); subscription bonus tiered 500/1000/2000 on start + each renewal (billing_reason=subscription_cycle, idempotent per invoice) |
+| #206 | Referral grant = referrer's tier at grant time × earn multiplier (Plus → 750); referral links open to all tiers |
+| #207 | consumer_coupons table (prod migration, additive) + monthly grant cron (vercel.json 0 8 1 * *) + checkout stacking (1 platform + 1 vendor, Plus/Premium only) + 25% hard cap clamped server-side; coupons burn on payment via webhook |
+| #208 | brand_loyalty table (prod migration) + paid-webhook hook: 3 orders with a vendor → Bronze/Silver/Gold by tier + vendor-scoped brand coupon; badge on vendor page |
+| #209 | jax_episodes table (prod migration) + tier early access 24/72/168h + members-only episodes; /learning-with-jax/webisodes live |
+| #210 | Event perks: events.tickets_on_sale_at + tier discount 5/10/20% + early on-sale window 24/48h + Premium free quarterly ticket (burns on payment) |
+| #211 | UI: perk matrix on /pricing?tab=consumer, member-perks panel on /account/subscription, "you earn N points" on product pages; entitlements module split pure/server |
+
+### Schema changes (all additive, applied to prod via Supabase MCP + mirrored in supabase/migrations/)
+- consumer_coupons (RLS: user reads own; service-role writes; unique user+grant_key)
+- brand_loyalty (RLS: user reads own; unique user+vendor)
+- jax_episodes (no anon policies — server-side tier gate is the only read path)
+- orders.discount_cents, event_orders.discount_cents, events.tickets_on_sale_at
+
+### Test coverage added
+entitlements (matrix + monotonicity + fail-closed), points math per tier, referral math, coupons (stacking matrix, 25% clamp, floor), brand loyalty thresholds, JAX visibility windows, event perks windows/discounts. Suite: 501 passing.
+
+### CEO knobs / notes
+- All perk numbers: lib/entitlements.ts (config-only edits)
+- Brand coupon validity 90d (lib/brandLoyalty.ts); monthly coupons expire end of granted month (no rollover)
+- Free quarterly event ticket = cheapest ticket in the order; clamped to Stripe 50¢ minimum
+- CRON_SECRET must exist in Vercel prod for the new monthly coupon cron (same secret as release-reserves)
+
+### Logged follow-ups (non-blocking)
+- Coupon funding split: platform-coupon discounts currently reduce the settled amount (vendor absorbs); platform-absorbed accounting is a follow-up
+- Free-ticket perk applies to any event (no "community event" flag exists yet) — CEO may want an event flag
+- Coupon race: parallel checkout sessions could reference the same coupon until webhook burns it (validated active at creation; acceptable v1)
+- jax_episodes has no admin UI — episodes seed via SQL/service role for now
+
+---
+
+## 2026-07-14 — Shop visibility, compliance categories, driver insurance (PRs #212–#214)
+
+Source: GHD-SHOP-COMPLIANCE-DRIVER-BRIEF-2026-07-14.md (OneDrive CEO docs folder). P0 → P1 → P2, one PR each, CI green, squash-merged.
+
+### PR #212 — P0 · Silent interest auto-filter hid catalog items (MERGED)
+
+- Root cause was NOT the ship-state toggle (Tee ships to TN; consumer is TN). ProductsList auto-selected the first category whose name contains any SAVED shopping_interest (ghdconsumer: ["Wellness","Business Supplies","Skincare"] → a Wellness category) and silently pre-filtered the entire catalog. Admin has no interests → account-dependent behavior.
+- Fix: category auto-match runs only on explicit ?interests= URL values ("Use My Interests" button / shared links). Helper extracted to lib/products/interestCategoryMatch.ts + 4 regression tests.
+- Post-deploy verify: ghdconsumer sees the Tee on /products and can buy it.
+
+### PR #213 — P1 · Data-driven category compliance matrix (MERGED)
+
+- Schema (prod, additive): categories += requires_age_21, requires_vendor_license_doc, ship_restricted_states[], legal_review_status (approved|pending, DEFAULT pending), category_group; vendors += license_doc_url/license_doc_object_path.
+- Seeds: existing categories approved (preserves GATE-03 behavior); 43 smokable/inhalable/cannabinoid-consumable categories seeded requires_age_21=true (conservative — includes CBD edibles/gummies/tinctures); 10 new convenience/industrial categories inserted PENDING (fully restrictive until reviewed); license flags all false.
+- Enforcement: submit route gates listings on category doc requirements (COA / vendor license); checkout blocks CATEGORY_STATE_BLOCK + treats age-21 categories as gated (21+ ID verification — behavior change on the 43 seeds); /products hides category-state-restricted items server-side.
+- ⚠️ CEO + CANNABIS-ATTORNEY REVIEW REQUIRED: approve the 10 pending categories, tune the 43 age-21 seeds, populate ship_restricted_states. 11 tests pin pending→restrictive, GATE-03 null→true default, listing-gate matrix, state normalization.
+
+### PR #214 — P2 · Driver insurance upload broken (MERGED)
+
+- Diagnosis: 0 applications ever landed with an insurance doc. (1) insurance/registration inputs accepted .pdf only — phone JPG photos unselectable; (2) browser-direct storage upload used upsert:true against an INSERT-only bucket policy → RLS rejection; (3) the error was swallowed into a generic retry message.
+- Fix: /api/drivers/apply-with-docs (service-role, mirrors the working logistics on-demand route) validates PDF/JPG/PNG/WebP ≤10MB server-side, uploads to driver-documents under applications/{id}/, records paths, full cleanup on failure, specific error messages surfaced by the form. Admin review page unchanged (same bucket + relative paths). 6 regression tests.
+- Post-deploy verify: submit a test application with a JPG insurance photo; confirm admin can view the signed URL.
+
+### Follow-ups logged (not guessed)
+
+- Vendor license-doc upload UI (flags exist, all false until it ships)
+- Attorney review pass on the seeded compliance matrix before loosening/launching pending categories
+- ship_restricted_states data entry per category (state divergence on delta-8/THCA/consumables)
+- Legacy /api/drivers/apply route (driver-docs bucket flow) appears unused by any live page — candidate for removal after confirming no callers
