@@ -509,3 +509,35 @@ Source: GHD-SHOP-COMPLIANCE-DRIVER-BRIEF-2026-07-14.md (OneDrive CEO docs folder
 - Client: per-stage visible errors (named missing attachments, eligibility, init/upload/finalize with server message + HTTP status, network) and console.error of the raw error at every rejection point — per CEO directive.
 - Post-deploy verify: submit application with 4 phone photos (>4.5MB total) as a guest and as ghdconsumer; confirm row lands with all four paths + admin signed URLs open.
 - Lesson recorded: any browser file upload must go direct-to-storage (signed URL) — never through a Vercel function body.
+
+---
+
+## 2026-07-16 — Federal 2026 hemp law + Learning with JAX content system (PRs #216–#217)
+
+Source: GHD-THCA-LAW-AND-JAX-CONTENT-BRIEF-2026-07-16.md + LEARNING-WITH-JAX-SERIES-BIBLE-2026-07-16.md (OneDrive CEO docs). Both CI-green on main.
+
+### PR #216 — P0 · P.L. 119-37 compliance (ENFORCEMENT FLAG OFF)
+
+- Law (effective 2026-11-12): hemp = TOTAL THC incl. THCA ≤0.3% dry weight; >0.4mg total THC per container excluded; synthesized cannabinoids excluded regardless.
+- Schema (prod, additive): products += total_thc_percent / total_thc_mg_per_container / contains_synthesized_cannabinoids; categories += sunset_2026 (seeded on THCA/delta-8/delta-9/THCP/HHC/moonrock/infused patterns).
+- lib/compliance/federal2026.ts: constants (0.3 / 0.4 / 2026-11-12) + pure evaluateFederal2026Compliance (exact thresholds compliant; synthesized always non-compliant; COA-exempt+no-data compliant; COA category missing data unknown) + isBlockedByFederal2026 (flag OFF never blocks; flag ON blocks non-compliant AND unknown — fail closed).
+- Wired: listing forms collect the 3 declarations (help text); submit blocks COA-category listings missing declarations (presence only); vendor dashboard banner + per-product 2026 badge; checkout FEDERAL_2026_BLOCK + shop hiding (both flag-gated).
+- ✅ Tested: ENFORCE_FEDERAL_2026 unset/false = zero behavior change.
+
+### ⚠️ CEO DECISION POINT (attorney-gated)
+
+Before flipping ENFORCE_FEDERAL_2026=true in Vercel (target: before 2026-11-12), cannabis attorney must review: (1) the evaluation rules in federal2026.ts, (2) sunset_2026 category seeds, (3) unknown-fails-closed policy, (4) vendor notification plan. Flag ON hides/blocks non-compliant AND undeclared products — vendors need lead time to enter declarations. Nothing auto-deletes.
+
+### PR #217 — P1 · Learning with JAX content system
+
+- jax_episodes extended (pillar/track/teaser/thumbnail/duration/status/publish_at/description/seo_tags); private jax-media bucket; Episodes 001–002 seeded as DRAFTS from the series bible (EP002 'The New Hemp Ban' requires attorney review before publish).
+- Publishing automation: live when published OR (approved AND publish_at ≤ now); tier early-access (24/72/168h) on top; teasers public once the widest window opens; full video tier-gated via 1h signed URLs from the private bucket.
+- /admin/jax manager (closes #209 follow-up): CRUD + enforced status transitions (draft→in_review→approved→published, no skipping) + direct-to-storage signed-URL uploads for video/teaser/thumbnail (#215 pattern).
+- Pages live: hub with real pillar/track counts (newsletter capture only where zero episodes), featured episode block, webisode grid, episode detail with player + OG images.
+- Merge note: PR merged while the Vercel preview check was still pending; main CI run 29535762188 confirmed green post-merge (local suite 539 passing + build green pre-push).
+
+### CEO next steps
+
+1. Open /admin/jax — Episodes 001–002 are there as drafts; upload assets from the Adobe pipeline, send to review, approve, schedule.
+2. Attorney review: federal-2026 matrix + EP002 script before publish.
+3. When ready to enforce: set ENFORCE_FEDERAL_2026=true in Vercel Production (after vendor comms).
