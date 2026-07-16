@@ -8,23 +8,44 @@ import LearningWithJaxNewsletter from "./LearningWithJaxNewsletter";
 import { ScrollReveal, Stagger, StaggerChild, HoverLift } from "@/components/motion";
 import { useMotion } from "@/components/motion";
 
+// Live counts come from jax_episodes (brief 2026-07-16 P1); a pillar or
+// track shows "coming soon" ONLY when it has zero visible episodes.
 const PILLARS = [
-  { title: "Business & Development", description: "Vendor onboarding, listings, and growing your hemp business.", href: "/learning-with-jax/business", comingSoon: true, icon: "📈" },
-  { title: "Hemp Basics", description: "Cannabis and hemp fundamentals, compliance basics, and terminology.", href: "/learning-with-jax/basics", comingSoon: true, icon: "🌿" },
-  { title: "Webisodes", description: "Short-form episodes with JAX on marketplace tips and industry news.", href: "/learning-with-jax/webisodes", comingSoon: false, icon: "🎬" },
-  { title: "Deep Dives", description: "In-depth guides on construction, logistics, and industrial hemp.", href: "/learning-with-jax/deep-dives", comingSoon: true, icon: "📚" },
+  { key: "business", title: "Business & Development", description: "Vendor onboarding, listings, and growing your hemp business.", href: "/learning-with-jax/webisodes", icon: "📈" },
+  { key: "basics", title: "Hemp Basics", description: "Cannabis and hemp fundamentals, compliance basics, and terminology.", href: "/learning-with-jax/webisodes", icon: "🌿" },
+  { key: "webisodes", title: "Webisodes", description: "Short-form episodes with JAX on marketplace tips and industry news.", href: "/learning-with-jax/webisodes", icon: "🎬" },
+  { key: "deep_dives", title: "Deep Dives", description: "In-depth guides on construction, logistics, and industrial hemp.", href: "/learning-with-jax/webisodes", icon: "📚" },
 ] as const;
 
 const TRACKS = [
-  { title: "Hemp Building", description: "From materials to codes — build with hemp.", comingSoon: true, icon: "🏗️" },
-  { title: "Hemp Business", description: "Selling, marketing, and scaling in the hemp economy.", comingSoon: true, icon: "💼" },
-  { title: "Hemp Science", description: "Quality, testing, and the science behind hemp products.", comingSoon: true, icon: "🔬" },
-  { title: "Hemp Lifestyle", description: "Consumer guides, wellness, and everyday hemp.", comingSoon: true, icon: "✨" },
+  { key: "building", title: "Hemp Building", description: "From materials to codes — build with hemp.", icon: "🏗️" },
+  { key: "business", title: "Hemp Business", description: "Selling, marketing, and scaling in the hemp economy.", icon: "💼" },
+  { key: "science", title: "Hemp Science", description: "Quality, testing, and the science behind hemp products.", icon: "🔬" },
+  { key: "lifestyle", title: "Hemp Lifestyle", description: "Consumer guides, wellness, and everyday hemp.", icon: "✨" },
 ] as const;
 
 const hoverTransition = { duration: 0.18 };
 
-export default function LearningWithJaxMotion() {
+export type FeaturedEpisode = {
+  slug: string;
+  title: string;
+  summary: string | null;
+  episode_number: number | null;
+  canWatchFull: boolean;
+  thumbnailUrl: string | null;
+};
+
+type Props = {
+  pillarCounts?: Record<string, number>;
+  trackCounts?: Record<string, number>;
+  featured?: FeaturedEpisode | null;
+};
+
+export default function LearningWithJaxMotion({
+  pillarCounts = {},
+  trackCounts = {},
+  featured = null,
+}: Props) {
   const { reducedMotion } = useMotion();
 
   return (
@@ -100,10 +121,14 @@ export default function LearningWithJaxMotion() {
                     <span className="text-3xl mb-3 block" aria-hidden="true">{p.icon}</span>
                     <h3 className="text-lg font-semibold text-foreground mb-2">{p.title}</h3>
                     <p className="text-muted text-sm flex-1 mb-4">{p.description}</p>
-                    {p.comingSoon ? (
-                      <span className="text-xs text-muted font-medium">Coming soon</span>
+                    {(pillarCounts[p.key] ?? 0) === 0 ? (
+                      <a href="#newsletter" className="text-xs text-muted font-medium hover:text-accent">
+                        First episodes dropping soon — get notified
+                      </a>
                     ) : (
-                      <Link href={p.href} className="text-accent font-semibold text-sm hover:underline">View →</Link>
+                      <Link href={p.href} className="text-accent font-semibold text-sm hover:underline">
+                        {pillarCounts[p.key]} episode{pillarCounts[p.key] === 1 ? "" : "s"} →
+                      </Link>
                     )}
                   </motion.div>
                 </StaggerChild>
@@ -122,7 +147,9 @@ export default function LearningWithJaxMotion() {
               Featured episode
             </h2>
             <p className="text-muted mb-8 max-w-2xl">
-              Episode 001 — coming soon. Get notified when it drops.
+              {featured
+                ? "The latest from JAX — teaser is free, members watch the full episode."
+                : "Episode 001 — coming soon. Get notified when it drops."}
             </p>
             <div className="max-w-3xl mx-auto">
               <motion.div
@@ -130,19 +157,43 @@ export default function LearningWithJaxMotion() {
                 whileHover={reducedMotion ? undefined : { y: -2 }}
                 transition={hoverTransition}
               >
-                <div className="aspect-video bg-[var(--bg)] flex items-center justify-center text-muted">
-                  <span className="text-6xl" aria-hidden="true">🎬</span>
-                </div>
+                {featured?.thumbnailUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={featured.thumbnailUrl} alt={featured.title} className="aspect-video w-full object-cover" />
+                ) : (
+                  <div className="aspect-video bg-[var(--bg)] flex items-center justify-center text-muted">
+                    <span className="text-6xl" aria-hidden="true">🎬</span>
+                  </div>
+                )}
                 <div className="p-6 sm:p-8">
-                  <h3 className="text-xl font-semibold text-foreground mb-4">Episode 001 (Coming Soon)</h3>
-                  <ul className="space-y-2 text-muted mb-6 list-disc list-inside">
-                    <li>How to list your first product on Good Hemp Distro</li>
-                    <li>COA and compliance in 5 minutes</li>
-                    <li>Pricing and positioning for hemp brands</li>
-                  </ul>
-                  <motion.span whileHover={reducedMotion ? undefined : { scale: 1.02, y: -2 }} transition={hoverTransition}>
-                    <a href="#newsletter" className="btn-primary inline-block">Notify me</a>
-                  </motion.span>
+                  {featured ? (
+                    <>
+                      <h3 className="text-xl font-semibold text-foreground mb-2">
+                        {featured.episode_number != null
+                          ? `Episode ${String(featured.episode_number).padStart(3, "0")} — `
+                          : ""}
+                        {featured.title}
+                      </h3>
+                      {featured.summary && <p className="text-muted mb-6">{featured.summary}</p>}
+                      <motion.span whileHover={reducedMotion ? undefined : { scale: 1.02, y: -2 }} transition={hoverTransition}>
+                        <Link href={`/learning-with-jax/episodes/${featured.slug}`} className="btn-primary inline-block">
+                          {featured.canWatchFull ? "Watch now →" : "Watch the teaser →"}
+                        </Link>
+                      </motion.span>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="text-xl font-semibold text-foreground mb-4">Episode 001 (Coming Soon)</h3>
+                      <ul className="space-y-2 text-muted mb-6 list-disc list-inside">
+                        <li>Hemp vs weed — settled forever</li>
+                        <li>The new hemp law, explained without panic</li>
+                        <li>COA and compliance in 5 minutes</li>
+                      </ul>
+                      <motion.span whileHover={reducedMotion ? undefined : { scale: 1.02, y: -2 }} transition={hoverTransition}>
+                        <a href="#newsletter" className="btn-primary inline-block">Notify me</a>
+                      </motion.span>
+                    </>
+                  )}
                 </div>
               </motion.div>
             </div>
@@ -172,10 +223,14 @@ export default function LearningWithJaxMotion() {
                     <span className="text-3xl mb-3 block" aria-hidden="true">{t.icon}</span>
                     <h3 className="text-lg font-semibold text-foreground mb-2">{t.title}</h3>
                     <p className="text-muted text-sm flex-1 mb-4">{t.description}</p>
-                    {t.comingSoon ? (
-                      <span className="text-xs text-muted font-medium">Coming soon</span>
+                    {(trackCounts[t.key] ?? 0) === 0 ? (
+                      <a href="#newsletter" className="text-xs text-muted font-medium hover:text-accent">
+                        First episodes dropping soon — get notified
+                      </a>
                     ) : (
-                      <Link href={(t as { anchor?: string }).anchor ?? "#"} className="text-accent font-semibold text-sm hover:underline">Start here →</Link>
+                      <Link href="/learning-with-jax/webisodes" className="text-accent font-semibold text-sm hover:underline">
+                        {trackCounts[t.key]} episode{trackCounts[t.key] === 1 ? "" : "s"} — start here →
+                      </Link>
                     )}
                   </motion.div>
                 </StaggerChild>
