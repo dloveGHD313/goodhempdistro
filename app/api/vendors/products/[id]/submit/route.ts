@@ -66,7 +66,7 @@ export async function POST(
     // Verify product exists and belongs to this vendor (include category + COA for submit validation)
     const { data: product, error: productError } = await supabase
       .from("products")
-      .select("id, owner_user_id, status, category_id, coa_url, coa_object_path")
+      .select("id, owner_user_id, status, category_id, coa_url, coa_object_path, total_thc_percent, total_thc_mg_per_container, contains_synthesized_cannabinoids")
       .eq("id", id)
       .eq("owner_user_id", user.id)
       .maybeSingle();
@@ -117,6 +117,26 @@ export async function POST(
           (vendorDocs?.license_doc_url && String(vendorDocs.license_doc_url).trim()) ||
             (vendorDocs?.license_doc_object_path && String(vendorDocs.license_doc_object_path).trim())
         );
+      }
+
+      // Federal 2026 (P.L. 119-37): COA categories must carry the three
+      // total-THC declarations before submit. Presence only — the VALUES
+      // are enforced behind ENFORCE_FEDERAL_2026 after attorney review.
+      if (compliance.requiresCoa) {
+        const missingDeclarations =
+          typeof product.total_thc_percent !== "number" ||
+          typeof product.total_thc_mg_per_container !== "number" ||
+          typeof product.contains_synthesized_cannabinoids !== "boolean";
+        if (missingDeclarations) {
+          return NextResponse.json(
+            {
+              error:
+                "Total-THC declarations are required for this category: total THC % (incl. THCA), total THC mg per container, and whether the product contains synthesized cannabinoids — all from your COA.",
+              missing: ["federal_2026_declarations"],
+            },
+            { status: 400, headers: { "Cache-Control": "no-store" } }
+          );
+        }
       }
 
       const gate = evaluateListingGate({

@@ -19,6 +19,7 @@ import {
   getCategoryCompliance,
   isCategoryRestrictedInState,
 } from "@/lib/compliance/categoryCompliance";
+import { isBlockedByFederal2026 } from "@/lib/compliance/federal2026";
 import {
   computeDiscountCents,
   fetchUserCouponsByCodes,
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest) {
     // Fetch product and vendor (status) for order_items — suspended vendors cannot accept orders (4.3.B)
     const { data: product, error: productError } = await supabase
       .from("products")
-      .select("id, name, price_cents, vendor_id, category_id, active, status, is_gated, market_category, product_type, is_intoxicating, is_delta8, vendors(owner_user_id, status)")
+      .select("id, name, price_cents, vendor_id, category_id, active, status, is_gated, market_category, product_type, is_intoxicating, is_delta8, total_thc_percent, total_thc_mg_per_container, contains_synthesized_cannabinoids, vendors(owner_user_id, status)")
       .eq("id", productId)
       .single();
 
@@ -197,6 +198,26 @@ export async function POST(req: NextRequest) {
         {
           code: "CATEGORY_STATE_BLOCK",
           message: "This product category cannot be sold in your state due to local regulations.",
+        },
+        { status: 400, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    // Federal 2026 (P.L. 119-37): no-op until ENFORCE_FEDERAL_2026=true
+    // (CEO flips post-attorney-review). When ON, non-compliant/undeclared
+    // products in COA categories are blocked from checkout.
+    if (
+      isBlockedByFederal2026({
+        total_thc_percent: product.total_thc_percent,
+        total_thc_mg_per_container: product.total_thc_mg_per_container,
+        contains_synthesized_cannabinoids: product.contains_synthesized_cannabinoids,
+        categoryRequiresCoa: categoryCompliance.requiresCoa,
+      })
+    ) {
+      return NextResponse.json(
+        {
+          code: "FEDERAL_2026_BLOCK",
+          message: "This product is not available for purchase under the federal hemp definition effective Nov 12, 2026.",
         },
         { status: 400, headers: { "Cache-Control": "no-store" } }
       );

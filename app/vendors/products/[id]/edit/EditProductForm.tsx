@@ -23,6 +23,9 @@ type Product = {
   image_url?: string | null;
   delta8_disclaimer_ack?: boolean;
   hemp_derived_attestation?: boolean;
+  total_thc_percent?: number | null;
+  total_thc_mg_per_container?: number | null;
+  contains_synthesized_cannabinoids?: boolean | null;
   status?: string;
   submitted_at?: string | null;
   rejection_reason?: string | null;
@@ -52,6 +55,20 @@ export default function EditProductForm({ productId, initialProduct, initialCate
   const [useManualUrl, setUseManualUrl] = useState(!!initialProduct.coa_url);
   const [delta8DisclaimerAck, setDelta8DisclaimerAck] = useState(initialProduct.delta8_disclaimer_ack || false);
   const [hempDerivedAttestation, setHempDerivedAttestation] = useState(initialProduct.hemp_derived_attestation ?? true);
+  // Federal 2026 declarations (P.L. 119-37, effective 2026-11-12)
+  const [totalThcPercent, setTotalThcPercent] = useState(
+    initialProduct.total_thc_percent != null ? String(initialProduct.total_thc_percent) : ""
+  );
+  const [totalThcMg, setTotalThcMg] = useState(
+    initialProduct.total_thc_mg_per_container != null ? String(initialProduct.total_thc_mg_per_container) : ""
+  );
+  const [containsSynth, setContainsSynth] = useState<"" | "yes" | "no">(
+    initialProduct.contains_synthesized_cannabinoids === true
+      ? "yes"
+      : initialProduct.contains_synthesized_cannabinoids === false
+        ? "no"
+        : ""
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showShippingPanel, setShowShippingPanel] = useState(false);
@@ -189,6 +206,9 @@ export default function EditProductForm({ productId, initialProduct, initialCate
           coa_object_path: !useManualUrl ? coaObjectPath.trim() || null : null,
           delta8_disclaimer_ack: productType === "delta8" ? delta8DisclaimerAck : false,
           hemp_derived_attestation: hempDerivedAttestation,
+          total_thc_percent: totalThcPercent.trim() === "" ? null : Number.parseFloat(totalThcPercent),
+          total_thc_mg_per_container: totalThcMg.trim() === "" ? null : Number.parseFloat(totalThcMg),
+          contains_synthesized_cannabinoids: containsSynth === "" ? null : containsSynth === "yes",
         }),
       });
 
@@ -473,6 +493,60 @@ export default function EditProductForm({ productId, initialProduct, initialCate
                     />
                   )}
                 </div>
+
+                {categoryRequiresCoa && (
+                  <div className="bg-[var(--surface)] border border-amber-500/40 rounded-lg p-4 space-y-3">
+                    <p className="font-medium text-white/90 text-sm">
+                      Total-THC declarations (federal law effective Nov 12, 2026)
+                    </p>
+                    <p className="text-xs text-muted">
+                      Federal law will measure hemp by <strong>total THC including
+                      THCA</strong> (≤0.3% dry weight) and cap finished products at{" "}
+                      <strong>0.4mg total THC per container</strong>; synthesized
+                      cannabinoids are excluded entirely. Enter these values from your
+                      COA — required before submitting for review.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <label className="block text-sm text-muted">
+                        Total THC % (incl. THCA, dry weight)
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.001"
+                          value={totalThcPercent}
+                          onChange={(e) => setTotalThcPercent(e.target.value)}
+                          className="w-full mt-1 px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
+                          placeholder="e.g. 0.12"
+                        />
+                      </label>
+                      <label className="block text-sm text-muted">
+                        Total THC per container (mg)
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={totalThcMg}
+                          onChange={(e) => setTotalThcMg(e.target.value)}
+                          className="w-full mt-1 px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
+                          placeholder="e.g. 0.3"
+                        />
+                      </label>
+                    </div>
+                    <label className="block text-sm text-muted">
+                      Contains synthesized cannabinoids? (delta-8 converted from CBD, etc.)
+                      <select
+                        value={containsSynth}
+                        onChange={(e) => setContainsSynth(e.target.value as "" | "yes" | "no")}
+                        className="w-full mt-1 px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
+                      >
+                        <option value="">Select…</option>
+                        <option value="no">No — naturally derived only</option>
+                        <option value="yes">Yes — contains synthesized cannabinoids</option>
+                      </select>
+                    </label>
+                  </div>
+                )}
 
                 {productType === "delta8" && (
                   <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-4">

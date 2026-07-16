@@ -8,6 +8,10 @@ import {
   getCategoryComplianceMap,
   isCategoryRestrictedInState,
 } from "@/lib/compliance/categoryCompliance";
+import {
+  isBlockedByFederal2026,
+  isFederal2026EnforcementOn,
+} from "@/lib/compliance/federal2026";
 import Footer from "@/components/Footer";
 import ProductsList from "./ProductsList";
 import MarketSwitcher from "@/components/market/MarketSwitcher";
@@ -91,7 +95,7 @@ async function getProducts(
 
     const query = queryClient
       .from("products")
-      .select("id, name, category_id, price_cents, is_gated, market_category, featured, description, vendor_id, image_url, ship_to_states")
+      .select("id, name, category_id, price_cents, is_gated, market_category, featured, description, vendor_id, image_url, ship_to_states, total_thc_percent, total_thc_mg_per_container, contains_synthesized_cannabinoids")
       .eq("status", "approved") // Only approved products
       .eq("active", true) // Only active products
       .order("created_at", { ascending: false });
@@ -173,6 +177,20 @@ async function getProducts(
 
     if (publicShopOnly) {
       products = products.filter((p) => p.category_requires_coa !== true);
+    }
+
+    // Federal 2026 (P.L. 119-37): no-op until ENFORCE_FEDERAL_2026=true.
+    // When ON, non-compliant/undeclared products are hidden from the shop.
+    if (isFederal2026EnforcementOn()) {
+      products = products.filter(
+        (p) =>
+          !isBlockedByFederal2026({
+            total_thc_percent: (p as { total_thc_percent?: number | null }).total_thc_percent,
+            total_thc_mg_per_container: (p as { total_thc_mg_per_container?: number | null }).total_thc_mg_per_container,
+            contains_synthesized_cannabinoids: (p as { contains_synthesized_cannabinoids?: boolean | null }).contains_synthesized_cannabinoids,
+            categoryRequiresCoa: p.category_requires_coa === true,
+          })
+      );
     }
 
     // Category-level state restriction (brief 2026-07-14 P1): hide products

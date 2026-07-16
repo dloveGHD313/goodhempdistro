@@ -38,6 +38,10 @@ export default function NewProductPage() {
   const [useManualUrl, setUseManualUrl] = useState(false);
   const [delta8DisclaimerAck, setDelta8DisclaimerAck] = useState(false);
   const [hempDerivedAttestation, setHempDerivedAttestation] = useState(false);
+  // Federal 2026 declarations (P.L. 119-37, effective 2026-11-12)
+  const [totalThcPercent, setTotalThcPercent] = useState("");
+  const [totalThcMg, setTotalThcMg] = useState("");
+  const [containsSynth, setContainsSynth] = useState<"" | "yes" | "no">("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showShippingPanel, setShowShippingPanel] = useState(false);
@@ -177,6 +181,9 @@ export default function NewProductPage() {
           coa_object_path: !useManualUrl ? coaObjectPath.trim() || null : null,
           delta8_disclaimer_ack: productType === "delta8" ? delta8DisclaimerAck : false,
           hemp_derived_attestation: hempDerivedAttestation,
+          total_thc_percent: totalThcPercent.trim() === "" ? null : Number.parseFloat(totalThcPercent),
+          total_thc_mg_per_container: totalThcMg.trim() === "" ? null : Number.parseFloat(totalThcMg),
+          contains_synthesized_cannabinoids: containsSynth === "" ? null : containsSynth === "yes",
         }),
       });
 
@@ -466,6 +473,61 @@ export default function NewProductPage() {
                     )
                   )}
                 </div>
+
+                {categoryRequiresCoa && (
+                  <div className="bg-[var(--surface)] border border-amber-500/40 rounded-lg p-4 space-y-3">
+                    <p className="font-medium text-white/90 text-sm">
+                      Total-THC declarations (federal law effective Nov 12, 2026)
+                    </p>
+                    <p className="text-xs text-muted">
+                      From Nov 12, 2026 federal law measures hemp by <strong>total THC
+                      including THCA</strong> (≤0.3% dry weight) and caps finished products
+                      at <strong>0.4mg total THC per container</strong>; synthesized
+                      cannabinoids (e.g. delta-8 made from CBD) are excluded entirely.
+                      Enter these values from your COA — required before this product can
+                      be submitted for review.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <label className="block text-sm text-muted">
+                        Total THC % (incl. THCA, dry weight)
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.001"
+                          value={totalThcPercent}
+                          onChange={(e) => setTotalThcPercent(e.target.value)}
+                          className="w-full mt-1 px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
+                          placeholder="e.g. 0.12"
+                        />
+                      </label>
+                      <label className="block text-sm text-muted">
+                        Total THC per container (mg)
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={totalThcMg}
+                          onChange={(e) => setTotalThcMg(e.target.value)}
+                          className="w-full mt-1 px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
+                          placeholder="e.g. 0.3"
+                        />
+                      </label>
+                    </div>
+                    <label className="block text-sm text-muted">
+                      Contains synthesized cannabinoids? (delta-8 converted from CBD, etc.)
+                      <select
+                        value={containsSynth}
+                        onChange={(e) => setContainsSynth(e.target.value as "" | "yes" | "no")}
+                        className="w-full mt-1 px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent text-white"
+                      >
+                        <option value="">Select…</option>
+                        <option value="no">No — naturally derived only</option>
+                        <option value="yes">Yes — contains synthesized cannabinoids</option>
+                      </select>
+                    </label>
+                  </div>
+                )}
 
                 {productType === "delta8" && (
                   <div className="bg-yellow-900/30 border border-yellow-600 rounded-lg p-4">
