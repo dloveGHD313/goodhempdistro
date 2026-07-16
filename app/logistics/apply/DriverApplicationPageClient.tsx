@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import Footer from "@/components/Footer";
+import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 const VEHICLE_TYPES = ["Sedan", "SUV", "Pickup Truck", "Cargo Van", "Box Truck", "Motorcycle"];
 const EXPERIENCE_OPTIONS = ["Less than 1 year", "1-2 years", "3-5 years", "5+ years"];
@@ -27,48 +28,121 @@ export default function DriverApplicationPage() {
   const [insurance, setInsurance] = useState<File | null>(null);
   const [registration, setRegistration] = useState<File | null>(null);
 
-  // P2 (shop brief 2026-07-14): documents upload through the server API
-  // with the service role. The old browser-direct storage upload failed
-  // silently (upsert without an UPDATE storage policy) and its error was
-  // swallowed into a generic message; the server route now validates each
-  // file (PDF/JPG/PNG/WebP, 10MB) and returns specific failures.
+  // 2026-07-14 follow-up to #214: file bytes must NOT flow through a
+  // Vercel function — the platform rejects request bodies over 4.5MB at
+  // the edge (413, zero runtime logs), and four phone photos exceed that
+  // immediately. Flow is now: /init issues signed upload URLs (small
+  // JSON) → browser uploads each file DIRECTLY to Supabase Storage →
+  // /finalize verifies the files landed and records the application.
+  // Every stage sets a specific visible message and logs the raw error.
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErrorMsg(null);
-    if (!licenseFront || !licenseBack || !insurance || !registration) return setErrorMsg("Please upload all required documents.");
-    if (!hasLicense || !is21 || !canPassBg) return setErrorMsg("Please confirm all eligibility requirements.");
+    const fail = (stage: string, message: string, raw?: unknown) => {
+      console.error(`[driver-apply] ${stage} failed:`, raw ?? message);
+      setStatus("error");
+      setErrorMsg(message);
+    };
+    const docFiles = {
+      license_front: licenseFront,
+      license_back: licenseBack,
+      insurance,
+      registration,
+    } as const;
+    const missingDocs = Object.entries(docFiles)
+      .filter(([, file]) => !file)
+      .map(([key]) => key.replace(/_/g, " "));
+    if (missingDocs.length > 0) {
+      return fail("validation", `Please attach: ${missingDocs.join(", ")}.`);
+    }
+    if (!hasLicense || !is21 || !canPassBg) {
+      return fail("validation", "Please confirm all three eligibility checkboxes.");
+    }
     try {
       setStatus("uploading");
-      const formData = new FormData();
-      formData.set("full_name", fullName);
-      formData.set("email", email);
-      formData.set("phone", phone);
-      formData.set("city", city);
-      formData.set("state", stateField);
-      formData.set("vehicle_type", vehicleType);
-      formData.set("years_experience", yearsExp);
-      formData.set("has_valid_license", String(hasLicense));
-      formData.set("is_21_or_older", String(is21));
-      formData.set("can_pass_background_check", String(canPassBg));
-      formData.set("why_drive", whyDrive);
-      formData.set("license_front", licenseFront);
-      formData.set("license_back", licenseBack);
-      formData.set("insurance", insurance);
-      formData.set("registration", registration);
 
-      setStatus("submitting");
-      const res = await fetch("/api/drivers/apply-with-docs", {
+      // Stage 1: get signed upload URLs (validates type/size server-side).
+      const initRes = await fetch("/api/drivers/apply/init", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          docs: Object.entries(docFiles).map(([doc_type, file]) => ({
+            doc_type,
+            mime: file!.type,
+            size: file!.size,
+          })),
+        }),
       });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        throw new Error(data?.error || "Submission failed. Please try again.");
+      const initData = await initRes.json().catch(() => null);
+      if (!initRes.ok) {
+        return fail(
+          "init",
+          initData?.error || `Could not start the upload (HTTP ${initRes.status}).`,
+          initData
+        );
+      }
+
+      // Stage 2: upload each file directly to storage via its signed URL.
+      const supabase = createSupabaseBrowserClient();
+      for (const [docType, file] of Object.entries(docFiles)) {
+        const target = initData?.uploads?.[docType];
+        if (!target?.path || !target?.token) {
+          return fail("upload", `Upload target missing for ${docType.replace(/_/g, " ")}. Please retry.`, initData);
+        }
+        const { error } = await supabase.storage
+          .from(initData.bucket || "driver-documents")
+          .uploadToSignedUrl(target.path, target.token, file!, {
+            contentType: file!.type || "application/octet-stream",
+          });
+        if (error) {
+          return fail(
+            "upload",
+            `Uploading your ${docType.replace(/_/g, " ")} failed: ${error.message}. Please retry.`,
+            error
+          );
+        }
+      }
+
+      // Stage 3: record the application against the uploaded paths.
+      setStatus("submitting");
+      const finalizeRes = await fetch("/api/drivers/apply/finalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          upload_id: initData.upload_id,
+          paths: Object.fromEntries(
+            Object.keys(docFiles).map((docType) => [docType, initData.uploads[docType].path])
+          ),
+          full_name: fullName,
+          email,
+          phone,
+          city,
+          state: stateField,
+          vehicle_type: vehicleType,
+          years_experience: yearsExp,
+          has_valid_license: hasLicense,
+          is_21_or_older: is21,
+          can_pass_background_check: canPassBg,
+          why_drive: whyDrive,
+        }),
+      });
+      const finalizeData = await finalizeRes.json().catch(() => null);
+      if (!finalizeRes.ok) {
+        return fail(
+          "finalize",
+          finalizeData?.error || `Could not save the application (HTTP ${finalizeRes.status}).`,
+          finalizeData
+        );
       }
       setStatus("success");
     } catch (err) {
-      setStatus("error");
-      setErrorMsg(err instanceof Error ? err.message : "Submission failed. Please try again.");
+      fail(
+        "network",
+        err instanceof Error
+          ? `Network error: ${err.message}. Check your connection and retry.`
+          : "Unexpected error. Please try again.",
+        err
+      );
     }
   }
 
