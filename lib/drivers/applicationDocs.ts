@@ -8,9 +8,13 @@
  *    an UPDATE storage policy the bucket doesn't grant (INSERT only).
  * 3. uploadFile() swallowed the error and showed a generic retry message.
  *
- * Uploads now go through /api/drivers/apply-with-docs (service role, same
- * pattern as the logistics on-demand route); this module holds the pure,
- * unit-tested validation.
+ * 2026-07-14 follow-up: the first fix (#214) funneled all four files into
+ * one multipart POST to a Vercel function — the platform rejects bodies
+ * over 4.5MB at the edge (413, function never runs), which four phone
+ * photos exceed immediately. Flow is now signed upload URLs
+ * (/api/drivers/apply/init → browser uploads straight to Supabase Storage
+ * → /api/drivers/apply/finalize). This module holds the pure, unit-tested
+ * validation shared by init.
  */
 
 export const DRIVER_DOC_BUCKET = "driver-documents";
