@@ -394,6 +394,20 @@ Phase 5 — Build #4 Ask JAX thin wrapper (GATE-08 scope: reuse existing /api/ma
 
 Anchor catalog seed: CEO manual task, parallel to Phase 5+ build work. Does not block.
 
+---
+
+## PR #201 — fix/stripe-guards-allow-test-keys-on-preview (merged 2026-07-03) [backfilled entry]
+
+- Question answered: NO — neither guard allowed sk_test_ on preview, plus a third blocker
+- Three layers gated on isStripeProductionEnv() (new shared helper in liveGuard):
+  1. assertStripeLiveSecret: threw on sk_test_ unconditionally → now production-only; preview/dev allow test keys with console.warn
+  2. stripeEnv isProduction(): OR'd NODE_ENV=production — Vercel PREVIEW builds run NODE_ENV=production, so preview was enforced as live → now delegates to shared helper (VERCEL_ENV authoritative)
+  3. webhook livemode:false rejection: unconditional → production-only (signature verification still applies on preview)
+- Production posture UNCHANGED: sk_live_ required, test events rejected, missing key throws everywhere, whsec_ format required everywhere
+- 13 new tests pin the VERCEL_ENV-over-NODE_ENV precedence + gating matrix
+- Unblocks: STRIPE-CONNECT-TEST-MODE-SMOKE.md now runnable against preview deploys (pre-Phase-5 gate)
+
+
 
 ---
 
