@@ -16,6 +16,8 @@ type Product = {
   reviewed_at?: string;
   rejection_reason?: string;
   created_at: string;
+  /** P.L. 119-37 evaluation (server-computed); warning display only. */
+  federal_2026_status?: "compliant" | "non_compliant" | "unknown";
 };
 
 type Props = {
@@ -94,8 +96,51 @@ export default function ProductsClient({ initialProducts, initialCounts }: Props
     );
   };
 
+  const affected2026 = products.filter(
+    (p) => p.federal_2026_status && p.federal_2026_status !== "compliant"
+  );
+
+  const get2026Badge = (status: Product["federal_2026_status"]) => {
+    if (!status) return null;
+    if (status === "compliant") {
+      return (
+        <span className="px-2 py-1 rounded text-xs font-semibold bg-green-800 text-green-200">
+          2026 OK
+        </span>
+      );
+    }
+    if (status === "non_compliant") {
+      return (
+        <span className="px-2 py-1 rounded text-xs font-semibold bg-red-800 text-red-200">
+          2026 non-compliant
+        </span>
+      );
+    }
+    return (
+      <span className="px-2 py-1 rounded text-xs font-semibold bg-amber-700 text-amber-100">
+        2026 data missing
+      </span>
+    );
+  };
+
   return (
     <div className="space-y-6">
+      {/* Federal 2026 hemp-definition warning (P.L. 119-37) */}
+      {affected2026.length > 0 && (
+        <div className="p-4 rounded-lg bg-amber-900/30 border border-amber-500 text-amber-100 text-sm">
+          <p className="font-semibold mb-1">
+            ⚠️ Federal hemp definition changes November 12, 2026
+          </p>
+          <p>
+            {affected2026.length} of your product{affected2026.length === 1 ? "" : "s"} may
+            not meet the new federal hemp definition (total THC incl. THCA ≤ 0.3% dry
+            weight, ≤ 0.4mg total THC per container, no synthesized cannabinoids) or
+            {" "}is missing its total-THC declarations. Update each product&apos;s COA
+            declarations before the effective date — affected products are flagged below.
+          </p>
+        </div>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="card-glass p-4">
@@ -178,7 +223,15 @@ export default function ProductsClient({ initialProducts, initialCounts }: Props
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="text-xl font-semibold">{product.name}</h3>
                     {getStatusBadge(product.status, product.active)}
+                    {get2026Badge(product.federal_2026_status)}
                   </div>
+                  {product.federal_2026_status && product.federal_2026_status !== "compliant" && (
+                    <p className="text-xs text-amber-300 mb-2">
+                      {product.federal_2026_status === "non_compliant"
+                        ? "This product may not meet the federal hemp definition effective Nov 12, 2026."
+                        : "Total-THC declarations missing — add total THC %, mg per container, and the synthesized-cannabinoid declaration from your COA."}
+                    </p>
+                  )}
                   {product.description && (
                     <p className="text-muted mb-2">{product.description}</p>
                   )}

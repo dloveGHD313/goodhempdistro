@@ -10,7 +10,7 @@ import { computeShipToStates } from "@/lib/compliance/getRestrictedStatesForProd
 
 /** Full select for product edit + admin detail (status, review fields) */
 const PRODUCT_EDIT_SELECT_FULL =
-  "id, name, description, price_cents, category_id, active, product_type, coa_url, coa_object_path, delta8_disclaimer_ack, hemp_derived_attestation, vendor_id, owner_user_id, status, submitted_at, reviewed_at, rejection_reason";
+  "id, name, description, price_cents, category_id, active, product_type, coa_url, coa_object_path, delta8_disclaimer_ack, hemp_derived_attestation, total_thc_percent, total_thc_mg_per_container, contains_synthesized_cannabinoids, vendor_id, owner_user_id, status, submitted_at, reviewed_at, rejection_reason";
 
 /** Minimal select for product edit when full select fails (schema mismatch / optional columns absent) */
 const PRODUCT_EDIT_SELECT_MINIMAL =
@@ -193,6 +193,9 @@ export async function PUT(
       delta8_disclaimer_ack,
       hemp_derived_attestation,
       image_url,
+      total_thc_percent,
+      total_thc_mg_per_container,
+      contains_synthesized_cannabinoids,
     } = await req.json();
 
     const normalizeCoaObjectPath = (value: unknown) => {
@@ -314,6 +317,25 @@ export async function PUT(
         const trimmed = image_url.trim();
         updates.image_url = trimmed.length > 0 ? trimmed : null;
       }
+    }
+
+    // Federal 2026 declarations (P.L. 119-37) — vendor-declared from the
+    // COA. Values are stored as data; enforcement is behind the
+    // ENFORCE_FEDERAL_2026 flag, and presence is required at submit for
+    // COA categories.
+    const parseNonNegative = (value: unknown) => {
+      const n = typeof value === "number" ? value : typeof value === "string" ? Number.parseFloat(value) : NaN;
+      return Number.isFinite(n) && n >= 0 ? n : null;
+    };
+    if (total_thc_percent !== undefined) {
+      updates.total_thc_percent = total_thc_percent === null ? null : parseNonNegative(total_thc_percent);
+    }
+    if (total_thc_mg_per_container !== undefined) {
+      updates.total_thc_mg_per_container = total_thc_mg_per_container === null ? null : parseNonNegative(total_thc_mg_per_container);
+    }
+    if (contains_synthesized_cannabinoids !== undefined) {
+      updates.contains_synthesized_cannabinoids =
+        contains_synthesized_cannabinoids === null ? null : contains_synthesized_cannabinoids === true;
     }
 
     // Re-compute ship_to_states when product_type changes

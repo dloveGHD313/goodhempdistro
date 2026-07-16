@@ -374,6 +374,9 @@ export async function POST(req: NextRequest) {
       image_url,
       delta8_disclaimer_ack,
       hemp_derived_attestation,
+      total_thc_percent,
+      total_thc_mg_per_container,
+      contains_synthesized_cannabinoids,
     } = body;
 
     const nameValue = typeof name === "string" ? name.trim() : "";
@@ -683,6 +686,22 @@ export async function POST(req: NextRequest) {
     }
     if (typeof image_url === "string" && image_url.trim()) {
       optionalUpdates.image_url = image_url.trim();
+    }
+    // Federal 2026 declarations (P.L. 119-37) — stored as data; presence
+    // is enforced at submit for COA categories, values behind the flag.
+    const parseNonNegative = (value: unknown) => {
+      const n = typeof value === "number" ? value : typeof value === "string" ? Number.parseFloat(value) : NaN;
+      return Number.isFinite(n) && n >= 0 ? n : null;
+    };
+    if (total_thc_percent !== undefined) {
+      optionalUpdates.total_thc_percent = parseNonNegative(total_thc_percent);
+    }
+    if (total_thc_mg_per_container !== undefined) {
+      optionalUpdates.total_thc_mg_per_container = parseNonNegative(total_thc_mg_per_container);
+    }
+    if (contains_synthesized_cannabinoids !== undefined) {
+      optionalUpdates.contains_synthesized_cannabinoids =
+        contains_synthesized_cannabinoids === null ? null : contains_synthesized_cannabinoids === true;
     }
 
     let optionalUpdateError:
