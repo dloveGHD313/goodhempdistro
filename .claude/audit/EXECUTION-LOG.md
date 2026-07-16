@@ -498,3 +498,14 @@ Source: GHD-SHOP-COMPLIANCE-DRIVER-BRIEF-2026-07-14.md (OneDrive CEO docs folder
 - Attorney review pass on the seeded compliance matrix before loosening/launching pending categories
 - ship_restricted_states data entry per category (state divergence on delta-8/THCA/consumables)
 - Legacy /api/drivers/apply route (driver-docs bucket flow) appears unused by any live page — candidate for removal after confirming no callers
+
+---
+
+## 2026-07-14 — PR #215: driver docs upload rework (#214 was broken by design)
+
+- CEO repro post-#214: "submission failed", ZERO POSTs in Vercel runtime logs, no DB insert.
+- Root cause: #214 sent all four documents in ONE multipart POST to a serverless function. Vercel rejects request bodies >4.5MB at the EDGE (413 FUNCTION_PAYLOAD_TOO_LARGE) — the function never runs, so no runtime log line; four phone photos exceed 4.5MB immediately. The non-JSON 413 body fell through to the client's generic fallback message. Confirmed production was on #214 before diagnosing (deploy 798975c READY).
+- Fix (PR #215, merged): signed-upload-URL flow — /api/drivers/apply/init validates doc MIME/size and issues per-path signed URLs; browser uploads bytes DIRECTLY to Supabase Storage (no Vercel body limit, no storage RLS); /api/drivers/apply/finalize verifies each claimed path landed non-empty under the init session (prefix-checked) before inserting the application. Broken multipart route removed.
+- Client: per-stage visible errors (named missing attachments, eligibility, init/upload/finalize with server message + HTTP status, network) and console.error of the raw error at every rejection point — per CEO directive.
+- Post-deploy verify: submit application with 4 phone photos (>4.5MB total) as a guest and as ghdconsumer; confirm row lands with all four paths + admin signed URLs open.
+- Lesson recorded: any browser file upload must go direct-to-storage (signed URL) — never through a Vercel function body.
