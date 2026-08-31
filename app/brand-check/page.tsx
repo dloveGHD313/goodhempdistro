@@ -23,7 +23,7 @@ export default function BrandCheckPage() {
 
         <section className="card p-6 space-y-4">
           <h2 className="text-xl font-semibold">Static img tag</h2>
-          <img src="/brand/goodhempdistrologo.png" alt="Good Hemp Distros Logo" className="max-w-xs" />
+          <img src="/brand/goodhempdistrologo-sm.png" alt="Good Hemp Distros Logo" className="max-w-xs" />
         </section>
 
         <section className="card p-6 space-y-4">

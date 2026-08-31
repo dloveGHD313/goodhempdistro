@@ -14,6 +14,13 @@ export const brand = {
   logoWidth: 1536,
   logoHeight: 1024,
   logoAlt: "Good Hemp Distros Logo",
+
+  // Pre-sized brand assets (perf: never ship the 2.2MB master PNG to browsers).
+  // The master stays as the next/image source; these are for raw <link>/<img> uses.
+  iconPath: "/brand/favicon-48.png", // 48x48, ~3KB
+  appleIconPath: "/brand/apple-touch-icon.png", // 180x180, ~24KB
+  ogImagePath: "/brand/goodhempdistrologo-og.jpg", // 1200x800, ~87KB
+  logoSmallPath: "/brand/goodhempdistrologo-sm.png", // 320px wide, ~50KB
   
   // Color Palette (derived from logo)
   colors: {

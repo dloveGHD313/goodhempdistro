@@ -66,8 +66,11 @@ export const metadata: Metadata = {
   title: `${brand.name} - Community Marketplace`,
   description: brand.description,
   icons: {
-    icon: brand.logoPath,
-    apple: brand.logoPath,
+    // Perf: dedicated small icons. The old config pointed both at the 2.2MB
+    // master logo PNG, which every page downloaded as its favicon (the single
+    // largest transfer on the site - ~78% of total page weight).
+    icon: brand.iconPath,
+    apple: brand.appleIconPath,
   },
   openGraph: {
     title: `${brand.name} - Premium Hemp Marketplace`,
@@ -76,7 +79,7 @@ export const metadata: Metadata = {
     siteName: brand.name,
     images: [
       {
-        url: brand.logoPath,
+        url: brand.ogImagePath,
         width: brand.ogImageWidth,
         height: brand.ogImageHeight,
         alt: brand.name,
@@ -88,7 +91,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: brand.name,
     description: brand.description,
-    images: [brand.logoPath],
+    images: [brand.ogImagePath],
   },
 };
 
