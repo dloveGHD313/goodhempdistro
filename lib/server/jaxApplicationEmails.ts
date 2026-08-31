@@ -133,8 +133,13 @@ export async function sendJaxApplicationEmails(
 ): Promise<void> {
   try {
     const apiKey = process.env.RESEND_API_KEY?.trim();
-    const from = process.env.EMAIL_FROM?.trim();
-    if (!apiKey || !from) {
+    // Same fallback chain as the verification-email route: EMAIL_FROM,
+    // then RESEND_FROM, then the domain default.
+    const from =
+      process.env.EMAIL_FROM?.trim() ||
+      process.env.RESEND_FROM?.trim() ||
+      "noreply@goodhempdistro.com";
+    if (!apiKey) {
       console.warn(
         "[jax-feature-form/email]",
         JSON.stringify({ missingResendConfig: true })
