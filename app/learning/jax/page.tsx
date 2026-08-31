@@ -4,6 +4,12 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { sendJaxApplicationEmails } from "@/lib/server/jaxApplicationEmails";
+import {
+  FORM_TS_FIELD,
+  HONEYPOT_FIELD,
+  formSpamCheck,
+} from "@/lib/server/antiSpam";
+import FormSpamGuardFields from "@/components/FormSpamGuardFields";
 import Link from "next/link";
 import Footer from "@/components/Footer";
 
@@ -42,6 +48,19 @@ async function submitJaxApplication(formData: FormData) {
 
   if (!name || !business_name || !email || !vendor_type || !why_featured) {
     redirect("/learning/jax?error=1");
+  }
+
+  // Bot/spam gate: honeypot + minimum fill time + email verdict
+  // (disposable domains, gmail dot-alias stuffing).
+  const spamReason = formSpamCheck({
+    honeypot: formData.get(HONEYPOT_FIELD),
+    formTs: formData.get(FORM_TS_FIELD),
+    email,
+  });
+  if (spamReason) {
+    console.warn("[jax-feature-form] blocked submission:", spamReason);
+    // Show the generic success screen so bots learn nothing.
+    redirect("/learning/jax?submitted=1");
   }
 
   const supabase = await createSupabaseServerClient();
@@ -167,6 +186,7 @@ export default async function JaxFeaturePage({
                 </div>
               ) : (
                 <form action={submitJaxApplication} className="space-y-5">
+                  <FormSpamGuardFields />
                   {hasError && (
                     <div className="p-3 rounded bg-red-500/20 text-red-200 text-sm" role="alert">
                       Something went wrong. Please try again or contact us directly.
