@@ -108,7 +108,26 @@ describe("sendJaxApplicationEmails", () => {
     expect(errorSpy).toHaveBeenCalled();
   });
 
-  it("does nothing (and does not throw) when Resend config is missing", async () => {
+  it("falls back to RESEND_FROM, then the domain default, when EMAIL_FROM is unset", async () => {
+    vi.stubEnv("EMAIL_FROM", "");
+    vi.stubEnv("RESEND_FROM", "");
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response("{}", { status: 200 }));
+
+    await sendJaxApplicationEmails(app);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const froms = fetchMock.mock.calls.map(
+      (c) => JSON.parse(String(c[1]?.body)).from
+    );
+    expect(froms).toEqual([
+      "noreply@goodhempdistro.com",
+      "noreply@goodhempdistro.com",
+    ]);
+  });
+
+  it("does nothing (and does not throw) when the Resend API key is missing", async () => {
     vi.stubEnv("RESEND_API_KEY", "");
     const fetchMock = vi.spyOn(globalThis, "fetch");
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
