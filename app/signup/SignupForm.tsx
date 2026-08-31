@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { isSafeNextPath } from "@/lib/phase2-workout-flow";
+import { HONEYPOT_FIELD, emailSpamVerdict, nowMs, submittedTooFast } from "@/lib/server/antiSpam";
 
 export default function SignupForm() {
   const router = useRouter();
@@ -18,6 +19,11 @@ export default function SignupForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [honeypot, setHoneypot] = useState("");
+  const mountedAtRef = useRef(0);
+  useEffect(() => {
+    mountedAtRef.current = nowMs();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +43,20 @@ export default function SignupForm() {
       return;
     }
 
+    // Bot gate: filled honeypot or an instant submit gets a silent "success";
+    // spammy email patterns get a generic error with no detail to learn from.
+    if (honeypot.trim().length > 0 || submittedTooFast(mountedAtRef.current)) {
+      console.warn("[signup] blocked bot submission");
+      setMessage("Check your email to confirm your account.");
+      setLoading(false);
+      return;
+    }
+    if (emailSpamVerdict(email).block) {
+      setError("Please use a regular, non-disposable email address.");
+      setLoading(false);
+      return;
+    }
+
     try {
       const supabase = createSupabaseBrowserClient();
       const origin = window.location.origin;
@@ -52,7 +72,7 @@ export default function SignupForm() {
       });
 
       if (signUpError) {
-        const correlationId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `ref-${Date.now()}`;
+        const correlationId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `ref-${nowMs()}`;
         console.warn("[signup] auth error", { code: signUpError.name, message: signUpError.message.slice(0, 200), correlationId });
         const friendlyMessage = signUpError.message?.includes("Database") || signUpError.message?.includes("saving new user")
           ? `Something went wrong creating your account. Please try again or contact support. Reference: ${correlationId}`
@@ -95,7 +115,7 @@ export default function SignupForm() {
         }
       }
     } catch (err) {
-      const correlationId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `ref-${Date.now()}`;
+      const correlationId = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `ref-${nowMs()}`;
       console.warn("[signup] exception", err, { correlationId });
       setError(`Something went wrong. Please try again or contact support. Reference: ${correlationId}`);
       setLoading(false);
@@ -104,6 +124,21 @@ export default function SignupForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <div
+        aria-hidden="true"
+        style={{ position: "absolute", left: "-9999px", top: "-9999px", width: 0, height: 0, overflow: "hidden" }}
+      >
+        <label htmlFor={HONEYPOT_FIELD}>Company website</label>
+        <input
+          id={HONEYPOT_FIELD}
+          name={HONEYPOT_FIELD}
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          value={honeypot}
+          onChange={(e) => setHoneypot(e.target.value)}
+        />
+      </div>
       {error && (
         <div className="bg-red-900/30 border border-red-600 rounded-lg p-4 text-red-400">
           {error}

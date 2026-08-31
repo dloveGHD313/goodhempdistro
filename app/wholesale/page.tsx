@@ -3,6 +3,12 @@ import type { Metadata } from "next";
 import { brand } from "@/lib/brand";
 import Footer from "@/components/Footer";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import {
+  FORM_TS_FIELD,
+  HONEYPOT_FIELD,
+  formSpamCheck,
+} from "@/lib/server/antiSpam";
+import FormSpamGuardFields from "@/components/FormSpamGuardFields";
 
 export const metadata: Metadata = {
   title: "Hemp Wholesale Inquiry | Good Hemp Distro",
@@ -37,6 +43,18 @@ async function submitInquiry(formData: FormData) {
 
   if (!business_name || !contact_name || !email || !category) {
     redirect("/wholesale?error=1");
+  }
+
+  // Bot/spam gate: honeypot + minimum fill time + email verdict.
+  const spamReason = formSpamCheck({
+    honeypot: formData.get(HONEYPOT_FIELD),
+    formTs: formData.get(FORM_TS_FIELD),
+    email,
+  });
+  if (spamReason) {
+    console.warn("[wholesale-inquiry] blocked submission:", spamReason);
+    // Generic success so bots learn nothing.
+    redirect("/wholesale?submitted=1");
   }
 
   const supabase = await createSupabaseServerClient();
@@ -182,6 +200,7 @@ export default async function WholesalePage({
                 </p>
               ) : (
                 <form action={submitInquiry} className="space-y-5">
+                  <FormSpamGuardFields />
                   {hasError && (
                     <div className="p-3 rounded bg-red-500/20 text-red-200 text-sm" role="alert">
                       Submission failed. Please email us directly to reach our team.

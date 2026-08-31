@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { emailSpamVerdict, normalizeEmail } from "@/lib/server/antiSpam";
 
 function isValidEmail(value: string): boolean {
   const trimmed = value.trim();
@@ -21,7 +22,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const email = rawEmail.trim().toLowerCase();
+    // Bot gate: disposable domains and gmail dot-alias stuffing get a
+    // generic OK (bots learn nothing) without a database write.
+    const verdict = emailSpamVerdict(rawEmail);
+    if (verdict.block) {
+      console.warn("[newsletter] blocked signup:", verdict.reason);
+      return NextResponse.json(
+        { ok: true },
+        { headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    // Store the canonical address so dot/+tag aliases can't create dupes.
+    const email = normalizeEmail(rawEmail);
     const admin = getSupabaseAdminClient();
 
     const { error } = await admin
