@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { brand } from "@/lib/brand";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { sendJaxApplicationEmails } from "@/lib/server/jaxApplicationEmails";
 import Link from "next/link";
 import Footer from "@/components/Footer";
 
@@ -47,6 +49,26 @@ async function submitJaxApplication(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
 
+  // Basic rate limit: block a second submission from the same email within 60s
+  // (same DB-count pattern as service inquiries; admin client because the
+  // public role can insert but not read this table).
+  try {
+    const admin = getSupabaseAdminClient();
+    const sixtySecondsAgo = new Date(Date.now() - 60_000).toISOString();
+    const { count: recentCount } = await admin
+      .from("jax_feature_applications")
+      .select("*", { count: "exact", head: true })
+      .ilike("email", email.trim())
+      .gte("created_at", sixtySecondsAgo);
+    if (recentCount && recentCount > 0) {
+      redirect("/learning/jax?error=1");
+    }
+  } catch (err) {
+    // isRedirectError-safe: Next redirect() throws — rethrow it.
+    if (err && typeof err === "object" && "digest" in err) throw err;
+    console.error("[jax-feature-form] rate-limit check failed:", err);
+  }
+
   const { error } = await supabase.from("jax_feature_applications").insert({
     name,
     business_name,
@@ -64,6 +86,18 @@ async function submitJaxApplication(formData: FormData) {
     console.error("[jax-feature-form] insert error:", error.message);
     redirect("/learning/jax?error=1");
   }
+
+  // Best-effort notifications — sendJaxApplicationEmails never throws, so a
+  // Resend outage can never fail the submission.
+  await sendJaxApplicationEmails({
+    name,
+    business_name,
+    email,
+    phone,
+    website_url,
+    vendor_type,
+    why_featured,
+  });
 
   redirect("/learning/jax?submitted=1");
 }
