@@ -250,7 +250,7 @@ export default function PricingPage() {
 
             {activeTab === "consumer" && (
               <Stagger className="grid gap-6 md:grid-cols-3">
-                {consumerPlans.map((plan) => (
+                {consumerPlans.map((plan, planIndex) => (
                   <StaggerChild key={plan.planKey}>
                     <HoverLift className="h-full">
                       <div className="card-glass p-6 text-center h-full flex flex-col">
@@ -261,6 +261,10 @@ export default function PricingPage() {
                             width={640}
                             height={360}
                             className="h-40 w-full object-cover"
+                            // First card is the mobile LCP element - never lazy-load it
+                            // (Lighthouse: LCP img had loading="lazy" + no priority hint).
+                            priority={planIndex === 0}
+                            sizes="(min-width: 768px) 33vw, 100vw"
                           />
                         </div>
                         <h3 className="text-2xl font-bold mb-2">{plan.displayName}</h3>
@@ -317,7 +321,7 @@ export default function PricingPage() {
 
             {activeTab === "vendor" && (
               <Stagger className="grid gap-6 md:grid-cols-3">
-                {vendorPlans.map((plan) => (
+                {vendorPlans.map((plan, planIndex) => (
                   <StaggerChild key={plan.key}>
                     <HoverLift className="h-full">
                       <div className="card-glass p-6 text-left h-full flex flex-col">
@@ -328,6 +332,8 @@ export default function PricingPage() {
                             width={640}
                             height={360}
                             className="h-40 w-full object-cover"
+                            priority={planIndex === 0}
+                            sizes="(min-width: 768px) 33vw, 100vw"
                           />
                         </div>
                         <h3 className="text-2xl font-bold mb-2">{plan.displayName}</h3>
