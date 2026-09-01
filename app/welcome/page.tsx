@@ -6,7 +6,8 @@ import HeroSection from "./components/HeroSection";
 import DualAudienceSection from "./components/DualAudienceSection";
 import FeaturedProductsSection from "./components/FeaturedProductsSection";
 import HowItWorksSection from "./components/HowItWorksSection";
-import LearningWithJaxSection from "./components/LearningWithJaxSection";
+import LearningWithJaxSection, { type WelcomeEpisode } from "./components/LearningWithJaxSection";
+import { getEpisodesForViewer } from "@/lib/jax/episodes";
 import ServicesTeaserSection from "./components/ServicesTeaserSection";
 import TrustBarSection from "./components/TrustBarSection";
 import MarketingFooter from "./components/MarketingFooter";
@@ -81,6 +82,24 @@ async function getFeaturedProducts(): Promise<FeaturedProduct[]> {
   }
 }
 
+/** Real Learning with JAX episodes for the logged-out welcome page (fail-soft). */
+async function getWelcomeEpisodes(): Promise<WelcomeEpisode[]> {
+  try {
+    const { episodes } = await getEpisodesForViewer(null);
+    return episodes.slice(0, 3).map((ep) => {
+      const mins = ep.duration_seconds ? Math.max(1, Math.round(ep.duration_seconds / 60)) : null;
+      const pillar = ep.pillar === "webisodes" ? "Webisode" : "Episode";
+      return {
+        id: ep.id,
+        title: ep.title,
+        meta: mins ? `${pillar} • ${mins} min` : `${pillar} • Watch now`,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
 async function getIsAuthenticated(): Promise<boolean> {
   try {
     const supabase = await createSupabaseServerClient();
@@ -92,9 +111,10 @@ async function getIsAuthenticated(): Promise<boolean> {
 }
 
 export default async function WelcomePage() {
-  const [initialProducts, isAuthenticated] = await Promise.all([
+  const [initialProducts, isAuthenticated, welcomeEpisodes] = await Promise.all([
     getFeaturedProducts(),
     getIsAuthenticated(),
+    getWelcomeEpisodes(),
   ]);
 
   return (
@@ -105,7 +125,7 @@ export default async function WelcomePage() {
         <FeaturedProductsSection initialProducts={initialProducts} />
       </Suspense>
       <HowItWorksSection />
-      <LearningWithJaxSection />
+      <LearningWithJaxSection episodes={welcomeEpisodes} />
       <ServicesTeaserSection />
       <TrustBarSection />
       <MarketingFooter />
