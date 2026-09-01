@@ -555,3 +555,27 @@ Before flipping ENFORCE_FEDERAL_2026=true in Vercel (target: before 2026-11-12),
 1. Open /admin/jax — Episodes 001–002 are there as drafts; upload assets from the Adobe pipeline, send to review, approve, schedule.
 2. Attorney review: federal-2026 matrix + EP002 script before publish.
 3. When ready to enforce: set ENFORCE_FEDERAL_2026=true in Vercel Production (after vendor comms).
+
+### PR #221 — P1 · Anti-spam across public entry points
+
+- lib/server/antiSpam.ts (honeypot + min-fill-time + disposable-domain verdicts) wired into /api/newsletter/subscribe, signup, wholesale + JAX applications; FormSpamGuardFields on the client forms. Context: CEO reported the driver/vendor application queue was mostly spam accounts.
+- Live-verified on production on all four entry points post-merge.
+
+### PR #222 — P1 · Perf round 1 (images)
+
+- Killed the 2.2MB logo-as-favicon (every page downloaded it): dedicated favicon-48 (3.4KB) + apple-touch icon + right-sized OG image + small logo variant in /public/brand, wired via lib/brand.ts.
+- /pricing LCP image: priority + sizes on the first plan card. Measured: /pricing transfer 3034KB → 368KB (−88%).
+
+### PR #223 — P0 · Ask JAX page + $50/mo hard cost cap (Phase 5 / Build #4)
+
+- /ask-jax is a real page (hero + AskJaxChat client component: eligibility panel → chat with quick prompts, 429/503 friendly states, remaining-count).
+- Cost cap: jax_global_daily += input_tokens/output_tokens (migration 20260831, applied to prod BEFORE merge) + atomic RPC; lib/jax/usage.ts computes month cost read-side (no per-call rounding-to-zero); monthly breaker in /api/mascot-chat 503s at cap and FAILS CLOSED on DB error. Cap via JAX_MONTHLY_GLOBAL_COST_CAP_CENTS (default 5000).
+- lib/jax/systemPrompt.ts: extracted buildSystemPrompt + pinned refusal/disclaimer constants under test.
+- Live-verified post-merge: eligibility 200, real chat round-trip, token counters incremented in prod.
+
+### PR #224 — P1 · Perf round 2 (LCP render delay: CSS motion + deferred layout mounts)
+
+- ROOT CAUSE of the 14-15s mobile LCP on /, /products, /pricing: framer-motion Reveal/ScrollReveal/Stagger (and welcome's SectionReveal) SSR'd content with inline opacity:0 — every hero/h1 (the LCP element) stayed invisible until the JS bundle hydrated.
+- Reveal → pure-CSS entrance animation, now a SERVER component (zero hydration). ScrollReveal/Stagger/SectionReveal → visible-by-default: SSR/no-JS paints content; post-hydration only below-viewport elements are hidden + IntersectionObserver-revealed. Reduced-motion honored in CSS.
+- Root layout: PersistWelcomeIntents / Phase15Gate / TravelAdvisory / RecoveryHashRedirect now dynamic(ssr:false) + idle-mounted via DeferredLayoutMounts (recovery-hash URLs mount immediately). Supabase origin preconnect added.
+- Lighthouse re-measure still pending (sandbox egress + PSI quota); verify on the Vercel preview + PSI when quota resets.
