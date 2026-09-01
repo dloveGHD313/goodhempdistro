@@ -30,10 +30,10 @@ Raw JSON dumps preserved at `.claude/audit/lighthouse/{home,products,pricing,ven
 
 ### Quick wins (1 PR each, mostly mechanical)
 
-- [ ] **Optimize hero images** — generate properly-sized WebP variants of `goodhempdistrologo.png`; use Next/Image with `priority` flag on hero
-- [ ] **Defer non-critical layout mounts** — `<MotionProvider>`, `<PersistWelcomeIntents>`, `<RecoveryHashRedirect>`, `<Phase15Gate>` are not above-the-fold-critical. Lazy-mount via `dynamic(() => import('...'), { ssr: false })`.
+- [x] **Optimize hero images** (PR #222 — favicon/OG/small logo variants; pricing LCP image priority+sizes) — generate properly-sized WebP variants of `goodhempdistrologo.png`; use Next/Image with `priority` flag on hero
+- [x] **Defer non-critical layout mounts** (PR #224 — via DeferredLayoutMounts; MotionProvider stays: it context-wraps SSR children) — `<MotionProvider>`, `<PersistWelcomeIntents>`, `<RecoveryHashRedirect>`, `<Phase15Gate>` are not above-the-fold-critical. Lazy-mount via `dynamic(() => import('...'), { ssr: false })`.
 - [ ] **Trim unused CSS** — Tailwind purge audit; remove unused brand theme variants from `globals.css`
-- [ ] **Preconnect** to Supabase + Stripe origins — `<link rel="preconnect">` in root layout `<head>`
+- [x] **Preconnect** to Supabase origin (PR #224; Stripe.js loads on checkout only) — `<link rel="preconnect">` in root layout `<head>`
 - [ ] **Image dimensions** on every `<img>` — fix the 0.22 CLS by reserving space
 
 ### Medium (2-3 PRs)

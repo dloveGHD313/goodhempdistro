@@ -1,58 +1,49 @@
-"use client";
-
-import { motion, type Variants } from "framer-motion";
-import { useMotion } from "./MotionProvider";
-import { MOTION_DISTANCES } from "./tokens";
+import type { CSSProperties, ElementType, ReactNode } from "react";
 
 type Direction = "up" | "down" | "left" | "right";
 
-const directionOffset = (d: Direction) => ({
-  up: { y: MOTION_DISTANCES.ySmall },
-  down: { y: -MOTION_DISTANCES.ySmall },
-  left: { x: MOTION_DISTANCES.ySmall },
-  right: { x: -MOTION_DISTANCES.ySmall },
-}[d]);
-
 type RevealProps = {
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
   delay?: number;
   direction?: Direction;
   duration?: number;
-  as?: keyof typeof motion;
+  as?: ElementType;
 };
 
+/**
+ * Perf round 2 (Phase 7.5): CSS-only entrance animation.
+ *
+ * The previous framer-motion implementation server-rendered content with an
+ * inline `opacity:0` (the serialized "initial" variant), so hero headings —
+ * the LCP element on every public route — stayed invisible until the full JS
+ * bundle downloaded and hydrated. On mobile that was seconds of pure render
+ * delay. CSS animations start at first paint with zero JS, and this is now a
+ * server component (no hydration cost at all).
+ *
+ * Reduced-motion is handled in globals.css via `prefers-reduced-motion`.
+ * Keyframes/classes: `.ghd-reveal`, `.ghd-reveal-{up,down,left,right}`.
+ */
 export function Reveal({
   children,
   className = "",
   delay = 0,
   direction = "up",
   duration,
-  as = "div",
+  as: Tag = "div",
 }: RevealProps) {
-  const { reducedMotion, transition } = useMotion();
-  const t = duration !== undefined ? { ...transition, duration } : transition;
-  const offset = directionOffset(direction);
-
-  const variants: Variants = reducedMotion
-    ? { initial: { opacity: 1, y: 0, x: 0 }, animate: { opacity: 1, y: 0, x: 0 } }
-    : {
-        initial: { opacity: 0, ...offset, ...(direction === "up" || direction === "down" ? { x: 0 } : { y: 0 }) },
-        animate: { opacity: 1, y: 0, x: 0 },
-      };
-
-  const Component = motion[as] as typeof motion.div;
+  const style: CSSProperties | undefined =
+    delay || duration !== undefined
+      ? {
+          ...(delay ? { animationDelay: `${delay}s` } : {}),
+          ...(duration !== undefined ? { animationDuration: `${duration}s` } : {}),
+        }
+      : undefined;
 
   return (
-    <Component
-      initial="initial"
-      animate="animate"
-      variants={variants}
-      transition={reducedMotion ? { duration: 0 } : { delay, ...t }}
-      className={className}
-    >
+    <Tag className={`ghd-reveal ghd-reveal-${direction} ${className}`} style={style}>
       {children}
-    </Component>
+    </Tag>
   );
 }
 

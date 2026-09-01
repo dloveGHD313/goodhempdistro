@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
+import { preconnect } from "react-dom";
 import localFont from "next/font/local";
 import { DM_Sans, Playfair_Display } from "next/font/google";
 import "./globals.css";
@@ -7,11 +8,8 @@ import { validateEnvironmentVariables } from "@/lib/env-validator";
 import { brand, colorVars } from "@/lib/brand";
 import Nav from "@/components/Nav";
 import AgeGate from "@/components/AgeGate";
-import RecoveryHashRedirect from "@/components/RecoveryHashRedirect";
 import MascotGate from "@/components/mascot/MascotGate";
-import PersistWelcomeIntents from "@/components/PersistWelcomeIntents";
-import Phase15Gate from "@/components/Phase15Gate";
-import TravelAdvisory from "@/components/TravelAdvisory";
+import DeferredLayoutMounts from "@/components/DeferredLayoutMounts";
 import { MarketModeProvider } from "@/lib/marketMode";
 import { MotionProvider, PageTransition } from "@/components/motion";
 
@@ -102,6 +100,15 @@ export default function RootLayout({
 }>) {
   const themeVars = colorVars as CSSProperties;
 
+  // Perf round 2: warm the Supabase connection early — most pages fire
+  // client-side Supabase/auth fetches right after hydration.
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (supabaseUrl) preconnect(new URL(supabaseUrl).origin, { crossOrigin: "anonymous" });
+  } catch {
+    // invalid URL — skip preconnect
+  }
+
   return (
     <html lang="en" className={`${playfair.variable} ${dmSans.variable}`} style={themeVars}>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
@@ -121,11 +128,10 @@ export default function RootLayout({
               {children}
             </PageTransition>
           </MotionProvider>
-          <PersistWelcomeIntents />
-          <Phase15Gate />
           <MascotGate />
-          <TravelAdvisory />
-          <RecoveryHashRedirect />
+          {/* Perf round 2: null-rendering gates + travel advisory are
+              lazy-mounted after idle (see DeferredLayoutMounts). */}
+          <DeferredLayoutMounts />
         </MarketModeProvider>
       </body>
     </html>
