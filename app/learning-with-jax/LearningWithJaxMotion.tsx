@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { motion } from "framer-motion";
+import JaxFigure from "@/components/mascot/JaxFigure";
 import Footer from "@/components/Footer";
 import LearningWithJaxNewsletter from "./LearningWithJaxNewsletter";
 import { ScrollReveal, Stagger, StaggerChild, HoverLift } from "@/components/motion";
@@ -80,18 +80,9 @@ export default function LearningWithJaxMotion({
                   </HoverLift>
                 </div>
               </div>
-              <div className="flex-shrink-0 w-full max-w-[280px] sm:max-w-[320px] lg:max-w-[360px]">
-                <div className="relative aspect-square jax-hero-float">
-                  <Image
-                    src="/assets/jax/jax-hero.webp"
-                    alt="JAX mascot — Learning with JAX"
-                    width={360}
-                    height={360}
-                    sizes="(max-width: 640px) 280px, (max-width: 1024px) 320px, 360px"
-                    quality={90}
-                    className="object-contain w-full h-full drop-shadow-[0_20px_40px_rgba(0,0,0,0.4)]"
-                    priority
-                  />
+              <div className="flex-shrink-0">
+                <div className="jax-hero-float">
+                  <JaxFigure outfit="learning" width={260} priority />
                 </div>
               </div>
             </div>
