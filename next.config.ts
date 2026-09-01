@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  experimental: {
+    serverActions: {
+      // Blueprint uploads on /projects/submit (default is 1MB)
+      bodySizeLimit: "12mb",
+    },
+  },
   images: {
     remotePatterns: [
       {
