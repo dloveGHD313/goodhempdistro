@@ -503,6 +503,7 @@ export const NAV_COMMUNITY: NavItemLegacy[] = [
 
 export const NAV_BUSINESS: NavItemLegacy[] = [
   { label: "🏗️ Submit a Project", href: "/projects/submit" },
+  { label: "🧮 Material Estimator", href: "/projects/estimator" },
   { label: "Vendor Registration", href: "/vendor-registration" },
   { label: "Become a Driver", href: "/logistics/apply" },
   { label: "Affiliate Portal", href: "/affiliate/portal" },
