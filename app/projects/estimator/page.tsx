@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { brand } from "@/lib/brand";
 import Footer from "@/components/Footer";
+import JaxFigure from "@/components/mascot/JaxFigure";
 import EstimatorClient from "./EstimatorClient";
 
 export const metadata: Metadata = {
@@ -23,6 +24,9 @@ export default function EstimatorPage() {
       <main className="flex-1">
         <section className="section-shell max-w-3xl mx-auto pt-10 pb-16">
           <div className="text-center mb-10">
+            <div className="hidden sm:flex justify-center mb-6">
+              <JaxFigure outfit="builder" width={140} showCaption={false} />
+            </div>
             <h1 className="text-3xl md:text-4xl font-bold text-accent mb-3">
               Hemp Material Estimator
             </h1>
