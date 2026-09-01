@@ -1,20 +1,31 @@
 import type { Metadata } from "next";
-import ComingSoonPage from "@/components/ComingSoonPage";
+import Footer from "@/components/Footer";
+import FeedExperience from "../newsfeed/FeedExperience";
+import RecommendedVendors from "../newsfeed/RecommendedVendors";
 
 export const metadata: Metadata = {
-  title: "Good Hemp Distro Community | Coming Soon",
+  title: "Community Feed | Good Hemp Distro",
   description:
-    "A space for hemp vendors, growers, and consumers to share what they're working on. Join the waitlist and we'll let you know when the feed opens.",
+    "The Good Hemp Distro community feed — vendors, growers, builders, and consumers sharing what they're working on. Compliance-aware, vendor-friendly, no algorithm games.",
 };
 
+// Build #7: /community is the real community feed (was a ComingSoonPage stub
+// from PR #175). It reuses the newsfeed experience under the Community brand.
 export default function CommunityPage() {
   return (
-    <ComingSoonPage
-      eyebrow="Coming Soon"
-      headline="The community feed is on its way."
-      valueProp="A space for hemp vendors, growers, and consumers to share what they're working on. Compliance-aware, vendor-friendly, no algorithm games. Get on the list and we'll send an invite when the feed opens."
-      source="community-coming-soon"
-      secondaryCta={{ label: "Read the newsfeed", href: "/newsfeed" }}
-    />
+    <div className="min-h-screen text-white flex flex-col">
+      <main className="flex-1">
+        <section className="section-shell text-center pt-10 pb-2">
+          <h1 className="text-3xl md:text-4xl font-bold text-accent mb-3">The Community Feed</h1>
+          <p className="text-muted max-w-2xl mx-auto">
+            Vendors, growers, builders, and consumers sharing what they&apos;re working on.
+            Compliance-aware, vendor-friendly, no algorithm games.
+          </p>
+        </section>
+        <RecommendedVendors />
+        <FeedExperience variant="feed" />
+      </main>
+      <Footer />
+    </div>
   );
 }
