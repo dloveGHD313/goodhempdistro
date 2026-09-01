@@ -24,19 +24,25 @@ type ProjectRow = {
   categories: string[];
   status: string;
   matched_vendor_ids: string[];
+  blueprint_object_path: string | null;
+  blueprint_filename: string | null;
 };
 
-async function getProjects(): Promise<{ rows: ProjectRow[]; vendorNames: Record<string, string> }> {
+async function getProjects(): Promise<{
+  rows: ProjectRow[];
+  vendorNames: Record<string, string>;
+  blueprintUrls: Record<string, string>;
+}> {
   try {
     const admin = getSupabaseAdminClient();
     const { data, error } = await admin
       .from("project_submissions")
       .select(
-        "id, created_at, contact_name, company, email, phone, submitter_role, project_type, state, city, timeline, budget_range, description, categories, status, matched_vendor_ids"
+        "id, created_at, contact_name, company, email, phone, submitter_role, project_type, state, city, timeline, budget_range, description, categories, status, matched_vendor_ids, blueprint_object_path, blueprint_filename"
       )
       .order("created_at", { ascending: false })
       .limit(200);
-    if (error || !data) return { rows: [], vendorNames: {} };
+    if (error || !data) return { rows: [], vendorNames: {}, blueprintUrls: {} };
 
     const vendorIds = Array.from(
       new Set(data.flatMap((r) => (r.matched_vendor_ids as string[]) ?? []))
@@ -51,10 +57,24 @@ async function getProjects(): Promise<{ rows: ProjectRow[]; vendorNames: Record<
         if (v?.id) vendorNames[v.id] = v.business_name || v.id;
       });
     }
-    return { rows: data as ProjectRow[], vendorNames };
+    // Short-lived signed URLs for uploaded blueprints (private bucket).
+    const blueprintUrls: Record<string, string> = {};
+    for (const r of data) {
+      const path = (r as { blueprint_object_path?: string | null }).blueprint_object_path;
+      if (!path) continue;
+      try {
+        const { data: signed } = await admin.storage
+          .from("project-blueprints")
+          .createSignedUrl(path, 3600);
+        if (signed?.signedUrl) blueprintUrls[r.id as string] = signed.signedUrl;
+      } catch (err) {
+        console.warn("[admin/projects] signed url failed:", err);
+      }
+    }
+    return { rows: data as ProjectRow[], vendorNames, blueprintUrls };
   } catch (err) {
     console.error("[admin/projects] fetch failed:", err);
-    return { rows: [], vendorNames: {} };
+    return { rows: [], vendorNames: {}, blueprintUrls: {} };
   }
 }
 
@@ -77,7 +97,7 @@ export default async function AdminProjectsPage() {
     redirect("/");
   }
 
-  const { rows, vendorNames } = await getProjects();
+  const { rows, vendorNames, blueprintUrls } = await getProjects();
 
   return (
     <div className="min-h-screen text-white flex flex-col">
@@ -140,6 +160,20 @@ export default async function AdminProjectsPage() {
                       </span>
                     ))}
                   </div>
+                  {row.blueprint_object_path && blueprintUrls[row.id] ? (
+                    <div className="text-sm mb-2">
+                      📐{" "}
+                      <a
+                        href={blueprintUrls[row.id]}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-accent hover:underline"
+                      >
+                        {row.blueprint_filename ?? "Blueprint"}
+                      </a>{" "}
+                      <span className="text-xs text-muted">(link valid 1 hour)</span>
+                    </div>
+                  ) : null}
                   <div className="text-xs text-muted">
                     {row.matched_vendor_ids.length > 0
                       ? `Routed to: ${row.matched_vendor_ids.map((id) => vendorNames[id] ?? id).join(", ")}`
