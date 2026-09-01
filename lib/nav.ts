@@ -495,6 +495,7 @@ export const NAV_PRIMARY: NavItemLegacy[] = [
 ];
 
 export const NAV_COMMUNITY: NavItemLegacy[] = [
+  { label: "🌿 Community Feed", href: "/community" },
   { label: "👥 Groups", href: "/groups" },
   { label: "💬 Forums", href: "/forums" },
   { label: "📝 Blog", href: "/blog" },
