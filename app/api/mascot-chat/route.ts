@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getJaxEligibility } from "@/lib/jax/eligibility";
 import {
+  getCurrentMonthCostCents,
   getGlobalDailyCount,
+  getMonthlyGlobalCostCapCents,
   getUserMonthlyCount,
-  incrementGlobalDaily,
+  incrementGlobalDailyWithCost,
   incrementUserMonthly,
   JAX_USAGE_HELPERS,
 } from "@/lib/jax/usage";
+import { buildSystemPrompt, type JaxUserContext } from "@/lib/jax/systemPrompt";
 import { extractInterestsFromAnswers } from "@/lib/onboarding/interests";
 import { classifyIntent } from "@/server/mascot/intents";
 import { checkSafety } from "@/server/mascot/safety";
@@ -64,76 +67,7 @@ const unavailableResponse = (message: string, suggestions: string[] = []) =>
     suggestions,
   });
 
-type UserContext = {
-  name: string;
-  roles: string[];
-  location: string;
-  topInterests: string[];
-};
-
-const buildSystemPrompt = (params: {
-  contextMode: MascotContext;
-  route: string;
-  intent: string;
-  baseReply: string;
-  results: BasePayload["results"];
-  suggestions: string[];
-  userContext: UserContext | null;
-}) => {
-  const lines = [
-    "You are JAX, the comprehensive AI assistant for Good Hemp Distros — a hemp marketplace platform. You help users with:",
-    "",
-    "HEMP & CANNABIS KNOWLEDGE:",
-    "- Product education (CBD, THC, Delta-8, Delta-9, CBG, CBN, etc.)",
-    "- Compliance and legal (Farm Bill, state laws, age requirements)",
-    "- Industry facts, news, trends",
-    "- Cultivation, processing, lab testing (COA literacy)",
-    "- Medical and wellness applications (with disclaimers)",
-    "",
-    "PLATFORM GUIDANCE:",
-    "- Finding products and vendors",
-    "- Understanding pricing tiers (consumer + vendor plans)",
-    "- Selling on the platform (vendor onboarding)",
-    "- Affiliate program, wholesale, delivery, events",
-    "- Account features and account management",
-    "",
-    "PERSONAL RECOMMENDATIONS:",
-    "- Product matching based on user interests",
-    "- Vendor recommendations",
-    "- Comparing products by price/quality/ingredients",
-    "- Finding nearby compliance services (attorneys, banks, labs)",
-    "",
-    "TONE: Friendly, knowledgeable, action-oriented. Concise replies unless detail is requested. Always include compliance disclaimers for medical claims. Never claim to complete purchases or account changes — always guide and link.",
-    "",
-    "SAFETY:",
-    "- Never give medical advice, only general wellness information with \"consult a healthcare provider\" disclaimer",
-    "- Always note state legality varies for THC products",
-    "- Respect user privacy, don't reference profile data unless relevant",
-    "",
-    "Use tools when relevant (product search, vendor search, event search). For knowledge questions, answer from general training.",
-    "",
-    `Context: ${params.contextMode}`,
-    `Route: ${params.route}`,
-    `Intent: ${params.intent}`,
-    `Base reply: ${params.baseReply}`,
-    `Results: ${JSON.stringify(params.results)}`,
-    `Quick replies: ${params.suggestions.join(" | ")}`,
-  ];
-
-  if (params.userContext) {
-    const u = params.userContext;
-    lines.push(
-      "",
-      "USER CONTEXT (use naturally, don't list back robotically):",
-      `Name: ${u.name}`,
-      `Roles: ${u.roles.length ? u.roles.join(", ") : "consumer"}`,
-      `Location: ${u.location || "unknown"}`,
-      `Top interests: ${u.topInterests.length ? u.topInterests.join(", ") : "general"}`
-    );
-  }
-
-  return lines.join("\n");
-};
+type UserContext = JaxUserContext;
 
 const isTransientStatus = (status?: number) =>
   status === 408 || status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
@@ -191,7 +125,15 @@ const openaiChat = async (params: {
         };
       }
 
-      return { ok: true as const, status: upstream.status, reply };
+      // Phase 5 cost cap: surface token usage so the caller can meter cost.
+      const usage = {
+        inputTokens:
+          typeof data?.usage?.prompt_tokens === "number" ? data.usage.prompt_tokens : 0,
+        outputTokens:
+          typeof data?.usage?.completion_tokens === "number" ? data.usage.completion_tokens : 0,
+      };
+
+      return { ok: true as const, status: upstream.status, reply, usage };
     } catch (error) {
       const errorName = error instanceof Error ? error.name : "UnknownError";
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -324,6 +266,36 @@ export async function POST(req: NextRequest) {
       {
         error: "jax_global_cap",
         message: "JAX is taking a break — back tomorrow.",
+      },
+      { status: 503 }
+    );
+  }
+
+  // Phase 5: $50/month global HARD CUTOFF — fail closed, same as the daily
+  // breaker. The post-increment cost may exceed the cap by one message
+  // (circuit-breaker semantics: no NEW requests once the threshold is hit).
+  const monthlyCostCapCents = getMonthlyGlobalCostCapCents();
+  try {
+    const monthCostCents = await getCurrentMonthCostCents();
+    if (monthCostCents >= monthlyCostCapCents) {
+      console.error(
+        `[mascot-chat] monthly cost breaker tripped: ${monthCostCents.toFixed(2)}c >= ${monthlyCostCapCents}c`
+      );
+      return NextResponse.json(
+        {
+          error: "jax_monthly_cost_cap",
+          message:
+            "Ask JAX is temporarily unavailable while we top up capacity. Try again at the start of next month, or reach out to support.",
+        },
+        { status: 503 }
+      );
+    }
+  } catch (err) {
+    console.error("[mascot-chat] monthly cost read failed; failing closed", err);
+    return NextResponse.json(
+      {
+        error: "jax_unavailable",
+        message: "JAX is temporarily unavailable. Please try again.",
       },
       { status: 503 }
     );
@@ -520,7 +492,10 @@ export async function POST(req: NextRequest) {
           `[mascot-chat] cap-boundary overshoot user=${userId} tier=${eligibility.tier} count=${newUserCount} limit=${monthlyLimit}`
         );
       }
-      const newDailyCount = await incrementGlobalDaily();
+      const newDailyCount = await incrementGlobalDailyWithCost(
+        openaiResult.usage?.inputTokens ?? 0,
+        openaiResult.usage?.outputTokens ?? 0
+      );
       if (newDailyCount > dailyCap) {
         console.warn(
           `[mascot-chat] daily-boundary overshoot count=${newDailyCount} cap=${dailyCap}`
