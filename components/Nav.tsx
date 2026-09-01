@@ -313,10 +313,14 @@ export default function Nav() {
       </Link>
 
       {/* Desktop nav - hidden on mobile; primary links only */}
-      <div className="hidden md:flex items-center gap-1 lg:gap-2 flex-1 min-w-0 justify-center flex-nowrap">
+      {/* Perf/UI fix: desktop nav needs ~1200px+ when logged in as admin — below xl the
+          nowrap links slid underneath the Join Free / Sign In buttons. Desktop nav now
+          shows only at xl+, compact sizing until 2xl; tablets get the drawer. NOTE: no
+          overflow-hidden here — it would clip the absolutely-positioned dropdown menus. */}
+      <div className="hidden xl:flex items-center gap-1 2xl:gap-2 flex-1 min-w-0 justify-center flex-nowrap">
         {desktopPrimaryLinks.map((link) => (
           <HoverLift key={link.href} as="span">
-            <Link href={link.href} className="nav-link text-xs lg:text-sm whitespace-nowrap px-2 lg:px-3">
+            <Link href={link.href} className="nav-link text-xs 2xl:text-sm whitespace-nowrap px-2 2xl:px-3">
               {link.label}
             </Link>
           </HoverLift>
@@ -326,7 +330,7 @@ export default function Nav() {
           <button
             type="button"
             onClick={() => setOpenMenu((m) => (m === "community" ? null : "community"))}
-            className="nav-link text-sm whitespace-nowrap flex items-center gap-1"
+            className="nav-link text-xs 2xl:text-sm whitespace-nowrap flex items-center gap-1"
           >
             Community <span className="text-xs">▼</span>
           </button>
@@ -345,7 +349,7 @@ export default function Nav() {
           <button
             type="button"
             onClick={() => setOpenMenu((m) => (m === "business" ? null : "business"))}
-            className="nav-link text-sm whitespace-nowrap flex items-center gap-1"
+            className="nav-link text-xs 2xl:text-sm whitespace-nowrap flex items-center gap-1"
           >
             Business <span className="text-xs">▼</span>
           </button>
@@ -364,7 +368,7 @@ export default function Nav() {
           <button
             type="button"
             onClick={() => setOpenMenu((m) => (m === "services" ? null : "services"))}
-            className="nav-link text-sm whitespace-nowrap flex items-center gap-1"
+            className="nav-link text-xs 2xl:text-sm whitespace-nowrap flex items-center gap-1"
           >
             Services <span className="text-xs">▼</span>
           </button>
@@ -385,7 +389,7 @@ export default function Nav() {
               <button
                 type="button"
                 onClick={() => setOpenMenu((m) => (m === "admin" ? null : "admin"))}
-                className="nav-link text-sm whitespace-nowrap flex items-center gap-1"
+                className="nav-link text-xs 2xl:text-sm whitespace-nowrap flex items-center gap-1"
               >
                 ⚙️ Admin
                 <span className="text-xs">▼</span>
@@ -408,7 +412,7 @@ export default function Nav() {
             <button
               type="button"
               onClick={() => setOpenMenu((m) => (m === "account" ? null : "account"))}
-              className="nav-link text-sm whitespace-nowrap flex items-center gap-1"
+              className="nav-link text-xs 2xl:text-sm whitespace-nowrap flex items-center gap-1"
             >
               Account
               <span className="text-xs">▼</span>
@@ -436,7 +440,7 @@ export default function Nav() {
       </div>
 
       {/* Mobile: hamburger + Account/CTA items */}
-      <div className="flex md:hidden items-center gap-3 shrink-0">
+      <div className="flex xl:hidden items-center gap-3 shrink-0">
         {isLoggedIn ? (
           <HoverLift as="span" className="shrink-0">
             <Link href={accountHref} className="btn-ghost text-sm py-2 px-4 whitespace-nowrap">
@@ -471,15 +475,15 @@ export default function Nav() {
       </div>
 
       {/* Desktop right: model-driven CTAs via getCtaNav (Join Free / Sign in / Add Product) */}
-      <div className="hidden md:flex items-center gap-2 shrink-0 ml-2">
+      <div className="hidden xl:flex items-center gap-2 shrink-0 ml-2">
         {ctaItems.map((item) => (
           <HoverLift key={item.id} as="span" className="shrink-0">
             <Link
               href={item.href}
               className={
                 item.id === "cta-sign-in"
-                  ? "btn-ghost text-xs lg:text-sm py-2 px-3 lg:px-4 whitespace-nowrap"
-                  : "btn-primary text-xs lg:text-sm py-2 px-3 lg:px-4 whitespace-nowrap"
+                  ? "btn-ghost text-xs 2xl:text-sm py-2 px-3 2xl:px-4 whitespace-nowrap"
+                  : "btn-primary text-xs 2xl:text-sm py-2 px-3 2xl:px-4 whitespace-nowrap"
               }
             >
               {item.label}
@@ -491,7 +495,7 @@ export default function Nav() {
       {/* Mobile drawer - full-height slide-in panel */}
       {drawerOpen && (
         <div
-          className="fixed inset-0 z-50 md:hidden nav-overlay"
+          className="fixed inset-0 z-50 xl:hidden nav-overlay"
           onClick={() => setDrawerOpen(false)}
           role="dialog"
           aria-modal="true"
