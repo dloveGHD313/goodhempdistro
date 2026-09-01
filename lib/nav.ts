@@ -482,6 +482,7 @@ export const NAV_PUBLIC: NavItemLegacy[] = [
 // Mobile-only discovery links that should not appear in the desktop top row.
 export const NAV_MOBILE_DISCOVERY: NavItemLegacy[] = [
   { label: "Marketplace", href: "/products" },
+  { label: "🗂️ Categories", href: "/categories" },
   { label: "Education", href: "/education" },
 ];
 
