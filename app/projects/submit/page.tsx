@@ -59,6 +59,19 @@ async function submitProject(formData: FormData) {
     (id) => formData.get(`cat_${id}`) === "on"
   );
 
+  // Optional blueprint/plan upload (validated; stored after the row exists).
+  const blueprint = formData.get("blueprint");
+  const blueprintFile =
+    blueprint instanceof File && blueprint.size > 0 ? blueprint : null;
+  const BLUEPRINT_MAX_BYTES = 10 * 1024 * 1024;
+  const BLUEPRINT_EXTENSIONS = ["pdf", "png", "jpg", "jpeg", "webp", "dwg", "dxf"];
+  if (blueprintFile) {
+    const ext = (blueprintFile.name.split(".").pop() ?? "").toLowerCase();
+    if (blueprintFile.size > BLUEPRINT_MAX_BYTES || !BLUEPRINT_EXTENSIONS.includes(ext)) {
+      redirect("/projects/submit?error=1");
+    }
+  }
+
   const invalid = validateProjectSubmission({
     contact_name,
     email,
@@ -133,6 +146,32 @@ async function submitProject(formData: FormData) {
     redirect("/projects/submit?error=1");
   }
 
+  // Store the blueprint in the private bucket — best-effort.
+  if (blueprintFile && inserted?.id) {
+    try {
+      const safeName = blueprintFile.name.replace(/[^A-Za-z0-9._-]/g, "_").slice(-100);
+      const objectPath = `${inserted.id}/${safeName}`;
+      const bytes = new Uint8Array(await blueprintFile.arrayBuffer());
+      const { error: uploadError } = await admin.storage
+        .from("project-blueprints")
+        .upload(objectPath, bytes, {
+          contentType: blueprintFile.type || "application/octet-stream",
+          upsert: true,
+        });
+      if (uploadError) {
+        console.error("[project-submit] blueprint upload failed:", uploadError.message);
+      } else {
+        await admin
+          .from("project_submissions")
+          .update({ blueprint_object_path: objectPath, blueprint_filename: blueprintFile.name })
+          .eq("id", inserted.id);
+      }
+    } catch (err) {
+      if (err && typeof err === "object" && "digest" in err) throw err;
+      console.error("[project-submit] blueprint handling failed:", err);
+    }
+  }
+
   // Match active, approved vendors — best-effort; failures never break submit.
   try {
     const { data: vendors } = await admin
@@ -186,11 +225,19 @@ async function submitProject(formData: FormData) {
 export default async function SubmitProjectPage({
   searchParams,
 }: {
-  searchParams: Promise<{ submitted?: string; error?: string }>;
+  searchParams: Promise<{ submitted?: string; error?: string; cats?: string }>;
 }) {
   const params = await searchParams;
   const submitted = params?.submitted === "1";
   const hasError = params?.error === "1";
+  // Pre-check categories handed off from the material estimator (?cats=hurd,binder).
+  const validIds = new Set(PROJECT_CATEGORY_OPTIONS.map((o) => o.id as string));
+  const prechecked = new Set(
+    (params?.cats ?? "")
+      .split(",")
+      .map((c) => c.trim())
+      .filter((c) => validIds.has(c))
+  );
 
   return (
     <div className="min-h-screen text-white flex flex-col">
@@ -204,6 +251,11 @@ export default async function SubmitProjectPage({
               Building with hemp? Tell us about the project and we&apos;ll route it to the
               vendors whose materials and services match — hempcrete installers, hurd and
               binder suppliers, insulation makers, and more.
+            </p>
+            <p className="mt-3 text-sm">
+              <Link href="/projects/estimator" className="text-accent hover:underline">
+                Not sure what you need? Try the material estimator →
+              </Link>
             </p>
           </div>
 
@@ -352,7 +404,12 @@ export default async function SubmitProjectPage({
                   <div className="grid sm:grid-cols-2 gap-2">
                     {PROJECT_CATEGORY_OPTIONS.map((opt) => (
                       <label key={opt.id} className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" name={`cat_${opt.id}`} className="accent-[var(--brand-lime)]" />
+                        <input
+                          type="checkbox"
+                          name={`cat_${opt.id}`}
+                          defaultChecked={prechecked.has(opt.id)}
+                          className="accent-[var(--brand-lime)]"
+                        />
                         {opt.label}
                       </label>
                     ))}
@@ -389,6 +446,19 @@ export default async function SubmitProjectPage({
                     rows={5}
                     className="input-shell w-full"
                     placeholder="What are you building, roughly how big, and what hemp materials or services do you need?"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="blueprint" className="block text-sm font-medium text-muted mb-1">
+                    Blueprint / plans <span className="text-gray-600">(optional — PDF, image, or CAD, max 10MB)</span>
+                  </label>
+                  <input
+                    id="blueprint"
+                    name="blueprint"
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg,.webp,.dwg,.dxf"
+                    className="input-shell w-full file:mr-3 file:rounded file:border-0 file:bg-[var(--brand-lime)] file:px-3 file:py-1 file:text-black"
                   />
                 </div>
 
