@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import JaxFigure from "@/components/mascot/JaxFigure";
 
 function AnimatedLine({ children, delayMs = 0, className = "" }: { children: React.ReactNode; delayMs?: number; className?: string }) {
   const [show, setShow] = useState(false);
@@ -27,23 +28,6 @@ type HeroSectionProps = {
 
 export default function HeroSection({ isAuthenticated = false }: HeroSectionProps) {
   const vendorHref = isAuthenticated ? "/vendor-registration" : "/get-started?role=vendor";
-
-
-
-  useEffect(() => {
-    function logTopElement(e: MouseEvent) {
-      const el = document.elementFromPoint(e.clientX, e.clientY);
-      console.log('[GLOBAL-CLICK] element at point:', {
-        tag: el?.tagName,
-        className: (el as HTMLElement | null)?.className,
-        id: (el as HTMLElement | null)?.id,
-      });
-    }
-
-    window.addEventListener("click", logTopElement, true);
-    return () => window.removeEventListener("click", logTopElement, true);
-  }, []);
-
 
   return (
     <section
@@ -77,29 +61,12 @@ export default function HeroSection({ isAuthenticated = false }: HeroSectionProp
             <Link
               href="/products"
               className="px-7 py-3 rounded-xl font-semibold text-[#0D1512] bg-[#3CB97A] border border-[#3CB97A] hover:scale-[1.02] transition-all duration-200"
-              onClick={(e) => {
-                console.log('[CTA-CLICK] Shop Hemp Products clicked', {
-                  target: e.target,
-                  currentTarget: e.currentTarget,
-                  defaultPrevented: e.defaultPrevented,
-                  bubbles: e.bubbles,
-                });
-              }}
             >
               Shop Hemp Products →
             </Link>
             <Link
               href={vendorHref}
               className="px-7 py-3 rounded-xl font-semibold text-[#3CB97A] border border-[#3CB97A] hover:bg-[#1A2820] hover:scale-[1.02] transition-all duration-200"
-              onClick={(e) => {
-                console.log('[CTA-CLICK] Become a Vendor clicked', {
-                  target: e.target,
-                  currentTarget: e.currentTarget,
-                  defaultPrevented: e.defaultPrevented,
-                  bubbles: e.bubbles,
-                  href: vendorHref,
-                });
-              }}
             >
               Become a Vendor →
             </Link>
@@ -108,9 +75,15 @@ export default function HeroSection({ isAuthenticated = false }: HeroSectionProp
 
         <AnimatedLine delayMs={700}>
           <div className="flex flex-wrap justify-center gap-3 md:gap-8 text-sm text-[#4A5E57]">
-            <span>✓ 120+ Verified Vendors</span>
-            <span>✓ COA-Certified Products</span>
+            <span>✓ Founding Vendors Onboarding Now</span>
+            <span>✓ Every Product COA-Verified</span>
             <span>✓ Nashville, TN + Nationwide</span>
+          </div>
+        </AnimatedLine>
+
+        <AnimatedLine delayMs={850}>
+          <div className="hidden md:flex justify-center mt-10">
+            <JaxFigure outfit="welcome" width={190} priority />
           </div>
         </AnimatedLine>
       </div>
