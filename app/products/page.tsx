@@ -330,8 +330,8 @@ export default async function ProductsPage({
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
               {[
-                { label: "Avg delivery", value: "35-50 min" },
-                { label: "Verified vendors", value: "120+" },
+                { label: "Catalog", value: "45+ hemp categories" },
+                { label: "Founding vendors", value: "Onboarding now" },
                 { label: "Compliance status", value: "Always on" },
               ].map((metric) => (
                 <div key={metric.label} className="shop-metric">
