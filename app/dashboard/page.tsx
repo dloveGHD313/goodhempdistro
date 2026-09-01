@@ -182,6 +182,11 @@ export default async function DashboardPage() {
                     </Link>
                   </li>
                   <li>
+                    <Link href="/community" className="text-muted hover:text-accent transition">
+                      Community Feed
+                    </Link>
+                  </li>
+                  <li>
                     <a href="/contact" className="text-muted hover:text-accent transition">
                       Contact Support
                     </a>
