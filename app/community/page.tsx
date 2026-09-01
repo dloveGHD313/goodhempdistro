@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Footer from "@/components/Footer";
+import JaxFigure from "@/components/mascot/JaxFigure";
 import FeedExperience from "../newsfeed/FeedExperience";
 import RecommendedVendors from "../newsfeed/RecommendedVendors";
 
@@ -16,6 +17,9 @@ export default function CommunityPage() {
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
         <section className="section-shell text-center pt-10 pb-2">
+          <div className="hidden sm:flex justify-center mb-4">
+            <JaxFigure outfit="community" width={130} showCaption={false} />
+          </div>
           <h1 className="text-3xl md:text-4xl font-bold text-accent mb-3">The Community Feed</h1>
           <p className="text-muted max-w-2xl mx-auto">
             Vendors, growers, builders, and consumers sharing what they&apos;re working on.
