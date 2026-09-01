@@ -502,6 +502,7 @@ export const NAV_COMMUNITY: NavItemLegacy[] = [
 ];
 
 export const NAV_BUSINESS: NavItemLegacy[] = [
+  { label: "🏗️ Submit a Project", href: "/projects/submit" },
   { label: "Vendor Registration", href: "/vendor-registration" },
   { label: "Become a Driver", href: "/logistics/apply" },
   { label: "Affiliate Portal", href: "/affiliate/portal" },
@@ -535,6 +536,7 @@ export const NAV_ADMIN: NavItemLegacy[] = [
   { label: "🚗 Drivers", href: "/admin/drivers" },
   { label: "🚗 Driver Applications", href: "/admin/driver-applications" },
   { label: "🎙️ Jax Applications", href: "/admin/jax-applications" },
+  { label: "🏗️ Project Leads", href: "/admin/projects" },
   { label: "💸 Affiliate Payouts", href: "/admin/affiliate-payouts" },
   { label: "🗺️ State Rules", href: "/admin/compliance/state-rules" },
 ];
