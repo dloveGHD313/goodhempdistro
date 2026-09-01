@@ -28,15 +28,22 @@ export default function FeaturedProductsSection({ initialProducts }: { initialPr
           </div>
 
           {initialProducts.length === 0 ? (
-            <div className="col-span-3 text-center py-20 border border-white/10 rounded-2xl bg-[#141F1A]">
+            <div className="col-span-3 text-center py-16 px-6 border border-white/10 rounded-2xl bg-[#141F1A]">
               <p className="text-xs uppercase tracking-widest text-[#3CB97A] mb-4">Marketplace</p>
-              <h3 className="text-3xl text-[#F0EDE6] mb-4 font-serif">Products arriving soon</h3>
-              <p className="text-[#8A9E96] max-w-md mx-auto mb-8">
-                Verified hemp vendors are listing their products now. Be the first to know when new products are available.
+              <h3 className="text-3xl text-[#F0EDE6] mb-4 font-serif">The catalog is filling now</h3>
+              <p className="text-[#8A9E96] max-w-lg mx-auto mb-8">
+                Founding vendors are coming aboard — hempcrete and building materials, fiber
+                and textiles, clothing, paper, home goods, food, wellness, and pet gear. See
+                every category we carry, or claim yours.
               </p>
-              <Link href="/vendor-registration" className="px-6 py-3 bg-[#3CB97A] text-[#0D1512] font-semibold rounded-lg text-sm inline-block">
-                List Your Products →
-              </Link>
+              <div className="flex flex-col sm:flex-row justify-center gap-3">
+                <Link href="/categories" className="px-6 py-3 bg-[#3CB97A] text-[#0D1512] font-semibold rounded-lg text-sm inline-block">
+                  Explore Categories →
+                </Link>
+                <Link href="/vendor-registration" className="px-6 py-3 border border-[#C9A84C] text-[#C9A84C] font-semibold rounded-lg text-sm inline-block hover:bg-[#1A2820] transition">
+                  List Your Products →
+                </Link>
+              </div>
             </div>
           ) : (
             <div className="grid grid-flow-col auto-cols-[85%] md:grid-flow-row md:auto-cols-auto md:grid-cols-3 gap-5 overflow-x-auto pb-2">

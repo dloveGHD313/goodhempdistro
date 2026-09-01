@@ -267,21 +267,22 @@ export default function ProductsList({ initialProducts, initialCategoryId, catal
               Products arriving soon
             </h2>
             <p className="text-[#8A9E96] max-w-md mx-auto mb-8">
-              Verified hemp vendors are listing their products now.
-              Be the first to know when new products are available in your area.
+              Founding vendors are listing their products now — from hempcrete and
+              building materials to everyday hemp goods. See everything the marketplace
+              will carry, or claim your category.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
-                href="/vendor-registration"
+                href="/categories"
                 className="px-6 py-3 bg-[#3CB97A] text-[#0D1512] font-semibold rounded-lg hover:opacity-90 text-sm"
               >
-                List Your Products →
+                Explore Categories →
               </Link>
               <Link
-                href="/discover"
-                className="px-6 py-3 border border-white/10 text-[#8A9E96] hover:text-[#F0EDE6] rounded-lg text-sm"
+                href="/vendor-registration"
+                className="px-6 py-3 border border-[#C9A84C] text-[#C9A84C] font-semibold rounded-lg text-sm hover:bg-[#1A2820]"
               >
-                Browse Vendors →
+                List Your Products →
               </Link>
             </div>
           </div>

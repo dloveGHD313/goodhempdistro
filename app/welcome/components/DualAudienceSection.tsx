@@ -29,7 +29,8 @@ export default function DualAudienceSection({ isAuthenticated = false }: DualAud
           <p className="text-xs uppercase tracking-[0.3em] text-[#C9A84C] mb-4">FOR VENDORS</p>
           <h2 className="text-4xl text-[#F0EDE6] mb-5 font-serif">Grow Your Hemp Business</h2>
           <p className="text-[#8A9E96] mb-6 max-w-lg">
-            List products, manage COAs, reach wholesale buyers, and connect with thousands of customers nationwide.
+            List products, manage COAs, reach wholesale buyers, and get matched to real
+            projects — with founding-vendor placement while the network is young.
           </p>
           <Link href={vendorHref} className="text-[#C9A84C] font-semibold hover:underline">
             Start Selling →
