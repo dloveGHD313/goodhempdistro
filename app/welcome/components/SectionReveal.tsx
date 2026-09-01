@@ -9,21 +9,35 @@ type SectionRevealProps = {
   delayMs?: number;
 };
 
+/**
+ * Perf round 2 (Phase 7.5): visible-by-default reveal.
+ *
+ * The previous version server-rendered with `opacity-0`, hiding every
+ * welcome-page section until hydration (LCP render delay). Now content is
+ * fully visible in SSR/no-JS; after hydration, only sections that start
+ * fully below the viewport are hidden and revealed on intersection.
+ */
 export default function SectionReveal({ children, className = "", delayMs = 0 }: SectionRevealProps) {
   const ref = useRef<HTMLDivElement | null>(null);
-  const [visible, setVisible] = useState(false);
+  const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
     const node = ref.current;
-    if (!node) return;
+    if (!node || typeof IntersectionObserver === "undefined") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    // Never hide content already on (or partially on) screen — LCP-safe.
+    if (node.getBoundingClientRect().top < window.innerHeight) return;
 
-    const fallbackTimer = setTimeout(() => setVisible(true), 1500);
+    // Hide via rAF (not synchronously in the effect) so the browser has
+    // already painted the visible SSR content — and lint stays happy.
+    const raf = requestAnimationFrame(() => setHidden(true));
+    const fallbackTimer = setTimeout(() => setHidden(false), 2500);
 
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            setVisible(true);
+            setHidden(false);
             clearTimeout(fallbackTimer);
             observer.unobserve(entry.target);
           }
@@ -34,6 +48,7 @@ export default function SectionReveal({ children, className = "", delayMs = 0 }:
 
     observer.observe(node);
     return () => {
+      cancelAnimationFrame(raf);
       clearTimeout(fallbackTimer);
       observer.disconnect();
     };
@@ -42,7 +57,7 @@ export default function SectionReveal({ children, className = "", delayMs = 0 }:
   return (
     <div
       ref={ref}
-      className={`transition-all duration-700 ease-out ${className} ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6 pointer-events-none"}`}
+      className={`transition-all duration-700 ease-out ${className} ${hidden ? "opacity-0 translate-y-6 pointer-events-none" : "opacity-100 translate-y-0"}`}
       style={{ transitionDelay: `${delayMs}ms` }}
     >
       {children}
