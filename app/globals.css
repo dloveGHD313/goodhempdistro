@@ -1220,3 +1220,86 @@ footer {
   background-color: var(--surface);
   color: var(--foreground);
 }
+
+/* ============================================================
+   Perf round 2 (Phase 7.5) — CSS-driven motion.
+   Replaces framer-motion SSR'd `opacity:0` initial states that
+   hid LCP content until hydration.
+   ============================================================ */
+
+/* Reveal: entrance animation, runs at first paint, no JS needed. */
+@keyframes ghd-reveal-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes ghd-reveal-down {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes ghd-reveal-left {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes ghd-reveal-right {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.ghd-reveal {
+  animation-duration: 0.55s;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: both;
+}
+.ghd-reveal-up { animation-name: ghd-reveal-up; }
+.ghd-reveal-down { animation-name: ghd-reveal-down; }
+.ghd-reveal-left { animation-name: ghd-reveal-left; }
+.ghd-reveal-right { animation-name: ghd-reveal-right; }
+
+/* ScrollReveal: content is visible by default (SSR/no-JS safe).
+   JS adds .ghd-sr-pending only to elements below the viewport,
+   then .ghd-sr-in when they intersect. */
+.ghd-sr-pending {
+  opacity: 0;
+  transform: translateY(var(--ghd-sr-y, 12px));
+}
+.ghd-sr-pending.ghd-sr-in {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity var(--ghd-sr-duration, 0.55s) cubic-bezier(0.22, 1, 0.36, 1),
+    transform var(--ghd-sr-duration, 0.55s) cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Stagger: same visible-by-default pattern; children get incremental
+   transition delays once the container intersects. */
+.ghd-stagger-pending > * {
+  opacity: 0;
+  transform: translateY(12px);
+}
+.ghd-stagger-pending.ghd-stagger-in > * {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ghd-stagger-pending.ghd-stagger-in > :nth-child(1) { transition-delay: calc(var(--ghd-stagger-base, 0.1s) + 0 * var(--ghd-stagger-step, 0.08s)); }
+.ghd-stagger-pending.ghd-stagger-in > :nth-child(2) { transition-delay: calc(var(--ghd-stagger-base, 0.1s) + 1 * var(--ghd-stagger-step, 0.08s)); }
+.ghd-stagger-pending.ghd-stagger-in > :nth-child(3) { transition-delay: calc(var(--ghd-stagger-base, 0.1s) + 2 * var(--ghd-stagger-step, 0.08s)); }
+.ghd-stagger-pending.ghd-stagger-in > :nth-child(4) { transition-delay: calc(var(--ghd-stagger-base, 0.1s) + 3 * var(--ghd-stagger-step, 0.08s)); }
+.ghd-stagger-pending.ghd-stagger-in > :nth-child(5) { transition-delay: calc(var(--ghd-stagger-base, 0.1s) + 4 * var(--ghd-stagger-step, 0.08s)); }
+.ghd-stagger-pending.ghd-stagger-in > :nth-child(6) { transition-delay: calc(var(--ghd-stagger-base, 0.1s) + 5 * var(--ghd-stagger-step, 0.08s)); }
+.ghd-stagger-pending.ghd-stagger-in > :nth-child(7) { transition-delay: calc(var(--ghd-stagger-base, 0.1s) + 6 * var(--ghd-stagger-step, 0.08s)); }
+.ghd-stagger-pending.ghd-stagger-in > :nth-child(8) { transition-delay: calc(var(--ghd-stagger-base, 0.1s) + 7 * var(--ghd-stagger-step, 0.08s)); }
+.ghd-stagger-pending.ghd-stagger-in > :nth-child(n + 9) { transition-delay: calc(var(--ghd-stagger-base, 0.1s) + 8 * var(--ghd-stagger-step, 0.08s)); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ghd-reveal {
+    animation: none;
+  }
+  .ghd-sr-pending,
+  .ghd-stagger-pending > * {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
