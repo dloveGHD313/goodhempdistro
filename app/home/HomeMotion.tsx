@@ -13,7 +13,7 @@ const FEATURES = [
 ] as const;
 
 const COMMUNITY_LINKS = [
-  { emoji: "🏠", label: "News Feed", href: "/newsfeed", desc: "Latest updates from the community" },
+  { emoji: "🌿", label: "Community Feed", href: "/community", desc: "Latest updates from the community" },
   { emoji: "🛍️", label: "Shop Products", href: "/products", desc: "Browse premium hemp products" },
   { emoji: "👥", label: "Groups", href: "/groups", desc: "Join community groups" },
   { emoji: "💬", label: "Forums", href: "/forums", desc: "Discuss & connect" },
@@ -32,7 +32,28 @@ type Service = {
   categories?: { name?: string } | null;
 };
 
-export default function HomeMotion({ featuredServices }: { featuredServices: Service[] }) {
+type CommunityPost = {
+  id: string;
+  content: string;
+  created_at: string;
+  is_admin_post: boolean;
+  author_role: string | null;
+  author_name: string | null;
+};
+
+const formatPostDate = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Chicago" });
+};
+
+export default function HomeMotion({
+  featuredServices,
+  communityPosts = [],
+}: {
+  featuredServices: Service[];
+  communityPosts?: CommunityPost[];
+}) {
   const { reducedMotion } = useMotion();
 
   const formatPrice = (pricingType?: string, priceCents?: number) => {
@@ -114,6 +135,57 @@ export default function HomeMotion({ featuredServices }: { featuredServices: Ser
                 </StaggerChild>
               ))}
             </Stagger>
+          </section>
+        </ScrollReveal>
+
+        {/* Build #7: community feed prominence — latest posts, or a join CTA when quiet */}
+        <ScrollReveal once amount={0.2}>
+          <section className="section-shell section-shell--tight">
+            <div className="text-center mb-10">
+              <h2 className="text-2xl md:text-3xl font-bold text-accent mb-3">Latest from the Community</h2>
+              <p className="text-muted">Real posts from vendors, builders, and members — no algorithm games.</p>
+            </div>
+            {communityPosts.length > 0 ? (
+              <>
+                <Stagger staggerChildren={0.06} delayChildren={0.05} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                  {communityPosts.map((post) => (
+                    <StaggerChild key={post.id}>
+                      <motion.div
+                        whileHover={reducedMotion ? undefined : { scale: 1.02, y: -2 }}
+                        transition={hoverTransition}
+                        className="h-full"
+                      >
+                        <Link href="/community" className="card-glass p-5 block h-full hover:border-accent transition-colors">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="font-semibold text-sm text-accent">
+                              {post.is_admin_post ? "Good Hemp Distro" : post.author_name || "Community member"}
+                            </span>
+                            <span className="text-xs text-muted">{formatPostDate(post.created_at)}</span>
+                          </div>
+                          <p className="text-muted text-sm line-clamp-3 whitespace-pre-line">{post.content}</p>
+                        </Link>
+                      </motion.div>
+                    </StaggerChild>
+                  ))}
+                </Stagger>
+                <div className="text-center">
+                  <Link href="/community" className="btn-secondary inline-block py-3 px-8">
+                    Open the Community Feed
+                  </Link>
+                </div>
+              </>
+            ) : (
+              <div className="card-glass p-8 text-center max-w-2xl mx-auto">
+                <div className="text-3xl mb-3">🌿</div>
+                <h3 className="font-bold text-lg mb-2">Be one of the first voices</h3>
+                <p className="text-muted text-sm mb-5">
+                  The community feed is open — share what you&apos;re growing, building, or making with hemp.
+                </p>
+                <Link href="/community" className="btn-primary inline-block py-3 px-8">
+                  Join the conversation
+                </Link>
+              </div>
+            )}
           </section>
         </ScrollReveal>
 
