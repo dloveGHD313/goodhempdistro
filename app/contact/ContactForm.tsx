@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import TurnstileWidget from "@/components/TurnstileWidget";
+import { HONEYPOT_FIELD } from "@/lib/server/antiSpam";
 
 export default function ContactForm() {
   const [name, setName] = useState("");
@@ -10,6 +12,8 @@ export default function ContactForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [honeypot, setHoneypot] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,7 +27,14 @@ export default function ContactForm() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ name, email, subject, message }),
+        body: JSON.stringify({
+          name,
+          email,
+          subject,
+          message,
+          [HONEYPOT_FIELD]: honeypot,
+          turnstileToken,
+        }),
       });
 
       const data = await response.json();
@@ -48,6 +59,21 @@ export default function ContactForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <div
+        aria-hidden="true"
+        style={{ position: "absolute", left: "-9999px", top: "-9999px", width: 0, height: 0, overflow: "hidden" }}
+      >
+        <label htmlFor={HONEYPOT_FIELD}>Company website</label>
+        <input
+          id={HONEYPOT_FIELD}
+          name={HONEYPOT_FIELD}
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          value={honeypot}
+          onChange={(e) => setHoneypot(e.target.value)}
+        />
+      </div>
       {error && (
         <div className="bg-red-900/30 border border-red-600 rounded-lg p-4 text-red-400">
           {error}
@@ -118,6 +144,8 @@ export default function ContactForm() {
           placeholder="Your message..."
         />
       </div>
+
+      <TurnstileWidget action="contact" onToken={setTurnstileToken} />
 
       <button
         type="submit"
