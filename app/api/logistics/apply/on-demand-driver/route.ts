@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { requireHumanFromRequest } from "@/lib/server/turnstile";
 
 /**
  * POST: Submit on-demand driver application (logistics_applications type=on_demand_driver).
@@ -8,6 +9,13 @@ import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
+
+    // Human verification (Cloudflare Turnstile) — no-op until keys are set.
+    const humanError = await requireHumanFromRequest(req, body);
+    if (humanError) {
+      return NextResponse.json({ error: humanError }, { status: 403 });
+    }
+
     const full_name = typeof body.full_name === "string" ? body.full_name.trim() : "";
     const email = typeof body.email === "string" ? body.email.trim() : "";
     const phone = typeof body.phone === "string" ? body.phone.trim() : null;
