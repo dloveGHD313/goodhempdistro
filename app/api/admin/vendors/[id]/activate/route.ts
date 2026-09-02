@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { computeCompUntil, COMP_DEFAULT_PLAN_KEY } from "@/lib/server/vendorComp";
 
 export async function POST(
   req: NextRequest,
@@ -18,6 +19,8 @@ export async function POST(
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
     const tier = ["starter", "mid", "top"].includes(body?.tier) ? body.tier : undefined;
+    // Founding-vendor comp: optional number of free months (no Stripe subscription required).
+    const compUntil = computeCompUntil(body?.compMonths);
 
     const admin = getSupabaseAdminClient();
 
@@ -28,12 +31,23 @@ export async function POST(
       updated_at: new Date().toISOString(),
     };
     if (tier) updatePayload.tier = tier;
+    if (compUntil) {
+      updatePayload.comp_until = compUntil;
+      // Give comped vendors Starter entitlements unless a Stripe plan is already on file.
+      const { data: existing } = await admin
+        .from("vendors")
+        .select("subscription_plan_key")
+        .eq("id", id)
+        .maybeSingle();
+      if (!existing?.subscription_plan_key) updatePayload.subscription_plan_key = COMP_DEFAULT_PLAN_KEY;
+      if (!tier) updatePayload.tier = "starter";
+    }
 
     const { data: vendor, error } = await admin
       .from("vendors")
       .update(updatePayload)
       .eq("id", id)
-      .select("id, business_name, status, is_approved, owner_user_id")
+      .select("id, business_name, status, is_approved, owner_user_id, comp_until")
       .single();
 
     if (error || !vendor) {
@@ -44,7 +58,10 @@ export async function POST(
       );
     }
 
-    console.log(`[admin/vendors/activate] Vendor ${vendor.id} (${vendor.business_name}) activated by ${adminCheck.user.email}`);
+    console.log(
+      `[admin/vendors/activate] Vendor ${vendor.id} (${vendor.business_name}) activated by ${adminCheck.user.email}` +
+        (compUntil ? ` with comp until ${compUntil}` : "")
+    );
 
     const { revalidatePath } = await import("next/cache");
     revalidatePath("/admin/vendors");
