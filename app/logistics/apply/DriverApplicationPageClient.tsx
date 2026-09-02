@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import Footer from "@/components/Footer";
+import TurnstileWidget from "@/components/TurnstileWidget";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 
 const VEHICLE_TYPES = ["Sedan", "SUV", "Pickup Truck", "Cargo Van", "Box Truck", "Motorcycle"];
@@ -27,6 +28,7 @@ export default function DriverApplicationPage() {
   const [licenseBack, setLicenseBack] = useState<File | null>(null);
   const [insurance, setInsurance] = useState<File | null>(null);
   const [registration, setRegistration] = useState<File | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   // 2026-07-14 follow-up to #214: file bytes must NOT flow through a
   // Vercel function — the platform rejects request bodies over 4.5MB at
@@ -66,6 +68,7 @@ export default function DriverApplicationPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          turnstileToken,
           docs: Object.entries(docFiles).map(([doc_type, file]) => ({
             doc_type,
             mime: file!.type,
@@ -155,5 +158,6 @@ export default function DriverApplicationPage() {
   <label className="block text-sm text-muted">Vehicle registration — PDF, JPG, or PNG<input type="file" required accept="image/jpeg,image/png,image/webp,.pdf" onChange={(e)=>setRegistration(e.target.files?.[0] ?? null)} className="input-shell w-full mt-1" /></label>
   <label className="flex gap-2"><input type="checkbox" checked={hasLicense} onChange={(e)=>setHasLicense(e.target.checked)} />Valid driver's license</label><label className="flex gap-2"><input type="checkbox" checked={is21} onChange={(e)=>setIs21(e.target.checked)} />I am 21 or older</label><label className="flex gap-2"><input type="checkbox" checked={canPassBg} onChange={(e)=>setCanPassBg(e.target.checked)} />Can pass background check</label>
   <textarea className="input-shell w-full" rows={4} placeholder="Why do you want to drive for GHD? (optional)" value={whyDrive} onChange={(e)=>setWhyDrive(e.target.value)} />
+  <TurnstileWidget action="driver_application" onToken={setTurnstileToken} />
   <button type="submit" disabled={status==="uploading"||status==="submitting"} className="btn-primary w-full">{status==="uploading"?"Uploading documents...":status==="submitting"?"Submitting application...":"Submit Application"}</button></form></div></main><Footer /></div>;
 }
