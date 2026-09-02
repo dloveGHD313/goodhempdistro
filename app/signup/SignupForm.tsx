@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { isSafeNextPath } from "@/lib/phase2-workout-flow";
 import { HONEYPOT_FIELD, emailSpamVerdict, nowMs, submittedTooFast } from "@/lib/server/antiSpam";
+import TurnstileWidget from "@/components/TurnstileWidget";
 
 export default function SignupForm() {
   const router = useRouter();
@@ -20,6 +21,9 @@ export default function SignupForm() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [honeypot, setHoneypot] = useState("");
+  // Cloudflare Turnstile token — forwarded to Supabase Auth, which verifies it
+  // server-side once "Bot and Abuse Protection" is enabled in the dashboard.
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const mountedAtRef = useRef(0);
   useEffect(() => {
     mountedAtRef.current = nowMs();
@@ -68,6 +72,7 @@ export default function SignupForm() {
         password,
         options: {
           emailRedirectTo: url.toString(),
+          ...(captchaToken ? { captchaToken } : {}),
         },
       });
 
@@ -197,6 +202,8 @@ export default function SignupForm() {
           placeholder="••••••••"
         />
       </div>
+
+      <TurnstileWidget action="signup" onToken={setCaptchaToken} />
 
       <button
         type="submit"
