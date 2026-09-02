@@ -17,6 +17,9 @@ import {
 } from "@/lib/server/projectMatching";
 import { sendProjectSubmissionEmails } from "@/lib/server/projectSubmissionEmails";
 import FormSpamGuardFields from "@/components/FormSpamGuardFields";
+import TurnstileWidget from "@/components/TurnstileWidget";
+import { headers } from "next/headers";
+import { requireHumanFromForm } from "@/lib/server/turnstile";
 import Footer from "@/components/Footer";
 
 export const metadata: Metadata = {
@@ -94,6 +97,11 @@ async function submitProject(formData: FormData) {
     console.warn("[project-submit] blocked submission:", spamReason);
     // Generic success so bots learn nothing.
     redirect("/projects/submit?submitted=1");
+  }
+
+  // Human verification (Cloudflare Turnstile) — no-op until keys are set.
+  if (await requireHumanFromForm(formData, await headers())) {
+    redirect("/projects/submit?error=human");
   }
 
   const supabase = await createSupabaseServerClient();
@@ -230,6 +238,7 @@ export default async function SubmitProjectPage({
   const params = await searchParams;
   const submitted = params?.submitted === "1";
   const hasError = params?.error === "1";
+  const humanError = params?.error === "human";
   // Pre-check categories handed off from the material estimator (?cats=hurd,binder).
   const validIds = new Set(PROJECT_CATEGORY_OPTIONS.map((o) => o.id as string));
   const prechecked = new Set(
@@ -278,6 +287,11 @@ export default async function SubmitProjectPage({
                 {hasError && (
                   <div className="p-3 rounded bg-red-500/20 text-red-200 text-sm" role="alert">
                     Something went wrong — please check the required fields and try again.
+                  </div>
+                )}
+                {humanError && (
+                  <div className="p-3 rounded bg-red-500/20 text-red-200 text-sm" role="alert">
+                    We couldn&apos;t verify you&apos;re human. Please refresh the page and try again.
                   </div>
                 )}
 
@@ -462,6 +476,7 @@ export default async function SubmitProjectPage({
                   />
                 </div>
 
+                <TurnstileWidget action="project_submit" />
                 <button type="submit" className="btn-primary w-full py-3 font-bold">
                   Submit project
                 </button>

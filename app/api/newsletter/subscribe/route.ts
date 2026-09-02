@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { emailSpamVerdict, normalizeEmail } from "@/lib/server/antiSpam";
+import { requireHumanFromRequest } from "@/lib/server/turnstile";
 
 function isValidEmail(value: string): boolean {
   const trimmed = value.trim();
@@ -19,6 +20,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { ok: false, error: "Valid email is required" },
         { status: 400, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    // Human verification (Cloudflare Turnstile) — no-op until keys are set.
+    const humanError = await requireHumanFromRequest(req, body);
+    if (humanError) {
+      return NextResponse.json(
+        { ok: false, error: humanError },
+        { status: 403, headers: { "Cache-Control": "no-store" } }
       );
     }
 

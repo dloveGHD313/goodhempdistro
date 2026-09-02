@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import TurnstileWidget from "@/components/TurnstileWidget";
 
 export default function LearningWithJaxNewsletter() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,7 +20,7 @@ export default function LearningWithJaxNewsletter() {
       const res = await fetch("/api/newsletter/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: trimmed, source: "learning-with-jax" }),
+        body: JSON.stringify({ email: trimmed, source: "learning-with-jax", turnstileToken }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data?.ok === true) {
@@ -42,7 +44,7 @@ export default function LearningWithJaxNewsletter() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+    <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row sm:flex-wrap gap-3 max-w-md mx-auto">
       <input
         type="email"
         value={email}
@@ -63,6 +65,7 @@ export default function LearningWithJaxNewsletter() {
       >
         {loading ? "Sending…" : "Notify me"}
       </button>
+      <TurnstileWidget action="newsletter" onToken={setTurnstileToken} className="w-full my-0" />
       {error && (
         <p id="newsletter-error" className="text-red-400 text-sm w-full mt-1" role="alert">
           {error}

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireHumanFromRequest } from "@/lib/server/turnstile";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import {
   DRIVER_DOC_BUCKET,
@@ -25,6 +26,13 @@ export async function POST(req: NextRequest) {
   const noStore = { "Cache-Control": "no-store" } as const;
   try {
     const body = await req.json().catch(() => null);
+
+    // Human verification (Cloudflare Turnstile) — no-op until keys are set.
+    const humanError = await requireHumanFromRequest(req, body);
+    if (humanError) {
+      return NextResponse.json({ error: humanError }, { status: 403, headers: noStore });
+    }
+
     const docs = Array.isArray(body?.docs) ? body.docs : null;
     if (!docs) {
       return NextResponse.json(

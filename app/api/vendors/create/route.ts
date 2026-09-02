@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireHumanFromRequest } from "@/lib/server/turnstile";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getIntoxicatingCutoffDate } from "@/lib/compliance";
 import { randomUUID } from "crypto";
@@ -209,6 +210,7 @@ export async function POST(req: NextRequest) {
       coa_attested?: boolean;
       intoxicating_policy_ack?: boolean;
       vr_code?: string;
+      turnstileToken?: string;
     };
     
     try {
@@ -231,6 +233,12 @@ export async function POST(req: NextRequest) {
         debugStatus,
         parseDebugInfo
       );
+    }
+
+    // Human verification (Cloudflare Turnstile) — no-op until keys are set.
+    const humanError = await requireHumanFromRequest(req, body);
+    if (humanError) {
+      return createErrorResponse(humanError, 403, requestId, debugStatus, debugInfo);
     }
 
     const { business_name, description, coa_attested, intoxicating_policy_ack, vr_code } = body;

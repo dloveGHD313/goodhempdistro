@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireHumanFromForm } from "@/lib/server/turnstile";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 const REQUIRED_DOC_TYPES = ["driver_license", "vehicle_registration", "insurance"] as const;
@@ -38,6 +39,13 @@ export async function POST(req: NextRequest) {
 
   try {
     const formData = await req.formData();
+
+    // Human verification (Cloudflare Turnstile) — no-op until keys are set.
+    const humanError = await requireHumanFromForm(formData, req.headers);
+    if (humanError) {
+      return NextResponse.json({ code: "HUMAN_CHECK_FAILED", message: humanError }, { status: 403 });
+    }
+
     const full_name = (formData.get("full_name") as string)?.trim() ?? "";
     const email = (formData.get("email") as string)?.trim() ?? "";
     const phone = (formData.get("phone") as string)?.trim() || null;
