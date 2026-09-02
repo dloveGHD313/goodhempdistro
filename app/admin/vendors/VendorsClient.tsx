@@ -34,6 +34,8 @@ export default function VendorsClient({ initialApplications, inactiveVendors: in
   const [inactiveVendors, setInactiveVendors] = useState<InactiveVendor[]>(initialInactiveVendors);
   const [loading, setLoading] = useState(false);
   const [activating, setActivating] = useState<string | null>(null);
+  // Founding-vendor comp: months of free access granted at activation (0 = paid plan required).
+  const [compMonths, setCompMonths] = useState<Record<string, number>>({});
 
   // Refresh applications from API
   const refreshApplications = async () => {
@@ -91,10 +93,16 @@ export default function VendorsClient({ initialApplications, inactiveVendors: in
   };
 
   const activateVendor = async (vendorId: string, businessName: string | null) => {
-    if (!confirm(`Activate vendor "${businessName ?? vendorId}"? This will make their products publicly visible.`)) return;
+    const months = compMonths[vendorId] ?? 0;
+    const compNote = months > 0 ? ` They get ${months} month${months === 1 ? "" : "s"} free (no subscription required).` : "";
+    if (!confirm(`Activate vendor "${businessName ?? vendorId}"? This will make their products publicly visible.${compNote}`)) return;
     setActivating(vendorId);
     try {
-      const res = await fetch(`/api/admin/vendors/${vendorId}/activate`, { method: "POST" });
+      const res = await fetch(`/api/admin/vendors/${vendorId}/activate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(months > 0 ? { compMonths: months } : {}),
+      });
       if (!res.ok) {
         const data = await res.json();
         alert(data.error || "Failed to activate vendor");
@@ -202,13 +210,28 @@ export default function VendorsClient({ initialApplications, inactiveVendors: in
                       {new Date(vendor.created_at).toLocaleDateString()}
                     </td>
                     <td className="py-3">
-                      <button
-                        onClick={() => activateVendor(vendor.id, vendor.business_name)}
-                        disabled={activating === vendor.id}
-                        className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm disabled:opacity-50"
-                      >
-                        {activating === vendor.id ? "Activating…" : "Activate"}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <select
+                          aria-label="Free months (founding-vendor comp)"
+                          value={compMonths[vendor.id] ?? 0}
+                          onChange={(e) =>
+                            setCompMonths((prev) => ({ ...prev, [vendor.id]: Number(e.target.value) }))
+                          }
+                          className="input-shell text-sm py-1"
+                        >
+                          <option value={0}>Paid plan</option>
+                          <option value={3}>3 mo free</option>
+                          <option value={6}>6 mo free</option>
+                          <option value={12}>12 mo free (founding)</option>
+                        </select>
+                        <button
+                          onClick={() => activateVendor(vendor.id, vendor.business_name)}
+                          disabled={activating === vendor.id}
+                          className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm disabled:opacity-50"
+                        >
+                          {activating === vendor.id ? "Activating…" : "Activate"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
