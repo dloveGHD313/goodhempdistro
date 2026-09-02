@@ -10,6 +10,9 @@ import {
   formSpamCheck,
 } from "@/lib/server/antiSpam";
 import FormSpamGuardFields from "@/components/FormSpamGuardFields";
+import TurnstileWidget from "@/components/TurnstileWidget";
+import { headers } from "next/headers";
+import { requireHumanFromForm } from "@/lib/server/turnstile";
 import Link from "next/link";
 import Footer from "@/components/Footer";
 
@@ -61,6 +64,11 @@ async function submitJaxApplication(formData: FormData) {
     console.warn("[jax-feature-form] blocked submission:", spamReason);
     // Show the generic success screen so bots learn nothing.
     redirect("/learning/jax?submitted=1");
+  }
+
+  // Human verification (Cloudflare Turnstile) — no-op until keys are set.
+  if (await requireHumanFromForm(formData, await headers())) {
+    redirect("/learning/jax?error=human");
   }
 
   const supabase = await createSupabaseServerClient();
@@ -129,6 +137,7 @@ export default async function JaxFeaturePage({
   const params = await searchParams;
   const submitted = params.submitted === "1";
   const hasError = params.error === "1";
+  const humanError = params.error === "human";
 
   return (
     <div className="min-h-screen text-white flex flex-col">
@@ -190,6 +199,11 @@ export default async function JaxFeaturePage({
                   {hasError && (
                     <div className="p-3 rounded bg-red-500/20 text-red-200 text-sm" role="alert">
                       Something went wrong. Please try again or contact us directly.
+                    </div>
+                  )}
+                  {humanError && (
+                    <div className="p-3 rounded bg-red-500/20 text-red-200 text-sm" role="alert">
+                      We couldn&apos;t verify you&apos;re human. Please refresh the page and try again.
                     </div>
                   )}
 
@@ -309,6 +323,7 @@ export default async function JaxFeaturePage({
                     </div>
                   </div>
 
+                  <TurnstileWidget action="jax_application" />
                   <button type="submit" className="w-full btn-primary">
                     Submit Application →
                   </button>
