@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isCompActive } from "@/lib/server/isVendorActive";
+import { COMP_DEFAULT_PLAN_KEY } from "@/lib/server/vendorComp";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { getCategoryCoaRequirement, validateProductCompliance } from "@/lib/compliance";
@@ -70,12 +72,13 @@ export async function POST(req: NextRequest) {
       status?: string | null;
       subscription_status?: string | null;
       subscription_plan_key?: string | null;
+      comp_until?: string | null;
       subscription_price_id?: string | null;
     };
 
     let { data: vendor, error: vendorError } = await supabase
       .from("vendors")
-      .select("id, owner_user_id, status, subscription_status, subscription_plan_key, subscription_price_id")
+      .select("id, owner_user_id, status, subscription_status, subscription_plan_key, subscription_price_id, comp_until")
       .eq("owner_user_id", user.id)
       .maybeSingle<VendorRecord>();
 
@@ -84,7 +87,7 @@ export async function POST(req: NextRequest) {
       const admin = getSupabaseAdminClient();
       const { data: adminVendor, error: adminVendorError } = await admin
         .from("vendors")
-        .select("id, owner_user_id, status, subscription_status, subscription_plan_key, subscription_price_id")
+        .select("id, owner_user_id, status, subscription_status, subscription_plan_key, subscription_price_id, comp_until")
         .eq("owner_user_id", user.id)
         .maybeSingle<VendorRecord>();
       if (adminVendorError) {
@@ -272,7 +275,10 @@ export async function POST(req: NextRequest) {
     }
 
     const subscriptionStatus = vendor?.subscription_status || null;
-    const subscriptionActive = subscriptionStatus === "active" || subscriptionStatus === "trialing";
+    // Founding-vendor comp (vendors.comp_until in the future) counts as an active plan.
+    const compActive = isCompActive(vendor?.comp_until);
+    const subscriptionActive =
+      subscriptionStatus === "active" || subscriptionStatus === "trialing" || compActive;
     if (!subscriptionActive && !isAdmin) {
       console.warn(`⚠️ [product/create] Vendor ${vendor.id} subscription_status=${subscriptionStatus || "none"}`);
       return NextResponse.json(
@@ -293,7 +299,9 @@ export async function POST(req: NextRequest) {
           ? vendor.subscription_price_id.trim()
           : null;
       const planFromPrice = priceId ? getVendorPlanByPriceId(priceId) : null;
-      const effectivePlanKey = planKey || planFromPrice?.planKey || null;
+      // Comped founding vendors without a Stripe plan get Starter entitlements.
+      const effectivePlanKey =
+        planKey || planFromPrice?.planKey || (compActive ? COMP_DEFAULT_PLAN_KEY : null);
 
       if (!effectivePlanKey) {
         return NextResponse.json(
