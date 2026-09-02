@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
 import { isSafeNextPath } from "@/lib/phase2-workout-flow";
+import TurnstileWidget from "@/components/TurnstileWidget";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -18,6 +19,8 @@ export default function LoginForm() {
   const [message, setMessage] = useState<string | null>(null);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  // Cloudflare Turnstile token — verified by Supabase Auth once enabled there.
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,6 +33,7 @@ export default function LoginForm() {
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
+        ...(captchaToken ? { options: { captchaToken } } : {}),
       });
 
       if (signInError) {
@@ -99,6 +103,8 @@ export default function LoginForm() {
         />
       </div>
 
+      <TurnstileWidget action="login" onToken={setCaptchaToken} />
+
       <button
         type="submit"
         disabled={loading}
@@ -139,6 +145,7 @@ export default function LoginForm() {
 
                   const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
                     redirectTo,
+                    ...(captchaToken ? { captchaToken } : {}),
                   });
 
                   if (resetError) {
