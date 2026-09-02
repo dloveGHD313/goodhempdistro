@@ -9,6 +9,9 @@ import {
   formSpamCheck,
 } from "@/lib/server/antiSpam";
 import FormSpamGuardFields from "@/components/FormSpamGuardFields";
+import TurnstileWidget from "@/components/TurnstileWidget";
+import { headers } from "next/headers";
+import { requireHumanFromForm } from "@/lib/server/turnstile";
 
 export const metadata: Metadata = {
   title: "Hemp Wholesale Inquiry | Good Hemp Distro",
@@ -57,6 +60,11 @@ async function submitInquiry(formData: FormData) {
     redirect("/wholesale?submitted=1");
   }
 
+  // Human verification (Cloudflare Turnstile) — no-op until keys are set.
+  if (await requireHumanFromForm(formData, await headers())) {
+    redirect("/wholesale?error=human");
+  }
+
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.from("wholesale_inquiries").insert({
     business_name,
@@ -83,6 +91,7 @@ export default async function WholesalePage({
   const params = await searchParams;
   const submitted = params.submitted === "1";
   const hasError = params.error === "1";
+  const humanError = params.error === "human";
 
   return (
     <div className="min-h-screen text-white flex flex-col">
@@ -206,6 +215,11 @@ export default async function WholesalePage({
                       Submission failed. Please email us directly to reach our team.
                     </div>
                   )}
+                  {humanError && (
+                    <div className="p-3 rounded bg-red-500/20 text-red-200 text-sm" role="alert">
+                      We couldn&apos;t verify you&apos;re human. Please refresh the page and try again.
+                    </div>
+                  )}
 
                   <div>
                     <label htmlFor="business_name" className="block text-sm font-medium text-muted mb-1">
@@ -269,6 +283,7 @@ export default async function WholesalePage({
                     <textarea id="message" name="message" rows={4} className="input-shell w-full" />
                   </div>
 
+                  <TurnstileWidget action="wholesale_inquiry" />
                   <button type="submit" className="btn-primary">
                     Submit Inquiry
                   </button>
