@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getIntoxicatingCutoffDate } from "@/lib/compliance";
 import { getVendorReferralCode } from "@/lib/vendorReferral";
+import TurnstileWidget from "@/components/TurnstileWidget";
 
 export default function VendorForm() {
   const searchParams = useSearchParams();
@@ -15,6 +16,7 @@ export default function VendorForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [debugResponse, setDebugResponse] = useState<any>(null);
   const [isDebugMode, setIsDebugMode] = useState(false);
   const [debugKeyExists, setDebugKeyExists] = useState(false);
@@ -121,6 +123,7 @@ export default function VendorForm() {
           coa_attested: coaAttested,
           intoxicating_policy_ack: recreationalAck,
           ...(getVendorReferralCode() ? { vr_code: getVendorReferralCode() } : {}),
+          turnstileToken,
         }),
       });
 
@@ -317,6 +320,8 @@ export default function VendorForm() {
           </label>
         </div>
       </div>
+
+      <TurnstileWidget action="vendor_registration" onToken={setTurnstileToken} />
 
       <button
         type="submit"
