@@ -1,91 +1,45 @@
-"use client";
-
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import JaxFigure from "@/components/mascot/JaxFigure";
-
-function AnimatedLine({ children, delayMs = 0, className = "" }: { children: React.ReactNode; delayMs?: number; className?: string }) {
-  const [show, setShow] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setShow(true), 25);
-    return () => clearTimeout(timer);
-  }, []);
-
-  return (
-    <div
-      className={`transition-all duration-700 ease-out ${className} ${show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`}
-      style={{ transitionDelay: `${delayMs}ms` }}
-    >
-      {children}
-    </div>
-  );
-}
+import JaxPathChooser from "./JaxPathChooser";
 
 type HeroSectionProps = {
   isAuthenticated?: boolean;
 };
 
-export default function HeroSection({ isAuthenticated = false }: HeroSectionProps) {
-  const vendorHref = isAuthenticated ? "/vendor-registration" : "/get-started?role=vendor";
-
+/**
+ * Home hero v2 — "wow" without paying for it in LCP:
+ * - The background is pure CSS (animated aurora gradients + SVG grain), no
+ *   video, no JS, no extra requests; it pauses under prefers-reduced-motion.
+ * - Eyebrow + H1 + subtitle are server-rendered plain elements (no opacity-0
+ *   reveal on the LCP text). Only the doors stagger in.
+ * - JAX asks one question and three doors answer it (Shop / Build / Sell).
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export default function HeroSection(_props: HeroSectionProps = {}) {
   return (
-    <section
-      className="relative min-h-screen flex items-center justify-center px-6 py-24"
-      style={{
-        background:
-          "radial-gradient(ellipse 80% 50% at 50% 40%, rgba(60,185,122,0.12) 0%, transparent 70%), #0D1512",
-      }}
-    >
-      <div className="relative z-10 max-w-5xl w-full text-center">
-        <AnimatedLine delayMs={100}>
-          <p className="text-xs uppercase tracking-[0.35em] text-[#3CB97A] mb-6">THE HEMP INDUSTRY PLATFORM</p>
-        </AnimatedLine>
+    <section className="ghd-hero relative overflow-hidden px-6 pt-24 pb-20 md:pt-28 md:pb-24">
+      <div className="ghd-aurora" aria-hidden />
+      <div className="ghd-grain" aria-hidden />
 
-        <AnimatedLine delayMs={250}>
-          <h1 className="text-[#F0EDE6] text-5xl md:text-7xl leading-tight mb-6 font-serif">
-            Every Vendor.<br />
-            Every Product.<br />
-            One Platform.
-          </h1>
-        </AnimatedLine>
+      <div className="relative z-10 max-w-6xl mx-auto text-center">
+        <p className="text-xs uppercase tracking-[0.35em] text-[#3CB97A] mb-6">THE HEMP INDUSTRY PLATFORM</p>
 
-        <AnimatedLine delayMs={400}>
-          <p className="text-[#8A9E96] text-lg max-w-2xl mx-auto mb-10">
-            Discover verified hemp vendors, shop compliant products, and grow your business — all in one place.
-          </p>
-        </AnimatedLine>
+        <h1 className="text-[#F0EDE6] text-5xl md:text-7xl leading-[1.05] mb-6 font-serif">
+          Every vendor.<br />
+          Every product.<br />
+          <span className="ghd-shimmer">One platform.</span>
+        </h1>
 
-        <AnimatedLine delayMs={550}>
-          <div className="relative z-10 flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
-            <Link
-              href="/products"
-              className="px-7 py-3 rounded-xl font-semibold text-[#0D1512] bg-[#3CB97A] border border-[#3CB97A] hover:scale-[1.02] transition-all duration-200"
-            >
-              Shop Hemp Products →
-            </Link>
-            <Link
-              href={vendorHref}
-              className="px-7 py-3 rounded-xl font-semibold text-[#3CB97A] border border-[#3CB97A] hover:bg-[#1A2820] hover:scale-[1.02] transition-all duration-200"
-            >
-              Become a Vendor →
-            </Link>
-          </div>
-        </AnimatedLine>
+        <p className="text-[#8A9E96] text-lg max-w-2xl mx-auto mb-12">
+          Shop everyday hemp goods, plan a hempcrete build, or open your own storefront —
+          verified vendors, COA-ready listings, and JAX to walk you through it.
+        </p>
 
-        <AnimatedLine delayMs={700}>
-          <div className="flex flex-wrap justify-center gap-3 md:gap-8 text-sm text-[#4A5E57]">
-            <span>✓ Founding Vendors Onboarding Now</span>
-            <span>✓ Every Product COA-Verified</span>
-            <span>✓ Nashville, TN + Nationwide</span>
-          </div>
-        </AnimatedLine>
+        <JaxPathChooser />
 
-        <AnimatedLine delayMs={850}>
-          <div className="hidden md:flex justify-center mt-10">
-            <JaxFigure outfit="welcome" width={190} priority />
-          </div>
-        </AnimatedLine>
+        <div className="mt-10 flex flex-wrap justify-center gap-3 md:gap-8 text-sm text-[#4A5E57]">
+          <span>✓ Founding vendors onboarding now</span>
+          <span>✓ COA required where the law requires it</span>
+          <span>✓ Nashville, TN + nationwide</span>
+        </div>
       </div>
     </section>
   );
