@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import JaxFigure from "@/components/mascot/JaxFigure";
 import { setWelcomeProfile } from "@/lib/phase0-storage";
 import type { PlatformStats } from "@/lib/server/platformStats";
@@ -57,6 +57,10 @@ function bootLines(stats: PlatformStats | null): string[] {
  * signed-in users, never when ?intent= or ?noboot= is present (deep links,
  * Lighthouse). Reduced-motion visitors go straight to the question.
  *
+ * Deliberately avoids useSearchParams(): that would push this subtree to
+ * client-only rendering and the hero would flash before the overlay mounts.
+ * The overlay is in the server HTML from the first byte.
+ *
  * Flow: boot ticker → JAX enters and asks why you're here → nine intent cards
  * pop in one after another → multi-select (Continue disabled until ≥1) → JAX
  * reacts to each pick with a role-specific line → Continue stores the intents
@@ -65,7 +69,6 @@ function bootLines(stats: PlatformStats | null): string[] {
  */
 export default function BootSequence({ stats, isAuthenticated }: Props) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [mounted, setMounted] = useState(false);
   const [show, setShow] = useState(true);
   const [phase, setPhase] = useState<Phase>("boot");
@@ -86,7 +89,8 @@ export default function BootSequence({ stats, isAuthenticated }: Props) {
       } catch {
         seen = false;
       }
-      const deepLink = searchParams?.has("intent") || searchParams?.has("noboot");
+      const qs = new URLSearchParams(window.location.search);
+      const deepLink = qs.has("intent") || qs.has("noboot");
       const prefersReduced = !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
       setMounted(true);
       if (isAuthenticated || seen || deepLink) {
@@ -97,7 +101,7 @@ export default function BootSequence({ stats, isAuthenticated }: Props) {
       if (prefersReduced) setPhase("cards");
     });
     return () => window.cancelAnimationFrame(raf);
-  }, [isAuthenticated, searchParams]);
+  }, [isAuthenticated]);
 
   // Lock the page behind the overlay while it's up.
   useEffect(() => {
