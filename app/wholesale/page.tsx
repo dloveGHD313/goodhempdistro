@@ -12,6 +12,7 @@ import FormSpamGuardFields from "@/components/FormSpamGuardFields";
 import TurnstileWidget from "@/components/TurnstileWidget";
 import { headers } from "next/headers";
 import { requireHumanFromForm } from "@/lib/server/turnstile";
+import { getPlatformStats } from "@/lib/server/platformStats";
 
 export const metadata: Metadata = {
   title: "Hemp Wholesale Inquiry | Good Hemp Distro",
@@ -93,18 +94,24 @@ export default async function WholesalePage({
   const hasError = params.error === "1";
   const humanError = params.error === "human";
 
+  // Live counts only (CEO rule: no hand-typed marketing numbers). Unknown → hidden.
+  const stats = await getPlatformStats().catch(() => null);
+  const fmt = (n: number | null | undefined) =>
+    typeof n === "number" && n > 0 ? n.toLocaleString("en-US") : null;
+  const trustStats = [
+    { value: fmt(stats?.activeVendors), label: "Founding Vendors Onboarded" },
+    { value: fmt(stats?.categories), label: "Hemp Categories" },
+    { value: "COA", label: "Required on Cannabinoid Products" },
+    { value: "21+", label: "Age-Gated Platform" },
+  ].filter((s): s is { value: string; label: string } => Boolean(s.value));
+
   return (
     <div className="min-h-screen text-white flex flex-col">
-      {/* === TRUST STATS BAR === */}
+      {/* === TRUST STATS BAR (live DB counts) === */}
       <section className="border-b border-white/10 bg-[#141F1A]">
         <div className="max-w-5xl mx-auto px-6 py-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-            {[
-              { value: "120+", label: "Verified Vendors" },
-              { value: "5", label: "Product Categories" },
-              { value: "100%", label: "COA-Certified Products" },
-              { value: "48hr", label: "Avg Approval Time" },
-            ].map((stat) => (
+            {trustStats.map((stat) => (
               <div key={stat.label}>
                 <p className="text-2xl font-semibold text-[#3CB97A]">{stat.value}</p>
                 <p className="text-xs text-[#8A9E96] mt-1 uppercase tracking-wide">{stat.label}</p>
