@@ -44,7 +44,7 @@ async function getVendorProducts(userId: string) {
       return { products: [], error: error.message };
     }
 
-    // Federal 2026 status per product (P.L. 119-37, effective 2026-11-12) —
+    // Federal 2026 status per product (P.L. 119-37, effective 2026-12-11 per H.R. 6500) —
     // warning display only; enforcement stays behind ENFORCE_FEDERAL_2026.
     const categoryIds = Array.from(
       new Set((products || []).map((p) => p.category_id).filter((id): id is string => !!id))
