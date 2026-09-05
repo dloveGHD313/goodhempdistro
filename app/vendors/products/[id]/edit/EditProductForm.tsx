@@ -55,7 +55,7 @@ export default function EditProductForm({ productId, initialProduct, initialCate
   const [useManualUrl, setUseManualUrl] = useState(!!initialProduct.coa_url);
   const [delta8DisclaimerAck, setDelta8DisclaimerAck] = useState(initialProduct.delta8_disclaimer_ack || false);
   const [hempDerivedAttestation, setHempDerivedAttestation] = useState(initialProduct.hemp_derived_attestation ?? true);
-  // Federal 2026 declarations (P.L. 119-37, effective 2026-11-12)
+  // Federal 2026 declarations (P.L. 119-37, effective 2026-12-11 per H.R. 6500)
   const [totalThcPercent, setTotalThcPercent] = useState(
     initialProduct.total_thc_percent != null ? String(initialProduct.total_thc_percent) : ""
   );
@@ -497,7 +497,7 @@ export default function EditProductForm({ productId, initialProduct, initialCate
                 {categoryRequiresCoa && (
                   <div className="bg-[var(--surface)] border border-amber-500/40 rounded-lg p-4 space-y-3">
                     <p className="font-medium text-white/90 text-sm">
-                      Total-THC declarations (federal law effective Nov 12, 2026)
+                      Total-THC declarations (federal law effective Dec 11, 2026)
                     </p>
                     <p className="text-xs text-muted">
                       Federal law will measure hemp by <strong>total THC including
