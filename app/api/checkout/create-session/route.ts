@@ -217,7 +217,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           code: "FEDERAL_2026_BLOCK",
-          message: "This product is not available for purchase under the federal hemp definition effective Nov 12, 2026.",
+          message: "This product is not available for purchase under the federal hemp definition effective Dec 11, 2026.",
         },
         { status: 400, headers: { "Cache-Control": "no-store" } }
       );

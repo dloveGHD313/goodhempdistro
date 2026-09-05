@@ -129,7 +129,7 @@ export default function ProductsClient({ initialProducts, initialCounts }: Props
       {affected2026.length > 0 && (
         <div className="p-4 rounded-lg bg-amber-900/30 border border-amber-500 text-amber-100 text-sm">
           <p className="font-semibold mb-1">
-            ⚠️ Federal hemp definition changes November 12, 2026
+            ⚠️ Federal hemp definition changes December 11, 2026
           </p>
           <p>
             {affected2026.length} of your product{affected2026.length === 1 ? "" : "s"} may
@@ -228,7 +228,7 @@ export default function ProductsClient({ initialProducts, initialCounts }: Props
                   {product.federal_2026_status && product.federal_2026_status !== "compliant" && (
                     <p className="text-xs text-amber-300 mb-2">
                       {product.federal_2026_status === "non_compliant"
-                        ? "This product may not meet the federal hemp definition effective Nov 12, 2026."
+                        ? "This product may not meet the federal hemp definition effective Dec 11, 2026."
                         : "Total-THC declarations missing — add total THC %, mg per container, and the synthesized-cannabinoid declaration from your COA."}
                     </p>
                   )}
