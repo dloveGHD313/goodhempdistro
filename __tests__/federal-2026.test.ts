@@ -8,7 +8,7 @@ import {
 } from "@/lib/compliance/federal2026";
 
 /**
- * P.L. 119-37 (effective 2026-11-12) — brief 2026-07-16 P0.
+ * P.L. 119-37 (effective 2026-12-11 after the H.R. 6500 delay) — brief 2026-07-16 P0.
  * Enforcement is behind ENFORCE_FEDERAL_2026 (default OFF).
  */
 
@@ -28,7 +28,8 @@ describe("config constants", () => {
   it("pins the statutory thresholds and effective date", () => {
     expect(FEDERAL_2026.totalThcMaxPercent).toBe(0.3);
     expect(FEDERAL_2026.totalThcMaxMgPerContainer).toBe(0.4);
-    expect(FEDERAL_2026.effectiveDate).toBe("2026-11-12");
+    expect(FEDERAL_2026.effectiveDate).toBe("2026-12-11");
+    expect(FEDERAL_2026.syntheticOnlyEffectiveDate).toBe("2026-11-12");
   });
 });
 
@@ -119,7 +120,7 @@ describe("enforcement flag", () => {
 
 describe("federal2026WarningText", () => {
   it("warns for non_compliant and unknown; silent for compliant", () => {
-    expect(federal2026WarningText("non_compliant")).toMatch(/Nov 12, 2026/);
+    expect(federal2026WarningText("non_compliant")).toMatch(/Dec 11, 2026/);
     expect(federal2026WarningText("unknown")).toMatch(/declarations/i);
     expect(federal2026WarningText("compliant")).toBeNull();
   });
