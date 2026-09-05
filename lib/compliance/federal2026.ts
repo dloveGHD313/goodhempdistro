@@ -1,6 +1,11 @@
 /**
- * Federal hemp redefinition compliance — P.L. 119-37, effective 2026-11-12
- * (brief 2026-07-16 P0). Verified against CRS IF13136 analysis:
+ * Federal hemp redefinition compliance — P.L. 119-37 (Section 781), effective
+ * 2026-12-11 for the total-THC / per-container / synthesized-cannabinoid rules.
+ * H.R. 6500 (Continuing Appropriations and Extensions Act, 2027), signed
+ * 2026-09-02, moved those rules from 2026-11-12 to 2026-12-11; only the
+ * exclusion for cannabinoids that cannot occur naturally in Cannabis sativa L.
+ * keeps the original 2026-11-12 date. Brief 2026-07-16 P0, verified against
+ * CRS IF13136:
  *
  * 1. Hemp is measured by TOTAL THC including THCA ≤ 0.3% dry weight
  *    (previously delta-9 only).
@@ -23,8 +28,12 @@ export const FEDERAL_2026 = {
   totalThcMaxPercent: 0.3,
   /** Total THC max per final product container, mg. */
   totalThcMaxMgPerContainer: 0.4,
-  /** Statute effective date. */
-  effectiveDate: "2026-11-12",
+  /** Effective date for the total-THC, 0.4mg/container and synthesized-
+   *  cannabinoid rules (delayed by H.R. 6500, signed 2026-09-02). */
+  effectiveDate: "2026-12-11",
+  /** Original P.L. 119-37 date — still applies to cannabinoids that cannot be
+   *  naturally produced by the plant (not delayed). Informational. */
+  syntheticOnlyEffectiveDate: "2026-11-12",
 } as const;
 
 export type Federal2026Status = "compliant" | "non_compliant" | "unknown";
@@ -97,10 +106,10 @@ export function isBlockedByFederal2026(
 /** Vendor-facing warning copy (dashboard banner / status column). */
 export function federal2026WarningText(status: Federal2026Status): string | null {
   if (status === "non_compliant") {
-    return `This product may not meet the federal hemp definition effective Nov 12, 2026 (total THC incl. THCA ≤ ${FEDERAL_2026.totalThcMaxPercent}% and ≤ ${FEDERAL_2026.totalThcMaxMgPerContainer}mg total THC per container; synthesized cannabinoids excluded).`;
+    return `This product may not meet the federal hemp definition effective Dec 11, 2026 (total THC incl. THCA ≤ ${FEDERAL_2026.totalThcMaxPercent}% and ≤ ${FEDERAL_2026.totalThcMaxMgPerContainer}mg total THC per container; synthesized cannabinoids excluded).`;
   }
   if (status === "unknown") {
-    return "Total-THC declarations are missing for this product. Add total THC %, mg per container, and the synthesized-cannabinoid declaration from your COA before Nov 12, 2026.";
+    return "Total-THC declarations are missing for this product. Add total THC %, mg per container, and the synthesized-cannabinoid declaration from your COA before Dec 11, 2026.";
   }
   return null;
 }
