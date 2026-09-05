@@ -80,9 +80,10 @@ export default function BootSequence({ stats, isAuthenticated }: Props) {
   const lines = useMemo(() => bootLines(stats), [stats]);
 
   // Decide once, on the client, whether this visitor gets the sequence.
-  // Scheduled on the next frame so the decision never races hydration.
+  // Deferred a tick so the decision never races hydration (a timer, not
+  // requestAnimationFrame, so a link opened in a background tab still resolves).
   useEffect(() => {
-    const raf = window.requestAnimationFrame(() => {
+    const timer = window.setTimeout(() => {
       let seen = false;
       try {
         seen = !!window.localStorage.getItem(BOOT_SEEN_KEY);
@@ -99,8 +100,8 @@ export default function BootSequence({ stats, isAuthenticated }: Props) {
       }
       setReduced(prefersReduced);
       if (prefersReduced) setPhase("cards");
-    });
-    return () => window.cancelAnimationFrame(raf);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [isAuthenticated]);
 
   // Lock the page behind the overlay while it's up.
@@ -189,7 +190,7 @@ export default function BootSequence({ stats, isAuthenticated }: Props) {
 
           {/* ── Phase A: boot ticker ── */}
           {phase === "boot" ? (
-            <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6">
+            <div className="ghd-boot-stage relative z-10 flex flex-1 flex-col items-center justify-center px-6">
               <p className="ghd-boot-mark text-[11px] uppercase tracking-[0.6em] text-[#3CB97A]">The hemp industry platform</p>
               <h1 className="ghd-boot-title mt-4 font-serif text-4xl md:text-6xl text-center">
                 <span className="ghd-shimmer">Good Hemp Distros</span>
@@ -208,7 +209,7 @@ export default function BootSequence({ stats, isAuthenticated }: Props) {
 
           {/* ── Phase B + C: JAX asks, cards answer ── */}
           {phase !== "boot" ? (
-            <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-8 md:px-8">
+            <div className="ghd-boot-stage relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-8 md:px-8">
               <div className="ghd-boot-jax flex w-full max-w-5xl flex-col items-center gap-4 md:flex-row md:items-end md:justify-center md:gap-8">
                 <div className="ghd-float shrink-0">
                   <div className={phase === "jax" ? "w-[150px] md:w-[200px]" : "w-[104px] md:w-[140px]"}>
