@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { getUserVerificationStatus } from "@/lib/server/idVerification";
 import { getCategoriesCoaRequirementMap } from "@/lib/compliance";
+import { getPlatformStats } from "@/lib/server/platformStats";
 import {
   getCategoryComplianceMap,
   isCategoryRestrictedInState,
@@ -255,6 +256,18 @@ export default async function ProductsPage({
     }
   }
 
+  // Shop header metrics — live counts only; a metric with no readable value is dropped.
+  const stats = await getPlatformStats().catch(() => null);
+  const shopMetrics = [
+    typeof stats?.categories === "number" && stats.categories > 0
+      ? { label: "Catalog", value: `${stats.categories.toLocaleString("en-US")} hemp categories` }
+      : null,
+    typeof stats?.activeVendors === "number" && stats.activeVendors > 0
+      ? { label: "Founding vendors", value: `${stats.activeVendors.toLocaleString("en-US")} onboarded` }
+      : { label: "Founding vendors", value: "Onboarding now" },
+    { label: "COA policy", value: "Required on cannabinoid products" },
+  ].filter((m): m is { label: string; value: string } => m !== null);
+
   const { products, vendorName, productsLookupFailed } = await getProducts(
     vendorId,
     includeGated,
@@ -329,11 +342,7 @@ export default async function ProductsPage({
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-              {[
-                { label: "Catalog", value: "45+ hemp categories" },
-                { label: "Founding vendors", value: "Onboarding now" },
-                { label: "Compliance status", value: "Always on" },
-              ].map((metric) => (
+              {shopMetrics.map((metric) => (
                 <div key={metric.label} className="shop-metric">
                   <span className="text-xs uppercase tracking-[0.2em] text-muted">{metric.label}</span>
                   <span className="text-lg font-semibold">{metric.value}</span>
