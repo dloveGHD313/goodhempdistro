@@ -52,7 +52,9 @@ export const mascotAssets: Record<
 > = {
   JAX: {
     name: "JAX",
-    idleSrc: "/assets/jax/jax-floating.webp",
+    // Face-crop of the site JAX in Good Hemp Distro merch (CEO: JAX wears GHD
+    // merch everywhere). Derived from public/mascot/jax/outfits/welcome.png.
+    idleSrc: "/mascot/jax/avatar.webp",
     fallbackSrc: "/assets/jax/jax-floating.webp",
     accent: "var(--accent)",
     tagline: "Community concierge",
