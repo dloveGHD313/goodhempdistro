@@ -1303,3 +1303,140 @@ footer {
     transition: none;
   }
 }
+
+/* =====================================================================
+   Home hero v2 — cinematic aurora + JAX path chooser (pure CSS, no JS,
+   no network requests; every animation pauses under reduced motion).
+   ===================================================================== */
+.ghd-hero {
+  background: #0D1512;
+  min-height: 92vh;
+  display: flex;
+  align-items: center;
+}
+.ghd-aurora {
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  background:
+    radial-gradient(40% 35% at 20% 30%, rgba(60, 185, 122, 0.22), transparent 70%),
+    radial-gradient(35% 30% at 80% 25%, rgba(31, 166, 168, 0.16), transparent 70%),
+    radial-gradient(45% 40% at 55% 85%, rgba(201, 168, 76, 0.10), transparent 70%),
+    radial-gradient(60% 50% at 50% 50%, rgba(60, 185, 122, 0.06), transparent 70%);
+  filter: blur(40px);
+  animation: ghd-aurora-drift 26s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.ghd-grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.07;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+@keyframes ghd-aurora-drift {
+  0%   { transform: translate3d(-3%, -2%, 0) rotate(0deg) scale(1); }
+  50%  { transform: translate3d(3%, 2%, 0) rotate(2deg) scale(1.06); }
+  100% { transform: translate3d(-2%, 3%, 0) rotate(-2deg) scale(1.02); }
+}
+
+.ghd-shimmer {
+  background: linear-gradient(100deg, #F0EDE6 0%, #3CB97A 35%, #C9A84C 55%, #F0EDE6 80%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: ghd-shimmer-sweep 7s linear infinite;
+}
+@keyframes ghd-shimmer-sweep {
+  0%   { background-position: 120% 0; }
+  100% { background-position: -130% 0; }
+}
+
+.ghd-float {
+  animation: ghd-float 6s ease-in-out infinite;
+}
+@keyframes ghd-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+
+.ghd-bubble::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  bottom: 24px;
+  width: 16px;
+  height: 16px;
+  background: inherit;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  transform: rotate(45deg);
+}
+@media (max-width: 767px) {
+  .ghd-bubble::before {
+    left: 50%;
+    bottom: auto;
+    top: -8px;
+    transform: translateX(-50%) rotate(135deg);
+  }
+}
+.ghd-bubble-line {
+  animation: ghd-bubble-in 320ms ease-out;
+}
+@keyframes ghd-bubble-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.ghd-door {
+  opacity: 0;
+  animation: ghd-door-in 600ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  box-shadow: 0 0 0 0 transparent;
+}
+.ghd-door:hover,
+.ghd-door:focus-visible {
+  box-shadow: 0 18px 50px -20px var(--door-glow, rgba(60, 185, 122, 0.35));
+}
+@keyframes ghd-door-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.ghd-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #3CB97A;
+  box-shadow: 0 0 0 0 rgba(60, 185, 122, 0.6);
+  animation: ghd-live-pulse 2.2s ease-out infinite;
+}
+@keyframes ghd-live-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(60, 185, 122, 0.6); }
+  70%  { box-shadow: 0 0 0 10px rgba(60, 185, 122, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(60, 185, 122, 0); }
+}
+.ghd-stat {
+  animation: ghd-door-in 600ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ghd-aurora,
+  .ghd-shimmer,
+  .ghd-float,
+  .ghd-bubble-line,
+  .ghd-live-dot {
+    animation: none;
+  }
+  .ghd-shimmer {
+    color: #F0EDE6;
+    background: none;
+  }
+  .ghd-door,
+  .ghd-stat {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
