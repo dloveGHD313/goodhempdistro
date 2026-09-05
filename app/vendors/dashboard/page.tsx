@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { isCompActive } from "@/lib/server/isVendorActive";
 import { unstable_noStore as noStore } from "next/cache";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase";
@@ -31,7 +32,7 @@ async function getVendorData(userId: string) {
     const { data: vendor } = await supabase
       .from("vendors")
       .select(
-        "id, owner_user_id, business_name, description, status, vendor_type, created_at, is_active, is_approved, vendor_onboarding_completed, terms_accepted_at, compliance_acknowledged_at, subscription_status, subscription_plan_key, subscription_price_id, stripe_customer_id, stripe_subscription_id, subscription_current_period_end, subscription_cancel_at_period_end"
+        "id, owner_user_id, business_name, description, status, vendor_type, created_at, is_active, is_approved, vendor_onboarding_completed, terms_accepted_at, compliance_acknowledged_at, subscription_status, subscription_plan_key, subscription_price_id, stripe_customer_id, stripe_subscription_id, subscription_current_period_end, subscription_cancel_at_period_end, comp_until"
       )
       .eq("owner_user_id", userId)
       .maybeSingle();
@@ -189,7 +190,9 @@ export default async function VendorDashboardPage() {
     vendor.compliance_acknowledged_at;
   const approved = vendor.is_approved || vendor.status === "active";
   const active = vendor.is_active && approved;
-  const isSubscribed = ["active", "trialing"].includes(vendor.subscription_status || "");
+  const compActive = isCompActive(vendor.comp_until);
+  const isSubscribed =
+    ["active", "trialing"].includes(vendor.subscription_status || "") || compActive;
   const submittedDate = vendor.created_at
     ? new Date(vendor.created_at).toLocaleDateString("en-US", {
         year: "numeric",
@@ -297,7 +300,7 @@ export default async function VendorDashboardPage() {
               <div>
                 <div className="text-xs uppercase tracking-wide">Status</div>
                 <div className="text-base text-white">
-                  {vendor.subscription_status || "inactive"}
+                  {compActive ? "founding vendor (comped)" : vendor.subscription_status || "inactive"}
                 </div>
               </div>
               <div>
@@ -307,7 +310,9 @@ export default async function VendorDashboardPage() {
               <div>
                 <div className="text-xs uppercase tracking-wide">Renewal</div>
                 <div className="text-base text-white">
-                  {vendor.subscription_current_period_end
+                  {compActive && vendor.comp_until
+                    ? `Free until ${new Date(vendor.comp_until).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`
+                    : vendor.subscription_current_period_end
                     ? new Date(vendor.subscription_current_period_end).toLocaleDateString("en-US", {
                         year: "numeric",
                         month: "long",

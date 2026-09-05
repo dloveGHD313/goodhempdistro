@@ -23,6 +23,7 @@ type VendorRow = {
   is_approved: boolean | null;
   subscription_status: string | null;
   stripe_subscription_id: string | null;
+  comp_until?: string | null;
 };
 
 const isDev = process.env.NODE_ENV !== "production";
@@ -57,7 +58,7 @@ async function loadProfile(supabase: SupabaseClient, userId: string) {
 async function loadVendor(supabase: SupabaseClient, userId: string) {
   const { data, error } = await supabase
     .from("vendors")
-    .select("id, owner_user_id, vendor_onboarding_completed, terms_accepted_at, compliance_acknowledged_at, status, is_approved, subscription_status, stripe_subscription_id")
+    .select("id, owner_user_id, vendor_onboarding_completed, terms_accepted_at, compliance_acknowledged_at, status, is_approved, subscription_status, stripe_subscription_id, comp_until")
     .eq("owner_user_id", userId)
     .maybeSingle();
 
