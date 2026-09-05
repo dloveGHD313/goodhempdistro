@@ -199,7 +199,7 @@ export default function MascotPanel({
         onClick={onToggle}
         aria-label="Open mascot assistant"
       >
-        <MascotAvatar mascot={mascot} size={40} move={avatarMove} sources={avatarSources} />
+        <MascotAvatar mascot={mascot} size={48} move={avatarMove} sources={avatarSources} />
         <span className="mascot-bubble-text">Ask {asset.name}</span>
       </button>
     </div>
