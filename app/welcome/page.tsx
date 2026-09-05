@@ -10,6 +10,8 @@ import LearningWithJaxSection, { type WelcomeEpisode } from "./components/Learni
 import { getEpisodesForViewer } from "@/lib/jax/episodes";
 import ServicesTeaserSection from "./components/ServicesTeaserSection";
 import TrustBarSection from "./components/TrustBarSection";
+import LiveStatsSection from "./components/LiveStatsSection";
+import { getPlatformStats, type PlatformStats } from "@/lib/server/platformStats";
 import MarketingFooter from "./components/MarketingFooter";
 
 export const metadata: Metadata = {
@@ -100,6 +102,15 @@ async function getWelcomeEpisodes(): Promise<WelcomeEpisode[]> {
   }
 }
 
+/** Live counts for the stats strip (fail-soft: null hides the numbers). */
+async function getStats(): Promise<PlatformStats | null> {
+  try {
+    return await getPlatformStats();
+  } catch {
+    return null;
+  }
+}
+
 async function getIsAuthenticated(): Promise<boolean> {
   try {
     const supabase = await createSupabaseServerClient();
@@ -111,15 +122,17 @@ async function getIsAuthenticated(): Promise<boolean> {
 }
 
 export default async function WelcomePage() {
-  const [initialProducts, isAuthenticated, welcomeEpisodes] = await Promise.all([
+  const [initialProducts, isAuthenticated, welcomeEpisodes, stats] = await Promise.all([
     getFeaturedProducts(),
     getIsAuthenticated(),
     getWelcomeEpisodes(),
+    getStats(),
   ]);
 
   return (
     <main className="min-h-screen bg-[#0D1512] text-[#F0EDE6] font-sans">
       <HeroSection isAuthenticated={isAuthenticated} />
+      <LiveStatsSection stats={stats} />
       <DualAudienceSection isAuthenticated={isAuthenticated} />
       <Suspense fallback={<div className="h-64" />}>
         <FeaturedProductsSection initialProducts={initialProducts} />
