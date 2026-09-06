@@ -4,6 +4,7 @@ import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { stripe, getSiteUrl } from "@/lib/stripe";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 import { getVendorPriceEnvStatus, getVendorPlanByPriceId, resolveVendorPriceIdOrThrow } from "@/lib/pricing";
+import { compedCheckoutBlock } from "@/lib/server/vendorComp";
 
 const VENDOR_PLAN_KEYS = [
   "vendor_starter_monthly",
@@ -176,10 +177,20 @@ export async function POST(req: NextRequest) {
     let vendor = (
       await admin
         .from("vendors")
-        .select("id, owner_user_id, business_name, stripe_customer_id")
+        .select("id, owner_user_id, business_name, stripe_customer_id, comp_until")
         .eq("owner_user_id", user.id)
         .maybeSingle()
     ).data;
+
+    // Founding-vendor comp: never send a comped vendor to a paid checkout while the free window is open.
+    const compBlock = compedCheckoutBlock(vendor?.comp_until);
+    if (compBlock) {
+      console.info("[stripe/checkout]", JSON.stringify({ requestId, step: "comped_vendor_blocked", compUntil: compBlock.compUntil }));
+      return NextResponse.json(
+        { error: compBlock.message, requestId, errorReason: "founding_vendor_comped", compUntil: compBlock.compUntil },
+        { status: 409, headers: requestIdHeaders(requestId) }
+      );
+    }
 
     if (!vendor) {
       const { data: application } = await admin
@@ -197,7 +208,7 @@ export async function POST(req: NextRequest) {
           business_name: businessName,
           status: "active",
         })
-        .select("id, owner_user_id, business_name, stripe_customer_id")
+        .select("id, owner_user_id, business_name, stripe_customer_id, comp_until")
         .single();
       if (insertErr) {
         console.error("[stripe/checkout] vendor provision failed", JSON.stringify({
@@ -209,7 +220,7 @@ export async function POST(req: NextRequest) {
         }));
         const { data: existing } = await admin
           .from("vendors")
-          .select("id, owner_user_id, business_name, stripe_customer_id")
+          .select("id, owner_user_id, business_name, stripe_customer_id, comp_until")
           .eq("owner_user_id", user.id)
           .maybeSingle();
         vendor = existing ?? null;
