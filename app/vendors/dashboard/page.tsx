@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { isCompActive } from "@/lib/server/isVendorActive";
+import { formatCompUntil } from "@/lib/server/vendorComp";
 import { unstable_noStore as noStore } from "next/cache";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase";
@@ -220,6 +221,17 @@ export default async function VendorDashboardPage() {
               <Link href="/pricing?tab=vendor&reason=subscription_required" className="underline text-accent ml-2">
                 Complete vendor plan
               </Link>
+            </div>
+          )}
+
+          {compActive && (
+            <div
+              className="mb-8 rounded-xl border border-[#C9A84C]/60 bg-[#C9A84C]/10 p-4 text-sm text-[#F3E4B3]"
+              data-testid="founding-vendor-banner"
+            >
+              <span className="font-semibold text-[#C9A84C]">Founding vendor:</span> your first year is free until{" "}
+              <span className="font-semibold">{formatCompUntil(vendor.comp_until)}</span>. No subscription needed — list products,
+              services and events now; we&apos;ll remind you before the free year ends.
             </div>
           )}
 
