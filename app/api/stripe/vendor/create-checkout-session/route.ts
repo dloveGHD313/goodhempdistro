@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { stripe, getSiteUrl } from "@/lib/stripe";
 import { resolveVendorPriceId } from "@/lib/pricing";
+import { compedCheckoutBlock } from "@/lib/server/vendorComp";
 
 /** Map legacy planName to internal planKey (monthly). Growth -> Pro for backwards compat. */
 function planNameToPlanKey(planName: string | null): string | null {
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
     const admin = getSupabaseAdminClient();
     const { data: vendor } = await admin
       .from("vendors")
-      .select("id, owner_user_id, business_name, stripe_customer_id")
+      .select("id, owner_user_id, business_name, stripe_customer_id, comp_until")
       .eq("owner_user_id", user.id)
       .maybeSingle();
 
@@ -50,6 +51,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Vendor account required" },
         { status: 404 }
+      );
+    }
+
+    // Founding-vendor comp: no paid checkout while the free window is open.
+    const compBlock = compedCheckoutBlock(vendor.comp_until);
+    if (compBlock) {
+      return NextResponse.json(
+        { error: compBlock.message, errorReason: "founding_vendor_comped", compUntil: compBlock.compUntil },
+        { status: 409 }
       );
     }
 
