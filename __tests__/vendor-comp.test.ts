@@ -72,3 +72,32 @@ describe("computeCompUntil", () => {
     expect(COMP_DEFAULT_PLAN_KEY).toBe("vendor_starter_annual");
   });
 });
+
+describe("founding-vendor checkout guard (comp-aware checkout)", async () => {
+  const { compedCheckoutBlock, formatCompUntil, isCompWindowOpen } = await import("@/lib/server/vendorComp");
+  const NOW = new Date("2026-09-06T03:00:00Z");
+
+  it("blocks paid checkout while the comp window is open", () => {
+    const block = compedCheckoutBlock("2027-09-02T18:00:00Z", NOW);
+    expect(block).not.toBeNull();
+    expect(block?.compUntil).toBe("2027-09-02T18:00:00Z");
+    expect(block?.until).toBe("Sep 2, 2027");
+    expect(block?.message).toMatch(/free until Sep 2, 2027/);
+    expect(block?.message).toMatch(/no subscription needed/i);
+  });
+
+  it("lets checkout through once the comp window has ended or was never set", () => {
+    expect(compedCheckoutBlock("2026-09-01T00:00:00Z", NOW)).toBeNull();
+    expect(compedCheckoutBlock(null, NOW)).toBeNull();
+    expect(compedCheckoutBlock(undefined, NOW)).toBeNull();
+    expect(compedCheckoutBlock("not-a-date", NOW)).toBeNull();
+  });
+
+  it("window helper and date label agree with isCompActive semantics", () => {
+    expect(isCompWindowOpen("2027-01-01T00:00:00Z", NOW)).toBe(true);
+    expect(isCompWindowOpen("2026-09-06T02:59:59Z", NOW)).toBe(false);
+    expect(formatCompUntil("2027-01-01T00:00:00Z")).toBe("Jan 1, 2027");
+    expect(formatCompUntil("garbage")).toBeNull();
+    expect(formatCompUntil(null)).toBeNull();
+  });
+});
