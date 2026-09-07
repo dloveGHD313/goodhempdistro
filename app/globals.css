@@ -1440,3 +1440,39 @@ footer {
     transform: none;
   }
 }
+
+/* Header: compact admin pill + avatar (replaces "⚙️ Admin ▼" and "Account ▼" text) */
+.nav-admin-pill {
+  color: var(--brand-lime);
+  background: color-mix(in srgb, var(--brand-lime) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-lime) 45%, transparent);
+  border-radius: 9999px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.nav-admin-pill:hover {
+  background: color-mix(in srgb, var(--brand-lime) 22%, transparent);
+  box-shadow: var(--glow-lime);
+}
+
+.nav-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface) 70%, var(--brand-lime) 30%);
+  border: 1px solid color-mix(in srgb, var(--brand-lime) 55%, transparent);
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+.nav-avatar:hover {
+  box-shadow: var(--glow-lime);
+  transform: translateY(-1px);
+}
