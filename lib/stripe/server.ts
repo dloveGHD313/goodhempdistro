@@ -17,8 +17,9 @@ export function getStripeServer(): Stripe {
     return stripeServerInstance;
   }
   assertStripeLiveSecret();
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!key?.trim()) {
+  // Trim: a stray newline/space pasted into Vercel would otherwise reach Stripe as an "Invalid API Key".
+  const key = process.env.STRIPE_SECRET_KEY?.trim();
+  if (!key) {
     throw new Error("STRIPE_SECRET_KEY is required. Set it in Vercel → Environment Variables.");
   }
   // Keep in sync with Stripe Dashboard API version. Must be a published stable version (not future-dated / not speculative).
