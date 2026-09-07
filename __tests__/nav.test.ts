@@ -78,9 +78,9 @@ describe("getCtaNav", () => {
     expect(result.map((i) => i.id)).toEqual(["cta-add-product"]);
   });
 
-  it("admin sees cta-admin-dashboard", () => {
+  it("admin sees no CTA button (the header Admin menu covers it)", () => {
     const result = getCtaNav(contexts.admin);
-    expect(result.map((i) => i.id)).toEqual(["cta-admin-dashboard"]);
+    expect(result.map((i) => i.id)).toEqual([]);
   });
 
   it("no context ever returns more than 2 CTAs", () => {
