@@ -5,6 +5,7 @@ import Stripe from "stripe";
 // (42501). All handlers in this file must use getSupabaseAdminClient().
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { getStripeServer } from "@/lib/stripe/server";
+import { freshestSubscription } from "@/lib/stripe/subscriptionState";
 import { assertStripeLiveSecret, assertStripeWebhookSecret, isStripeProductionEnv } from "@/lib/stripe/liveGuard";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 import { getVendorPlanByPriceId } from "@/lib/pricing";
@@ -222,8 +223,10 @@ export async function POST(req: NextRequest) {
       case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
-        const sub = event.data.object as Stripe.Subscription;
-        console.log(`🔄 Processing ${event.type} | subscription=${sub.id} | status=${sub.status}`);
+        const eventSub = event.data.object as Stripe.Subscription;
+        // Events can arrive/replay out of order — sync from Stripe's current state, not the event snapshot.
+        const { subscription: sub, source } = await freshestSubscription(event.type, eventSub, getStripeServer());
+        console.log(`🔄 Processing ${event.type} | subscription=${sub.id} | status=${sub.status} | source=${source}`);
         await handleSubscriptionChange(event.type, sub);
         break;
       }
