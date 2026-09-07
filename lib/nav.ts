@@ -339,15 +339,9 @@ export const NAV_ITEMS: NavItem[] = [
     priority: 1,
     when: (ctx) => ctx.isLoggedIn && vendorIsPaid(ctx),
   },
-  {
-    id: "cta-admin-dashboard",
-    label: "Admin Dashboard",
-    href: "/admin/vendors",
-    audience: "admin",
-    surfaces: ["cta"],
-    priority: 1,
-    when: (ctx) => ctx.isLoggedIn && ctx.role === "admin",
-  },
+  // NOTE: admins intentionally get no CTA button. The header "Admin" pill (see
+  // NAV_ADMIN_GROUPS) already covers every admin destination; a second
+  // "Admin Dashboard" button next to it was pure clutter.
 ];
 
 // ---------------- Helpers ----------------
@@ -526,22 +520,49 @@ export const NAV_SERVICES: NavItemLegacy[] = [
   { label: "Wholesalers", href: "/services/wholesalers" },
 ];
 
-export const NAV_ADMIN: NavItemLegacy[] = [
-  { label: "👥 Vendor Applications", href: "/admin/vendors" },
-  { label: "🔍 Vendor Integrity", href: "/admin/vendors/integrity" },
-  { label: "📦 Product Review", href: "/admin/products" },
-  { label: "📤 Catalog Import", href: "/admin/catalog-import" },
-  { label: "📅 Event Review", href: "/admin/events" },
-  { label: "🛠️ Service Review", href: "/admin/services" },
-  { label: "💬 Service Inquiries", href: "/admin/inquiries" },
-  { label: "📁 Categories", href: "/admin/categories" },
-  { label: "🚗 Drivers", href: "/admin/drivers" },
-  { label: "🚗 Driver Applications", href: "/admin/driver-applications" },
-  { label: "🎙️ Jax Applications", href: "/admin/jax-applications" },
-  { label: "🏗️ Project Leads", href: "/admin/projects" },
-  { label: "💸 Affiliate Payouts", href: "/admin/affiliate-payouts" },
-  { label: "🗺️ State Rules", href: "/admin/compliance/state-rules" },
+/**
+ * Admin destinations, grouped for the header "Admin" menu and the mobile drawer.
+ * Labels are plain text (no emoji) so the menu reads as one clean list.
+ */
+export type NavGroup = { title: string; items: NavItemLegacy[] };
+
+export const NAV_ADMIN_GROUPS: NavGroup[] = [
+  {
+    title: "Review",
+    items: [
+      { label: "Vendor Applications", href: "/admin/vendors" },
+      { label: "Vendor Integrity", href: "/admin/vendors/integrity" },
+      { label: "Product Review", href: "/admin/products" },
+      { label: "Event Review", href: "/admin/events" },
+      { label: "Service Review", href: "/admin/services" },
+    ],
+  },
+  {
+    title: "Operations",
+    items: [
+      { label: "Catalog Import", href: "/admin/catalog-import" },
+      { label: "Categories", href: "/admin/categories" },
+      { label: "Service Inquiries", href: "/admin/inquiries" },
+      { label: "Project Leads", href: "/admin/projects" },
+    ],
+  },
+  {
+    title: "People",
+    items: [
+      { label: "Drivers", href: "/admin/drivers" },
+      { label: "Driver Applications", href: "/admin/driver-applications" },
+      { label: "Jax Applications", href: "/admin/jax-applications" },
+      { label: "Affiliate Payouts", href: "/admin/affiliate-payouts" },
+    ],
+  },
+  {
+    title: "Compliance",
+    items: [{ label: "State Rules", href: "/admin/compliance/state-rules" }],
+  },
 ];
+
+/** Flat list of every admin link (derived from NAV_ADMIN_GROUPS). */
+export const NAV_ADMIN: NavItemLegacy[] = NAV_ADMIN_GROUPS.flatMap((g) => g.items);
 
 export const HIDE_NAV_PATHS = ["/signup", "/login", "/get-started", "/onboarding"];
 
