@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -7,6 +8,7 @@ import { getReferralCode } from "@/lib/referral";
 import Footer from "@/components/Footer";
 import { ScrollReveal, Stagger, StaggerChild, HoverLift } from "@/components/motion";
 import ConsumerPerkMatrix from "@/components/perks/ConsumerPerkMatrix";
+import { foundingVendorOffer } from "@/lib/entryCopy";
 
 type VendorPlan = {
   key: string;
@@ -55,6 +57,7 @@ export default function PricingPage() {
   const [vendorPlansMissing, setVendorPlansMissing] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"vendor" | "consumer">("consumer");
+  const [vendorNotice, setVendorNotice] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadPlans() {
@@ -178,6 +181,11 @@ export default function PricingPage() {
         }),
       });
       const data = await response.json().catch(() => ({}));
+      if (response.status === 409 && data.errorReason === "founding_vendor_comped") {
+        // Comped founding vendor: nothing to pay yet — tell them instead of sending them to Stripe.
+        setVendorNotice(data.error || "Your founding-vendor plan is free right now — no subscription needed.");
+        return;
+      }
       if (!response.ok) {
         console.error("[pricing] Vendor checkout failed", {
           status: response.status,
@@ -316,6 +324,28 @@ export default function PricingPage() {
                   Every tier includes everything below it.
                 </p>
                 <ConsumerPerkMatrix />
+              </div>
+            )}
+
+            {activeTab === "vendor" && foundingVendorOffer.enabled && (
+              <p className="mb-6 text-center text-sm text-[#C9A84C]" data-testid="pricing-founding-offer">
+                {foundingVendorOffer.line}{" "}
+                <Link href="/vendor-registration" className="underline">
+                  Apply as a founding vendor
+                </Link>
+              </p>
+            )}
+
+            {activeTab === "vendor" && vendorNotice && (
+              <div
+                role="status"
+                className="mb-6 rounded-xl border border-[#C9A84C]/60 bg-[#C9A84C]/10 p-4 text-sm text-[#F3E4B3]"
+                data-testid="pricing-founding-notice"
+              >
+                {vendorNotice}{" "}
+                <Link href="/vendors/dashboard" className="underline text-[#C9A84C]">
+                  Go to your dashboard
+                </Link>
               </div>
             )}
 

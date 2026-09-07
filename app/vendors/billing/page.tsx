@@ -7,6 +7,7 @@ import { getVendorEntitlements, getVendorPlanByPriceId } from "@/lib/pricing";
 import { isAdminEmail } from "@/lib/admin";
 import Footer from "@/components/Footer";
 import BillingPortalButton from "./BillingPortalButton";
+import { formatCompUntil, isCompWindowOpen } from "@/lib/server/vendorComp";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -25,7 +26,7 @@ export default async function VendorsBillingPage() {
   const { data: vendor } = await admin
     .from("vendors")
     .select(
-      "id, owner_user_id, business_name, subscription_status, subscription_plan_key, subscription_price_id, subscription_current_period_end, subscription_cancel_at_period_end, stripe_customer_id"
+      "id, owner_user_id, business_name, subscription_status, subscription_plan_key, subscription_price_id, subscription_current_period_end, subscription_cancel_at_period_end, stripe_customer_id, comp_until"
     )
     .eq("owner_user_id", user.id)
     .maybeSingle();
@@ -41,6 +42,8 @@ export default async function VendorsBillingPage() {
       ? getVendorPlanByPriceId(vendor.subscription_price_id)?.planKey || null
       : null);
   const entitlements = planKey ? getVendorEntitlements(planKey) : null;
+  const compActive = isCompWindowOpen(vendor?.comp_until);
+  const compUntilLabel = formatCompUntil(vendor?.comp_until);
 
   return (
     <div className="min-h-screen text-white flex flex-col">
@@ -72,7 +75,9 @@ export default async function VendorsBillingPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted">
                 <div>
                   <div className="text-xs uppercase tracking-wide">Status</div>
-                  <div className="text-base text-white">{vendor.subscription_status || "inactive"}</div>
+                  <div className="text-base text-white">
+                    {compActive ? "founding vendor (free year)" : vendor.subscription_status || "inactive"}
+                  </div>
                 </div>
                 <div>
                   <div className="text-xs uppercase tracking-wide">Plan</div>
@@ -81,7 +86,9 @@ export default async function VendorsBillingPage() {
                 <div>
                   <div className="text-xs uppercase tracking-wide">Renewal</div>
                   <div className="text-base text-white">
-                    {vendor.subscription_current_period_end
+                    {compActive
+                      ? `Free until ${compUntilLabel}`
+                      : vendor.subscription_current_period_end
                       ? new Date(vendor.subscription_current_period_end).toLocaleDateString("en-US", {
                           year: "numeric",
                           month: "long",
@@ -96,7 +103,13 @@ export default async function VendorsBillingPage() {
                   Your subscription is set to cancel at the end of the current period.
                 </p>
               )}
-              {!vendor.stripe_customer_id && (
+              {compActive && (
+                <p className="text-sm text-[#F3E4B3] mt-4" data-testid="founding-vendor-billing-note">
+                  <span className="font-semibold text-[#C9A84C]">Founding vendor:</span> nothing to pay until {compUntilLabel}.
+                  We&apos;ll email you before the free year ends so you can pick a plan.
+                </p>
+              )}
+              {!compActive && !vendor.stripe_customer_id && (
                 <p className="text-sm text-yellow-200 mt-4">
                   Billing portal is unavailable because no Stripe customer ID is linked yet.
                 </p>
@@ -104,6 +117,10 @@ export default async function VendorsBillingPage() {
               <div className="mt-6">
                 {vendor.stripe_customer_id ? (
                   <BillingPortalButton />
+                ) : compActive ? (
+                  <Link href="/vendors/dashboard" className="btn-primary">
+                    Back to dashboard
+                  </Link>
                 ) : (
                   <Link href="/pricing?tab=vendor" className="btn-primary">
                     Choose a plan
