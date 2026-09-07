@@ -12,7 +12,7 @@ import {
   NAV_PRIMARY,
   NAV_COMMUNITY,
   NAV_BUSINESS,
-  NAV_ADMIN,
+  NAV_ADMIN_GROUPS,
   NAV_PUBLIC,
   NAV_MOBILE_DISCOVERY,
   NAV_SERVICES,
@@ -31,6 +31,7 @@ export default function Nav() {
   const pathname = usePathname();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userInitial, setUserInitial] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [vendorStatus, setVendorStatus] = useState<{
     isVendor: boolean;
@@ -54,9 +55,10 @@ export default function Nav() {
     const supabase = createSupabaseBrowserClient();
     let active = true;
 
-    const refreshStatus = async (user: { id: string } | null) => {
+    const refreshStatus = async (user: { id: string; email?: string | null } | null) => {
       if (!active) return;
       setIsLoggedIn(Boolean(user));
+      setUserInitial(user?.email?.trim().charAt(0).toUpperCase() ?? "");
 
       if (!user) {
         setVendorStatus({ isVendor: false, isSubscribed: false, isAdmin: false });
@@ -388,20 +390,39 @@ export default function Nav() {
             <HoverLift as="span">
               <button
                 type="button"
+                aria-haspopup="menu"
+                aria-expanded={openMenu === "admin"}
                 onClick={() => setOpenMenu((m) => (m === "admin" ? null : "admin"))}
-                className="nav-link text-xs 2xl:text-sm whitespace-nowrap flex items-center gap-1"
+                className="nav-admin-pill whitespace-nowrap flex items-center gap-1"
               >
-                ⚙️ Admin
-                <span className="text-xs">▼</span>
+                Admin
+                <span className="text-[10px] opacity-70">▼</span>
               </button>
             </HoverLift>
-            <div className={`absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg transition-all z-50 min-w-[180px] ${openMenu === "admin" ? "opacity-100 visible" : "opacity-0 invisible"} group-hover:opacity-100 group-hover:visible`}>
-              {NAV_ADMIN.map((link) => (
-                <HoverLift key={link.href} as="span">
-                  <Link href={link.href} className="block px-4 py-2 hover:bg-[var(--surface)]/80 text-sm whitespace-nowrap">
-                    {link.label}
-                  </Link>
-                </HoverLift>
+            {/* Grouped, two-column panel: 14 admin links used to stack into one very tall
+                emoji list. Groups keep it scannable; plain labels keep it quiet. */}
+            <div
+              role="menu"
+              className={`absolute top-full right-0 mt-2 p-4 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-lg transition-all z-50 w-[440px] grid grid-cols-2 gap-x-6 gap-y-4 ${openMenu === "admin" ? "opacity-100 visible" : "opacity-0 invisible"} group-hover:opacity-100 group-hover:visible`}
+            >
+              {NAV_ADMIN_GROUPS.map((group) => (
+                <div key={group.title} className="min-w-0">
+                  <div className="px-2 pb-1 text-[11px] uppercase tracking-wide text-muted font-semibold">
+                    {group.title}
+                  </div>
+                  {group.items.map((link) => (
+                    <HoverLift key={link.href} as="span">
+                      <Link
+                        href={link.href}
+                        role="menuitem"
+                        className="block px-2 py-1.5 rounded-md hover:bg-[var(--surface)]/80 text-sm whitespace-nowrap"
+                        onClick={() => setOpenMenu(null)}
+                      >
+                        {link.label}
+                      </Link>
+                    </HoverLift>
+                  ))}
+                </div>
               ))}
             </div>
           </div>
@@ -411,11 +432,19 @@ export default function Nav() {
           <div className="relative group">
             <button
               type="button"
+              aria-label="Account menu"
+              aria-haspopup="menu"
+              aria-expanded={openMenu === "account"}
+              title="Account"
               onClick={() => setOpenMenu((m) => (m === "account" ? null : "account"))}
-              className="nav-link text-xs 2xl:text-sm whitespace-nowrap flex items-center gap-1"
+              className="nav-avatar"
             >
-              Account
-              <span className="text-xs">▼</span>
+              {userInitial || (
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" />
+                </svg>
+              )}
             </button>
             <div className={`absolute top-full right-0 mt-2 bg-[var(--surface)] border border-[var(--border)] rounded-lg shadow-lg transition-all z-50 min-w-[200px] ${openMenu === "account" ? "opacity-100 visible" : "opacity-0 invisible"} group-hover:opacity-100 group-hover:visible`}>
               {accountLinks.map((link) => (
@@ -652,18 +681,24 @@ export default function Nav() {
 
               {isAdmin && (
                 <>
-                  <div className="border-t mt-2 pt-2 nav-drawer-header">
-                    <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">Admin</div>
-                  </div>
-                  {NAV_ADMIN.map((link) => (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
-                      onClick={() => setDrawerOpen(false)}
-                    >
-                      {link.label}
-                    </Link>
+                  {NAV_ADMIN_GROUPS.map((group) => (
+                    <div key={group.title}>
+                      <div className="border-t mt-2 pt-2 nav-drawer-header">
+                        <div className="px-4 py-2 text-xs uppercase text-muted font-semibold">
+                          Admin · {group.title}
+                        </div>
+                      </div>
+                      {group.items.map((link) => (
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          className="px-4 py-3 rounded-lg text-base drawer-link min-h-[44px] flex items-center"
+                          onClick={() => setDrawerOpen(false)}
+                        >
+                          {link.label}
+                        </Link>
+                      ))}
+                    </div>
                   ))}
                 </>
               )}
