@@ -13,6 +13,7 @@ import TrustBarSection from "./components/TrustBarSection";
 import LiveStatsSection from "./components/LiveStatsSection";
 import { getPlatformStats, type PlatformStats } from "@/lib/server/platformStats";
 import MarketingFooter from "./components/MarketingFooter";
+import BootSequence from "./components/BootSequence";
 
 export const metadata: Metadata = {
   title: "Good Hemp Distro — The Hemp Industry Platform",
@@ -131,6 +132,10 @@ export default async function WelcomePage() {
 
   return (
     <main className="min-h-screen bg-[#0D1512] text-[#F0EDE6] font-sans">
+      {/* Phase 0 boot sequence: first visit only, never for signed-in users. */}
+      <Suspense fallback={null}>
+        <BootSequence stats={stats} isAuthenticated={isAuthenticated} />
+      </Suspense>
       <HeroSection isAuthenticated={isAuthenticated} />
       <LiveStatsSection stats={stats} />
       <DualAudienceSection isAuthenticated={isAuthenticated} />
