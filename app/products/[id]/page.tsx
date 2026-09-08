@@ -364,7 +364,7 @@ export default async function ProductDetailPage(props: Props) {
                 </p>
                 <p className="text-xs text-yellow-200/80">
                   Based on state law, this product cannot be shipped to {userState}.{" "}
-                  <Link href="/compliance/state-laws" className="underline hover:text-yellow-100">
+                  <Link href="/education" className="underline hover:text-yellow-100">
                     Why?
                   </Link>
                 </p>
