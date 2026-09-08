@@ -313,22 +313,22 @@ export default function ResetPasswordClient({ initialEmail }: Props) {
     }
 
     return (
-      <div className="max-w-2xl mx-auto mb-4 p-4 bg-gray-900 border border-gray-700 rounded-lg text-xs font-mono text-gray-300">
+      <div className="max-w-2xl mx-auto mb-4 p-4 bg-[var(--bg)] border border-white/10 rounded-lg text-xs font-mono text-muted">
         <div className="font-bold text-yellow-400 mb-2">🔍 DEV DEBUG INFO</div>
         <div className="space-y-1">
-          <div><span className="text-gray-500">pathname:</span> {debugInfo.pathname}</div>
-          <div><span className="text-gray-500">search:</span> {debugInfo.search || "(empty)"}</div>
-          <div><span className="text-gray-500">hash:</span> {debugInfo.hash || "(empty)"}</div>
-          <div className="mt-2 pt-2 border-t border-gray-700">
-            <div className="font-semibold text-gray-400 mb-1">Parsed:</div>
-            <div><span className="text-gray-500">code:</span> {debugInfo.parsed.code ? "✅ present" : "❌ missing"}</div>
-            <div><span className="text-gray-500">type:</span> {debugInfo.parsed.type || "❌ missing"}</div>
-            <div><span className="text-gray-500">access_token:</span> {debugInfo.parsed.hasAccessToken ? "✅ present" : "❌ missing"}</div>
-            <div><span className="text-gray-500">refresh_token:</span> {debugInfo.parsed.hasRefreshToken ? "✅ present" : "❌ missing"}</div>
-            <div><span className="text-gray-500">error_code:</span> {debugInfo.parsed.errorCode || "❌ none"}</div>
+          <div><span className="text-muted">pathname:</span> {debugInfo.pathname}</div>
+          <div><span className="text-muted">search:</span> {debugInfo.search || "(empty)"}</div>
+          <div><span className="text-muted">hash:</span> {debugInfo.hash || "(empty)"}</div>
+          <div className="mt-2 pt-2 border-t border-white/10">
+            <div className="font-semibold text-muted mb-1">Parsed:</div>
+            <div><span className="text-muted">code:</span> {debugInfo.parsed.code ? "✅ present" : "❌ missing"}</div>
+            <div><span className="text-muted">type:</span> {debugInfo.parsed.type || "❌ missing"}</div>
+            <div><span className="text-muted">access_token:</span> {debugInfo.parsed.hasAccessToken ? "✅ present" : "❌ missing"}</div>
+            <div><span className="text-muted">refresh_token:</span> {debugInfo.parsed.hasRefreshToken ? "✅ present" : "❌ missing"}</div>
+            <div><span className="text-muted">error_code:</span> {debugInfo.parsed.errorCode || "❌ none"}</div>
           </div>
           {debugInfo.lastAuthError && (
-            <div className="mt-2 pt-2 border-t border-gray-700">
+            <div className="mt-2 pt-2 border-t border-white/10">
               <div className="font-semibold text-red-400">Last Auth Error:</div>
               <div className="text-red-300">{debugInfo.lastAuthError}</div>
             </div>
@@ -431,7 +431,7 @@ export default function ResetPasswordClient({ initialEmail }: Props) {
         )}
 
         {message && (
-          <div className="bg-green-900/30 border border-green-600 rounded-lg p-4 text-green-400">
+          <div className="bg-green-900/30 border border-green-600 rounded-lg p-4 text-accent">
             {message}
           </div>
         )}
