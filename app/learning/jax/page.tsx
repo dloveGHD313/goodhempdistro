@@ -237,7 +237,7 @@ export default async function JaxFeaturePage({
                     </div>
                     <div>
                       <label htmlFor="phone" className="block text-sm font-medium text-muted mb-1">
-                        Phone <span className="text-gray-600">(optional)</span>
+                        Phone <span className="text-muted">(optional)</span>
                       </label>
                       <input id="phone" name="phone" type="tel" className="input-shell w-full" />
                     </div>
@@ -281,7 +281,7 @@ export default async function JaxFeaturePage({
 
                   <div>
                     <p className="text-sm font-medium text-muted mb-3">
-                      Social & Web <span className="text-gray-600">(optional)</span>
+                      Social & Web <span className="text-muted">(optional)</span>
                     </p>
                     <div className="grid md:grid-cols-3 gap-4">
                       <div>
