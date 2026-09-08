@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 import { preconnect } from "react-dom";
 import localFont from "next/font/local";
+import Script from "next/script";
 import { DM_Sans, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { validateEnvironmentVariables } from "@/lib/env-validator";
@@ -133,6 +134,17 @@ export default function RootLayout({
               lazy-mounted after idle (see DeferredLayoutMounts). */}
           <DeferredLayoutMounts />
         </MarketModeProvider>
+        {/* Vercel Web Analytics (enabled in the dashboard Sep 7 2026). Script-tag
+            integration — no npm package needed; only loads on Vercel-hosted
+            deployments so local dev never 404s on /_vercel/insights. */}
+        {process.env.VERCEL ? (
+          <>
+            <Script id="vercel-analytics-queue" strategy="afterInteractive">
+              {`window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };`}
+            </Script>
+            <Script src="/_vercel/insights/script.js" strategy="afterInteractive" />
+          </>
+        ) : null}
       </body>
     </html>
   );
