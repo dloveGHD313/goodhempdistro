@@ -1,3 +1,4 @@
+import Link from "next/link";
 import JaxPathChooser from "./JaxPathChooser";
 
 type HeroSectionProps = {
@@ -12,8 +13,7 @@ type HeroSectionProps = {
  *   reveal on the LCP text). Only the doors stagger in.
  * - JAX asks one question and three doors answer it (Shop / Build / Sell).
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export default function HeroSection(_props: HeroSectionProps = {}) {
+export default function HeroSection({ isAuthenticated = false }: HeroSectionProps = {}) {
   return (
     <section className="ghd-hero relative overflow-hidden px-6 pt-24 pb-20 md:pt-28 md:pb-24">
       <div className="ghd-aurora" aria-hidden />
@@ -34,6 +34,16 @@ export default function HeroSection(_props: HeroSectionProps = {}) {
         </p>
 
         <JaxPathChooser />
+
+        {!isAuthenticated ? (
+          <p className="mt-8 text-sm text-[#8A9E96]">
+            Already a member?{" "}
+            <Link href="/login" className="font-semibold text-[#3CB97A] underline-offset-4 hover:underline">
+              Sign in
+            </Link>{" "}
+            and JAX picks up where you left off.
+          </p>
+        ) : null}
 
         <div className="mt-10 flex flex-wrap justify-center gap-3 md:gap-8 text-sm text-[#4A5E57]">
           <span>✓ Founding vendors onboarding now</span>
