@@ -278,7 +278,7 @@ export default function AffiliatePortalClient({ affiliateCode }: Props) {
         <h2 className="text-xl font-bold mb-4">Stripe Connect</h2>
         {connect?.connected ? (
           <div>
-            <p className="text-green-400 font-semibold">Connected</p>
+            <p className="text-accent font-semibold">Connected</p>
             <ul className="text-sm text-muted mt-1">
               <li>Details submitted: {connect.details_submitted ? "Yes" : "No"}</li>
               <li>Charges enabled: {connect.charges_enabled ? "Yes" : "No"}</li>
@@ -330,10 +330,10 @@ export default function AffiliatePortalClient({ affiliateCode }: Props) {
                       <span
                         className={`px-2 py-0.5 rounded text-xs ${
                           p.status === "paid"
-                            ? "bg-green-500/20 text-green-400"
+                            ? "bg-green-500/20 text-accent"
                             : p.status === "requested"
                               ? "bg-amber-500/20 text-amber-400"
-                              : "bg-gray-500/20 text-gray-400"
+                              : "bg-gray-500/20 text-muted"
                         }`}
                       >
                         {p.status}
@@ -372,10 +372,10 @@ export default function AffiliatePortalClient({ affiliateCode }: Props) {
                       <span
                         className={`px-2 py-0.5 rounded text-xs ${
                           e.status === "paid"
-                            ? "bg-green-500/20 text-green-400"
+                            ? "bg-green-500/20 text-accent"
                             : e.status === "available"
                               ? "bg-amber-500/20 text-amber-400"
-                              : "bg-gray-500/20 text-gray-400"
+                              : "bg-gray-500/20 text-muted"
                         }`}
                       >
                         {e.status}
