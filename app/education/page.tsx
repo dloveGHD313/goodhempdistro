@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Footer from "@/components/Footer";
 import { brand } from "@/lib/brand";
 import { HeroShell } from "@/components/ui/HeroShell";
 import { FeatureSection } from "@/components/ui/FeatureSection";
@@ -34,7 +35,8 @@ const CATEGORIES = [
 
 export default function EducationPage() {
   return (
-    <div className="min-h-screen text-white">
+    <>
+      <div className="min-h-screen text-white">
       <section className="welcome-hero py-10 px-4 futuristic-glow">
         <HeroShell cinematic glassPanel={false} contentClassName="max-w-3xl">
           <p className="text-xs uppercase tracking-[0.35em] text-muted mb-2">Education Hub</p>
@@ -100,5 +102,7 @@ export default function EducationPage() {
         </div>
       </FeatureSection>
     </div>
+      <Footer />
+    </>
   );
 }
