@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import Footer from "@/components/Footer";
 import { brand } from "@/lib/brand";
 import { Section, Stagger, StaggerChild, HoverLift } from "@/components/motion";
 
@@ -24,15 +25,16 @@ export const metadata: Metadata = {
 
 export default function AboutPage() {
   return (
-    <main className="min-h-screen bg-gray-900 text-white">
+    <>
+      <main className="min-h-screen bg-[var(--bg)] text-white">
       <div className="container mx-auto px-4 py-16">
         {/* H1 rendered without Reveal so it is visible in initial HTML (LCP fix) */}
         <h1 className="text-4xl font-bold mb-8">About Good Hemp Distro</h1>
 
-        <div className="max-w-3xl">
+        <div className="max-w-3xl mx-auto">
           <Section className="mb-12">
-            <h2 className="text-2xl font-semibold mb-4 text-green-500">Our Mission</h2>
-            <p className="text-gray-300 text-lg leading-relaxed">
+            <h2 className="text-2xl font-semibold mb-4 text-accent">Our Mission</h2>
+            <p className="text-muted text-lg leading-relaxed">
               Good Hemp Distro is dedicated to connecting customers with premium hemp products
               from trusted vendors. We believe in transparency, quality, and education in the
               rapidly evolving hemp industry.
@@ -40,14 +42,14 @@ export default function AboutPage() {
           </Section>
 
           <Section className="mb-12">
-            <h2 className="text-2xl font-semibold mb-4 text-green-500">Our Story</h2>
-            <p className="text-gray-300 text-lg leading-relaxed mb-4">
+            <h2 className="text-2xl font-semibold mb-4 text-accent">Our Story</h2>
+            <p className="text-muted text-lg leading-relaxed mb-4">
               Founded in 2023, Good Hemp Distro emerged from a passion for wellness and a
               recognition that consumers deserved better access to high-quality hemp products.
               We started with a simple goal: create a trusted marketplace where quality and
               transparency come first.
             </p>
-            <p className="text-gray-300 text-lg leading-relaxed">
+            <p className="text-muted text-lg leading-relaxed">
               Today, we work with carefully selected vendors who share our commitment to
               excellence. Every product on our platform meets strict quality standards and
               is backed by third-party lab testing.
@@ -55,12 +57,12 @@ export default function AboutPage() {
           </Section>
 
           <Section className="mb-12">
-            <h2 className="text-2xl font-semibold mb-4 text-green-500">Our Values</h2>
+            <h2 className="text-2xl font-semibold mb-4 text-accent">Our Values</h2>
             <Stagger className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <StaggerChild>
-                <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <div className="bg-[var(--surface)] border border-white/10 rounded-lg p-6">
                   <h3 className="text-xl font-semibold mb-2">Quality First</h3>
-                  <p className="text-gray-400">
+                  <p className="text-muted">
                     We only partner with vendors who meet our rigorous quality standards
                     and provide third-party lab testing.
                   </p>
@@ -68,9 +70,9 @@ export default function AboutPage() {
               </StaggerChild>
 
               <StaggerChild>
-                <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <div className="bg-[var(--surface)] border border-white/10 rounded-lg p-6">
                   <h3 className="text-xl font-semibold mb-2">Transparency</h3>
-                  <p className="text-gray-400">
+                  <p className="text-muted">
                     Full disclosure of product origins, ingredients, and lab results
                     for every item we carry.
                   </p>
@@ -78,9 +80,9 @@ export default function AboutPage() {
               </StaggerChild>
 
               <StaggerChild>
-                <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <div className="bg-[var(--surface)] border border-white/10 rounded-lg p-6">
                   <h3 className="text-xl font-semibold mb-2">Education</h3>
-                  <p className="text-gray-400">
+                  <p className="text-muted">
                     Empowering customers with knowledge about hemp products and
                     their potential benefits.
                   </p>
@@ -88,9 +90,9 @@ export default function AboutPage() {
               </StaggerChild>
 
               <StaggerChild>
-                <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+                <div className="bg-[var(--surface)] border border-white/10 rounded-lg p-6">
                   <h3 className="text-xl font-semibold mb-2">Sustainability</h3>
-                  <p className="text-gray-400">
+                  <p className="text-muted">
                     Supporting environmentally conscious farming practices and
                     sustainable business operations.
                   </p>
@@ -100,40 +102,40 @@ export default function AboutPage() {
           </Section>
 
           <Section className="mb-12">
-            <h2 className="text-2xl font-semibold mb-4 text-green-500">Why Choose Us</h2>
-            <ul className="space-y-3 text-gray-300">
+            <h2 className="text-2xl font-semibold mb-4 text-accent">Why Choose Us</h2>
+            <ul className="space-y-3 text-muted">
               <li className="flex items-start">
-                <span className="text-green-500 mr-2">✓</span>
+                <span className="text-accent mr-2">✓</span>
                 <span>Curated selection of premium hemp products</span>
               </li>
               <li className="flex items-start">
-                <span className="text-green-500 mr-2">✓</span>
+                <span className="text-accent mr-2">✓</span>
                 <span>Verified vendor partnerships with quality guarantees</span>
               </li>
               <li className="flex items-start">
-                <span className="text-green-500 mr-2">✓</span>
+                <span className="text-accent mr-2">✓</span>
                 <span>Third-party lab testing for all products</span>
               </li>
               <li className="flex items-start">
-                <span className="text-green-500 mr-2">✓</span>
+                <span className="text-accent mr-2">✓</span>
                 <span>Secure payment processing and fast shipping</span>
               </li>
               <li className="flex items-start">
-                <span className="text-green-500 mr-2">✓</span>
+                <span className="text-accent mr-2">✓</span>
                 <span>Responsive customer support team</span>
               </li>
             </ul>
           </Section>
 
-          <Section className="bg-gray-800 border border-gray-700 rounded-lg p-8">
+          <Section className="bg-[var(--surface)] border border-white/10 rounded-lg p-8">
             <h2 className="text-2xl font-semibold mb-4">Get in Touch</h2>
-            <p className="text-gray-300 mb-4">
+            <p className="text-muted mb-4">
               Have questions or want to learn more? We&apos;d love to hear from you.
             </p>
             <HoverLift as="span">
               <a
                 href="/contact"
-                className="inline-block bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition"
+                className="inline-block btn-primary px-6 py-3 rounded-lg transition"
               >
                 Contact Us
               </a>
@@ -142,5 +144,7 @@ export default function AboutPage() {
         </div>
       </div>
     </main>
+      <Footer />
+    </>
   );
 }
