@@ -49,9 +49,9 @@ export default function EventsClient({ initialEvents }: Props) {
 
   const getStatusBadge = (status: Event["status"]) => {
     const classes = {
-      draft: "bg-gray-600 text-gray-200",
+      draft: "bg-gray-600 text-[var(--text)]",
       pending_review: "bg-yellow-600 text-yellow-100",
-      approved: "bg-green-600 text-green-100",
+      approved: "bg-[var(--brand-lime-secondary)] text-green-100",
       rejected: "bg-red-600 text-red-100",
       published: "bg-green-700 text-green-200",
       cancelled: "bg-red-700 text-red-200",
@@ -103,7 +103,7 @@ export default function EventsClient({ initialEvents }: Props) {
                     Sold: {event.tickets_sold} / {event.capacity === null ? "∞" : event.capacity}
                   </span>
                   {remaining !== null && (
-                    <span className={soldOut ? "text-red-400" : "text-green-400"}>
+                    <span className={soldOut ? "text-red-400" : "text-accent"}>
                       {soldOut ? "Sold Out" : `${remaining} remaining`}
                     </span>
                   )}

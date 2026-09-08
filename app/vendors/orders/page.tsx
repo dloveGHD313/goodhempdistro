@@ -100,10 +100,10 @@ export default async function VendorsOrdersPage() {
                         </p>
                         <span className={`text-xs px-2 py-1 rounded ${
                           order.status === "paid"
-                            ? "bg-green-900/30 text-green-400"
+                            ? "bg-green-900/30 text-accent"
                             : order.status === "pending"
                             ? "bg-yellow-900/30 text-yellow-400"
-                            : "bg-gray-900/30 text-gray-400"
+                            : "bg-[var(--bg)]/30 text-muted"
                         }`}>
                           {order.status}
                         </span>

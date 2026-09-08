@@ -304,7 +304,7 @@ export default async function SubmitProjectPage({
                   </div>
                   <div>
                     <label htmlFor="company" className="block text-sm font-medium text-muted mb-1">
-                      Company <span className="text-gray-600">(optional)</span>
+                      Company <span className="text-muted">(optional)</span>
                     </label>
                     <input id="company" name="company" type="text" className="input-shell w-full" />
                   </div>
@@ -319,7 +319,7 @@ export default async function SubmitProjectPage({
                   </div>
                   <div>
                     <label htmlFor="phone" className="block text-sm font-medium text-muted mb-1">
-                      Phone <span className="text-gray-600">(optional)</span>
+                      Phone <span className="text-muted">(optional)</span>
                     </label>
                     <input id="phone" name="phone" type="tel" className="input-shell w-full" />
                   </div>
@@ -388,13 +388,13 @@ export default async function SubmitProjectPage({
                   </div>
                   <div>
                     <label htmlFor="city" className="block text-sm font-medium text-muted mb-1">
-                      City <span className="text-gray-600">(optional)</span>
+                      City <span className="text-muted">(optional)</span>
                     </label>
                     <input id="city" name="city" type="text" className="input-shell w-full" />
                   </div>
                   <div>
                     <label htmlFor="timeline" className="block text-sm font-medium text-muted mb-1">
-                      Timeline <span className="text-gray-600">(optional)</span>
+                      Timeline <span className="text-muted">(optional)</span>
                     </label>
                     <select
                       id="timeline"
@@ -432,7 +432,7 @@ export default async function SubmitProjectPage({
 
                 <div>
                   <label htmlFor="budget_range" className="block text-sm font-medium text-muted mb-1">
-                    Budget range <span className="text-gray-600">(optional)</span>
+                    Budget range <span className="text-muted">(optional)</span>
                   </label>
                   <select
                     id="budget_range"
@@ -465,7 +465,7 @@ export default async function SubmitProjectPage({
 
                 <div>
                   <label htmlFor="blueprint" className="block text-sm font-medium text-muted mb-1">
-                    Blueprint / plans <span className="text-gray-600">(optional — PDF, image, or CAD, max 10MB)</span>
+                    Blueprint / plans <span className="text-muted">(optional — PDF, image, or CAD, max 10MB)</span>
                   </label>
                   <input
                     id="blueprint"

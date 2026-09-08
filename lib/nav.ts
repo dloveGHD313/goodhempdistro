@@ -489,10 +489,10 @@ export const NAV_PRIMARY: NavItemLegacy[] = [
   { label: "Learning with Jax", href: "/learning-with-jax" },
 ];
 
+// Groups and Forums stay routable but are unlisted until they have content
+// (CEO rule: no promises the site can't keep today).
 export const NAV_COMMUNITY: NavItemLegacy[] = [
   { label: "🌿 Community Feed", href: "/community" },
-  { label: "👥 Groups", href: "/groups" },
-  { label: "💬 Forums", href: "/forums" },
   { label: "📝 Blog", href: "/blog" },
 ];
 
@@ -506,7 +506,6 @@ export const NAV_BUSINESS: NavItemLegacy[] = [
   { label: "Wholesale Inquiry", href: "/wholesale" },
   { label: "Feature on Learning with Jax", href: "/learning/jax" },
   { label: "Services", href: "/services" },
-  { label: "📅 My Events", href: "/vendors/events" },
 ];
 
 export const NAV_SERVICES: NavItemLegacy[] = [

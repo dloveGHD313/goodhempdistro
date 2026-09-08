@@ -4,7 +4,6 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import BuyButton from "./BuyButton";
-import AddToCartStub from "./AddToCartStub";
 import { getCategoryCoaRequirement, getDelta8WarningText, requiresWarning } from "@/lib/compliance";
 import { isSafeNextPath } from "@/lib/phase2-workout-flow";
 import FavoriteButton from "@/components/engagement/FavoriteButton";
@@ -364,7 +363,7 @@ export default async function ProductDetailPage(props: Props) {
                 </p>
                 <p className="text-xs text-yellow-200/80">
                   Based on state law, this product cannot be shipped to {userState}.{" "}
-                  <Link href="/compliance/state-laws" className="underline hover:text-yellow-100">
+                  <Link href="/education" className="underline hover:text-yellow-100">
                     Why?
                   </Link>
                 </p>
@@ -419,7 +418,6 @@ export default async function ProductDetailPage(props: Props) {
                 disabled={buyButtonDisabled}
                 disabledMessage={buyButtonMessage}
               />
-              <AddToCartStub productId={product.id} />
 
               <div className="card-glass p-6 space-y-3">
                 <h3 className="text-lg font-semibold">About This Product</h3>

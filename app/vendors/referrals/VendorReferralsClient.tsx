@@ -188,7 +188,7 @@ export default function VendorReferralsClient() {
                     <td className="py-2">
                       <span
                         className={`px-2 py-0.5 rounded text-xs ${
-                          p.status === "paid" ? "bg-green-500/20 text-green-400" : "bg-amber-500/20 text-amber-400"
+                          p.status === "paid" ? "bg-green-500/20 text-accent" : "bg-amber-500/20 text-amber-400"
                         }`}
                       >
                         {p.status}
@@ -224,7 +224,7 @@ export default function VendorReferralsClient() {
                     <td className="py-2">
                       <span
                         className={`px-2 py-0.5 rounded text-xs ${
-                          e.status === "paid" ? "bg-green-500/20 text-green-400" : e.status === "available" ? "bg-amber-500/20 text-amber-400" : "bg-gray-500/20 text-gray-400"
+                          e.status === "paid" ? "bg-green-500/20 text-accent" : e.status === "available" ? "bg-amber-500/20 text-amber-400" : "bg-gray-500/20 text-muted"
                         }`}
                       >
                         {e.status}

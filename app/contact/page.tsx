@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import Footer from "@/components/Footer";
 import { brand } from "@/lib/brand";
 import ContactForm from "./ContactForm";
 import { Reveal, Section, HoverLift } from "@/components/motion";
@@ -25,12 +26,13 @@ export const metadata: Metadata = {
 
 export default function ContactPage() {
   return (
-    <main className="min-h-screen bg-gray-900 text-white">
+    <>
+      <main className="min-h-screen bg-[var(--bg)] text-white">
       <div className="container mx-auto px-4 py-16">
         <Reveal>
           <div className="mb-8">
             <h1 className="text-4xl font-bold mb-4">Contact Us</h1>
-            <p className="text-xl text-gray-300">
+            <p className="text-xl text-muted">
               Have questions? We&apos;re here to help. Reach out to our team.
             </p>
           </div>
@@ -39,60 +41,60 @@ export default function ContactPage() {
         <Section>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             {/* Contact Form */}
-            <div className="bg-gray-800 border border-gray-700 rounded-lg p-8">
+            <div className="bg-[var(--surface)] border border-white/10 rounded-lg p-8">
               <h2 className="text-2xl font-semibold mb-6">Send us a message</h2>
               <ContactForm />
             </div>
 
             {/* Contact Information */}
             <div className="space-y-8">
-              <div className="bg-gray-800 border border-gray-700 rounded-lg p-8">
+              <div className="bg-[var(--surface)] border border-white/10 rounded-lg p-8">
                 <h3 className="text-xl font-semibold mb-4">Email</h3>
-                <p className="text-gray-300 mb-2">For general inquiries:</p>
+                <p className="text-muted mb-2">For general inquiries:</p>
                 <HoverLift as="span">
                   <a
                     href="mailto:info@goodhempdistro.com"
-                    className="text-green-500 hover:text-green-400 transition"
+                    className="text-accent hover:text-accent transition"
                   >
                     info@goodhempdistro.com
                   </a>
                 </HoverLift>
-                <p className="text-gray-300 mt-4 mb-2">For vendor partnerships:</p>
+                <p className="text-muted mt-4 mb-2">For vendor partnerships:</p>
                 <HoverLift as="span">
                   <a
                     href="mailto:vendors@goodhempdistro.com"
-                    className="text-green-500 hover:text-green-400 transition"
+                    className="text-accent hover:text-accent transition"
                   >
                     vendors@goodhempdistro.com
                   </a>
                 </HoverLift>
               </div>
 
-              <div className="bg-gray-800 border border-gray-700 rounded-lg p-8">
+              <div className="bg-[var(--surface)] border border-white/10 rounded-lg p-8">
                 <h3 className="text-xl font-semibold mb-4">Response Time</h3>
-                <p className="text-gray-300">
+                <p className="text-muted">
                   We typically respond to all inquiries within 24-48 hours during business days.
                 </p>
               </div>
 
-              <div className="bg-gray-800 border border-gray-700 rounded-lg p-8">
+              <div className="bg-[var(--surface)] border border-white/10 rounded-lg p-8">
                 <h3 className="text-xl font-semibold mb-4">Business Hours</h3>
-                <p className="text-gray-300">
+                <p className="text-muted">
                   Monday - Friday: 9:00 AM - 6:00 PM EST<br />
                   Saturday - Sunday: Closed
                 </p>
               </div>
 
-              <div className="bg-gray-800 border border-gray-700 rounded-lg p-8">
+              <div className="bg-[var(--surface)] border border-white/10 rounded-lg p-8">
                 <h3 className="text-xl font-semibold mb-4">FAQ</h3>
-                <p className="text-gray-300 mb-4">
+                <p className="text-muted mb-4">
                   Before reaching out, check our FAQ section for quick answers to common questions
                   about products, shipping, and returns.
                 </p>
                 <HoverLift as="span">
                   <a
                     href="/faq"
-                    className="text-green-500 hover:text-green-400 transition"
+                    className="text-accent hover:text-accent transition"
                   >
                     View FAQ →
                   </a>
@@ -103,5 +105,7 @@ export default function ContactPage() {
         </Section>
       </div>
     </main>
+      <Footer />
+    </>
   );
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Footer from "@/components/Footer";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -31,6 +32,7 @@ const FAQS = [
 
 export default function FaqPage() {
   return (
+    <>
     <main className="min-h-screen">
       <section className="section-shell">
         <div className="max-w-2xl mx-auto space-y-8">
@@ -62,5 +64,7 @@ export default function FaqPage() {
         </div>
       </section>
     </main>
+      <Footer />
+    </>
   );
 }

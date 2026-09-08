@@ -80,7 +80,7 @@ export default function ContactForm() {
         </div>
       )}
       {success && (
-        <div className="bg-green-900/30 border border-green-600 rounded-lg p-4 text-green-400">
+        <div className="bg-green-900/30 border border-green-600 rounded-lg p-4 text-accent">
           Thank you for your message! We&apos;ll get back to you within 24-48 hours.
         </div>
       )}
@@ -95,7 +95,7 @@ export default function ContactForm() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
-          className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-white"
+          className="w-full px-4 py-2 bg-[var(--bg)] border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-white"
           placeholder="Your name"
         />
       </div>
@@ -110,7 +110,7 @@ export default function ContactForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-white"
+          className="w-full px-4 py-2 bg-[var(--bg)] border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-white"
           placeholder="your@email.com"
         />
       </div>
@@ -125,7 +125,7 @@ export default function ContactForm() {
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           required
-          className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-white"
+          className="w-full px-4 py-2 bg-[var(--bg)] border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-white"
           placeholder="How can we help?"
         />
       </div>
@@ -140,7 +140,7 @@ export default function ContactForm() {
           onChange={(e) => setMessage(e.target.value)}
           required
           rows={6}
-          className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-white"
+          className="w-full px-4 py-2 bg-[var(--bg)] border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-white"
           placeholder="Your message..."
         />
       </div>
@@ -150,7 +150,7 @@ export default function ContactForm() {
       <button
         type="submit"
         disabled={loading}
-        className="w-full bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full btn-primary px-6 py-3 rounded-lg transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {loading ? "Sending..." : "Send Message"}
       </button>
