@@ -67,9 +67,9 @@ export default function ServicesClient({ initialServices, initialCounts }: Props
 
   const getStatusBadge = (status: Service['status'], active: boolean) => {
     const classes = {
-      draft: "bg-gray-600 text-gray-200",
+      draft: "bg-gray-600 text-[var(--text)]",
       pending_review: "bg-yellow-600 text-yellow-100",
-      approved: active ? "bg-green-600 text-green-100" : "bg-green-700 text-green-200",
+      approved: active ? "bg-[var(--brand-lime-secondary)] text-green-100" : "bg-green-700 text-green-200",
       rejected: "bg-red-600 text-red-100",
     };
 
@@ -107,7 +107,7 @@ export default function ServicesClient({ initialServices, initialCounts }: Props
         </div>
         <div className="card-glass p-4">
           <div className="text-sm text-muted">Drafts</div>
-          <div className="text-2xl font-bold text-gray-400">{counts.draft}</div>
+          <div className="text-2xl font-bold text-muted">{counts.draft}</div>
         </div>
         <div className="card-glass p-4">
           <div className="text-sm text-muted">Pending</div>
@@ -115,7 +115,7 @@ export default function ServicesClient({ initialServices, initialCounts }: Props
         </div>
         <div className="card-glass p-4">
           <div className="text-sm text-muted">Approved</div>
-          <div className="text-2xl font-bold text-green-400">{counts.approved}</div>
+          <div className="text-2xl font-bold text-accent">{counts.approved}</div>
         </div>
         <div className="card-glass p-4">
           <div className="text-sm text-muted">Rejected</div>
