@@ -1,4 +1,5 @@
 import Footer from "@/components/Footer";
+import Link from "next/link";
 import type { Metadata } from "next";
 import { brand } from "@/lib/brand";
 import LoginForm from "./LoginForm";
@@ -48,9 +49,10 @@ export default async function LoginPage({
         <section className="section-shell">
           <div className="max-w-2xl mx-auto surface-card p-8 space-y-6">
             <div>
-              <h1 className="text-4xl font-bold mb-4 text-accent">Login</h1>
+              <p className="mb-2 text-xs uppercase tracking-[0.3em] text-accent">Welcome back</p>
+              <h1 className="text-4xl font-bold mb-3">Sign in</h1>
               <p className="text-muted">
-                Sign in to access your dashboard and manage orders.
+                JAX picks up where you left off — your feed, tools and dashboard are tailored to the lane you chose.
               </p>
             </div>
             {successMessage && (
@@ -64,6 +66,17 @@ export default async function LoginPage({
               </div>
             )}
             <LoginForm />
+            <div className="flex flex-col gap-2 border-t border-white/10 pt-5 text-sm text-muted sm:flex-row sm:items-center sm:justify-between">
+              <span>
+                New here?{" "}
+                <Link href="/welcome" className="font-semibold text-accent underline-offset-4 hover:underline">
+                  Meet JAX and pick your lane
+                </Link>
+              </span>
+              <Link href="/welcome?noboot=1" className="underline-offset-4 hover:underline">
+                ← Back to Good Hemp Distro
+              </Link>
+            </div>
           </div>
         </section>
       </main>
