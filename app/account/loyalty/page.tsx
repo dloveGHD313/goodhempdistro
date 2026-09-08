@@ -70,9 +70,9 @@ export default async function AccountLoyaltyPage() {
             ) : (
               <ul className="space-y-2 text-sm">
                 {events.slice(0, 15).map((e, i) => (
-                  <li key={i} className="flex justify-between border-b border-gray-700 pb-2">
-                    <span className="text-gray-300">{e.event_type}</span>
-                    <span className={e.points_delta >= 0 ? "text-green-400" : "text-red-400"}>
+                  <li key={i} className="flex justify-between border-b border-white/10 pb-2">
+                    <span className="text-muted">{e.event_type}</span>
+                    <span className={e.points_delta >= 0 ? "text-accent" : "text-red-400"}>
                       {e.points_delta >= 0 ? "+" : ""}{e.points_delta} pts
                     </span>
                     <span className="text-muted text-xs">{new Date(e.created_at).toLocaleDateString()}</span>
