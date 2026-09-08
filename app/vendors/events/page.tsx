@@ -29,7 +29,7 @@ export default async function VendorEventsPage() {
       <main className="flex-1 section-shell">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold text-accent">My Events</h1>
-          <Link href="/vendors/events/create" className="btn-primary">Create Event</Link>
+          <Link href="/vendors/events/new" className="btn-primary">Create Event</Link>
         </div>
         <div className="space-y-4">
           {(events || []).map((event: any) => (
