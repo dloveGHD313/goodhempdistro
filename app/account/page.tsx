@@ -88,7 +88,7 @@ export default async function AccountPage() {
     .maybeSingle();
 
   return (
-    <main className="min-h-screen bg-gray-900 text-white">
+    <main className="min-h-screen bg-[var(--bg)] text-white">
       <div className="container mx-auto px-4 py-16 space-y-8">
         <div className="flex items-center justify-between">
           <div>
@@ -106,30 +106,30 @@ export default async function AccountPage() {
           </div>
           <Link
             href="/dashboard"
-            className="bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg transition"
+            className="btn-primary px-5 py-2 rounded-lg transition"
           >
             Go to Dashboard
           </Link>
         </div>
 
-        <section className="bg-gray-800 border border-gray-700 rounded-lg p-6 space-y-4">
+        <section className="bg-[var(--surface)] border border-white/10 rounded-lg p-6 space-y-4">
           <h2 className="text-xl font-semibold">Account Details</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-300">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-muted">
             <div>
-              <p className="text-sm text-gray-400">User ID</p>
+              <p className="text-sm text-muted">User ID</p>
               <p className="font-mono text-sm break-all">{user.id}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-400">Display name</p>
+              <p className="text-sm text-muted">Display name</p>
               <p>{displayName}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-400">Role</p>
+              <p className="text-sm text-muted">Role</p>
               <p className="capitalize">{authorRole}</p>
             </div>
             {badge && (
               <div>
-                <p className="text-sm text-gray-400">Badge</p>
+                <p className="text-sm text-muted">Badge</p>
                 <p>{badge.label}</p>
               </div>
             )}
@@ -139,74 +139,74 @@ export default async function AccountPage() {
         <ProfileBasicsClient userId={user.id} />
 
         {!affiliate && (
-          <section className="bg-gray-800 border border-gray-700 rounded-lg p-6 space-y-4">
+          <section className="bg-[var(--surface)] border border-white/10 rounded-lg p-6 space-y-4">
             <h2 className="text-xl font-semibold">Affiliate Program</h2>
-            <p className="text-gray-300">
+            <p className="text-muted">
               Earn by referring customers. Get your unique link and start sharing.
             </p>
             <Link
               href="/affiliate"
-              className="inline-block bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg transition"
+              className="inline-block btn-primary px-5 py-2 rounded-lg transition"
             >
               Become an Affiliate
             </Link>
           </section>
         )}
 
-        <section className="bg-gray-800 border border-gray-700 rounded-lg p-6 space-y-4">
+        <section className="bg-[var(--surface)] border border-white/10 rounded-lg p-6 space-y-4">
           <h2 className="text-xl font-semibold">Recent Posts</h2>
           {posts && posts.length > 0 ? (
-            <div className="space-y-4 text-gray-300">
+            <div className="space-y-4 text-muted">
               {posts.map((post) => (
-                <div key={post.id} className="border-b border-gray-700 pb-3">
+                <div key={post.id} className="border-b border-white/10 pb-3">
                   <p className="text-sm">{post.content}</p>
-                  <p className="text-xs text-gray-400 mt-1">
+                  <p className="text-xs text-muted mt-1">
                     {new Date(post.created_at).toLocaleDateString()}
                   </p>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-gray-400">No posts yet.</p>
+            <p className="text-muted">No posts yet.</p>
           )}
         </section>
 
-        <section className="bg-gray-800 border border-gray-700 rounded-lg p-6 space-y-4">
+        <section className="bg-[var(--surface)] border border-white/10 rounded-lg p-6 space-y-4">
           <h2 className="text-xl font-semibold">Quick Actions</h2>
           <div className="flex flex-wrap gap-3">
             <Link
               href="/products"
-              className="border border-gray-600 text-white px-4 py-2 rounded-lg hover:border-green-500 hover:text-green-400 transition"
+              className="border border-white/15 text-white px-4 py-2 rounded-lg hover:border-green-500 hover:text-accent transition"
             >
               Browse Products
             </Link>
             <Link
               href="/vendors"
-              className="border border-gray-600 text-white px-4 py-2 rounded-lg hover:border-green-500 hover:text-green-400 transition"
+              className="border border-white/15 text-white px-4 py-2 rounded-lg hover:border-green-500 hover:text-accent transition"
             >
               View Vendors
             </Link>
             <Link
               href="/dashboard"
-              className="border border-gray-600 text-white px-4 py-2 rounded-lg hover:border-green-500 hover:text-green-400 transition"
+              className="border border-white/15 text-white px-4 py-2 rounded-lg hover:border-green-500 hover:text-accent transition"
             >
               Dashboard
             </Link>
             <Link
               href="/account/orders"
-              className="border border-gray-600 text-white px-4 py-2 rounded-lg hover:border-green-500 hover:text-green-400 transition"
+              className="border border-white/15 text-white px-4 py-2 rounded-lg hover:border-green-500 hover:text-accent transition"
             >
               My Orders
             </Link>
             <Link
               href="/account/loyalty"
-              className="border border-gray-600 text-white px-4 py-2 rounded-lg hover:border-green-500 hover:text-green-400 transition"
+              className="border border-white/15 text-white px-4 py-2 rounded-lg hover:border-green-500 hover:text-accent transition"
             >
               Loyalty
             </Link>
             <Link
               href="/account/favorites"
-              className="border border-gray-600 text-white px-4 py-2 rounded-lg hover:border-green-500 hover:text-green-400 transition"
+              className="border border-white/15 text-white px-4 py-2 rounded-lg hover:border-green-500 hover:text-accent transition"
             >
               Favorites
             </Link>
