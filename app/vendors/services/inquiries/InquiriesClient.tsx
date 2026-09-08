@@ -99,7 +99,7 @@ export default function InquiriesClient({ initialInquiries, initialCounts }: Pro
     const classes = {
       new: "bg-yellow-600 text-yellow-100",
       replied: "bg-blue-600 text-blue-100",
-      closed: "bg-gray-600 text-gray-200",
+      closed: "bg-gray-600 text-[var(--text)]",
     };
 
     const labels = {
@@ -133,7 +133,7 @@ export default function InquiriesClient({ initialInquiries, initialCounts }: Pro
         </div>
         <div className="card-glass p-4">
           <div className="text-sm text-muted">Closed</div>
-          <div className="text-2xl font-bold text-gray-400">{counts.closed}</div>
+          <div className="text-2xl font-bold text-muted">{counts.closed}</div>
         </div>
       </div>
 
