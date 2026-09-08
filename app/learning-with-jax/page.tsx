@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import Footer from "@/components/Footer";
 import { brand } from "@/lib/brand";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getEpisodesForViewer, resolveMediaUrl } from "@/lib/jax/episodes";
@@ -60,10 +61,13 @@ export default async function LearningWithJaxPage() {
   }
 
   return (
-    <LearningWithJaxMotion
-      pillarCounts={pillarCounts}
-      trackCounts={trackCounts}
-      featured={featured}
-    />
+    <>
+      <LearningWithJaxMotion
+        pillarCounts={pillarCounts}
+        trackCounts={trackCounts}
+        featured={featured}
+      />
+      <Footer />
+    </>
   );
 }
