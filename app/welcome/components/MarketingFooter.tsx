@@ -19,7 +19,8 @@ const consumerLinks = [
 const companyLinks = [
   { href: "/about", label: "About GHD" },
   { href: "/blog", label: "Blog" },
-  { href: "/about", label: "Compliance Info" },
+  { href: "/faq", label: "FAQ & Compliance" },
+  { href: "/support", label: "Support" },
   { href: "/privacy", label: "Privacy Policy" },
   { href: "/terms", label: "Terms of Service" },
   { href: "/contact", label: "Contact" },
@@ -34,9 +35,8 @@ export default function MarketingFooter() {
             <p className="text-lg text-[#F0EDE6] mb-3 font-serif">Good Hemp Distro</p>
             <p className="text-[#8A9E96] mb-5">The hemp industry platform.</p>
             <div className="flex gap-4 text-[#8A9E96] text-sm">
-              <a href="#" aria-label="Instagram" className="hover:text-[#3CB97A]">Instagram</a>
-              <a href="#" aria-label="LinkedIn" className="hover:text-[#3CB97A]">LinkedIn</a>
-              <a href="#" aria-label="TikTok" className="hover:text-[#3CB97A]">TikTok</a>
+              <a href="https://www.instagram.com/goodhempdistro" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="hover:text-[#3CB97A]">Instagram</a>
+              <a href="https://www.facebook.com/profile.php?id=101819465259871" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="hover:text-[#3CB97A]">Facebook</a>
             </div>
           </div>
 
