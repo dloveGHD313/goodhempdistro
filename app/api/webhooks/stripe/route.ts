@@ -9,6 +9,8 @@ import { freshestSubscription } from "@/lib/stripe/subscriptionState";
 import { assertStripeLiveSecret, assertStripeWebhookSecret, isStripeProductionEnv } from "@/lib/stripe/liveGuard";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 import { getVendorPlanByPriceId } from "@/lib/pricing";
+import { activateFoundingSpot } from "@/lib/server/founding";
+import { normalizeFoundingInterval } from "@/lib/founding";
 import { getConsumerPlanByPriceId } from "@/lib/consumer-plans";
 import { getInternalPlanFromStripePriceId } from "@/lib/stripe/planMapping";
 import {
@@ -569,6 +571,19 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
     const currentPeriodEnd = getSubPeriodEndISO(subscription);
     const subscriptionStatus = subscription.status;
     const subscriptionPriceId = subscription.items.data[0]?.price.id || null;
+
+    // Founding Members: Stripe confirmed the Enterprise 1-year-trial checkout → assign the founding number.
+    if (session.metadata?.founding === "1") {
+      const founding = await activateFoundingSpot({
+        userId,
+        sessionId: session.id,
+        subscriptionId,
+        planKey: session.metadata?.plan_key || null,
+        interval: normalizeFoundingInterval(session.metadata?.founding_interval ?? session.metadata?.cadence),
+        trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null,
+      });
+      console.log(`⭐ [handleCheckoutSessionCompleted] founding activation | user=${userId} | ${founding.ok ? `#${founding.foundingNumber}${founding.already ? " (already)" : ""}` : founding.reason}`);
+    }
     let subscriptionPlanKey: string | null = null;
     if (subscriptionPriceId) {
       const internal = getInternalPlanFromStripePriceId(subscriptionPriceId);
