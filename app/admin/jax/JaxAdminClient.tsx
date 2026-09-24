@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase";
+import { JAX_UPLOAD_LIMIT_MB, parseVideoEmbed } from "@/lib/jax/embed";
 
 type Episode = {
   id: string;
@@ -91,6 +92,11 @@ export default function JaxAdminClient() {
     setBusy(episode.id);
     setError(null);
     try {
+      if (file.size > JAX_UPLOAD_LIMIT_MB * 1024 * 1024) {
+        throw new Error(
+          `That file is ${(file.size / (1024 * 1024)).toFixed(0)} MB — uploads here are capped at ${JAX_UPLOAD_LIMIT_MB} MB on the current plan. Put the full episode on YouTube and paste the link under Edit → Full video link.`
+        );
+      }
       const initRes = await fetch("/api/admin/jax/upload-init", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -128,6 +134,8 @@ export default function JaxAdminClient() {
       publish_at: episode?.publish_at ? episode.publish_at.slice(0, 16) : "",
       duration_seconds: episode?.duration_seconds != null ? String(episode.duration_seconds) : "",
       seo_tags: (episode?.seo_tags ?? []).join(", "),
+      video_url: episode?.video_url ?? "",
+      teaser_video_url: episode?.teaser_video_url ?? "",
     });
     const set = (key: string, value: unknown) => setForm((f) => ({ ...f, [key]: value }));
 
@@ -144,7 +152,15 @@ export default function JaxAdminClient() {
         publish_at: form.publish_at ? new Date(form.publish_at).toISOString() : null,
         duration_seconds: form.duration_seconds.trim() === "" ? null : Number.parseInt(form.duration_seconds, 10),
         seo_tags: form.seo_tags.split(",").map((t) => t.trim()).filter(Boolean),
+        video_url: form.video_url.trim() || null,
+        teaser_video_url: form.teaser_video_url.trim() || null,
       };
+      for (const [label, value] of [["Video", payload.video_url], ["Teaser", payload.teaser_video_url]] as const) {
+        if (value && /^https?:\/\//i.test(value) && !parseVideoEmbed(value) && !/\.(mp4|webm|mov)(\?|$)/i.test(value)) {
+          setError(`${label} link must be a YouTube or Vimeo link, or a direct .mp4/.webm file URL.`);
+          return;
+        }
+      }
       setError(null);
       const res = await fetch(
         episode ? `/api/admin/jax/episodes/${episode.id}` : "/api/admin/jax/episodes",
@@ -207,6 +223,19 @@ export default function JaxAdminClient() {
         <label className="text-sm text-muted block">SEO tags (comma-separated)
           <input className="input-shell w-full mt-1" value={form.seo_tags} onChange={(e) => set("seo_tags", e.target.value)} />
         </label>
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="text-sm text-muted block">Full video link (YouTube / Vimeo)
+            <input className="input-shell w-full mt-1" placeholder="https://youtu.be/…" value={form.video_url} onChange={(e) => set("video_url", e.target.value)} />
+          </label>
+          <label className="text-sm text-muted block">Teaser link (YouTube / Vimeo)
+            <input className="input-shell w-full mt-1" placeholder="https://youtu.be/…" value={form.teaser_video_url} onChange={(e) => set("teaser_video_url", e.target.value)} />
+          </label>
+        </div>
+        <p className="text-xs text-muted">
+          Full episodes are hosted on YouTube (unlimited plays; use an unlisted video for members-only episodes). The
+          Upload buttons store files here directly and are capped at {JAX_UPLOAD_LIMIT_MB} MB on the current plan — fine
+          for thumbnails and short teasers.
+        </p>
         <div className="flex gap-2">
           <button className="btn-primary" onClick={save}>Save</button>
           <button className="btn-secondary" onClick={onDone}>Cancel</button>
@@ -253,7 +282,7 @@ export default function JaxAdminClient() {
                 </p>
                 {ep.summary && <p className="text-sm text-muted mt-2">{ep.summary}</p>}
                 <p className="text-xs text-muted mt-2">
-                  {ep.video_url ? "🎬 video ✓" : "🎬 video —"} · {ep.teaser_video_url ? "▶ teaser ✓" : "▶ teaser —"} · {ep.thumbnail_url ? "🖼 thumb ✓" : "🖼 thumb —"}
+                  {ep.video_url ? (parseVideoEmbed(ep.video_url) ? "🎬 video ✓ (link)" : "🎬 video ✓") : "🎬 video —"} · {ep.teaser_video_url ? "▶ teaser ✓" : "▶ teaser —"} · {ep.thumbnail_url ? "🖼 thumb ✓" : "🖼 thumb —"}
                 </p>
               </div>
               <button className="btn-secondary shrink-0" onClick={() => { setCreating(false); setEditing(ep); }}>
