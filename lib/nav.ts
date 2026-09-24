@@ -556,6 +556,10 @@ export const NAV_ADMIN_GROUPS: NavGroup[] = [
     ],
   },
   {
+    title: "Content",
+    items: [{ label: "Learning with JAX Episodes", href: "/admin/jax" }],
+  },
+  {
     title: "Compliance",
     items: [{ label: "State Rules", href: "/admin/compliance/state-rules" }],
   },
