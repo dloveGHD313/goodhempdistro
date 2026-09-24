@@ -6,6 +6,8 @@ import {
   isSafeNextPath,
   isValidWorkoutPath,
 } from "@/lib/phase2-workout-flow";
+import { cookies } from "next/headers";
+import { redeemFoundingCookie } from "@/lib/server/founding";
 
 /**
  * Single source of truth for post-auth redirect. Onboarding gating always wins.
@@ -67,6 +69,13 @@ export async function POST(req: NextRequest) {
 
   if (!user) {
     return NextResponse.json({ redirectTo: "/onboarding" as const });
+  }
+
+  // Founding Members funnel: redeem a pending /founding claim (cookie) on the first authenticated hop.
+  try {
+    await redeemFoundingCookie(user.id, await cookies());
+  } catch (foundingErr) {
+    console.error("[post-login-route] founding claim failed (non-blocking)", foundingErr);
   }
 
   let next: string | null | undefined;
