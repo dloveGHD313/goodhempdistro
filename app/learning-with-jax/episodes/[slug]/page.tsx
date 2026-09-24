@@ -9,6 +9,7 @@ import {
   resolveMediaUrl,
 } from "@/lib/jax/episodes";
 import Footer from "@/components/Footer";
+import { parseVideoEmbed } from "@/lib/jax/embed";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +58,8 @@ export default async function EpisodePage({ params }: Props) {
   const unlockAt = episodeAvailableAtForTier(episode, tier);
 
   const playbackUrl = episode.canWatchFull ? fullUrl : teaserUrl;
+  // Full episodes are hosted on YouTube/Vimeo (storage caps); short clips can still be direct files.
+  const embed = parseVideoEmbed(playbackUrl);
 
   return (
     <div className="min-h-screen text-white flex flex-col">
@@ -80,7 +83,17 @@ export default async function EpisodePage({ params }: Props) {
           <h1 className="text-3xl font-bold mb-4 text-accent">{episode.title}</h1>
 
           <div className="card-glass overflow-hidden rounded-xl mb-6">
-            {playbackUrl ? (
+            {embed ? (
+              <iframe
+                src={embed.src}
+                title={episode.title}
+                className="w-full aspect-video bg-black"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                referrerPolicy="strict-origin-when-cross-origin"
+                data-testid={`episode-embed-${embed.provider}`}
+              />
+            ) : playbackUrl ? (
               <video
                 controls
                 playsInline
