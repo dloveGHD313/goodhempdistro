@@ -75,7 +75,7 @@ export const entryPaths: readonly EntryPath[] = [
  */
 export const foundingVendorOffer = {
   enabled: true,
-  line: "First year free for founding vendors — no subscription for 12 months, standard commission only.",
+  line: "Founding members: a full year of Vendor Enterprise (VIP) free — $0 today, first charge in one year. 100 spots.",
 } as const;
 
 export const jaxHeroCopy = {
