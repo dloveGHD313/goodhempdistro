@@ -330,8 +330,8 @@ export default function PricingPage() {
             {activeTab === "vendor" && foundingVendorOffer.enabled && (
               <p className="mb-6 text-center text-sm text-[#C9A84C]" data-testid="pricing-founding-offer">
                 {foundingVendorOffer.line}{" "}
-                <Link href="/vendor-registration" className="underline">
-                  Apply as a founding vendor
+                <Link href="/founding" className="underline">
+                  Claim a founding vendor spot
                 </Link>
               </p>
             )}
