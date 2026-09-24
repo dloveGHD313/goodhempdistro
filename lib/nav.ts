@@ -529,6 +529,7 @@ export const NAV_ADMIN_GROUPS: NavGroup[] = [
   {
     title: "Review",
     items: [
+      { label: "Founding Members", href: "/admin/founding" },
       { label: "Vendor Applications", href: "/admin/vendors" },
       { label: "Vendor Integrity", href: "/admin/vendors/integrity" },
       { label: "Product Review", href: "/admin/products" },
