@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import Footer from "@/components/Footer";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import FoundingBadge from "@/components/founding/FoundingBadge";
 
 export const metadata: Metadata = {
   title: "Dashboard | Good Hemp Distro",
@@ -70,7 +71,10 @@ export default async function DashboardPage() {
     <div className="min-h-screen text-white flex flex-col">
       <main className="flex-1">
         <section className="section-shell">
-          <h1 className="text-4xl font-bold mb-8 text-accent">Dashboard</h1>
+          <div className="flex flex-wrap items-center gap-4 mb-8">
+            <h1 className="text-4xl font-bold text-accent">Dashboard</h1>
+            <FoundingBadge userId={user.id} />
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
             <div className="surface-card p-6">

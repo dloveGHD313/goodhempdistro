@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { getPostLoginRoute, type PostLoginProfile } from "@/lib/routing/postLoginRoute";
 import { getDefaultRouteForUser, isSafeNextPath, isValidWorkoutPath, type WorkoutPath } from "@/lib/phase2-workout-flow";
 import { deriveProfileFieldsFromUser } from "@/lib/profile-utils";
+import { redeemFoundingCookie } from "@/lib/server/founding";
 
 /**
  * Handle Supabase auth callback
@@ -119,6 +120,15 @@ export async function GET(req: NextRequest) {
         } catch (pathErr) {
           console.error("[auth/callback] profile update failed (non-blocking)", pathErr);
         }
+      }
+    }
+
+    // Founding Members funnel: redeem a pending /founding claim (cookie) now that the user exists.
+    if (user?.id) {
+      try {
+        await redeemFoundingCookie(user.id, cookieStore);
+      } catch (foundingErr) {
+        console.error("[auth/callback] founding claim failed (non-blocking)", foundingErr);
       }
     }
 

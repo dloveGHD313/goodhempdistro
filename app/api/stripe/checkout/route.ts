@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import type Stripe from "stripe";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 import { stripe, getSiteUrl } from "@/lib/stripe";
 import { assertStripeLiveConfig } from "@/lib/env/stripeEnv";
 import { getVendorPriceEnvStatus, getVendorPlanByPriceId, resolveVendorPriceIdOrThrow } from "@/lib/pricing";
 import { compedCheckoutBlock } from "@/lib/server/vendorComp";
+import { getFoundingStats, startFoundingCheckout } from "@/lib/server/founding";
+import { FOUNDING_TRIAL_DAYS, isFoundingPlanKey, normalizeFoundingSource } from "@/lib/founding";
 
 const VENDOR_PLAN_KEYS = [
   "vendor_starter_monthly",
@@ -49,6 +52,9 @@ type CheckoutPayload = {
   commission?: number | null;
   affiliateCode?: string;
   referralCode?: string;
+  /** Founding Members funnel: Enterprise plan with a 365-day trial, card on file, $0 today. */
+  founding?: boolean;
+  foundingSource?: string;
 };
 
 export async function POST(req: NextRequest) {
@@ -171,6 +177,24 @@ export async function POST(req: NextRequest) {
         { error: "Invalid vendor plan selection", requestId },
         { status: 400, headers: requestIdHeaders(requestId) }
       );
+    }
+
+    // Founding Members: only the Enterprise plan qualifies, and only while spots remain.
+    const founding = body.founding === true;
+    if (founding) {
+      if (!isFoundingPlanKey(planKey)) {
+        return NextResponse.json(
+          { error: "Founding members choose the Vendor Enterprise plan (monthly or annual).", requestId, errorReason: "founding_plan_invalid" },
+          { status: 400, headers: requestIdHeaders(requestId) }
+        );
+      }
+      const stats = await getFoundingStats();
+      if (stats.remaining <= 0) {
+        return NextResponse.json(
+          { error: `All ${stats.cap} founding spots are taken.`, requestId, errorReason: "founding_full" },
+          { status: 409, headers: requestIdHeaders(requestId) }
+        );
+      }
     }
 
     const admin = getSupabaseAdminClient();
@@ -296,7 +320,7 @@ export async function POST(req: NextRequest) {
     }));
     let session: Awaited<ReturnType<typeof stripe.checkout.sessions.create>>;
     try {
-      session = await stripe.checkout.sessions.create({
+      const sessionParams: Stripe.Checkout.SessionCreateParams = {
         mode: "subscription",
         customer: stripeCustomerId,
         payment_method_types: ["card"],
@@ -337,7 +361,23 @@ export async function POST(req: NextRequest) {
             referral_code: body.affiliateCode ?? body.referralCode ?? "",
           },
         },
-      });
+      };
+      if (founding) {
+        // Full year free, card required now, first charge when the trial ends. If the card
+        // is gone by then Stripe cancels instead of leaving an unpaid subscription.
+        sessionParams.metadata = { ...sessionParams.metadata, founding: "1", founding_interval: normalizedCadence };
+        sessionParams.subscription_data = {
+          ...sessionParams.subscription_data,
+          trial_period_days: FOUNDING_TRIAL_DAYS,
+          trial_settings: { end_behavior: { missing_payment_method: "cancel" } },
+          metadata: { ...sessionParams.subscription_data?.metadata, founding: "1" },
+        };
+        sessionParams.payment_method_collection = "always";
+        sessionParams.allow_promotion_codes = false;
+        sessionParams.success_url = `${siteUrl}/founding?session_id={CHECKOUT_SESSION_ID}`;
+        sessionParams.cancel_url = `${siteUrl}/founding?canceled=1`;
+      }
+      session = await stripe.checkout.sessions.create(sessionParams);
     } catch (stripeErr: unknown) {
       const se = stripeErr as { message?: string; code?: string; type?: string; requestId?: string };
       const safeMessage = safeTruncate(se?.message ?? (stripeErr instanceof Error ? stripeErr.message : String(stripeErr)));
@@ -367,6 +407,25 @@ export async function POST(req: NextRequest) {
       step: "stripe_create_session_ok",
       sessionIdSuffix: session.id.slice(-6),
     }));
+
+    if (founding) {
+      // Hold the founding spot for this open session (2 h); on a last-spot race, void the session.
+      const hold = await startFoundingCheckout({
+        userId: user.id,
+        sessionId: session.id,
+        planKey,
+        interval: normalizedCadence === "annual" ? "year" : "month",
+        source: normalizeFoundingSource(body.foundingSource),
+      });
+      if (!hold.ok) {
+        try { await stripe.checkout.sessions.expire(session.id); } catch { /* best effort */ }
+        console.info("[stripe/checkout]", JSON.stringify({ requestId, step: "founding_hold_failed", reason: hold.reason }));
+        return NextResponse.json(
+          { error: hold.message, requestId, errorReason: `founding_${hold.reason}` },
+          { status: hold.reason === "error" ? 500 : 409, headers: requestIdHeaders(requestId) }
+        );
+      }
+    }
 
     const { data: profile } = await admin
       .from("profiles")
