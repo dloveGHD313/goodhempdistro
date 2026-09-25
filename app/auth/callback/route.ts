@@ -4,7 +4,19 @@ import { cookies } from "next/headers";
 import { getPostLoginRoute, type PostLoginProfile } from "@/lib/routing/postLoginRoute";
 import { getDefaultRouteForUser, isSafeNextPath, isValidWorkoutPath, type WorkoutPath } from "@/lib/phase2-workout-flow";
 import { deriveProfileFieldsFromUser } from "@/lib/profile-utils";
-import { redeemFoundingCookie } from "@/lib/server/founding";
+import { claimFoundingSpot, getFoundingRow, getFoundingStats, redeemFoundingCookie } from "@/lib/server/founding";
+
+/** True when the post-auth destination is a vendor sign-up (/get-started?role=vendor) or the founding funnel. */
+function isVendorSignupNext(next: string | null, origin: string): boolean {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return false;
+  try {
+    const u = new URL(next, origin);
+    if (u.pathname === "/founding" || u.pathname.startsWith("/founding/")) return true;
+    return u.pathname === "/get-started" && u.searchParams.get("role") === "vendor";
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Handle Supabase auth callback
@@ -138,6 +150,30 @@ export async function GET(req: NextRequest) {
       // Always redirect recovery flows to reset-password
       const redirectUrl = new URL("/reset-password", requestUrl.origin);
       return NextResponse.redirect(redirectUrl);
+    }
+
+    // Founding Members routing (CEO, 2026-09-25): while founding spots remain (fewer than
+    // 100 confirmed founding members), every NEW vendor sign-up lands on /founding to claim
+    // a spot. Once all 100 are taken - or for users who already have a vendor account or
+    // founding membership - vendors fall through to the normal flow below (/get-started).
+    if (user?.id && (roleParam === "vendor" || isVendorSignupNext(nextParam, requestUrl.origin))) {
+      try {
+        const [stats, foundingRow, existingVendor] = await Promise.all([
+          getFoundingStats(),
+          getFoundingRow(user.id),
+          admin
+            ? admin.from("vendors").select("id").eq("owner_user_id", user.id).limit(1).maybeSingle()
+            : Promise.resolve({ data: null }),
+        ]);
+        const alreadyFounding = foundingRow?.status === "active";
+        const hasVendor = !!existingVendor?.data;
+        if (stats.remaining > 0 && !alreadyFounding && !hasVendor) {
+          await claimFoundingSpot(user.id, { kind: "vendor", source: foundingRow?.source ?? "vendor-signup" });
+          return NextResponse.redirect(new URL("/founding", requestUrl.origin));
+        }
+      } catch (foundingRouteErr) {
+        console.error("[auth/callback] founding routing failed (non-blocking)", foundingRouteErr);
+      }
     }
 
     // Onboarding gating first (same logic as post-login-route), then safe next, then workout_path, then fallback
