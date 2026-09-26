@@ -4,6 +4,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { FOUNDING_COMMISSION_BPS } from "@/lib/founding";
 
 type OrderItemRow = {
   id: string;
@@ -60,6 +61,23 @@ export async function applyPlatformFeesToOrder(
       vendorPlanMap.set((v as { owner_user_id: string }).owner_user_id, String(plan).toLowerCase());
     }
 
+    // Founding members pay the founding commission on sales during their free year (trial);
+    // after the trial, or for vendors who skipped it, the regular plan rate applies.
+    const foundingVendorIds = new Set<string>();
+    if (vendorUserIds.length > 0) {
+      const { data: foundingRows } = await admin
+        .from("founding_members")
+        .select("user_id, trial_end")
+        .eq("status", "active")
+        .in("user_id", vendorUserIds);
+      const now = Date.now();
+      for (const f of foundingRows || []) {
+        const row = f as { user_id: string; trial_end: string | null };
+        const trialEnd = row.trial_end ? Date.parse(row.trial_end) : NaN;
+        if (!Number.isFinite(trialEnd) || trialEnd > now) foundingVendorIds.add(row.user_id);
+      }
+    }
+
     for (const item of items as OrderItemRow[]) {
       const lineTotal = item.line_total_cents ?? 0;
       if (lineTotal <= 0) continue;
@@ -68,7 +86,10 @@ export async function applyPlatformFeesToOrder(
       const itemType = item.item_type || "product";
       const key = `${planType}:${itemType}`;
       // FIXED: prefer-const
-      const feeBps = ruleMap.get(key) ?? ruleMap.get(`default:${itemType}`) ?? 0;
+      const feeBps =
+        item.vendor_user_id && foundingVendorIds.has(item.vendor_user_id)
+          ? FOUNDING_COMMISSION_BPS
+          : ruleMap.get(key) ?? ruleMap.get(`default:${itemType}`) ?? 0;
 
       const platformFeeCents = Math.floor((lineTotal * feeBps) / 10000);
       const vendorNetCents = lineTotal - platformFeeCents;
