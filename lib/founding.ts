@@ -18,6 +18,13 @@
 export const FOUNDING_CAP = 100;
 export const FOUNDING_TRIAL_DAYS = 365;
 
+/**
+ * Commission on founding members' sales during their free year (CEO, 2026-09-25).
+ * Vendors who skip the trial and pay for Enterprise directly keep the regular Enterprise rate (1%).
+ */
+export const FOUNDING_COMMISSION_PERCENT = 10;
+export const FOUNDING_COMMISSION_BPS = FOUNDING_COMMISSION_PERCENT * 100;
+
 /** Cookie carrying the funnel visit through sign-up. Value: "<kind>|<source>". */
 export const FOUNDING_COOKIE = "ghd_founding";
 export const FOUNDING_COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
@@ -101,7 +108,7 @@ export function formatFoundingDate(value: Date | string | null | undefined): str
 /** What a founding member gets (Vendor Enterprise (VIP) for a year, then the plan they picked). */
 export const FOUNDING_PERKS = [
   "A full year of Vendor Enterprise (VIP) — free",
-  "Unlimited products, 1% commission, direct messaging with customers, VIP placement",
+  `Unlimited products, ${FOUNDING_COMMISSION_PERCENT}% commission during your free year, direct messaging with customers, VIP placement`,
   "$0 today: pick monthly or annual, card on file, first charge after the free year",
   "Your founding number (1–100) on your storefront, permanently",
 ] as const;
